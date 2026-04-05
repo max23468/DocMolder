@@ -57,6 +57,8 @@ Imposta almeno:
 - `DOCMOLDER_TELEGRAM_TOKEN`
 - `DOCMOLDER_SESSION_TTL_MINUTES`
 - `DOCMOLDER_MAX_SESSION_FILES`
+- `DOCMOLDER_RUNTIME_DIR`
+- `DOCMOLDER_DATABASE_PATH`
 
 Se vuoi limitare l'accesso a utenti specifici, puoi aggiungere anche:
 
@@ -88,9 +90,16 @@ sudo -u docmolder /opt/docmolder/venv/bin/pip install -e /opt/docmolder/app
 sudo systemctl restart docmolder
 ```
 
+Percorsi consigliati per tenere separati codice e dati:
+
+```env
+DOCMOLDER_RUNTIME_DIR=/opt/docmolder/data/runtime
+DOCMOLDER_DATABASE_PATH=/opt/docmolder/data/runtime/docmolder.db
+```
+
 ## Note operative
 
 - Nel MVP usiamo polling, quindi non servono dominio pubblico o webhook
-- SQLite e file temporanei restano sulla VPS
+- SQLite e file temporanei restano sulla VPS, separati dal clone Git del progetto
 - `Ghostscript` viene installato per migliorare la conversione PDF in scala di grigi
 - Se in futuro il carico cresce, possiamo spostare database e storage su componenti dedicati

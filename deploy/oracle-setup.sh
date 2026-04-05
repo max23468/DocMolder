@@ -6,6 +6,7 @@ APP_GROUP="docmolder"
 APP_ROOT="/opt/docmolder"
 APP_DIR="${APP_ROOT}/app"
 VENV_DIR="${APP_ROOT}/venv"
+DATA_DIR="${APP_ROOT}/data/runtime"
 ENV_DIR="/etc/docmolder"
 
 sudo apt update
@@ -15,7 +16,7 @@ if ! id -u "${APP_USER}" >/dev/null 2>&1; then
   sudo useradd --system --create-home --home /var/lib/docmolder --shell /usr/sbin/nologin "${APP_USER}"
 fi
 
-sudo mkdir -p "${APP_ROOT}" "${ENV_DIR}"
+sudo mkdir -p "${APP_ROOT}" "${ENV_DIR}" "${DATA_DIR}"
 sudo chown -R "${APP_USER}:${APP_GROUP}" "${APP_ROOT}"
 
 if [ ! -d "${APP_DIR}/.git" ]; then
@@ -33,6 +34,8 @@ sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}"
 
 if [ ! -f "${ENV_DIR}/docmolder.env" ]; then
   sudo cp "${APP_DIR}/.env.example" "${ENV_DIR}/docmolder.env"
+  sudo sed -i "s#^DOCMOLDER_RUNTIME_DIR=.*#DOCMOLDER_RUNTIME_DIR=${DATA_DIR}#" "${ENV_DIR}/docmolder.env"
+  sudo sed -i "s#^DOCMOLDER_DATABASE_PATH=.*#DOCMOLDER_DATABASE_PATH=${DATA_DIR}/docmolder.db#" "${ENV_DIR}/docmolder.env"
   sudo chown root:root "${ENV_DIR}/docmolder.env"
   sudo chmod 600 "${ENV_DIR}/docmolder.env"
   echo "Creato ${ENV_DIR}/docmolder.env. Modifica il file prima di avviare il servizio."
