@@ -53,7 +53,7 @@ class DocumentProcessor:
             return self.pdf_to_grayscale(input_paths[0], output_stem)
         if action == SupportedAction.PDF_COMPRESS:
             if compression_preset is None:
-                raise ValueError("Preset di compressione mancante.")
+                raise ValueError("Livello di compressione mancante.")
             return self.compress_pdf(input_paths[0], output_stem, compression_preset)
         if action == SupportedAction.PDF_ROTATE:
             if rotate_degrees is None:
@@ -115,7 +115,7 @@ class DocumentProcessor:
             )
         message = "PDF convertito in scala di grigi."
         if shutil.which("gs") is None:
-            message += " Ho usato il fallback visivo per garantire compatibilita."
+            message += " Ho usato una soluzione visiva di ripiego per garantire compatibilita."
         return ProcessingResult(output_path=output_path, output_name=output_path.name, message=message)
 
     def compress_pdf(self, pdf_path: Path, output_stem: str, preset: CompressionPreset) -> ProcessingResult:
@@ -138,7 +138,7 @@ class DocumentProcessor:
         return ProcessingResult(
             output_path=output_path,
             output_name=output_path.name,
-            message=f"PDF compresso con preset {preset.value}.",
+            message=f"PDF compresso con livello {preset.value}.",
         )
 
     def rotate_pdf(self, pdf_path: Path, output_stem: str, rotate_degrees: int) -> ProcessingResult:

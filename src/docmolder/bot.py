@@ -211,14 +211,14 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     action = (query.data or "").removeprefix("action:")
     if action == SupportedAction.PDF_COMPRESS.value:
         await query.edit_message_text(
-            "Hai scelto la compressione PDF. Seleziona il preset.",
+            "Hai scelto la compressione PDF. Seleziona il livello.",
             reply_markup=build_compression_keyboard(),
         )
         return
 
     if action == SupportedAction.PDF_ROTATE.value:
         await query.edit_message_text(
-            "Hai scelto la rotazione delle pagine. Seleziona di quanto ruotare il PDF.",
+            "Hai scelto di ruotare le pagine. Seleziona di quanto ruotare il PDF.",
             reply_markup=build_rotation_keyboard(),
         )
         return

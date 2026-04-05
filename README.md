@@ -9,7 +9,7 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 - Esperienza molto semplice via Telegram
 - Linguaggio italiano come default
 - Supporto multiutente con whitelist iniziale
-- Elaborazione asincrona dei job
+- Elaborazione asincrona delle operazioni
 - Retention breve dei file temporanei
 
 ## MVP previsto
@@ -20,7 +20,7 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 - Unione PDF
 - Rotazione manuale pagine
 - Correzione automatica orientamento per immagini
-- Sessioni temporanee per accumulare piu file in messaggi successivi
+- Sessioni temporanee per raccogliere piu file in messaggi successivi
 
 ## Flusso utente
 
@@ -45,14 +45,14 @@ Questo repository contiene gia una prima implementazione funzionante del flusso:
 - configurazione dell'applicazione
 - bot Telegram di base
 - whitelist utenti
-- session store persistente su SQLite
+- gestione persistente delle sessioni su SQLite
 - tastiere e messaggi iniziali in italiano
-- download dei file da Telegram
+- caricamento dei file da Telegram
 - creazione PDF da immagini
 - unione PDF
 - conversione PDF in scala di grigi
-- compressione PDF con preset semplici
-- rotazione manuale PDF
+- compressione PDF con livelli semplici
+- azione manuale per ruotare PDF
 - correzione orientamento immagini
 
 ## Nota sul motore PDF attuale
@@ -61,16 +61,16 @@ La pipeline PDF e stata resa piu conservativa rispetto allo scaffold iniziale.
 
 Compressione:
 
-- preset `Leggera`: ottimizzazione lossless della struttura PDF
-- preset `Media`: ottimizzazione conservativa con tentativo di ricompressione immagini mantenendo il PDF nativo
-- preset `Forte`: prova prima una compressione conservativa e usa la rasterizzazione solo come fallback
+- livello `Leggera`: ottimizzazione lossless della struttura PDF
+- livello `Media`: ottimizzazione conservativa con tentativo di ricompressione immagini mantenendo il PDF nativo
+- livello `Forte`: prova prima una compressione conservativa e usa la rasterizzazione solo come soluzione di ripiego
 
 Scala di grigi:
 
 - se sul server e disponibile `Ghostscript`, il bot prova una conversione piu fedele alla struttura del PDF
-- se `Ghostscript` non e disponibile, usa un fallback visivo che garantisce l'output ma puo perdere testo ricercabile, layer o metadati avanzati
+- se `Ghostscript` non e disponibile, usa una soluzione visiva di ripiego che garantisce l'output ma puo perdere testo ricercabile, layer o metadati avanzati
 
-Questo ci permette di preservare meglio il contenuto nativo dei PDF quando l'ambiente lo consente, senza rinunciare a un fallback affidabile.
+Questo ci permette di preservare meglio il contenuto nativo dei PDF quando l'ambiente lo consente, senza rinunciare a una soluzione di ripiego affidabile.
 
 ## Avvio locale
 
@@ -92,7 +92,7 @@ Questo ci permette di preservare meglio il contenuto nativo dei PDF quando l'amb
 
 ## Prossimi passi suggeriti
 
-1. Aggiungere coda job e stati avanzati
+1. Aggiungere una coda delle operazioni e stati avanzati
 2. Introdurre retention e cleanup schedulato
 3. Introdurre `Ghostscript` o strumenti equivalenti nel runtime di deploy
 4. Gestire limiti, rate limit e osservabilita
