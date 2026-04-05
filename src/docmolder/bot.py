@@ -91,7 +91,7 @@ async def _post_init(application: Application) -> None:
         await deps.job_queue.put(job.id)
     if requeued_jobs:
         logger.info("Ripresi %s job incompleti dalla coda persistente.", len(requeued_jobs))
-    deps.job_worker_task = application.create_task(_job_worker(application))
+    deps.job_worker_task = asyncio.create_task(_job_worker(application))
 
 
 async def _post_shutdown(application: Application) -> None:
