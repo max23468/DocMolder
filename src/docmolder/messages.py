@@ -45,3 +45,5 @@ GENERIC_ERROR_MESSAGE = (
     "Si è verificato un problema durante l'elaborazione. "
     "Riprova tra poco oppure usa /reset per ricominciare."
 )
+
+ADMIN_ONLY_MESSAGE = "Questo comando è disponibile solo per l'admin del bot."

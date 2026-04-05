@@ -19,12 +19,17 @@ class SessionStore(Protocol):
 
     def register_user(self, user_id: int, username: str | None, first_name: str | None, last_name: str | None) -> bool: ...
 
+    def record_completed_action(self, user_id: int, action: str) -> None: ...
+
+    def build_admin_stats(self) -> dict[str, int]: ...
+
 
 class InMemorySessionStore:
     def __init__(self) -> None:
         self._lock = Lock()
         self._sessions: dict[int, UserSession] = {}
         self._known_user_ids: set[int] = set()
+        self._completed_actions: list[tuple[int, str]] = []
 
     def get(self, user_id: int) -> UserSession | None:
         with self._lock:
@@ -54,6 +59,28 @@ class InMemorySessionStore:
                 return False
             self._known_user_ids.add(user_id)
             return True
+
+    def record_completed_action(self, user_id: int, action: str) -> None:
+        with self._lock:
+            self._completed_actions.append((user_id, action))
+
+    def build_admin_stats(self) -> dict[str, int]:
+        with self._lock:
+            return {
+                "known_users_total": len(self._known_user_ids),
+                "known_users_last_24h": len(self._known_user_ids),
+                "known_users_last_7d": len(self._known_user_ids),
+                "completed_actions_total": len(self._completed_actions),
+                "completed_actions_last_24h": len(self._completed_actions),
+                "completed_actions_last_7d": len(self._completed_actions),
+                "active_sessions": len(self._sessions),
+                "images_to_pdf_total": sum(1 for _, action in self._completed_actions if action == "images_to_pdf"),
+                "pdf_compress_total": sum(1 for _, action in self._completed_actions if action == "pdf_compress"),
+                "pdf_grayscale_total": sum(1 for _, action in self._completed_actions if action == "pdf_grayscale"),
+                "pdf_merge_total": sum(1 for _, action in self._completed_actions if action == "pdf_merge"),
+                "pdf_rotate_total": sum(1 for _, action in self._completed_actions if action == "pdf_rotate"),
+                "auto_orient_total": sum(1 for _, action in self._completed_actions if action == "auto_orient"),
+            }
 
 
 class SQLiteSessionStore:
@@ -188,6 +215,40 @@ class SQLiteSessionStore:
             connection.commit()
             return cursor.rowcount > 0
 
+    def record_completed_action(self, user_id: int, action: str) -> None:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO usage_events (user_id, action, created_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                """,
+                (user_id, action),
+            )
+            connection.commit()
+
+    def build_admin_stats(self) -> dict[str, int]:
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT
+                    (SELECT COUNT(*) FROM known_users) AS known_users_total,
+                    (SELECT COUNT(*) FROM known_users WHERE first_seen_at >= datetime('now', '-1 day')) AS known_users_last_24h,
+                    (SELECT COUNT(*) FROM known_users WHERE first_seen_at >= datetime('now', '-7 day')) AS known_users_last_7d,
+                    (SELECT COUNT(*) FROM usage_events) AS completed_actions_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE created_at >= datetime('now', '-1 day')) AS completed_actions_last_24h,
+                    (SELECT COUNT(*) FROM usage_events WHERE created_at >= datetime('now', '-7 day')) AS completed_actions_last_7d,
+                    (SELECT COUNT(*) FROM sessions) AS active_sessions,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'images_to_pdf') AS images_to_pdf_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_compress') AS pdf_compress_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_grayscale') AS pdf_grayscale_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_merge') AS pdf_merge_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_rotate') AS pdf_rotate_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'auto_orient') AS auto_orient_total
+                """
+            ).fetchone()
+
+        return {key: int(row[key]) for key in row.keys()}
+
     def _initialize(self) -> None:
         with self._lock, self._connect() as connection:
             connection.executescript(
@@ -222,6 +283,19 @@ class SQLiteSessionStore:
                     last_name TEXT,
                     first_seen_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS usage_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    action TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_usage_events_created_at
+                    ON usage_events(created_at);
+
+                CREATE INDEX IF NOT EXISTS idx_usage_events_action
+                    ON usage_events(action);
                 """
             )
             connection.commit()

@@ -26,6 +26,7 @@ from docmolder.keyboards import (
     build_rotation_keyboard,
 )
 from docmolder.messages import (
+    ADMIN_ONLY_MESSAGE,
     GENERIC_ERROR_MESSAGE,
     HELP_MESSAGE,
     PROCESSING_MESSAGE,
@@ -66,6 +67,12 @@ def _is_authorized(user_id: int | None, settings: Settings) -> bool:
     if not settings.allowed_user_ids:
         return True
     return user_id in settings.allowed_user_ids
+
+
+def _is_admin(user_id: int | None, settings: Settings) -> bool:
+    if user_id is None:
+        return False
+    return user_id in settings.admin_user_ids
 
 
 def _get_dependencies(context: ContextTypes.DEFAULT_TYPE) -> BotDependencies:
@@ -132,6 +139,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         HELP_MESSAGE,
         reply_markup=build_main_menu_keyboard(),
     )
+
+
+async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    user = update.effective_user
+    if not _is_admin(user.id if user else None, deps.settings):
+        await update.effective_message.reply_text(ADMIN_ONLY_MESSAGE)
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+
+    stats = deps.session_store.build_admin_stats()
+    await update.effective_message.reply_text(_build_admin_report(stats))
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -425,6 +445,28 @@ def _build_new_user_notification(user: User) -> str:
     )
 
 
+def _build_admin_report(stats: dict[str, int]) -> str:
+    timestamp = datetime.now(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y alle %H:%M")
+    return (
+        "Riepilogo admin DocMolder\n"
+        f"Aggiornato: {timestamp}\n\n"
+        f"Utenti unici totali: {stats['known_users_total']}\n"
+        f"Nuovi utenti ultime 24 ore: {stats['known_users_last_24h']}\n"
+        f"Nuovi utenti ultimi 7 giorni: {stats['known_users_last_7d']}\n"
+        f"Operazioni completate totali: {stats['completed_actions_total']}\n"
+        f"Operazioni completate ultime 24 ore: {stats['completed_actions_last_24h']}\n"
+        f"Operazioni completate ultimi 7 giorni: {stats['completed_actions_last_7d']}\n"
+        f"Sessioni attive ora: {stats['active_sessions']}\n\n"
+        "Dettaglio operazioni:\n"
+        f"- PDF da immagini: {stats['images_to_pdf_total']}\n"
+        f"- Comprimi PDF: {stats['pdf_compress_total']}\n"
+        f"- Scala di grigi: {stats['pdf_grayscale_total']}\n"
+        f"- Unisci PDF: {stats['pdf_merge_total']}\n"
+        f"- Ruota PDF: {stats['pdf_rotate_total']}\n"
+        f"- Correggi orientamento: {stats['auto_orient_total']}"
+    )
+
+
 def build_application(settings: Settings) -> Application:
     logging.basicConfig(
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
@@ -440,6 +482,7 @@ def build_application(settings: Settings) -> Application:
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CallbackQueryHandler(handle_compression_callback, pattern=r"^compress:"))
@@ -550,6 +593,7 @@ async def _run_action(
         )
 
         await _send_result(message, result)
+        deps.session_store.record_completed_action(session.user_id, action.value)
         return result
     finally:
         deps.processor.cleanup_job_dir(job_dir)

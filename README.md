@@ -102,3 +102,9 @@ Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPL
 3. Introdurre `Ghostscript` o strumenti equivalenti nel runtime di deploy
 4. Gestire limiti, rate limit e osservabilità
 5. Introdurre test automatici sui flussi principali
+
+## Monitoraggio admin
+
+Se configuri `DOCMOLDER_ADMIN_USER_IDS`, l'admin puo usare anche:
+
+- `/admin` per vedere un riepilogo rapido di utenti, nuovi accessi, operazioni completate e sessioni attive
