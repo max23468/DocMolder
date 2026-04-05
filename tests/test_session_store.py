@@ -8,6 +8,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.session_store import SQLiteSessionStore
+from docmolder.models import JobStatus
 
 
 class SQLiteSessionStoreJobsTest(unittest.TestCase):
@@ -79,6 +80,41 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertIsNotNone(requeued_second_job)
         self.assertEqual(requeued_second_job.status.value, "queued")
         self.assertIsNone(requeued_second_job.started_at)
+
+    def test_admin_lists_expose_top_users_and_recent_jobs(self) -> None:
+        self.store.register_user(10, "mario", "Mario", "Rossi")
+        self.store.register_user(20, None, "Luca", "Bianchi")
+        self.store.record_completed_action(10, "images_to_pdf")
+        self.store.record_completed_action(10, "pdf_merge")
+        self.store.record_completed_action(20, "pdf_compress")
+
+        failed_job = self.store.create_job(
+            user_id=20,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_failed(failed_job.id, "Errore di test")
+
+        success_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="images_to_pdf",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_succeeded(success_job.id, "Completato")
+
+        top_users = self.store.list_top_users(limit=5, since_days=7)
+        recent_failed_jobs = self.store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
+        recent_completed_jobs = self.store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
+
+        self.assertEqual(top_users[0].user_id, 10)
+        self.assertEqual(top_users[0].completed_actions, 2)
+        self.assertTrue(top_users[0].label in {"@mario", "mario"})
+        self.assertEqual(recent_failed_jobs[0].id, failed_job.id)
+        self.assertEqual(recent_completed_jobs[0].id, success_job.id)
 
 
 if __name__ == "__main__":

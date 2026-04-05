@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Protocol
 
-from docmolder.models import FileKind, JobRecord, JobStatus, SessionFile, SessionStatus, UserSession
+from docmolder.models import AdminUserStat, FileKind, JobRecord, JobStatus, SessionFile, SessionStatus, UserSession
 
 
 class SessionStore(Protocol):
@@ -43,6 +43,10 @@ class SessionStore(Protocol):
     def requeue_incomplete_jobs(self) -> list[JobRecord]: ...
 
     def count_active_jobs_for_user(self, user_id: int) -> int: ...
+
+    def list_top_users(self, limit: int = 5, since_days: int = 7) -> list[AdminUserStat]: ...
+
+    def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]: ...
 
 
 class InMemorySessionStore:
@@ -182,6 +186,37 @@ class InMemorySessionStore:
                 for job in self._jobs.values()
                 if job.user_id == user_id and job.status in {JobStatus.QUEUED, JobStatus.RUNNING}
             )
+
+    def list_top_users(self, limit: int = 5, since_days: int = 7) -> list[AdminUserStat]:
+        del since_days
+        with self._lock:
+            counts: dict[int, int] = {}
+            for user_id, _action in self._completed_actions:
+                counts[user_id] = counts.get(user_id, 0) + 1
+            ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+        return [
+            AdminUserStat(
+                user_id=user_id,
+                label=f"Utente {user_id}",
+                completed_actions=completed_actions,
+            )
+            for user_id, completed_actions in ranked
+        ]
+
+    def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]:
+        with self._lock:
+            jobs = list(self._jobs.values())
+            if statuses is not None:
+                allowed = set(statuses)
+                jobs = [job for job in jobs if job.status in allowed]
+            jobs.sort(
+                key=lambda job: (
+                    job.finished_at or job.created_at,
+                    job.id,
+                ),
+                reverse=True,
+            )
+            return jobs[:limit]
 
 
 class SQLiteSessionStore:
@@ -458,6 +493,58 @@ class SQLiteSessionStore:
                 (user_id, JobStatus.QUEUED.value, JobStatus.RUNNING.value),
             ).fetchone()
         return int(row["total"])
+
+    def list_top_users(self, limit: int = 5, since_days: int = 7) -> list[AdminUserStat]:
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    usage_events.user_id AS user_id,
+                    COALESCE(
+                        known_users.username,
+                        TRIM(COALESCE(known_users.first_name, '') || ' ' || COALESCE(known_users.last_name, '')),
+                        ''
+                    ) AS raw_label,
+                    COUNT(*) AS completed_actions
+                FROM usage_events
+                LEFT JOIN known_users ON known_users.user_id = usage_events.user_id
+                WHERE usage_events.created_at >= datetime('now', ?)
+                GROUP BY usage_events.user_id
+                ORDER BY completed_actions DESC, usage_events.user_id ASC
+                LIMIT ?
+                """,
+                (f"-{since_days} day", limit),
+            ).fetchall()
+        top_users: list[AdminUserStat] = []
+        for row in rows:
+            raw_label = (row["raw_label"] or "").strip()
+            label = raw_label if raw_label else f"Utente {row['user_id']}"
+            if raw_label and not raw_label.startswith("@") and " " not in raw_label:
+                label = f"@{raw_label}"
+            top_users.append(
+                AdminUserStat(
+                    user_id=row["user_id"],
+                    label=label,
+                    completed_actions=int(row["completed_actions"]),
+                )
+            )
+        return top_users
+
+    def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]:
+        query = """
+            SELECT *
+            FROM jobs
+        """
+        params: list[object] = []
+        if statuses:
+            placeholders = ", ".join("?" for _ in statuses)
+            query += f" WHERE status IN ({placeholders})"
+            params.extend(status.value for status in statuses)
+        query += " ORDER BY COALESCE(finished_at, created_at) DESC, id DESC LIMIT ?"
+        params.append(limit)
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [_job_from_row(row) for row in rows]
 
     def _initialize(self) -> None:
         with self._lock, self._connect() as connection:

@@ -74,3 +74,10 @@ class JobRecord:
     finished_at: datetime | None = None
     result_message: str | None = None
     error_message: str | None = None
+
+
+@dataclass(slots=True)
+class AdminUserStat:
+    user_id: int
+    label: str
+    completed_actions: int

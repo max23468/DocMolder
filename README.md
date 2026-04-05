@@ -111,4 +111,4 @@ Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPL
 
 Se configuri `DOCMOLDER_ADMIN_USER_IDS`, l'admin puo usare anche:
 
-- `/admin` per vedere un riepilogo rapido di utenti, nuovi accessi, operazioni completate e sessioni attive
+- `/admin` per vedere un riepilogo rapido di utenti, nuovi accessi, operazioni completate, stato coda, utenti più attivi e ultimi job riusciti o falliti

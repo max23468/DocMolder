@@ -17,8 +17,6 @@ Questa pagina contiene solo le cose ancora aperte, parziali o fuori scope di `Do
 
 - qualità pipeline PDF
   già migliorata rispetto allo scaffold iniziale, ma ancora perfezionabile
-- monitoraggio admin
-  esiste `/admin`, ma non ci sono ancora report periodici o analytics più evoluti
 - robustezza edge case PDF
   coperti i casi più comuni, non ancora un catalogo ampio di PDF anomali
 - setup locale user-friendly
@@ -26,9 +24,7 @@ Questa pagina contiene solo le cose ancora aperte, parziali o fuori scope di `Do
 
 ## Prossimi Miglioramenti
 
-1. admin tools più evoluti
-   top utenti, report periodici, metriche giornaliere, diagnostica più utile
-2. pipeline PDF ancora migliore
+1. pipeline PDF ancora migliore
    preservare ancora meglio testo, struttura e qualità nei PDF nativi
-3. setup locale più user-friendly
+2. setup locale più user-friendly
    documentare meglio attivazione del venv, avvio locale e flussi tipici di sviluppo

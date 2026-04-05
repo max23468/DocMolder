@@ -40,7 +40,7 @@ from docmolder.messages import (
     UPLOAD_RATE_LIMIT_MESSAGE,
     WELCOME_MESSAGE,
 )
-from docmolder.models import CompressionPreset, FileKind, JobRecord, SupportedAction, UserSession
+from docmolder.models import AdminUserStat, CompressionPreset, FileKind, JobRecord, JobStatus, SupportedAction, UserSession
 from docmolder.processing import DocumentProcessor, ProcessingResult, ProcessingUserError
 from docmolder.services import (
     build_output_stem,
@@ -210,7 +210,12 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await _maybe_notify_admins_about_new_user(user, context)
 
     stats = deps.session_store.build_admin_stats()
-    await update.effective_message.reply_text(_build_admin_report(stats))
+    top_users = deps.session_store.list_top_users(limit=5, since_days=7)
+    recent_failed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
+    recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
+    await update.effective_message.reply_text(
+        _build_admin_report(stats, top_users, recent_failed_jobs, recent_completed_jobs)
+    )
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -541,8 +546,19 @@ def _build_new_user_notification(user: User) -> str:
     )
 
 
-def _build_admin_report(stats: dict[str, int]) -> str:
+def _build_admin_report(
+    stats: dict[str, int],
+    top_users: list[AdminUserStat],
+    recent_failed_jobs: list[JobRecord],
+    recent_completed_jobs: list[JobRecord],
+) -> str:
     timestamp = datetime.now(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y alle %H:%M")
+    top_users_block = "\n".join(
+        f"- {entry.label} ({entry.user_id}): {entry.completed_actions} operazioni"
+        for entry in top_users
+    ) or "- Nessun dato ancora disponibile"
+    failed_jobs_block = "\n".join(_format_job_line(job) for job in recent_failed_jobs) or "- Nessun job fallito di recente"
+    completed_jobs_block = "\n".join(_format_job_line(job) for job in recent_completed_jobs) or "- Nessun job completato di recente"
     return (
         "Riepilogo admin DocMolder\n"
         f"Aggiornato: {timestamp}\n\n"
@@ -563,8 +579,30 @@ def _build_admin_report(stats: dict[str, int]) -> str:
         f"- Scala di grigi: {stats['pdf_grayscale_total']}\n"
         f"- Unisci PDF: {stats['pdf_merge_total']}\n"
         f"- Ruota PDF: {stats['pdf_rotate_total']}\n"
-        f"- Correggi orientamento: {stats['auto_orient_total']}"
+        f"- Correggi orientamento: {stats['auto_orient_total']}\n\n"
+        "Utenti più attivi ultimi 7 giorni:\n"
+        f"{top_users_block}\n\n"
+        "Ultimi job completati:\n"
+        f"{completed_jobs_block}\n\n"
+        "Ultimi job falliti:\n"
+        f"{failed_jobs_block}"
     )
+
+
+def _format_job_line(job: JobRecord) -> str:
+    action_labels = {
+        "images_to_pdf": "PDF da immagini",
+        "pdf_compress": "Comprimi PDF",
+        "pdf_grayscale": "Scala di grigi",
+        "pdf_merge": "Unisci PDF",
+        "pdf_rotate": "Ruota PDF",
+        "auto_orient": "Correggi orientamento",
+    }
+    action_label = action_labels.get(job.action, job.action)
+    reference_time = job.finished_at or job.created_at
+    timestamp = reference_time.astimezone(ZoneInfo("Europe/Rome")).strftime("%d/%m %H:%M")
+    suffix = f" - {job.error_message}" if job.error_message else ""
+    return f"- Job #{job.id} | {action_label} | utente {job.user_id} | {timestamp}{suffix}"
 
 
 def build_application(settings: Settings) -> Application:
