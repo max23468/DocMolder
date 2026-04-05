@@ -62,12 +62,13 @@ Compressione:
 
 - livello `Leggera`: ottimizzazione lossless della struttura PDF
 - livello `Media`: ottimizzazione conservativa con tentativo di ricompressione delle immagini mantenendo il PDF nativo
-- livello `Forte`: prova prima una compressione conservativa e usa la rasterizzazione solo come soluzione di ripiego
+- livello `Forte`: prova prima una compressione conservativa, poi una compressione nativa via `Ghostscript`, e usa la rasterizzazione solo come soluzione di ripiego
 
 Scala di grigi:
 
 - se sul server è disponibile `Ghostscript`, il bot prova una conversione più fedele alla struttura del PDF
-- se `Ghostscript` non è disponibile, usa una soluzione visiva di ripiego che garantisce l'output ma può perdere testo ricercabile, layer o metadati avanzati
+- se `Ghostscript` non è disponibile, prova prima una conversione nativa delle immagini interne del PDF
+- solo come ultimo passaggio usa una soluzione visiva di ripiego che garantisce l'output ma può perdere testo ricercabile, layer o metadati avanzati
 
 Questo ci permette di preservare meglio il contenuto nativo dei PDF quando l'ambiente lo consente, senza rinunciare a una soluzione di ripiego affidabile.
 

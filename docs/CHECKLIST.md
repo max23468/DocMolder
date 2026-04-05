@@ -24,7 +24,5 @@ Questa pagina contiene solo le cose ancora aperte, parziali o fuori scope di `Do
 
 ## Prossimi Miglioramenti
 
-1. pipeline PDF ancora migliore
-   preservare ancora meglio testo, struttura e qualità nei PDF nativi
-2. setup locale più user-friendly
+1. setup locale più user-friendly
    documentare meglio attivazione del venv, avvio locale e flussi tipici di sviluppo

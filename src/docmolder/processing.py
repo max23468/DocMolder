@@ -147,7 +147,10 @@ class DocumentProcessor:
     def pdf_to_grayscale(self, pdf_path: Path, output_stem: str) -> ProcessingResult:
         output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
         self._validate_pdf_for_processing(pdf_path)
-        if not self._run_ghostscript_grayscale(pdf_path, output_path):
+        conversion_mode = "ghostscript" if self._run_ghostscript_grayscale(pdf_path, output_path) else None
+        if conversion_mode is None and self._convert_pdf_images_to_grayscale_native(pdf_path, output_path):
+            conversion_mode = "native"
+        if conversion_mode is None:
             self._render_pdf_as_images(
                 pdf_path=pdf_path,
                 output_path=output_path,
@@ -155,8 +158,12 @@ class DocumentProcessor:
                 colorspace=fitz.csGRAY,
                 image_format="png",
             )
+            conversion_mode = "raster"
+
         message = "PDF convertito in scala di grigi."
-        if shutil.which("gs") is None:
+        if conversion_mode == "native":
+            message += " Ho preservato la struttura del PDF dove possibile."
+        elif conversion_mode == "raster":
             message += " Ho usato una soluzione visiva di ripiego per garantire compatibilità."
         return ProcessingResult(output_path=output_path, output_name=output_path.name, message=message)
 
@@ -165,6 +172,7 @@ class DocumentProcessor:
         self._validate_pdf_for_processing(pdf_path)
         if preset == CompressionPreset.LIGHT:
             self._compress_pdf_lossless(pdf_path, output_path)
+            mode = "lossless"
         elif preset == CompressionPreset.MEDIUM:
             if not self._compress_pdf_conservative(
                 pdf_path,
@@ -173,7 +181,13 @@ class DocumentProcessor:
                 image_dpi_threshold=150,
                 image_dpi_target=135,
             ):
-                self._compress_pdf_lossless(pdf_path, output_path)
+                if self._run_ghostscript_compress(pdf_path, output_path, quality_profile="/ebook"):
+                    mode = "ghostscript"
+                else:
+                    self._compress_pdf_lossless(pdf_path, output_path)
+                    mode = "lossless"
+            else:
+                mode = "conservative"
         else:
             if not self._compress_pdf_conservative(
                 pdf_path,
@@ -182,18 +196,29 @@ class DocumentProcessor:
                 image_dpi_threshold=110,
                 image_dpi_target=95,
             ):
-                self._render_pdf_as_images(
-                    pdf_path=pdf_path,
-                    output_path=output_path,
-                    dpi=110,
-                    colorspace=fitz.csRGB,
-                    image_format="jpeg",
-                    jpeg_quality=50,
-                )
+                if self._run_ghostscript_compress(pdf_path, output_path, quality_profile="/screen"):
+                    mode = "ghostscript"
+                else:
+                    self._render_pdf_as_images(
+                        pdf_path=pdf_path,
+                        output_path=output_path,
+                        dpi=110,
+                        colorspace=fitz.csRGB,
+                        image_format="jpeg",
+                        jpeg_quality=50,
+                    )
+                    mode = "raster"
+            else:
+                mode = "conservative"
+        message = f"PDF compresso con livello {preset.value}."
+        if mode == "ghostscript":
+            message += " Ho mantenuto il PDF nativo con una compressione più fedele."
+        elif mode == "raster":
+            message += " Ho usato una soluzione visiva di ripiego per i casi più difficili."
         return ProcessingResult(
             output_path=output_path,
             output_name=output_path.name,
-            message=f"PDF compresso con livello {preset.value}.",
+            message=message,
         )
 
     def rotate_pdf(self, pdf_path: Path, output_stem: str, rotate_degrees: int) -> ProcessingResult:
@@ -354,7 +379,34 @@ class DocumentProcessor:
         if ghostscript is None:
             return False
 
-        command = [
+        command = self._build_ghostscript_grayscale_command(ghostscript, pdf_path, output_path)
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True)
+            return True
+        except subprocess.CalledProcessError:
+            logger.exception("Ghostscript non è riuscito a convertire il PDF in scala di grigi.")
+            return False
+
+    def _run_ghostscript_compress(self, pdf_path: Path, output_path: Path, quality_profile: str) -> bool:
+        ghostscript = shutil.which("gs")
+        if ghostscript is None:
+            return False
+
+        command = self._build_ghostscript_compress_command(
+            ghostscript=ghostscript,
+            pdf_path=pdf_path,
+            output_path=output_path,
+            quality_profile=quality_profile,
+        )
+        try:
+            subprocess.run(command, check=True, capture_output=True, text=True)
+            return True
+        except subprocess.CalledProcessError:
+            logger.exception("Ghostscript non è riuscito a comprimere il PDF con profilo %s.", quality_profile)
+            return False
+
+    def _build_ghostscript_grayscale_command(self, ghostscript: str, pdf_path: Path, output_path: Path) -> list[str]:
+        return [
             ghostscript,
             "-sDEVICE=pdfwrite",
             "-dCompatibilityLevel=1.6",
@@ -367,12 +419,60 @@ class DocumentProcessor:
             f"-sOutputFile={output_path}",
             str(pdf_path),
         ]
+
+    def _build_ghostscript_compress_command(
+        self,
+        ghostscript: str,
+        pdf_path: Path,
+        output_path: Path,
+        quality_profile: str,
+    ) -> list[str]:
+        return [
+            ghostscript,
+            "-sDEVICE=pdfwrite",
+            "-dCompatibilityLevel=1.6",
+            "-dNOPAUSE",
+            "-dBATCH",
+            "-dSAFER",
+            f"-dPDFSETTINGS={quality_profile}",
+            "-dAutoRotatePages=/None",
+            f"-sOutputFile={output_path}",
+            str(pdf_path),
+        ]
+
+    def _convert_pdf_images_to_grayscale_native(self, pdf_path: Path, output_path: Path) -> bool:
+        document = self._open_pdf_document(pdf_path)
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            self._subset_fonts_if_possible(document)
+            rewrite_images = getattr(document, "rewrite_images", None)
+            if not callable(rewrite_images):
+                return False
+            rewrite_images(
+                dpi_threshold=300,
+                dpi_target=300,
+                quality=85,
+                lossy=False,
+                lossless=True,
+                bitonal=True,
+                color=True,
+                gray=True,
+                set_to_gray=True,
+            )
+            document.save(
+                output_path,
+                garbage=4,
+                clean=True,
+                deflate=True,
+                deflate_images=True,
+                deflate_fonts=True,
+                use_objstms=1,
+            )
             return True
-        except subprocess.CalledProcessError:
-            logger.exception("Ghostscript non è riuscito a convertire il PDF in scala di grigi.")
+        except Exception:
+            logger.exception("Conversione nativa in scala di grigi non riuscita, usero un fallback.")
             return False
+        finally:
+            document.close()
 
     def _subset_fonts_if_possible(self, document: fitz.Document) -> None:
         subset_fonts = getattr(document, "subset_fonts", None)
