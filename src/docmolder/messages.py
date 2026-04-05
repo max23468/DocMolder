@@ -39,6 +39,16 @@ SESSION_EMPTY_MESSAGE = (
     "Inviami immagini o PDF e poi ti proporrò le azioni disponibili."
 )
 
+MIXED_SESSION_MESSAGE = (
+    "La sessione corrente contiene gia un tipo di file diverso. "
+    "Per evitare combinazioni ambigue, usa /reset e riparti con soli PDF oppure sole immagini."
+)
+
+FILE_TOO_LARGE_MESSAGE = (
+    "Questo file supera il limite consentito per il bot. "
+    "Se puoi, prova a inviarne una versione piu leggera oppure dividi il materiale in piu file."
+)
+
 PROCESSING_MESSAGE = "Sto elaborando i file. Potrebbe volerci qualche secondo."
 
 GENERIC_ERROR_MESSAGE = (

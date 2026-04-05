@@ -12,6 +12,7 @@ from pathlib import Path
 import fitz
 from PIL import Image, ImageOps
 from pypdf import PdfReader, PdfWriter
+from pypdf.errors import FileNotDecryptedError, PdfReadError
 
 from docmolder.models import CompressionPreset, SupportedAction
 
@@ -27,6 +28,10 @@ class ProcessingResult:
     output_path: Path
     output_name: str
     message: str
+
+
+class ProcessingUserError(Exception):
+    pass
 
 
 class DocumentProcessor:
@@ -95,8 +100,14 @@ class DocumentProcessor:
     def merge_pdfs(self, pdf_paths: list[Path], output_stem: str) -> ProcessingResult:
         output_path = pdf_paths[0].parent.parent / f"{output_stem}.pdf"
         writer = PdfWriter()
-        for pdf_path in pdf_paths:
-            writer.append(str(pdf_path))
+        try:
+            for pdf_path in pdf_paths:
+                writer.append(str(pdf_path))
+        except (PdfReadError, FileNotDecryptedError) as exc:
+            raise ProcessingUserError(
+                "Non riesco a unire uno dei PDF ricevuti. "
+                "Controlla che i file non siano protetti da password e riprova."
+            ) from exc
 
         with output_path.open("wb") as handle:
             writer.write(handle)
@@ -109,6 +120,7 @@ class DocumentProcessor:
 
     def pdf_to_grayscale(self, pdf_path: Path, output_stem: str) -> ProcessingResult:
         output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
+        self._validate_pdf_for_processing(pdf_path)
         if not self._run_ghostscript_grayscale(pdf_path, output_path):
             self._render_pdf_as_images(
                 pdf_path=pdf_path,
@@ -124,6 +136,7 @@ class DocumentProcessor:
 
     def compress_pdf(self, pdf_path: Path, output_stem: str, preset: CompressionPreset) -> ProcessingResult:
         output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
+        self._validate_pdf_for_processing(pdf_path)
         if preset == CompressionPreset.LIGHT:
             self._compress_pdf_lossless(pdf_path, output_path)
         elif preset == CompressionPreset.MEDIUM:
@@ -159,12 +172,23 @@ class DocumentProcessor:
 
     def rotate_pdf(self, pdf_path: Path, output_stem: str, rotate_degrees: int) -> ProcessingResult:
         output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
-        reader = PdfReader(str(pdf_path))
-        writer = PdfWriter()
+        try:
+            reader = PdfReader(str(pdf_path))
+            if reader.is_encrypted:
+                raise ProcessingUserError(
+                    "Questo PDF sembra protetto da password. "
+                    "Per ruotarlo, invia prima una versione non protetta."
+                )
+            writer = PdfWriter()
 
-        for page in reader.pages:
-            page.rotate(rotate_degrees)
-            writer.add_page(page)
+            for page in reader.pages:
+                page.rotate(rotate_degrees)
+                writer.add_page(page)
+        except (PdfReadError, FileNotDecryptedError) as exc:
+            raise ProcessingUserError(
+                "Non riesco a leggere questo PDF per ruotarlo. "
+                "Potrebbe essere corrotto o protetto da password."
+            ) from exc
 
         with output_path.open("wb") as handle:
             writer.write(handle)
@@ -244,7 +268,7 @@ class DocumentProcessor:
             source.close()
 
     def _compress_pdf_lossless(self, pdf_path: Path, output_path: Path) -> None:
-        document = fitz.open(pdf_path)
+        document = self._open_pdf_document(pdf_path)
         try:
             self._subset_fonts_if_possible(document)
             document.save(
@@ -267,7 +291,7 @@ class DocumentProcessor:
         image_dpi_threshold: int,
         image_dpi_target: int,
     ) -> bool:
-        document = fitz.open(pdf_path)
+        document = self._open_pdf_document(pdf_path)
         try:
             self._subset_fonts_if_possible(document)
             rewrite_images = getattr(document, "rewrite_images", None)
@@ -331,6 +355,28 @@ class DocumentProcessor:
                 subset_fonts()
             except Exception:
                 logger.exception("Subset dei font non riuscito, continuo senza questo passaggio.")
+
+    def _validate_pdf_for_processing(self, pdf_path: Path) -> None:
+        document = self._open_pdf_document(pdf_path)
+        document.close()
+
+    def _open_pdf_document(self, pdf_path: Path) -> fitz.Document:
+        try:
+            document = fitz.open(pdf_path)
+        except (fitz.FileDataError, fitz.EmptyFileError, RuntimeError, ValueError) as exc:
+            raise ProcessingUserError(
+                "Non riesco a leggere questo PDF. "
+                "Potrebbe essere corrotto, vuoto o non compatibile."
+            ) from exc
+
+        needs_pass = getattr(document, "needs_pass", False)
+        if needs_pass:
+            document.close()
+            raise ProcessingUserError(
+                "Questo PDF sembra protetto da password. "
+                "Per elaborarlo, invia prima una versione non protetta."
+            )
+        return document
 
     def _build_a4_page(self, image: Image.Image) -> Image.Image:
         page = Image.new("RGB", (A4_WIDTH_PX, A4_HEIGHT_PX), "white")

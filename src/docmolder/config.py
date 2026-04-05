@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     default_language: str = Field(default="it", alias="DOCMOLDER_DEFAULT_LANGUAGE")
     session_ttl_minutes: int = Field(default=30, alias="DOCMOLDER_SESSION_TTL_MINUTES")
     max_session_files: int = Field(default=20, alias="DOCMOLDER_MAX_SESSION_FILES")
+    max_file_size_mb: int = Field(default=20, alias="DOCMOLDER_MAX_FILE_SIZE_MB")
     runtime_dir: Path = Field(default=Path("./data/runtime"), alias="DOCMOLDER_RUNTIME_DIR")
     database_path: Path = Field(default=Path("./data/runtime/docmolder.db"), alias="DOCMOLDER_DATABASE_PATH")
 

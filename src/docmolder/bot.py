@@ -27,15 +27,17 @@ from docmolder.keyboards import (
 )
 from docmolder.messages import (
     ADMIN_ONLY_MESSAGE,
+    FILE_TOO_LARGE_MESSAGE,
     GENERIC_ERROR_MESSAGE,
     HELP_MESSAGE,
+    MIXED_SESSION_MESSAGE,
     PROCESSING_MESSAGE,
     SESSION_EMPTY_MESSAGE,
     UNAUTHORIZED_MESSAGE,
     WELCOME_MESSAGE,
 )
 from docmolder.models import CompressionPreset, FileKind, SupportedAction, UserSession
-from docmolder.processing import DocumentProcessor, ProcessingResult
+from docmolder.processing import DocumentProcessor, ProcessingResult, ProcessingUserError
 from docmolder.services import (
     build_output_stem,
     build_session_file,
@@ -210,9 +212,16 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await message.reply_text("Per ora supporto solo PDF e immagini.")
         return
 
+    if _exceeds_file_size_limit(document.file_size, deps.settings.max_file_size_mb):
+        await message.reply_text(_build_file_too_large_message(deps.settings.max_file_size_mb))
+        return
+
     session = _get_or_create_session(user.id, deps)
     if len(session.files) >= deps.settings.max_session_files:
         await message.reply_text("Hai raggiunto il numero massimo di file per questa sessione. Usa /reset per ricominciare.")
+        return
+    if session.files and any(item.kind != kind for item in session.files):
+        await message.reply_text(MIXED_SESSION_MESSAGE)
         return
 
     session.files.append(build_session_file(document.file_id, document.file_name, kind))
@@ -244,12 +253,19 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not photos:
         return
 
+    best_photo = _pick_best_photo(photos)
+    if _exceeds_file_size_limit(best_photo.file_size, deps.settings.max_file_size_mb):
+        await message.reply_text(_build_file_too_large_message(deps.settings.max_file_size_mb))
+        return
+
     session = _get_or_create_session(user.id, deps)
     if len(session.files) >= deps.settings.max_session_files:
         await message.reply_text("Hai raggiunto il numero massimo di file per questa sessione. Usa /reset per ricominciare.")
         return
+    if session.files and any(item.kind != FileKind.IMAGE for item in session.files):
+        await message.reply_text(MIXED_SESSION_MESSAGE)
+        return
 
-    best_photo = _pick_best_photo(photos)
     generated_name = f"foto_{len(session.files) + 1}.jpg"
     session.files.append(build_session_file(best_photo.file_id, generated_name, FileKind.IMAGE))
     session.touch()
@@ -298,6 +314,9 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
             action=SupportedAction(action),
             session=session,
         )
+    except ProcessingUserError as exc:
+        await query.edit_message_text(str(exc))
+        return
     except Exception:
         logger.exception("Errore durante l'azione %s", action)
         await query.edit_message_text(GENERIC_ERROR_MESSAGE)
@@ -328,6 +347,9 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
             session=session,
             compression_preset=CompressionPreset(preset),
         )
+    except ProcessingUserError as exc:
+        await query.edit_message_text(str(exc))
+        return
     except Exception:
         logger.exception("Errore durante la compressione")
         await query.edit_message_text(GENERIC_ERROR_MESSAGE)
@@ -358,6 +380,9 @@ async def handle_rotation_callback(update: Update, context: ContextTypes.DEFAULT
             session=session,
             rotate_degrees=degrees,
         )
+    except ProcessingUserError as exc:
+        await query.edit_message_text(str(exc))
+        return
     except Exception:
         logger.exception("Errore durante la rotazione PDF")
         await query.edit_message_text(GENERIC_ERROR_MESSAGE)
@@ -508,6 +533,16 @@ def _infer_document_kind(document: Document) -> FileKind | None:
 
 def _pick_best_photo(photos: list[PhotoSize]) -> PhotoSize:
     return max(photos, key=lambda item: item.file_size or 0)
+
+
+def _exceeds_file_size_limit(file_size: int | None, max_file_size_mb: int) -> bool:
+    if file_size is None:
+        return False
+    return file_size > max_file_size_mb * 1024 * 1024
+
+
+def _build_file_too_large_message(max_file_size_mb: int) -> str:
+    return f"{FILE_TOO_LARGE_MESSAGE} Limite attuale: {max_file_size_mb} MB."
 
 
 def _schedule_image_session_notification(
