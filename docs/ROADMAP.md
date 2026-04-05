@@ -27,3 +27,16 @@ Questa roadmap raccoglie le priorità successive al primo MVP funzionante di `Do
 - decidere se restare su un tool essenziale o aprire una nuova fase di crescita
 - valutare se introdurre funzioni premium o solo miglioramenti di qualità
 - definire se servono analytics più mature o automazioni admin più forti
+
+## Fase 5: Funzioni Oggi Fuori Scope
+
+Questa sezione raccoglie idee oggi escluse dal perimetro del progetto, ma che possono tornare utili se in futuro cambiano priorità o direzione del prodotto.
+
+- supporto gruppi Telegram
+- dashboard web amministrativa
+- storage permanente dei file utente
+- webhook e infrastruttura HTTP pubblica
+- storico lavori per l'utente
+- funzioni PDF avanzate come watermark, firma, estrazione pagine o editing avanzato
+- OCR
+- UI web
