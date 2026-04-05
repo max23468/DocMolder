@@ -62,6 +62,10 @@ Se vuoi limitare l'accesso a utenti specifici, puoi aggiungere anche:
 
 - `DOCMOLDER_ALLOWED_USER_IDS`
 
+Se vuoi ricevere una notifica quando un utente usa il bot per la prima volta, puoi aggiungere anche:
+
+- `DOCMOLDER_ADMIN_USER_IDS`
+
 ## Avvio del servizio
 
 ```bash

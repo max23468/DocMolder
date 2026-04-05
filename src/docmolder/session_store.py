@@ -17,11 +17,14 @@ class SessionStore(Protocol):
 
     def purge_expired(self, ttl_minutes: int) -> list[int]: ...
 
+    def register_user(self, user_id: int, username: str | None, first_name: str | None, last_name: str | None) -> bool: ...
+
 
 class InMemorySessionStore:
     def __init__(self) -> None:
         self._lock = Lock()
         self._sessions: dict[int, UserSession] = {}
+        self._known_user_ids: set[int] = set()
 
     def get(self, user_id: int) -> UserSession | None:
         with self._lock:
@@ -43,6 +46,14 @@ class InMemorySessionStore:
                     expired_ids.append(user_id)
                     self._sessions.pop(user_id, None)
         return expired_ids
+
+    def register_user(self, user_id: int, username: str | None, first_name: str | None, last_name: str | None) -> bool:
+        del username, first_name, last_name
+        with self._lock:
+            if user_id in self._known_user_ids:
+                return False
+            self._known_user_ids.add(user_id)
+            return True
 
 
 class SQLiteSessionStore:
@@ -159,6 +170,24 @@ class SQLiteSessionStore:
                 connection.commit()
         return expired_ids
 
+    def register_user(self, user_id: int, username: str | None, first_name: str | None, last_name: str | None) -> bool:
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT OR IGNORE INTO known_users (
+                    user_id,
+                    username,
+                    first_name,
+                    last_name,
+                    first_seen_at
+                )
+                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (user_id, username, first_name, last_name),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
     def _initialize(self) -> None:
         with self._lock, self._connect() as connection:
             connection.executescript(
@@ -185,6 +214,14 @@ class SQLiteSessionStore:
 
                 CREATE INDEX IF NOT EXISTS idx_session_files_user_position
                     ON session_files(user_id, position);
+
+                CREATE TABLE IF NOT EXISTS known_users (
+                    user_id INTEGER PRIMARY KEY,
+                    username TEXT,
+                    first_name TEXT,
+                    last_name TEXT,
+                    first_seen_at TEXT NOT NULL
+                );
                 """
             )
             connection.commit()

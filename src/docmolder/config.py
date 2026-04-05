@@ -9,6 +9,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     telegram_token: str = Field(alias="DOCMOLDER_TELEGRAM_TOKEN")
     allowed_user_ids: list[int] = Field(default_factory=list, alias="DOCMOLDER_ALLOWED_USER_IDS")
+    admin_user_ids: list[int] = Field(default_factory=list, alias="DOCMOLDER_ADMIN_USER_IDS")
     default_language: str = Field(default="it", alias="DOCMOLDER_DEFAULT_LANGUAGE")
     session_ttl_minutes: int = Field(default=30, alias="DOCMOLDER_SESSION_TTL_MINUTES")
     max_session_files: int = Field(default=20, alias="DOCMOLDER_MAX_SESSION_FILES")
@@ -24,13 +25,22 @@ class Settings(BaseSettings):
     @field_validator("allowed_user_ids", mode="before")
     @classmethod
     def parse_allowed_user_ids(cls, value: object) -> list[int]:
+        return cls._parse_id_list(value, "DOCMOLDER_ALLOWED_USER_IDS")
+
+    @field_validator("admin_user_ids", mode="before")
+    @classmethod
+    def parse_admin_user_ids(cls, value: object) -> list[int]:
+        return cls._parse_id_list(value, "DOCMOLDER_ADMIN_USER_IDS")
+
+    @classmethod
+    def _parse_id_list(cls, value: object, field_name: str) -> list[int]:
         if value is None or value == "":
             return []
         if isinstance(value, list):
             return [int(item) for item in value]
         if isinstance(value, str):
             return [int(item.strip()) for item in value.split(",") if item.strip()]
-        raise TypeError("DOCMOLDER_ALLOWED_USER_IDS deve essere una lista o una stringa separata da virgole.")
+        raise TypeError(f"{field_name} deve essere una lista o una stringa separata da virgole.")
 
     def ensure_runtime_dirs(self) -> None:
         self.runtime_dir.mkdir(parents=True, exist_ok=True)

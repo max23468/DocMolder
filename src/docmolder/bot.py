@@ -4,7 +4,7 @@ import asyncio
 import logging
 from pathlib import Path
 
-from telegram import Document, InlineKeyboardMarkup, PhotoSize, Update
+from telegram import Document, InlineKeyboardMarkup, PhotoSize, Update, User
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -107,6 +107,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not _is_authorized(user.id if user else None, deps.settings):
         await update.effective_message.reply_text(UNAUTHORIZED_MESSAGE)
         return
+    await _maybe_notify_admins_about_new_user(user, context)
 
     await update.effective_message.reply_text(
         WELCOME_MESSAGE,
@@ -121,6 +122,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not _is_authorized(user.id if user else None, deps.settings):
         await update.effective_message.reply_text(UNAUTHORIZED_MESSAGE)
         return
+    await _maybe_notify_admins_about_new_user(user, context)
 
     await update.effective_message.reply_text(
         HELP_MESSAGE,
@@ -135,6 +137,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if not _is_authorized(user.id if user else None, deps.settings):
         await update.effective_message.reply_text(UNAUTHORIZED_MESSAGE)
         return
+    await _maybe_notify_admins_about_new_user(user, context)
 
     _cancel_pending_image_notification(user.id, deps)
     deps.session_store.delete(user.id)
@@ -148,6 +151,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not _is_authorized(user.id if user else None, deps.settings):
         await update.effective_message.reply_text(UNAUTHORIZED_MESSAGE)
         return
+    await _maybe_notify_admins_about_new_user(user, context)
 
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
@@ -171,6 +175,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if not _is_authorized(user.id if user else None, deps.settings):
         await message.reply_text(UNAUTHORIZED_MESSAGE)
         return
+    await _maybe_notify_admins_about_new_user(user, context)
 
     document = message.document
     if document is None:
@@ -209,6 +214,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if not _is_authorized(user.id if user else None, deps.settings):
         await message.reply_text(UNAUTHORIZED_MESSAGE)
         return
+    await _maybe_notify_admins_about_new_user(user, context)
 
     photos = message.photo
     if not photos:
@@ -238,6 +244,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     if not _is_authorized(user.id if user else None, deps.settings):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
         return
+    await _maybe_notify_admins_about_new_user(user, context)
 
     _cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
@@ -348,6 +355,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not _is_authorized(user.id if user else None, deps.settings):
         await message.reply_text(UNAUTHORIZED_MESSAGE)
         return
+    await _maybe_notify_admins_about_new_user(user, context)
 
     text = (message.text or "").strip()
     if text == "Cosa posso fare":
@@ -364,6 +372,40 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         "Per iniziare, inviami immagini o PDF. Se vuoi una guida rapida, usa /help.",
         reply_markup=build_main_menu_keyboard(),
     )
+
+
+async def _maybe_notify_admins_about_new_user(user: User | None, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if user is None:
+        return
+
+    deps = _get_dependencies(context)
+    if not deps.settings.admin_user_ids:
+        return
+
+    is_new = deps.session_store.register_user(
+        user_id=user.id,
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+    )
+    if not is_new:
+        return
+
+    lines = [
+        "Nuovo utente al primo accesso su DocMolder.",
+        f"ID: {user.id}",
+    ]
+    if user.full_name:
+        lines.append(f"Nome: {user.full_name}")
+    if user.username:
+        lines.append(f"Username: @{user.username}")
+
+    notification_text = "\n".join(lines)
+    for admin_user_id in deps.settings.admin_user_ids:
+        try:
+            await context.bot.send_message(chat_id=admin_user_id, text=notification_text)
+        except Exception:
+            logger.exception("Impossibile inviare la notifica nuovo utente all'admin %s", admin_user_id)
 
 
 def build_application(settings: Settings) -> Application:
