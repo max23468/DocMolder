@@ -55,9 +55,12 @@ sudo nano /etc/docmolder/docmolder.env
 Imposta almeno:
 
 - `DOCMOLDER_TELEGRAM_TOKEN`
-- `DOCMOLDER_ALLOWED_USER_IDS`
 - `DOCMOLDER_SESSION_TTL_MINUTES`
 - `DOCMOLDER_MAX_SESSION_FILES`
+
+Se vuoi limitare l'accesso a utenti specifici, puoi aggiungere anche:
+
+- `DOCMOLDER_ALLOWED_USER_IDS`
 
 ## Avvio del servizio
 

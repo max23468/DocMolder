@@ -127,10 +127,22 @@ class DocumentProcessor:
         if preset == CompressionPreset.LIGHT:
             self._compress_pdf_lossless(pdf_path, output_path)
         elif preset == CompressionPreset.MEDIUM:
-            if not self._compress_pdf_conservative(pdf_path, output_path, image_quality=70, image_dpi_threshold=150):
+            if not self._compress_pdf_conservative(
+                pdf_path,
+                output_path,
+                image_quality=70,
+                image_dpi_threshold=150,
+                image_dpi_target=135,
+            ):
                 self._compress_pdf_lossless(pdf_path, output_path)
         else:
-            if not self._compress_pdf_conservative(pdf_path, output_path, image_quality=50, image_dpi_threshold=110):
+            if not self._compress_pdf_conservative(
+                pdf_path,
+                output_path,
+                image_quality=50,
+                image_dpi_threshold=110,
+                image_dpi_target=95,
+            ):
                 self._render_pdf_as_images(
                     pdf_path=pdf_path,
                     output_path=output_path,
@@ -253,6 +265,7 @@ class DocumentProcessor:
         output_path: Path,
         image_quality: int,
         image_dpi_threshold: int,
+        image_dpi_target: int,
     ) -> bool:
         document = fitz.open(pdf_path)
         try:
@@ -261,7 +274,7 @@ class DocumentProcessor:
             if callable(rewrite_images):
                 rewrite_images(
                     dpi_threshold=image_dpi_threshold,
-                    dpi_target=image_dpi_threshold,
+                    dpi_target=image_dpi_target,
                     quality=image_quality,
                     lossy=True,
                     lossless=True,

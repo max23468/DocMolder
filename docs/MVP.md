@@ -5,7 +5,6 @@ Questa pagina fissa il perimetro del primo MVP di `DocMolder` in modo operativo.
 ## Dentro MVP
 
 - Bot Telegram come interfaccia principale
-- Accesso limitato a utenti in whitelist
 - Sessione temporanea per utente con più file inviati in messaggi successivi
 - Creazione PDF da immagini
   - output predefinito in formato A4 con margini
@@ -21,7 +20,6 @@ Questa pagina fissa il perimetro del primo MVP di `DocMolder` in modo operativo.
 
 - OCR
 - Supporto gruppi Telegram
-- Accesso pubblico senza whitelist
 - Dashboard web
 - Storico lavori per l'utente
 - Storage permanente dei file caricati
@@ -93,7 +91,7 @@ Questa pagina fissa il perimetro del primo MVP di `DocMolder` in modo operativo.
 
 ## Definizione di pronto
 
-Il MVP è considerato pronto quando un utente autorizzato può:
+Il MVP è considerato pronto quando un utente può:
 
 1. avviare la chat col bot e ricevere un messaggio iniziale chiaro
 2. inviare più immagini e ottenere un PDF finale

@@ -15,9 +15,15 @@ from telegram.ext import (
 )
 
 from docmolder.config import Settings
-from docmolder.keyboards import build_actions_keyboard, build_compression_keyboard, build_rotation_keyboard
+from docmolder.keyboards import (
+    build_actions_keyboard,
+    build_compression_keyboard,
+    build_main_menu_keyboard,
+    build_rotation_keyboard,
+)
 from docmolder.messages import (
     GENERIC_ERROR_MESSAGE,
+    HELP_MESSAGE,
     PROCESSING_MESSAGE,
     SESSION_EMPTY_MESSAGE,
     UNAUTHORIZED_MESSAGE,
@@ -102,7 +108,24 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.effective_message.reply_text(UNAUTHORIZED_MESSAGE)
         return
 
-    await update.effective_message.reply_text(WELCOME_MESSAGE)
+    await update.effective_message.reply_text(
+        WELCOME_MESSAGE,
+        reply_markup=build_main_menu_keyboard(),
+    )
+
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    user = update.effective_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await update.effective_message.reply_text(UNAUTHORIZED_MESSAGE)
+        return
+
+    await update.effective_message.reply_text(
+        HELP_MESSAGE,
+        reply_markup=build_main_menu_keyboard(),
+    )
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -128,7 +151,10 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
-        await update.effective_message.reply_text(SESSION_EMPTY_MESSAGE)
+        await update.effective_message.reply_text(
+            SESSION_EMPTY_MESSAGE,
+            reply_markup=build_main_menu_keyboard(),
+        )
         return
 
     await update.effective_message.reply_text(
@@ -314,6 +340,32 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
     logger.exception("Errore non gestito", exc_info=context.error)
 
 
+async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    user = update.effective_user
+    message = update.effective_message
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await message.reply_text(UNAUTHORIZED_MESSAGE)
+        return
+
+    text = (message.text or "").strip()
+    if text == "Cosa posso fare":
+        await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
+        return
+    if text == "Mostra sessione":
+        await status_command(update, context)
+        return
+    if text == "Azzera sessione":
+        await reset_command(update, context)
+        return
+
+    await message.reply_text(
+        "Per iniziare, inviami immagini o PDF. Se vuoi una guida rapida, usa /help.",
+        reply_markup=build_main_menu_keyboard(),
+    )
+
+
 def build_application(settings: Settings) -> Application:
     logging.basicConfig(
         format="%(asctime)s %(levelname)s %(name)s - %(message)s",
@@ -328,6 +380,7 @@ def build_application(settings: Settings) -> Application:
     application.bot_data["deps"] = deps
 
     application.add_handler(CommandHandler("start", start_command))
+    application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CallbackQueryHandler(handle_compression_callback, pattern=r"^compress:"))
@@ -335,6 +388,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CallbackQueryHandler(handle_action_callback, pattern=r"^action:"))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_menu_text))
     application.add_error_handler(error_handler)
 
     return application

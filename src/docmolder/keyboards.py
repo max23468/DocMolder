@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 
 def build_actions_keyboard() -> InlineKeyboardMarkup:
@@ -33,4 +33,15 @@ def build_rotation_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton("180°", callback_data="rotate:180")],
             [InlineKeyboardButton("270°", callback_data="rotate:270")],
         ]
+    )
+
+
+def build_main_menu_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        [
+            [KeyboardButton("Cosa posso fare"), KeyboardButton("Mostra sessione")],
+            [KeyboardButton("Azzera sessione")],
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Invia immagini o PDF, oppure usa il menu",
     )

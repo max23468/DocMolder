@@ -7,7 +7,7 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 ## Obiettivi del progetto
 
 - Esperienza molto semplice via Telegram
-- Supporto multiutente con whitelist iniziale
+- Supporto multiutente
 - Elaborazione asincrona delle operazioni
 - Retention breve dei file temporanei
 
@@ -34,10 +34,9 @@ La specifica operativa del MVP è in [`docs/MVP.md`](docs/MVP.md).
 
 ## Sicurezza operativa
 
-- Accesso limitato a utenti in whitelist
 - Nessun salvataggio permanente dei file utente nel MVP
 - Pulizia automatica delle cartelle temporanee
-- Limiti su dimensione file e numero di allegati da introdurre prima del deploy pubblico
+- Limiti su dimensione file e numero di allegati da introdurre o rifinire prima di un uso piu ampio
 
 ## Stato attuale
 
@@ -45,7 +44,6 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 
 - configurazione dell'applicazione
 - bot Telegram di base
-- whitelist utenti
 - gestione persistente delle sessioni su SQLite
 - tastiere e messaggi iniziali
 - caricamento dei file da Telegram
@@ -78,7 +76,7 @@ Questo ci permette di preservare meglio il contenuto nativo dei PDF quando l'amb
 1. Crea un ambiente virtuale Python.
 2. Installa le dipendenze con `pip install -e .`
 3. Copia `.env.example` in `.env`
-4. Inserisci il token del bot e gli utenti autorizzati
+4. Inserisci il token del bot e le altre variabili ambiente necessarie
 5. Avvia con `docmolder`
 
 ## Deploy Oracle
@@ -88,7 +86,7 @@ Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPL
 ## Variabili ambiente
 
 - `DOCMOLDER_TELEGRAM_TOKEN`
-- `DOCMOLDER_ALLOWED_USER_IDS`
+- `DOCMOLDER_ALLOWED_USER_IDS` facoltativa
 - `DOCMOLDER_DEFAULT_LANGUAGE`
 - `DOCMOLDER_SESSION_TTL_MINUTES`
 - `DOCMOLDER_MAX_SESSION_FILES`
