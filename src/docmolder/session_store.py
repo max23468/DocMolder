@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Protocol
 
-from docmolder.models import FileKind, SessionFile, SessionStatus, UserSession
+from docmolder.models import FileKind, JobRecord, JobStatus, SessionFile, SessionStatus, UserSession
 
 
 class SessionStore(Protocol):
@@ -23,6 +23,25 @@ class SessionStore(Protocol):
 
     def build_admin_stats(self) -> dict[str, int]: ...
 
+    def create_job(
+        self,
+        user_id: int,
+        chat_id: int,
+        reply_to_message_id: int | None,
+        action: str,
+        payload_json: str,
+    ) -> JobRecord: ...
+
+    def get_job(self, job_id: int) -> JobRecord | None: ...
+
+    def mark_job_running(self, job_id: int) -> None: ...
+
+    def mark_job_succeeded(self, job_id: int, result_message: str) -> None: ...
+
+    def mark_job_failed(self, job_id: int, error_message: str) -> None: ...
+
+    def requeue_incomplete_jobs(self) -> list[JobRecord]: ...
+
 
 class InMemorySessionStore:
     def __init__(self) -> None:
@@ -30,6 +49,8 @@ class InMemorySessionStore:
         self._sessions: dict[int, UserSession] = {}
         self._known_user_ids: set[int] = set()
         self._completed_actions: list[tuple[int, str]] = []
+        self._jobs: dict[int, JobRecord] = {}
+        self._next_job_id = 1
 
     def get(self, user_id: int) -> UserSession | None:
         with self._lock:
@@ -80,7 +101,77 @@ class InMemorySessionStore:
                 "pdf_merge_total": sum(1 for _, action in self._completed_actions if action == "pdf_merge"),
                 "pdf_rotate_total": sum(1 for _, action in self._completed_actions if action == "pdf_rotate"),
                 "auto_orient_total": sum(1 for _, action in self._completed_actions if action == "auto_orient"),
+                "jobs_queued": sum(1 for job in self._jobs.values() if job.status == JobStatus.QUEUED),
+                "jobs_running": sum(1 for job in self._jobs.values() if job.status == JobStatus.RUNNING),
+                "jobs_failed": sum(1 for job in self._jobs.values() if job.status == JobStatus.FAILED),
             }
+
+    def create_job(
+        self,
+        user_id: int,
+        chat_id: int,
+        reply_to_message_id: int | None,
+        action: str,
+        payload_json: str,
+    ) -> JobRecord:
+        from datetime import datetime, timezone
+
+        with self._lock:
+            job = JobRecord(
+                id=self._next_job_id,
+                user_id=user_id,
+                chat_id=chat_id,
+                reply_to_message_id=reply_to_message_id,
+                action=action,
+                payload_json=payload_json,
+                status=JobStatus.QUEUED,
+                created_at=datetime.now(timezone.utc),
+            )
+            self._jobs[job.id] = job
+            self._next_job_id += 1
+            return job
+
+    def get_job(self, job_id: int) -> JobRecord | None:
+        with self._lock:
+            return self._jobs.get(job_id)
+
+    def mark_job_running(self, job_id: int) -> None:
+        from datetime import datetime, timezone
+
+        with self._lock:
+            job = self._jobs[job_id]
+            job.status = JobStatus.RUNNING
+            job.started_at = datetime.now(timezone.utc)
+
+    def mark_job_succeeded(self, job_id: int, result_message: str) -> None:
+        from datetime import datetime, timezone
+
+        with self._lock:
+            job = self._jobs[job_id]
+            job.status = JobStatus.SUCCEEDED
+            job.finished_at = datetime.now(timezone.utc)
+            job.result_message = result_message
+
+    def mark_job_failed(self, job_id: int, error_message: str) -> None:
+        from datetime import datetime, timezone
+
+        with self._lock:
+            job = self._jobs[job_id]
+            job.status = JobStatus.FAILED
+            job.finished_at = datetime.now(timezone.utc)
+            job.error_message = error_message
+
+    def requeue_incomplete_jobs(self) -> list[JobRecord]:
+        from dataclasses import replace
+
+        with self._lock:
+            jobs: list[JobRecord] = []
+            for job in self._jobs.values():
+                if job.status in {JobStatus.QUEUED, JobStatus.RUNNING}:
+                    job.status = JobStatus.QUEUED
+                    job.started_at = None
+                    jobs.append(replace(job))
+            return sorted(jobs, key=lambda item: item.id)
 
 
 class SQLiteSessionStore:
@@ -243,11 +334,108 @@ class SQLiteSessionStore:
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_grayscale') AS pdf_grayscale_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_merge') AS pdf_merge_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_rotate') AS pdf_rotate_total,
-                    (SELECT COUNT(*) FROM usage_events WHERE action = 'auto_orient') AS auto_orient_total
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'auto_orient') AS auto_orient_total,
+                    (SELECT COUNT(*) FROM jobs WHERE status = 'queued') AS jobs_queued,
+                    (SELECT COUNT(*) FROM jobs WHERE status = 'running') AS jobs_running,
+                    (SELECT COUNT(*) FROM jobs WHERE status = 'failed') AS jobs_failed
                 """
             ).fetchone()
 
         return {key: int(row[key]) for key in row.keys()}
+
+    def create_job(
+        self,
+        user_id: int,
+        chat_id: int,
+        reply_to_message_id: int | None,
+        action: str,
+        payload_json: str,
+    ) -> JobRecord:
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO jobs (
+                    user_id,
+                    chat_id,
+                    reply_to_message_id,
+                    action,
+                    payload_json,
+                    status,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (user_id, chat_id, reply_to_message_id, action, payload_json, JobStatus.QUEUED.value),
+            )
+            connection.commit()
+            job_id = int(cursor.lastrowid)
+            row = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        return _job_from_row(row)
+
+    def get_job(self, job_id: int) -> JobRecord | None:
+        with self._lock, self._connect() as connection:
+            row = connection.execute("SELECT * FROM jobs WHERE id = ?", (job_id,)).fetchone()
+        if row is None:
+            return None
+        return _job_from_row(row)
+
+    def mark_job_running(self, job_id: int) -> None:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE jobs
+                SET status = ?, started_at = CURRENT_TIMESTAMP, error_message = NULL
+                WHERE id = ?
+                """,
+                (JobStatus.RUNNING.value, job_id),
+            )
+            connection.commit()
+
+    def mark_job_succeeded(self, job_id: int, result_message: str) -> None:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE jobs
+                SET status = ?, finished_at = CURRENT_TIMESTAMP, result_message = ?, error_message = NULL
+                WHERE id = ?
+                """,
+                (JobStatus.SUCCEEDED.value, result_message, job_id),
+            )
+            connection.commit()
+
+    def mark_job_failed(self, job_id: int, error_message: str) -> None:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE jobs
+                SET status = ?, finished_at = CURRENT_TIMESTAMP, error_message = ?
+                WHERE id = ?
+                """,
+                (JobStatus.FAILED.value, error_message, job_id),
+            )
+            connection.commit()
+
+    def requeue_incomplete_jobs(self) -> list[JobRecord]:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE jobs
+                SET status = ?, started_at = NULL
+                WHERE status IN (?, ?)
+                """,
+                (JobStatus.QUEUED.value, JobStatus.QUEUED.value, JobStatus.RUNNING.value),
+            )
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM jobs
+                WHERE status = ?
+                ORDER BY id ASC
+                """,
+                (JobStatus.QUEUED.value,),
+            ).fetchall()
+            connection.commit()
+        return [_job_from_row(row) for row in rows]
 
     def _initialize(self) -> None:
         with self._lock, self._connect() as connection:
@@ -296,6 +484,24 @@ class SQLiteSessionStore:
 
                 CREATE INDEX IF NOT EXISTS idx_usage_events_action
                     ON usage_events(action);
+
+                CREATE TABLE IF NOT EXISTS jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    chat_id INTEGER NOT NULL,
+                    reply_to_message_id INTEGER,
+                    action TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    finished_at TEXT,
+                    result_message TEXT,
+                    error_message TEXT
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_jobs_status_created_at
+                    ON jobs(status, created_at);
                 """
             )
             connection.commit()
@@ -310,3 +516,28 @@ def _from_isoformat(value: str):
     from datetime import datetime
 
     return datetime.fromisoformat(value)
+
+
+def _from_sqlite_datetime(value: str | None):
+    from datetime import datetime, timezone
+
+    if value is None:
+        return None
+    return datetime.fromisoformat(value.replace(" ", "T")).replace(tzinfo=timezone.utc)
+
+
+def _job_from_row(row: sqlite3.Row) -> JobRecord:
+    return JobRecord(
+        id=row["id"],
+        user_id=row["user_id"],
+        chat_id=row["chat_id"],
+        reply_to_message_id=row["reply_to_message_id"],
+        action=row["action"],
+        payload_json=row["payload_json"],
+        status=JobStatus(row["status"]),
+        created_at=_from_sqlite_datetime(row["created_at"]),
+        started_at=_from_sqlite_datetime(row["started_at"]),
+        finished_at=_from_sqlite_datetime(row["finished_at"]),
+        result_message=row["result_message"],
+        error_message=row["error_message"],
+    )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -36,7 +37,7 @@ from docmolder.messages import (
     UNAUTHORIZED_MESSAGE,
     WELCOME_MESSAGE,
 )
-from docmolder.models import CompressionPreset, FileKind, SupportedAction, UserSession
+from docmolder.models import CompressionPreset, FileKind, JobRecord, SupportedAction, UserSession
 from docmolder.processing import DocumentProcessor, ProcessingResult, ProcessingUserError
 from docmolder.services import (
     build_output_stem,
@@ -61,6 +62,8 @@ class BotDependencies:
         self.session_store = session_store
         self.processor = processor
         self.pending_image_notifications: dict[int, asyncio.Task[None]] = {}
+        self.job_queue: asyncio.Queue[int] = asyncio.Queue()
+        self.job_worker_task: asyncio.Task[None] | None = None
 
 
 def _is_authorized(user_id: int | None, settings: Settings) -> bool:
@@ -79,6 +82,26 @@ def _is_admin(user_id: int | None, settings: Settings) -> bool:
 
 def _get_dependencies(context: ContextTypes.DEFAULT_TYPE) -> BotDependencies:
     return context.application.bot_data["deps"]
+
+
+async def _post_init(application: Application) -> None:
+    deps: BotDependencies = application.bot_data["deps"]
+    requeued_jobs = deps.session_store.requeue_incomplete_jobs()
+    for job in requeued_jobs:
+        await deps.job_queue.put(job.id)
+    if requeued_jobs:
+        logger.info("Ripresi %s job incompleti dalla coda persistente.", len(requeued_jobs))
+    deps.job_worker_task = application.create_task(_job_worker(application))
+
+
+async def _post_shutdown(application: Application) -> None:
+    deps: BotDependencies = application.bot_data["deps"]
+    if deps.job_worker_task is not None:
+        deps.job_worker_task.cancel()
+        try:
+            await deps.job_worker_task
+        except asyncio.CancelledError:
+            pass
 
 
 def _get_or_create_session(user_id: int, deps: BotDependencies) -> UserSession:
@@ -307,23 +330,19 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
 
-    try:
-        result = await _run_action(
-            update=update,
-            context=context,
-            action=SupportedAction(action),
-            session=session,
-        )
-    except ProcessingUserError as exc:
-        await query.edit_message_text(str(exc))
-        return
-    except Exception:
-        logger.exception("Errore durante l'azione %s", action)
-        await query.edit_message_text(GENERIC_ERROR_MESSAGE)
-        return
-
+    supported_action = SupportedAction(action)
+    job = await _enqueue_job(
+        context=context,
+        user_id=user.id,
+        chat_id=query.message.chat_id,
+        reply_to_message_id=query.message.message_id,
+        action=supported_action,
+        session=session,
+    )
     deps.session_store.delete(user.id)
-    await query.edit_message_text(result.message)
+    await query.edit_message_text(
+        f"Operazione presa in carico. Job #{job.id} in coda.\nTi scrivo qui appena ho finito."
+    )
 
 
 async def handle_compression_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -333,30 +352,29 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
     await query.answer()
     preset = (query.data or "").removeprefix("compress:")
     user = query.from_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
     _cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
         return
 
-    try:
-        result = await _run_action(
-            update=update,
-            context=context,
-            action=SupportedAction.PDF_COMPRESS,
-            session=session,
-            compression_preset=CompressionPreset(preset),
-        )
-    except ProcessingUserError as exc:
-        await query.edit_message_text(str(exc))
-        return
-    except Exception:
-        logger.exception("Errore durante la compressione")
-        await query.edit_message_text(GENERIC_ERROR_MESSAGE)
-        return
-
+    job = await _enqueue_job(
+        context=context,
+        user_id=user.id,
+        chat_id=query.message.chat_id,
+        reply_to_message_id=query.message.message_id,
+        action=SupportedAction.PDF_COMPRESS,
+        session=session,
+        compression_preset=CompressionPreset(preset),
+    )
     deps.session_store.delete(user.id)
-    await query.edit_message_text(result.message)
+    await query.edit_message_text(
+        f"Compressione presa in carico. Job #{job.id} in coda.\nTi invio il PDF appena è pronto."
+    )
 
 
 async def handle_rotation_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -366,30 +384,29 @@ async def handle_rotation_callback(update: Update, context: ContextTypes.DEFAULT
     await query.answer()
     degrees = int((query.data or "").removeprefix("rotate:"))
     user = query.from_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
     _cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
         return
 
-    try:
-        result = await _run_action(
-            update=update,
-            context=context,
-            action=SupportedAction.PDF_ROTATE,
-            session=session,
-            rotate_degrees=degrees,
-        )
-    except ProcessingUserError as exc:
-        await query.edit_message_text(str(exc))
-        return
-    except Exception:
-        logger.exception("Errore durante la rotazione PDF")
-        await query.edit_message_text(GENERIC_ERROR_MESSAGE)
-        return
-
+    job = await _enqueue_job(
+        context=context,
+        user_id=user.id,
+        chat_id=query.message.chat_id,
+        reply_to_message_id=query.message.message_id,
+        action=SupportedAction.PDF_ROTATE,
+        session=session,
+        rotate_degrees=degrees,
+    )
     deps.session_store.delete(user.id)
-    await query.edit_message_text(result.message)
+    await query.edit_message_text(
+        f"Rotazione presa in carico. Job #{job.id} in coda.\nTi invio il risultato appena è pronto."
+    )
 
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -482,6 +499,10 @@ def _build_admin_report(stats: dict[str, int]) -> str:
         f"Operazioni completate ultime 24 ore: {stats['completed_actions_last_24h']}\n"
         f"Operazioni completate ultimi 7 giorni: {stats['completed_actions_last_7d']}\n"
         f"Sessioni attive ora: {stats['active_sessions']}\n\n"
+        "Stato coda:\n"
+        f"- In coda: {stats['jobs_queued']}\n"
+        f"- In lavorazione: {stats['jobs_running']}\n"
+        f"- Falliti: {stats['jobs_failed']}\n\n"
         "Dettaglio operazioni:\n"
         f"- PDF da immagini: {stats['images_to_pdf_total']}\n"
         f"- Comprimi PDF: {stats['pdf_compress_total']}\n"
@@ -502,7 +523,13 @@ def build_application(settings: Settings) -> Application:
     processor = DocumentProcessor(runtime_dir=settings.runtime_dir)
     deps = BotDependencies(settings=settings, session_store=session_store, processor=processor)
 
-    application = Application.builder().token(settings.telegram_token).build()
+    application = (
+        Application.builder()
+        .token(settings.telegram_token)
+        .post_init(_post_init)
+        .post_shutdown(_post_shutdown)
+        .build()
+    )
     application.bot_data["deps"] = deps
 
     application.add_handler(CommandHandler("start", start_command))
@@ -598,50 +625,143 @@ def _build_image_session_message(session: UserSession) -> str:
     )
 
 
-async def _run_action(
-    update: Update,
+async def _enqueue_job(
     context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    chat_id: int,
+    reply_to_message_id: int | None,
     action: SupportedAction,
     session: UserSession,
     compression_preset: CompressionPreset | None = None,
     rotate_degrees: int | None = None,
-) -> ProcessingResult:
+) -> JobRecord:
     deps = _get_dependencies(context)
-    message = update.effective_message or update.callback_query.message
     if action not in infer_supported_actions(session):
-        raise ValueError(f"Azione non valida per la sessione corrente: {action}")
-    await message.reply_text(PROCESSING_MESSAGE)
+        raise ProcessingUserError("L'azione scelta non è più disponibile per la sessione corrente.")
+    payload = {
+        "files": [
+            {
+                "telegram_file_id": item.telegram_file_id,
+                "file_name": item.file_name,
+                "kind": item.kind.value,
+            }
+            for item in session.files
+        ],
+        "compression_preset": compression_preset.value if compression_preset else None,
+        "rotate_degrees": rotate_degrees,
+    }
+    job = deps.session_store.create_job(
+        user_id=user_id,
+        chat_id=chat_id,
+        reply_to_message_id=reply_to_message_id,
+        action=action.value,
+        payload_json=json.dumps(payload),
+    )
+    await deps.job_queue.put(job.id)
+    return job
+
+
+async def _job_worker(application: Application) -> None:
+    deps: BotDependencies = application.bot_data["deps"]
+    while True:
+        job_id = await deps.job_queue.get()
+        try:
+            await _process_job(application, job_id)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Errore non gestito nel worker del job %s", job_id)
+        finally:
+            deps.job_queue.task_done()
+
+
+async def _process_job(application: Application, job_id: int) -> None:
+    deps: BotDependencies = application.bot_data["deps"]
+    job = deps.session_store.get_job(job_id)
+    if job is None:
+        return
+
+    deps.session_store.mark_job_running(job_id)
+    job = deps.session_store.get_job(job_id)
+    if job is None:
+        return
+
+    await application.bot.send_message(
+        chat_id=job.chat_id,
+        text=f"{PROCESSING_MESSAGE}\nJob #{job.id} in elaborazione.",
+        reply_to_message_id=job.reply_to_message_id,
+    )
+
+    try:
+        result = await _run_job_payload(application, job)
+    except ProcessingUserError as exc:
+        deps.session_store.mark_job_failed(job.id, str(exc))
+        await application.bot.send_message(
+            chat_id=job.chat_id,
+            text=f"Job #{job.id} non riuscito.\n{exc}",
+            reply_to_message_id=job.reply_to_message_id,
+        )
+        return
+    except Exception:
+        logger.exception("Errore durante il job %s", job.id)
+        deps.session_store.mark_job_failed(job.id, GENERIC_ERROR_MESSAGE)
+        await application.bot.send_message(
+            chat_id=job.chat_id,
+            text=f"Job #{job.id} non riuscito.\n{GENERIC_ERROR_MESSAGE}",
+            reply_to_message_id=job.reply_to_message_id,
+        )
+        return
+
+    deps.session_store.mark_job_succeeded(job.id, result.message)
+    deps.session_store.record_completed_action(job.user_id, job.action)
+    await _send_result(application.bot, job.chat_id, job.reply_to_message_id, result)
+
+
+async def _run_job_payload(
+    application: Application,
+    job: JobRecord,
+) -> ProcessingResult:
+    deps: BotDependencies = application.bot_data["deps"]
+    payload = json.loads(job.payload_json)
+    session = UserSession(
+        user_id=job.user_id,
+        files=[
+            build_session_file(
+                file_id=item["telegram_file_id"],
+                file_name=item["file_name"],
+                kind=FileKind(item["kind"]),
+            )
+            for item in payload["files"]
+        ],
+    )
 
     job_dir = deps.processor.create_job_dir(session.user_id)
     try:
         input_dir = job_dir / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
-        downloaded_paths = await _download_session_files(context, session, input_dir)
+        downloaded_paths = await _download_session_files(application, session, input_dir)
 
         result = await asyncio.to_thread(
             deps.processor.process,
-            action,
+            SupportedAction(job.action),
             downloaded_paths,
-            build_output_stem(action),
-            compression_preset,
-            rotate_degrees,
+            build_output_stem(SupportedAction(job.action)),
+            CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None,
+            payload.get("rotate_degrees"),
         )
-
-        await _send_result(message, result)
-        deps.session_store.record_completed_action(session.user_id, action.value)
         return result
     finally:
         deps.processor.cleanup_job_dir(job_dir)
 
 
 async def _download_session_files(
-    context: ContextTypes.DEFAULT_TYPE,
+    application: Application,
     session: UserSession,
     input_dir: Path,
 ) -> list[Path]:
     downloaded_paths: list[Path] = []
     for index, session_file in enumerate(session.files, start=1):
-        telegram_file = await context.bot.get_file(session_file.telegram_file_id)
+        telegram_file = await application.bot.get_file(session_file.telegram_file_id)
         file_name = sanitize_filename(session_file.file_name)
         target_path = input_dir / f"{index:02d}_{file_name}"
         await telegram_file.download_to_drive(custom_path=str(target_path))
@@ -649,10 +769,12 @@ async def _download_session_files(
     return downloaded_paths
 
 
-async def _send_result(message, result: ProcessingResult) -> None:
+async def _send_result(bot, chat_id: int, reply_to_message_id: int | None, result: ProcessingResult) -> None:
     with result.output_path.open("rb") as payload:
-        await message.reply_document(
+        await bot.send_document(
+            chat_id=chat_id,
             document=payload,
             filename=result.output_name,
             caption=result.message,
+            reply_to_message_id=reply_to_message_id,
         )

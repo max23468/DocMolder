@@ -26,17 +26,13 @@ Questa pagina contiene solo le cose ancora aperte, parziali o fuori scope di `Do
 
 ## Prossimi Miglioramenti
 
-1. tabella `jobs`
-   tracciare stato, tempi, esiti ed errori di ogni operazione
-2. coda operazioni più robusta
-   evitare collisioni, migliorare stabilità e serializzare meglio i carichi
-3. cleanup schedulato
+1. cleanup schedulato
    ripulire eventuali residui in caso di crash o interruzioni anomale
-4. rate limit
+2. rate limit
    proteggere il bot da abuso, flood e uso troppo pesante
-5. admin tools più evoluti
+3. admin tools più evoluti
    top utenti, report periodici, metriche giornaliere, diagnostica più utile
-6. pipeline PDF ancora migliore
+4. pipeline PDF ancora migliore
    preservare ancora meglio testo, struttura e qualità nei PDF nativi
-7. setup locale più user-friendly
+5. setup locale più user-friendly
    documentare meglio attivazione del venv, avvio locale e flussi tipici di sviluppo

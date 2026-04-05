@@ -30,6 +30,13 @@ class FileKind(StrEnum):
     PDF = "pdf"
 
 
+class JobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
 @dataclass(slots=True)
 class SessionFile:
     telegram_file_id: str
@@ -51,3 +58,19 @@ class UserSession:
 
     def is_expired(self, ttl_minutes: int) -> bool:
         return datetime.now(timezone.utc) > self.updated_at + timedelta(minutes=ttl_minutes)
+
+
+@dataclass(slots=True)
+class JobRecord:
+    id: int
+    user_id: int
+    chat_id: int
+    reply_to_message_id: int | None
+    action: str
+    payload_json: str
+    status: JobStatus
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    result_message: str | None = None
+    error_message: str | None = None
