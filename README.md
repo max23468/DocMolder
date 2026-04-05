@@ -21,7 +21,7 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 
-La specifica operativa del MVP è in [`docs/MVP.md`](docs/MVP.md).
+La checklist consolidata del progetto è in [`docs/CHECKLIST.md`](docs/CHECKLIST.md).
 
 ## Flusso utente
 
