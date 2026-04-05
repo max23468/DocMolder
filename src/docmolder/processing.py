@@ -6,6 +6,7 @@ import subprocess
 import uuid
 import zipfile
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 
@@ -45,6 +46,31 @@ class DocumentProcessor:
 
     def cleanup_job_dir(self, job_dir: Path) -> None:
         shutil.rmtree(job_dir, ignore_errors=True)
+
+    def cleanup_stale_job_dirs(self, max_age_hours: int) -> int:
+        jobs_dir = self.runtime_dir / "jobs"
+        if not jobs_dir.exists():
+            return 0
+
+        threshold = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+        removed_count = 0
+        for job_dir in jobs_dir.iterdir():
+            if not job_dir.is_dir():
+                continue
+            try:
+                modified_at = datetime.fromtimestamp(job_dir.stat().st_mtime, tz=timezone.utc)
+            except OSError:
+                continue
+            if modified_at > threshold:
+                continue
+            try:
+                shutil.rmtree(job_dir, ignore_errors=False)
+                removed_count += 1
+            except FileNotFoundError:
+                continue
+            except OSError:
+                logger.exception("Impossibile ripulire la cartella temporanea %s", job_dir)
+        return removed_count
 
     def process(
         self,

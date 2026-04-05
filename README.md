@@ -93,16 +93,16 @@ Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPL
 - `DOCMOLDER_SESSION_TTL_MINUTES`
 - `DOCMOLDER_MAX_SESSION_FILES`
 - `DOCMOLDER_MAX_FILE_SIZE_MB`
+- `DOCMOLDER_CLEANUP_INTERVAL_MINUTES`
+- `DOCMOLDER_STALE_JOB_RETENTION_HOURS`
 - `DOCMOLDER_RUNTIME_DIR`
 - `DOCMOLDER_DATABASE_PATH`
 
 ## Prossimi passi suggeriti
 
-1. Aggiungere una coda delle operazioni e stati avanzati
-2. Introdurre retention e cleanup schedulato
-3. Introdurre `Ghostscript` o strumenti equivalenti nel runtime di deploy
-4. Gestire limiti, rate limit e osservabilità
-5. Introdurre test automatici sui flussi principali
+1. Gestire rate limit e osservabilità
+2. Ampliare i test automatici sui flussi principali
+3. Rifinire ancora la pipeline PDF sui casi più complessi
 
 ## Monitoraggio admin
 

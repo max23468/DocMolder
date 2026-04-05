@@ -26,13 +26,11 @@ Questa pagina contiene solo le cose ancora aperte, parziali o fuori scope di `Do
 
 ## Prossimi Miglioramenti
 
-1. cleanup schedulato
-   ripulire eventuali residui in caso di crash o interruzioni anomale
-2. rate limit
+1. rate limit
    proteggere il bot da abuso, flood e uso troppo pesante
-3. admin tools più evoluti
+2. admin tools più evoluti
    top utenti, report periodici, metriche giornaliere, diagnostica più utile
-4. pipeline PDF ancora migliore
+3. pipeline PDF ancora migliore
    preservare ancora meglio testo, struttura e qualità nei PDF nativi
-5. setup locale più user-friendly
+4. setup locale più user-friendly
    documentare meglio attivazione del venv, avvio locale e flussi tipici di sviluppo

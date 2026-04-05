@@ -64,6 +64,7 @@ class BotDependencies:
         self.pending_image_notifications: dict[int, asyncio.Task[None]] = {}
         self.job_queue: asyncio.Queue[int] = asyncio.Queue()
         self.job_worker_task: asyncio.Task[None] | None = None
+        self.cleanup_task: asyncio.Task[None] | None = None
 
 
 def _is_authorized(user_id: int | None, settings: Settings) -> bool:
@@ -86,12 +87,14 @@ def _get_dependencies(context: ContextTypes.DEFAULT_TYPE) -> BotDependencies:
 
 async def _post_init(application: Application) -> None:
     deps: BotDependencies = application.bot_data["deps"]
+    _run_cleanup_cycle(deps)
     requeued_jobs = deps.session_store.requeue_incomplete_jobs()
     for job in requeued_jobs:
         await deps.job_queue.put(job.id)
     if requeued_jobs:
         logger.info("Ripresi %s job incompleti dalla coda persistente.", len(requeued_jobs))
     deps.job_worker_task = asyncio.create_task(_job_worker(application))
+    deps.cleanup_task = asyncio.create_task(_cleanup_worker(deps))
 
 
 async def _post_shutdown(application: Application) -> None:
@@ -100,6 +103,12 @@ async def _post_shutdown(application: Application) -> None:
         deps.job_worker_task.cancel()
         try:
             await deps.job_worker_task
+        except asyncio.CancelledError:
+            pass
+    if deps.cleanup_task is not None:
+        deps.cleanup_task.cancel()
+        try:
+            await deps.cleanup_task
         except asyncio.CancelledError:
             pass
 
@@ -673,6 +682,24 @@ async def _job_worker(application: Application) -> None:
             logger.exception("Errore non gestito nel worker del job %s", job_id)
         finally:
             deps.job_queue.task_done()
+
+
+async def _cleanup_worker(deps: BotDependencies) -> None:
+    interval_seconds = max(60, deps.settings.cleanup_interval_minutes * 60)
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            _run_cleanup_cycle(deps)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Errore durante il cleanup schedulato.")
+
+
+def _run_cleanup_cycle(deps: BotDependencies) -> None:
+    removed_dirs = deps.processor.cleanup_stale_job_dirs(deps.settings.stale_job_retention_hours)
+    if removed_dirs:
+        logger.info("Cleanup schedulato: rimosse %s cartelle temporanee residue.", removed_dirs)
 
 
 async def _process_job(application: Application, job_id: int) -> None:
