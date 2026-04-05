@@ -17,6 +17,10 @@ from docmolder.models import CompressionPreset, SupportedAction
 
 logger = logging.getLogger(__name__)
 
+A4_WIDTH_PX = 1240
+A4_HEIGHT_PX = 1754
+A4_MARGIN_PX = 90
+
 
 @dataclass(slots=True)
 class ProcessingResult:
@@ -74,7 +78,7 @@ class DocumentProcessor:
                         corrected = corrected.convert("RGB")
                     elif corrected.mode == "L":
                         corrected = corrected.convert("RGB")
-                    prepared_images.append(corrected.copy())
+                    prepared_images.append(self._build_a4_page(corrected))
 
             first, *rest = prepared_images
             first.save(output_path, "PDF", save_all=True, append_images=rest, resolution=150.0)
@@ -85,7 +89,7 @@ class DocumentProcessor:
         return ProcessingResult(
             output_path=output_path,
             output_name=output_path.name,
-            message="PDF creato con successo a partire dalle immagini ricevute.",
+            message="PDF creato con successo in formato A4 con margini a partire dalle immagini ricevute.",
         )
 
     def merge_pdfs(self, pdf_paths: list[Path], output_stem: str) -> ProcessingResult:
@@ -115,7 +119,7 @@ class DocumentProcessor:
             )
         message = "PDF convertito in scala di grigi."
         if shutil.which("gs") is None:
-            message += " Ho usato una soluzione visiva di ripiego per garantire compatibilita."
+            message += " Ho usato una soluzione visiva di ripiego per garantire compatibilità."
         return ProcessingResult(output_path=output_path, output_name=output_path.name, message=message)
 
     def compress_pdf(self, pdf_path: Path, output_stem: str, preset: CompressionPreset) -> ProcessingResult:
@@ -304,7 +308,7 @@ class DocumentProcessor:
             subprocess.run(command, check=True, capture_output=True, text=True)
             return True
         except subprocess.CalledProcessError:
-            logger.exception("Ghostscript non e riuscito a convertire il PDF in scala di grigi.")
+            logger.exception("Ghostscript non è riuscito a convertire il PDF in scala di grigi.")
             return False
 
     def _subset_fonts_if_possible(self, document: fitz.Document) -> None:
@@ -314,3 +318,17 @@ class DocumentProcessor:
                 subset_fonts()
             except Exception:
                 logger.exception("Subset dei font non riuscito, continuo senza questo passaggio.")
+
+    def _build_a4_page(self, image: Image.Image) -> Image.Image:
+        page = Image.new("RGB", (A4_WIDTH_PX, A4_HEIGHT_PX), "white")
+        available_width = A4_WIDTH_PX - (2 * A4_MARGIN_PX)
+        available_height = A4_HEIGHT_PX - (2 * A4_MARGIN_PX)
+
+        content = image.copy()
+        content.thumbnail((available_width, available_height), Image.Resampling.LANCZOS)
+
+        offset_x = (A4_WIDTH_PX - content.width) // 2
+        offset_y = (A4_HEIGHT_PX - content.height) // 2
+        page.paste(content, (offset_x, offset_y))
+        content.close()
+        return page

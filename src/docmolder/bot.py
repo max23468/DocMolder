@@ -47,6 +47,7 @@ class BotDependencies:
         self.settings = settings
         self.session_store = session_store
         self.processor = processor
+        self.pending_image_notifications: dict[int, asyncio.Task[None]] = {}
 
 
 def _is_authorized(user_id: int | None, settings: Settings) -> bool:
@@ -71,6 +72,12 @@ def _get_or_create_session(user_id: int, deps: BotDependencies) -> UserSession:
 
 def _purge_expired_sessions(deps: BotDependencies) -> None:
     deps.session_store.purge_expired(deps.settings.session_ttl_minutes)
+
+
+def _cancel_pending_image_notification(user_id: int, deps: BotDependencies) -> None:
+    task = deps.pending_image_notifications.pop(user_id, None)
+    if task is not None:
+        task.cancel()
 
 
 def _filter_keyboard_for_session(session: UserSession) -> InlineKeyboardMarkup | None:
@@ -106,6 +113,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.effective_message.reply_text(UNAUTHORIZED_MESSAGE)
         return
 
+    _cancel_pending_image_notification(user.id, deps)
     deps.session_store.delete(user.id)
     await update.effective_message.reply_text("Sessione azzerata. Puoi inviarmi nuovi file quando vuoi.")
 
@@ -149,13 +157,18 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     session = _get_or_create_session(user.id, deps)
     if len(session.files) >= deps.settings.max_session_files:
-        await message.reply_text("Hai raggiunto il numero massimo di file per questa sessione. Usa /reset per ripartire.")
+        await message.reply_text("Hai raggiunto il numero massimo di file per questa sessione. Usa /reset per ricominciare.")
         return
 
     session.files.append(build_session_file(document.file_id, document.file_name, kind))
     session.touch()
     deps.session_store.save(session)
 
+    if kind == FileKind.IMAGE:
+        _schedule_image_session_notification(chat_id=message.chat_id, user_id=user.id, context=context)
+        return
+
+    _cancel_pending_image_notification(user.id, deps)
     await message.reply_text(
         f"File ricevuto. {describe_session(session)}\nScegli la prossima azione.",
         reply_markup=_filter_keyboard_for_session(session),
@@ -177,7 +190,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     session = _get_or_create_session(user.id, deps)
     if len(session.files) >= deps.settings.max_session_files:
-        await message.reply_text("Hai raggiunto il numero massimo di file per questa sessione. Usa /reset per ripartire.")
+        await message.reply_text("Hai raggiunto il numero massimo di file per questa sessione. Usa /reset per ricominciare.")
         return
 
     best_photo = _pick_best_photo(photos)
@@ -186,10 +199,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     session.touch()
     deps.session_store.save(session)
 
-    await message.reply_text(
-        f"Immagine ricevuta. {describe_session(session)}\nTi mostro le azioni disponibili.",
-        reply_markup=_filter_keyboard_for_session(session),
-    )
+    _schedule_image_session_notification(chat_id=message.chat_id, user_id=user.id, context=context)
 
 
 async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -203,6 +213,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
         return
 
+    _cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
@@ -246,6 +257,7 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
     await query.answer()
     preset = (query.data or "").removeprefix("compress:")
     user = query.from_user
+    _cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
@@ -275,6 +287,7 @@ async def handle_rotation_callback(update: Update, context: ContextTypes.DEFAULT
     await query.answer()
     degrees = int((query.data or "").removeprefix("rotate:"))
     user = query.from_user
+    _cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
@@ -339,6 +352,59 @@ def _infer_document_kind(document: Document) -> FileKind | None:
 
 def _pick_best_photo(photos: list[PhotoSize]) -> PhotoSize:
     return max(photos, key=lambda item: item.file_size or 0)
+
+
+def _schedule_image_session_notification(
+    chat_id: int,
+    user_id: int,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    deps = _get_dependencies(context)
+    _cancel_pending_image_notification(user_id, deps)
+    task = asyncio.create_task(_send_image_session_notification(chat_id, user_id, context))
+    deps.pending_image_notifications[user_id] = task
+
+
+async def _send_image_session_notification(
+    chat_id: int,
+    user_id: int,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    deps = _get_dependencies(context)
+    try:
+        await asyncio.sleep(1.2)
+        session = deps.session_store.get(user_id)
+        if session is None or not session.files:
+            return
+        if {item.kind for item in session.files} != {FileKind.IMAGE}:
+            return
+
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=_build_image_session_message(session),
+            reply_markup=_filter_keyboard_for_session(session),
+        )
+    except asyncio.CancelledError:
+        raise
+    finally:
+        current_task = deps.pending_image_notifications.get(user_id)
+        if current_task is asyncio.current_task():
+            deps.pending_image_notifications.pop(user_id, None)
+
+
+def _build_image_session_message(session: UserSession) -> str:
+    image_count = sum(1 for item in session.files if item.kind == FileKind.IMAGE)
+    if image_count == 1:
+        return (
+            "Immagine ricevuta.\n"
+            "Puoi inviarmi altre immagini per creare un PDF unico in formato A4 con margini, "
+            "oppure scegliere subito un'azione."
+        )
+
+    return (
+        f"Ho ricevuto {image_count} immagini nella stessa sessione.\n"
+        "Puoi creare un PDF unico in formato A4 con margini oppure correggere l'orientamento."
+    )
 
 
 async def _run_action(
