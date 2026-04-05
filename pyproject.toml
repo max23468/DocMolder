@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docmolder"
+version = "0.1.0"
+description = "Bot Telegram per trasformazioni documentali in italiano"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "python-telegram-bot>=21.0,<22.0",
+  "pydantic>=2.6,<3.0",
+  "pydantic-settings>=2.2,<3.0",
+  "pillow>=10.2,<11.0",
+  "pymupdf>=1.24,<2.0",
+  "pypdf>=4.2,<5.0",
+]
+
+[project.scripts]
+docmolder = "docmolder.main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
