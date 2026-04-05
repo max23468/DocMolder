@@ -19,10 +19,3 @@ Questa pagina contiene solo le cose ancora aperte, parziali o fuori scope di `Do
   già migliorata rispetto allo scaffold iniziale, ma ancora perfezionabile
 - robustezza edge case PDF
   coperti i casi più comuni, non ancora un catalogo ampio di PDF anomali
-- setup locale user-friendly
-  l'ambiente locale è pronto, ma l'uso quotidiano da sviluppatore non è ancora documentato bene
-
-## Prossimi Miglioramenti
-
-1. setup locale più user-friendly
-   documentare meglio attivazione del venv, avvio locale e flussi tipici di sviluppo

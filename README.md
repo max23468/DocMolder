@@ -74,11 +74,15 @@ Questo ci permette di preservare meglio il contenuto nativo dei PDF quando l'amb
 
 ## Avvio locale
 
-1. Crea un ambiente virtuale Python.
-2. Installa le dipendenze con `pip install -e .`
-3. Copia `.env.example` in `.env`
-4. Inserisci il token del bot e le altre variabili ambiente necessarie
-5. Avvia con `docmolder`
+Il modo piu rapido per lavorare in locale e:
+
+```bash
+make setup
+cp .env.example .env
+make run
+```
+
+Per la guida completa, vedi [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md).
 
 ## Deploy Oracle
 
