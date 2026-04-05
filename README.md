@@ -88,6 +88,7 @@ Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPL
 - `DOCMOLDER_TELEGRAM_TOKEN`
 - `DOCMOLDER_ALLOWED_USER_IDS` facoltativa
 - `DOCMOLDER_ADMIN_USER_IDS` facoltativa
+  gli admin ricevono un messaggio privato dal bot al primo accesso di ogni nuovo utente
 - `DOCMOLDER_DEFAULT_LANGUAGE`
 - `DOCMOLDER_SESSION_TTL_MINUTES`
 - `DOCMOLDER_MAX_SESSION_FILES`

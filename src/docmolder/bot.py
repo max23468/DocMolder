@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import logging
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from telegram import Document, InlineKeyboardMarkup, PhotoSize, Update, User
+from telegram.constants import ParseMode
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -391,21 +395,34 @@ async def _maybe_notify_admins_about_new_user(user: User | None, context: Contex
     if not is_new:
         return
 
-    lines = [
-        "Nuovo utente al primo accesso su DocMolder.",
-        f"ID: {user.id}",
-    ]
-    if user.full_name:
-        lines.append(f"Nome: {user.full_name}")
-    if user.username:
-        lines.append(f"Username: @{user.username}")
-
-    notification_text = "\n".join(lines)
+    notification_text = _build_new_user_notification(user)
     for admin_user_id in deps.settings.admin_user_ids:
         try:
-            await context.bot.send_message(chat_id=admin_user_id, text=notification_text)
+            await context.bot.send_message(
+                chat_id=admin_user_id,
+                text=notification_text,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+            )
         except Exception:
             logger.exception("Impossibile inviare la notifica nuovo utente all'admin %s", admin_user_id)
+
+
+def _build_new_user_notification(user: User) -> str:
+    timestamp = datetime.now(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y alle %H:%M:%S")
+    full_name = html.escape(user.full_name or "Sconosciuto")
+    username = f"@{html.escape(user.username)}" if user.username else "non disponibile"
+    profile_link = f'<a href="tg://user?id={user.id}">Apri profilo Telegram</a>'
+    public_link = f' | <a href="https://t.me/{html.escape(user.username)}">Apri username</a>' if user.username else ""
+
+    return (
+        "Nuovo utente al primo accesso su <b>DocMolder</b>.\n"
+        f"Data e ora: {timestamp}\n"
+        f"ID utente: <code>{user.id}</code>\n"
+        f"Nome: {full_name}\n"
+        f"Username: {username}\n"
+        f"Link: {profile_link}{public_link}"
+    )
 
 
 def build_application(settings: Settings) -> Application:
