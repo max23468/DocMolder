@@ -108,9 +108,7 @@ Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPL
 
 ## Prossimi passi suggeriti
 
-1. Gestire rate limit e osservabilità
-2. Ampliare i test automatici sui flussi principali
-3. Rifinire ancora la pipeline PDF sui casi più complessi
+La roadmap post-MVP del progetto è in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Monitoraggio admin
 
