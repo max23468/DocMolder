@@ -5,9 +5,12 @@ import unittest
 from pathlib import Path
 import sys
 
+from pypdf import PdfWriter
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.processing import DocumentProcessor
+from docmolder.models import CompressionPreset
+from docmolder.processing import DocumentProcessor, ProcessingUserError
 
 
 class DocumentProcessorPipelineTest(unittest.TestCase):
@@ -45,6 +48,36 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertIn("-dPDFSETTINGS=/ebook", command)
         self.assertIn(f"-sOutputFile={output_path}", command)
         self.assertEqual(command[-1], str(pdf_path))
+
+    def test_merge_requires_at_least_two_pdfs(self) -> None:
+        with self.assertRaises(ProcessingUserError):
+            self.processor.merge_pdfs([], "merged")
+
+    def test_images_to_pdf_requires_inputs(self) -> None:
+        with self.assertRaises(ProcessingUserError):
+            self.processor.images_to_pdf([], "images")
+
+    def test_auto_orient_requires_inputs(self) -> None:
+        with self.assertRaises(ProcessingUserError):
+            self.processor.auto_orient_images([], "oriented")
+
+    def test_grayscale_rejects_invalid_pdf(self) -> None:
+        invalid_pdf = self.runtime_dir / "invalid.pdf"
+        invalid_pdf.write_text("not a real pdf", encoding="utf-8")
+
+        with self.assertRaises(ProcessingUserError):
+            self.processor.pdf_to_grayscale(invalid_pdf, "grayscale")
+
+    def test_compress_rejects_password_protected_pdf(self) -> None:
+        protected_pdf = self.runtime_dir / "protected.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=200)
+        writer.encrypt("secret")
+        with protected_pdf.open("wb") as handle:
+            writer.write(handle)
+
+        with self.assertRaises(ProcessingUserError):
+            self.processor.compress_pdf(protected_pdf, "compressed", CompressionPreset.MEDIUM)
 
 
 if __name__ == "__main__":

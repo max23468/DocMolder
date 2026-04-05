@@ -99,6 +99,8 @@ class DocumentProcessor:
         raise ValueError(f"Azione non supportata: {action}")
 
     def images_to_pdf(self, image_paths: list[Path], output_stem: str) -> ProcessingResult:
+        if not image_paths:
+            raise ProcessingUserError("Non ho ricevuto immagini da convertire in PDF.")
         output_path = image_paths[0].parent.parent / f"{output_stem}.pdf"
         prepared_images: list[Image.Image] = []
         try:
@@ -124,6 +126,8 @@ class DocumentProcessor:
         )
 
     def merge_pdfs(self, pdf_paths: list[Path], output_stem: str) -> ProcessingResult:
+        if len(pdf_paths) < 2:
+            raise ProcessingUserError("Per unire i PDF devo riceverne almeno due.")
         output_path = pdf_paths[0].parent.parent / f"{output_stem}.pdf"
         writer = PdfWriter()
         try:
@@ -162,7 +166,7 @@ class DocumentProcessor:
 
         message = "PDF convertito in scala di grigi."
         if conversion_mode == "native":
-            message += " Ho preservato la struttura del PDF dove possibile."
+            message += " Ho convertito soprattutto le immagini interne e preservato la struttura del PDF dove possibile."
         elif conversion_mode == "raster":
             message += " Ho usato una soluzione visiva di ripiego per garantire compatibilità."
         return ProcessingResult(output_path=output_path, output_name=output_path.name, message=message)
@@ -251,6 +255,8 @@ class DocumentProcessor:
         )
 
     def auto_orient_images(self, image_paths: list[Path], output_stem: str) -> ProcessingResult:
+        if not image_paths:
+            raise ProcessingUserError("Non ho ricevuto immagini da correggere.")
         corrected_paths: list[Path] = []
         for index, image_path in enumerate(image_paths, start=1):
             suffix = image_path.suffix.lower() or ".jpg"
