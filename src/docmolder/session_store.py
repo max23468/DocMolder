@@ -42,6 +42,8 @@ class SessionStore(Protocol):
 
     def requeue_incomplete_jobs(self) -> list[JobRecord]: ...
 
+    def count_active_jobs_for_user(self, user_id: int) -> int: ...
+
 
 class InMemorySessionStore:
     def __init__(self) -> None:
@@ -172,6 +174,14 @@ class InMemorySessionStore:
                     job.started_at = None
                     jobs.append(replace(job))
             return sorted(jobs, key=lambda item: item.id)
+
+    def count_active_jobs_for_user(self, user_id: int) -> int:
+        with self._lock:
+            return sum(
+                1
+                for job in self._jobs.values()
+                if job.user_id == user_id and job.status in {JobStatus.QUEUED, JobStatus.RUNNING}
+            )
 
 
 class SQLiteSessionStore:
@@ -436,6 +446,18 @@ class SQLiteSessionStore:
             ).fetchall()
             connection.commit()
         return [_job_from_row(row) for row in rows]
+
+    def count_active_jobs_for_user(self, user_id: int) -> int:
+        with self._lock, self._connect() as connection:
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS total
+                FROM jobs
+                WHERE user_id = ? AND status IN (?, ?)
+                """,
+                (user_id, JobStatus.QUEUED.value, JobStatus.RUNNING.value),
+            ).fetchone()
+        return int(row["total"])
 
     def _initialize(self) -> None:
         with self._lock, self._connect() as connection:

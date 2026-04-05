@@ -49,6 +49,16 @@ FILE_TOO_LARGE_MESSAGE = (
     "Se puoi, prova a inviarne una versione piu leggera oppure dividi il materiale in piu file."
 )
 
+UPLOAD_RATE_LIMIT_MESSAGE = (
+    "Stai inviando file troppo rapidamente. "
+    "Aspetta un attimo e poi riprova con calma."
+)
+
+JOB_QUEUE_LIMIT_MESSAGE = (
+    "Hai gia troppe operazioni in coda o in lavorazione. "
+    "Aspetta che il bot finisca i job gia presi in carico, poi potrai inviarne altri."
+)
+
 PROCESSING_MESSAGE = "Sto elaborando i file. Potrebbe volerci qualche secondo."
 
 GENERIC_ERROR_MESSAGE = (

@@ -4,7 +4,8 @@ import asyncio
 import html
 import json
 import logging
-from datetime import datetime
+from collections import deque
+from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -31,10 +32,12 @@ from docmolder.messages import (
     FILE_TOO_LARGE_MESSAGE,
     GENERIC_ERROR_MESSAGE,
     HELP_MESSAGE,
+    JOB_QUEUE_LIMIT_MESSAGE,
     MIXED_SESSION_MESSAGE,
     PROCESSING_MESSAGE,
     SESSION_EMPTY_MESSAGE,
     UNAUTHORIZED_MESSAGE,
+    UPLOAD_RATE_LIMIT_MESSAGE,
     WELCOME_MESSAGE,
 )
 from docmolder.models import CompressionPreset, FileKind, JobRecord, SupportedAction, UserSession
@@ -65,6 +68,7 @@ class BotDependencies:
         self.job_queue: asyncio.Queue[int] = asyncio.Queue()
         self.job_worker_task: asyncio.Task[None] | None = None
         self.cleanup_task: asyncio.Task[None] | None = None
+        self.upload_history: dict[int, deque[datetime]] = {}
 
 
 def _is_authorized(user_id: int | None, settings: Settings) -> bool:
@@ -129,6 +133,27 @@ def _cancel_pending_image_notification(user_id: int, deps: BotDependencies) -> N
     task = deps.pending_image_notifications.pop(user_id, None)
     if task is not None:
         task.cancel()
+
+
+def _consume_upload_slot(user_id: int, deps: BotDependencies) -> bool:
+    now = datetime.now(timezone.utc)
+    window_seconds = deps.settings.upload_burst_window_seconds
+    max_uploads = deps.settings.upload_burst_limit
+    history = deps.upload_history.setdefault(user_id, deque())
+    threshold = now.timestamp() - window_seconds
+
+    while history and history[0].timestamp() < threshold:
+        history.popleft()
+
+    if len(history) >= max_uploads:
+        return False
+
+    history.append(now)
+    return True
+
+
+def _has_capacity_for_new_job(user_id: int, deps: BotDependencies) -> bool:
+    return deps.session_store.count_active_jobs_for_user(user_id) < deps.settings.max_active_jobs_per_user
 
 
 def _filter_keyboard_for_session(session: UserSession) -> InlineKeyboardMarkup | None:
@@ -244,6 +269,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await message.reply_text("Per ora supporto solo PDF e immagini.")
         return
 
+    if not _consume_upload_slot(user.id, deps):
+        await message.reply_text(UPLOAD_RATE_LIMIT_MESSAGE)
+        return
+
     if _exceeds_file_size_limit(document.file_size, deps.settings.max_file_size_mb):
         await message.reply_text(_build_file_too_large_message(deps.settings.max_file_size_mb))
         return
@@ -283,6 +312,10 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     photos = message.photo
     if not photos:
+        return
+
+    if not _consume_upload_slot(user.id, deps):
+        await message.reply_text(UPLOAD_RATE_LIMIT_MESSAGE)
         return
 
     best_photo = _pick_best_photo(photos)
@@ -339,6 +372,10 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
 
+    if not _has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(JOB_QUEUE_LIMIT_MESSAGE)
+        return
+
     supported_action = SupportedAction(action)
     job = await _enqueue_job(
         context=context,
@@ -371,6 +408,10 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
         return
 
+    if not _has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(JOB_QUEUE_LIMIT_MESSAGE)
+        return
+
     job = await _enqueue_job(
         context=context,
         user_id=user.id,
@@ -401,6 +442,10 @@ async def handle_rotation_callback(update: Update, context: ContextTypes.DEFAULT
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
+        return
+
+    if not _has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(JOB_QUEUE_LIMIT_MESSAGE)
         return
 
     job = await _enqueue_job(
