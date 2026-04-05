@@ -1,0 +1,18 @@
+[Unit]
+Description=DocMolder Telegram Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=docmolder
+Group=docmolder
+WorkingDirectory=/opt/docmolder/app
+EnvironmentFile=/etc/docmolder/docmolder.env
+ExecStart=/opt/docmolder/venv/bin/docmolder
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

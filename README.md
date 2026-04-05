@@ -22,6 +22,8 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere piu file in messaggi successivi
 
+La specifica operativa del MVP e in [`docs/MVP.md`](docs/MVP.md).
+
 ## Flusso utente
 
 1. L'utente invia uno o piu file.
@@ -79,6 +81,10 @@ Questo ci permette di preservare meglio il contenuto nativo dei PDF quando l'amb
 3. Copia `.env.example` in `.env`
 4. Inserisci il token del bot e gli utenti autorizzati
 5. Avvia con `docmolder`
+
+## Deploy Oracle
+
+Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPLOY_ORACLE.md).
 
 ## Variabili ambiente
 
