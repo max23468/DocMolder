@@ -280,6 +280,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_maybe_send_admin_report_for_period_persists_last_sent(self) -> None:
         self.deps.settings.admin_user_ids = [999]
+        self.store.record_completed_action(7, "pdf_compress")
         await _maybe_send_admin_report_for_period(
             self.application,
             self.deps,
@@ -304,6 +305,46 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             title="Riepilogo admin giornaliero DocMolder",
         )
         self.bot.send_message.assert_not_awaited()
+
+    async def test_maybe_send_admin_report_for_period_skips_empty_period(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+
+        await _maybe_send_admin_report_for_period(
+            self.application,
+            self.deps,
+            period="daily",
+            report_date="2026-04-06",
+            should_send=True,
+            since_days=1,
+            title="Riepilogo admin giornaliero DocMolder",
+        )
+
+        self.bot.send_message.assert_not_awaited()
+        self.assertIsNone(self.store.get_meta("admin_report_daily_last_sent"))
+
+    async def test_maybe_send_admin_report_for_period_sends_when_failures_exist(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+        failed_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_failed(failed_job.id, "Errore di test")
+
+        await _maybe_send_admin_report_for_period(
+            self.application,
+            self.deps,
+            period="daily",
+            report_date="2026-04-06",
+            should_send=True,
+            since_days=1,
+            title="Riepilogo admin giornaliero DocMolder",
+        )
+
+        self.bot.send_message.assert_awaited()
+        self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-04-06")
 
     def test_build_periodic_admin_report_prefixes_title(self) -> None:
         report = _build_periodic_admin_report(

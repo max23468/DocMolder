@@ -211,7 +211,7 @@ Nota importante di affidabilita:
 - e gia stata corretta una regressione in cui il file temporaneo del job veniva cancellato prima dell'invio a Telegram
 - oggi il cleanup del job avviene dopo `_send_result()`
 - il report admin e stato reso piu leggibile con sintesi qualita, percentuali base e top errori per azione
-- il bot puo inviare report admin periodici giornalieri e settimanali, con stato ultimo invio persistito
+- il bot puo inviare report admin periodici giornalieri e settimanali, con stato ultimo invio persistito, ma evita di mandare riepiloghi vuoti quando il periodo non ha attivita utile
 
 ### 6.4 `processing.py`
 

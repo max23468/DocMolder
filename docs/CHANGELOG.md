@@ -31,6 +31,7 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 - la roadmap ora passa direttamente alle fasi funzionali e tecniche successive dopo il completamento della fase operativa
 - la tastiera principale e i messaggi guida espongono anche lo storico lavori personale
 - il bot gestisce ora piccoli step conversazionali persistenti per chiedere in chat selezione pagine o testo watermark prima di mettere in coda il job
+- i report admin periodici evitano ora l'invio di riepiloghi vuoti quando nel periodo non c'e nulla di utile da mostrare
 
 ### Tecnico
 

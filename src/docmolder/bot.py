@@ -1649,10 +1649,22 @@ async def _maybe_send_admin_report_for_period(
     meta_key = f"admin_report_{period}_last_sent"
     if deps.session_store.get_meta(meta_key) == report_date:
         return
+    if not _period_has_useful_admin_data(deps, since_days=since_days):
+        return
     report_text = _build_periodic_admin_report(deps, since_days=since_days, title=title)
     for admin_user_id in deps.settings.admin_user_ids:
         await application.bot.send_message(chat_id=admin_user_id, text=report_text)
     deps.session_store.set_meta(meta_key, report_date)
+
+
+def _period_has_useful_admin_data(deps: BotDependencies, *, since_days: int) -> bool:
+    stats = deps.session_store.build_admin_stats()
+    completed_actions_key = "completed_actions_last_24h" if since_days <= 1 else "completed_actions_last_7d"
+    if stats.get(completed_actions_key, 0) > 0:
+        return True
+    if deps.session_store.list_failed_actions(limit=1, since_days=since_days):
+        return True
+    return False
 
 
 def _build_periodic_admin_report(deps: BotDependencies, *, since_days: int, title: str) -> str:

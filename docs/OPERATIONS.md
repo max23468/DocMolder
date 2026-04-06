@@ -99,7 +99,7 @@ Se `DOCMOLDER_ADMIN_USER_IDS` e configurata:
 
 - gli admin ricevono notifica al primo accesso di un nuovo utente
 - `/admin` mostra metriche sintetiche su utenti, job e attivita recenti
-- il bot puo inviare anche riepiloghi admin giornalieri e settimanali
+- il bot puo inviare anche riepiloghi admin giornalieri e settimanali, ma solo quando nel periodo c'e davvero attivita utile o errori da segnalare
 
 Quando qualcosa non torna, guarda prima:
 
