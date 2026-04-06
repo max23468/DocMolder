@@ -13,7 +13,13 @@ def infer_supported_actions(session: UserSession) -> list[SupportedAction]:
     actions: list[SupportedAction] = []
 
     if kinds == {FileKind.IMAGE}:
-        actions.extend([SupportedAction.IMAGES_TO_PDF, SupportedAction.AUTO_ORIENT])
+        actions.extend(
+            [
+                SupportedAction.IMAGES_TO_PDF,
+                SupportedAction.IMAGES_TO_PDF_GRAYSCALE,
+                SupportedAction.AUTO_ORIENT,
+            ]
+        )
 
     if kinds == {FileKind.PDF}:
         if len(session.files) > 1:
@@ -56,6 +62,7 @@ def build_session_file(file_id: str, file_name: str | None, kind: FileKind) -> S
 def build_output_stem(action: SupportedAction) -> str:
     labels = {
         SupportedAction.IMAGES_TO_PDF: "docmolder_pdf",
+        SupportedAction.IMAGES_TO_PDF_GRAYSCALE: "docmolder_grayscale",
         SupportedAction.PDF_GRAYSCALE: "docmolder_grayscale",
         SupportedAction.PDF_COMPRESS: "docmolder_compressed",
         SupportedAction.PDF_MERGE: "docmolder_merged",

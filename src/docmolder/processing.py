@@ -82,6 +82,9 @@ class DocumentProcessor:
     ) -> ProcessingResult:
         if action == SupportedAction.IMAGES_TO_PDF:
             return self.images_to_pdf(input_paths, output_stem)
+        if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:
+            intermediate = self.images_to_pdf(input_paths, "docmolder_pdf")
+            return self.pdf_to_grayscale(intermediate.output_path, output_stem)
         if action == SupportedAction.PDF_MERGE:
             return self.merge_pdfs(input_paths, output_stem)
         if action == SupportedAction.PDF_GRAYSCALE:

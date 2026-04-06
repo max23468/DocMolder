@@ -4,6 +4,7 @@ import asyncio
 import html
 import json
 import logging
+import unicodedata
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -544,6 +545,28 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await reset_command(update, context)
         return
 
+    session = deps.session_store.get(user.id)
+    if session is not None and session.files:
+        inferred_request = _infer_text_requested_action(session, text)
+        if inferred_request is not None:
+            action, compression_preset = inferred_request
+            if not _has_capacity_for_new_job(user.id, deps):
+                await message.reply_text(JOB_QUEUE_LIMIT_MESSAGE)
+                return
+
+            job = await _enqueue_job(
+                context=context,
+                user_id=user.id,
+                chat_id=message.chat_id,
+                reply_to_message_id=message.message_id,
+                action=action,
+                session=session,
+                compression_preset=compression_preset,
+            )
+            deps.session_store.delete(user.id)
+            await message.reply_text(_build_text_request_queued_message(action, job.id, compression_preset))
+            return
+
     await message.reply_text(
         "Per iniziare, inviami immagini o PDF. Se vuoi una guida rapida, usa /help.",
         reply_markup=build_main_menu_keyboard(),
@@ -643,6 +666,7 @@ def _build_admin_report(
 def _format_job_line(job: JobRecord) -> str:
     action_labels = {
         "images_to_pdf": "PDF da immagini",
+        "images_to_pdf_grayscale": "PDF grigio da immagini",
         "pdf_compress": "Comprimi PDF",
         "pdf_grayscale": "Scala di grigi",
         "pdf_merge": "Unisci PDF",
@@ -767,6 +791,70 @@ def _build_image_session_message(session: UserSession) -> str:
         f"Ho ricevuto {image_count} immagini nella stessa sessione.\n"
         "Puoi creare un PDF unico in formato A4 con margini oppure correggere l'orientamento."
     )
+
+
+def _normalize_free_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKD", text.casefold())
+    return "".join(char for char in normalized if not unicodedata.combining(char))
+
+
+def _contains_any(text: str, fragments: tuple[str, ...]) -> bool:
+    return any(fragment in text for fragment in fragments)
+
+
+def _infer_text_requested_action(
+    session: UserSession,
+    text: str,
+) -> tuple[SupportedAction, CompressionPreset | None] | None:
+    normalized = _normalize_free_text(text)
+    supported = set(infer_supported_actions(session))
+
+    wants_grayscale = _contains_any(
+        normalized,
+        ("scala di grigi", "bianco e nero", "bianco nero", "grayscale", "grigio"),
+    )
+    wants_pdf = _contains_any(normalized, ("pdf", "documento"))
+    wants_merge = _contains_any(normalized, ("unisci", "accorpa", "merge"))
+    wants_compress = _contains_any(normalized, ("comprimi", "compressione", "alleggerisci", "riduci"))
+    wants_orient = _contains_any(normalized, ("orientamento", "raddrizza", "raddrizzare"))
+
+    if SupportedAction.PDF_MERGE in supported and wants_merge:
+        return SupportedAction.PDF_MERGE, None
+    if SupportedAction.PDF_COMPRESS in supported and wants_compress:
+        return SupportedAction.PDF_COMPRESS, CompressionPreset.MEDIUM
+    if SupportedAction.PDF_GRAYSCALE in supported and wants_grayscale:
+        return SupportedAction.PDF_GRAYSCALE, None
+    if SupportedAction.AUTO_ORIENT in supported and wants_orient:
+        return SupportedAction.AUTO_ORIENT, None
+    if SupportedAction.IMAGES_TO_PDF_GRAYSCALE in supported and wants_grayscale:
+        return SupportedAction.IMAGES_TO_PDF_GRAYSCALE, None
+    if SupportedAction.IMAGES_TO_PDF in supported and wants_pdf:
+        return SupportedAction.IMAGES_TO_PDF, None
+    return None
+
+
+def _build_text_request_queued_message(
+    action: SupportedAction,
+    job_id: int,
+    compression_preset: CompressionPreset | None,
+) -> str:
+    if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:
+        return f"PDF in scala di grigi preso in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
+    if action == SupportedAction.IMAGES_TO_PDF:
+        return f"Creazione PDF presa in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
+    if action == SupportedAction.PDF_GRAYSCALE:
+        return f"Conversione in scala di grigi presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_MERGE:
+        return f"Unione PDF presa in carico. Job #{job_id} in coda.\nTi invio il file appena è pronto."
+    if action == SupportedAction.PDF_COMPRESS:
+        preset_label = (compression_preset or CompressionPreset.MEDIUM).value
+        return (
+            f"Compressione PDF presa in carico con livello {preset_label}. "
+            f"Job #{job_id} in coda.\nTi invio il file appena è pronto."
+        )
+    if action == SupportedAction.AUTO_ORIENT:
+        return f"Correzione orientamento presa in carico. Job #{job_id} in coda.\nTi invio il risultato appena è pronto."
+    return f"Operazione presa in carico. Job #{job_id} in coda."
 
 
 async def _enqueue_job(

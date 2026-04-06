@@ -9,12 +9,13 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import BotDependencies, _process_job, handle_result_action_callback
+from docmolder.bot import BotDependencies, _process_job, handle_menu_text, handle_result_action_callback
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
 from docmolder.processing import ProcessingResult
-from docmolder.models import JobStatus, SupportedAction
+from docmolder.models import FileKind, JobStatus, SupportedAction, UserSession
 from docmolder.session_store import InMemorySessionStore
+from docmolder.services import build_session_file
 
 
 class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
@@ -105,6 +106,64 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(enqueue_call["action"], SupportedAction.PDF_GRAYSCALE)
         self.assertEqual(enqueue_call["session"].files[0].telegram_file_id, "telegram-pdf-id")
         reply_text.assert_awaited_once()
+
+    async def test_text_request_enqueues_grayscale_pdf_from_images(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[
+                    build_session_file("img-1", "foto_1.jpg", FileKind.IMAGE),
+                    build_session_file("img-2", "foto_2.jpg", FileKind.IMAGE),
+                ],
+            )
+        )
+        message = SimpleNamespace(
+            text="Fammi un PDF in scala di grigi",
+            chat_id=99,
+            message_id=456,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=8))) as enqueue_job:
+            await handle_menu_text(update, context)
+
+        enqueue_call = enqueue_job.await_args.kwargs
+        self.assertEqual(enqueue_call["action"], SupportedAction.IMAGES_TO_PDF_GRAYSCALE)
+        message.reply_text.assert_awaited_once()
+        self.assertIsNone(self.store.get(7))
+
+    async def test_text_request_enqueues_medium_compression_for_pdf(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Comprimi questo pdf",
+            chat_id=99,
+            message_id=789,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
+            await handle_menu_text(update, context)
+
+        enqueue_call = enqueue_job.await_args.kwargs
+        self.assertEqual(enqueue_call["action"], SupportedAction.PDF_COMPRESS)
+        self.assertEqual(enqueue_call["compression_preset"].value, "medium")
+        message.reply_text.assert_awaited_once()
+        self.assertIsNone(self.store.get(7))
 
 
 if __name__ == "__main__":
