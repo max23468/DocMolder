@@ -14,10 +14,11 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 ## Funzionalità attuali
 
 - Creazione PDF da immagini
+- Scelta tra formato originale immagini o impaginazione A4 con bordi configurabili
 - Conversione PDF in scala di grigi
 - Compressione PDF solo su richiesta
 - Unione PDF
-- Rotazione manuale pagine
+- Correzione automatica dell'orientamento dei PDF quando serve, con possibilità di rifare il file senza auto-rotazione
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 
@@ -34,7 +35,7 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 
 - Nessun salvataggio permanente dei file utente nel perimetro attuale del prodotto
 - Pulizia automatica delle cartelle temporanee
-- Limiti su dimensione file e numero di allegati da introdurre o rifinire prima di un uso piu ampio
+- Limiti su dimensione file, numero di allegati e carico concorrente già presenti in forma iniziale e da rifinire prima di un uso più ampio
 
 ## Stato attuale
 
@@ -46,10 +47,11 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - tastiere e messaggi iniziali
 - caricamento dei file da Telegram
 - creazione PDF da immagini
+- scelta guidata A4 / formato originale per i PDF creati da immagini
 - unione PDF
 - conversione PDF in scala di grigi
 - compressione PDF con livelli semplici
-- azione manuale per ruotare PDF
+- correzione automatica dell'orientamento PDF nei flussi compatibili
 - correzione orientamento immagini
 
 ## Nota sul motore PDF attuale
@@ -72,7 +74,7 @@ Questo ci permette di preservare meglio il contenuto nativo dei PDF quando l'amb
 
 ## Avvio locale
 
-Il modo piu rapido per lavorare in locale e:
+Il modo più rapido per lavorare in locale è:
 
 ```bash
 make setup
@@ -108,8 +110,15 @@ Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPL
 
 La roadmap corrente del progetto è in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
+In sintesi, le priorità attuali sono:
+
+- aumentare affidabilità e copertura dei test sui PDF più difficili
+- migliorare messaggi utente, fallback e tracciamento della qualità delle trasformazioni
+- rafforzare metriche admin, limiti operativi e ripartenza dei job dopo crash o riavvio
+- introdurre in una fase successiva funzioni utente come storico lavori, estrazione pagine, riordino, eliminazione, rotazione manuale e watermark
+
 ## Monitoraggio admin
 
-Se configuri `DOCMOLDER_ADMIN_USER_IDS`, l'admin puo usare anche:
+Se configuri `DOCMOLDER_ADMIN_USER_IDS`, l'admin può usare anche:
 
 - `/admin` per vedere un riepilogo rapido di utenti, nuovi accessi, operazioni completate, stato coda, utenti più attivi e ultimi job riusciti o falliti
