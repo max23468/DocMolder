@@ -433,11 +433,14 @@ sudo journalctl -u docmolder -n 50 --no-pager
 Aggiornare il bot dopo un push:
 
 ```bash
-cd /opt/docmolder/app
-sudo -u docmolder git pull --ff-only
-sudo -u docmolder /opt/docmolder/venv/bin/pip install -e /opt/docmolder/app
-sudo systemctl restart docmolder
+sudo /opt/docmolder/app/deploy/update-vps.sh
 ```
+
+Nota operativa:
+
+- la VPS va trattata come ambiente di esecuzione
+- non fare modifiche manuali al codice direttamente sul server
+- il flusso standard di update e `fetch + reset --hard origin/main`, non `git pull --ff-only`
 
 ## 16. Problemi recenti gia risolti
 

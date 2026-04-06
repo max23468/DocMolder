@@ -110,11 +110,22 @@ sudo journalctl -u docmolder -f
 ## Aggiornare il bot dopo un push
 
 ```bash
-cd /opt/docmolder/app
-sudo -u docmolder git pull --ff-only
-sudo -u docmolder /opt/docmolder/venv/bin/pip install -e /opt/docmolder/app
-sudo systemctl restart docmolder
+sudo /opt/docmolder/app/deploy/update-vps.sh
 ```
+
+Questo script:
+
+- imposta `safe.directory` per l'utente di servizio
+- esegue `git fetch`
+- riallinea il clone remoto con `git reset --hard origin/main`
+- reinstalla il progetto nel virtualenv
+- riavvia `docmolder`
+
+Per evitare nuovi disallineamenti:
+
+- non modificare il codice direttamente sulla VPS
+- considera la VPS solo come ambiente di esecuzione, non di sviluppo
+- se serve un update manuale, usa comunque `fetch + reset --hard origin/main` invece di `git pull --ff-only`
 
 Percorsi consigliati per tenere separati codice e dati:
 

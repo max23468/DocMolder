@@ -22,8 +22,11 @@ sudo chown -R "${APP_USER}:${APP_GROUP}" "${APP_ROOT}"
 if [ ! -d "${APP_DIR}/.git" ]; then
   sudo -u "${APP_USER}" git clone https://github.com/max23468/DocMolder.git "${APP_DIR}"
 else
-  sudo -u "${APP_USER}" git -C "${APP_DIR}" pull --ff-only
+  sudo -u "${APP_USER}" git -C "${APP_DIR}" fetch origin
+  sudo -u "${APP_USER}" git -C "${APP_DIR}" reset --hard origin/main
 fi
+
+sudo -u "${APP_USER}" git config --global --add safe.directory "${APP_DIR}" || true
 
 if [ ! -d "${VENV_DIR}" ]; then
   sudo -u "${APP_USER}" python3 -m venv "${VENV_DIR}"
@@ -50,3 +53,4 @@ echo "1. Modifica ${ENV_DIR}/docmolder.env"
 echo "2. Esegui: sudo systemctl enable --now docmolder"
 echo "3. Controlla: sudo systemctl status docmolder"
 echo "4. Log: sudo journalctl -u docmolder -f"
+echo "5. Per gli update futuri usa: sudo ${APP_DIR}/deploy/update-vps.sh"

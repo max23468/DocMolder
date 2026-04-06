@@ -100,6 +100,12 @@ Per la guida completa, vedi [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md).
 
 Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPLOY_ORACLE.md).
 
+Per gli aggiornamenti successivi sulla VPS, il flusso standard e:
+
+```bash
+sudo /opt/docmolder/app/deploy/update-vps.sh
+```
+
 ## Documentazione
 
 Documenti utili:

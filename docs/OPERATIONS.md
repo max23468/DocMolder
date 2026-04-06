@@ -39,6 +39,12 @@ Dopo il riavvio:
 - verifica che il bot risponda a `/start`
 - verifica che i job incompleti vengano riaccodati correttamente
 
+Per un aggiornamento completo del codice dopo un push, usa invece:
+
+```bash
+sudo /opt/docmolder/app/deploy/update-vps.sh
+```
+
 ## Dove guardare in caso di problemi
 
 Se il bot non parte:

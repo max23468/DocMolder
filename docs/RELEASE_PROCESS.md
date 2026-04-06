@@ -58,7 +58,7 @@ La procedura operativa completa e in [docs/DEPLOY_ORACLE.md](/Users/Matteo/Docum
 
 In breve:
 
-1. aggiornare il repository sulla VPS
+1. aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
 2. reinstallare il progetto nel virtualenv se serve
 3. riavviare il servizio
 4. controllare i log
