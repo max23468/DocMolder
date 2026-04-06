@@ -11,6 +11,22 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 - Elaborazione asincrona delle operazioni
 - Retention breve dei file temporanei
 
+## Perimetro del Prodotto
+
+`DocMolder` vuole restare una utility documentale chat-first:
+
+- focalizzata su trasformazioni pratiche di PDF e foto di documenti
+- semplice, guidata e affidabile
+- orientata a una operazione chiara per volta
+
+Nel perimetro attuale non vuole diventare:
+
+- un editor PDF generalista
+- un sistema completo di document management o archiviazione
+- un assistente conversazionale che promette comprensione illimitata del linguaggio naturale
+
+Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluzioni che aumentano chiarezza, qualità del risultato e affidabilità del servizio.
+
 ## Funzionalità attuali
 
 - Creazione PDF da immagini

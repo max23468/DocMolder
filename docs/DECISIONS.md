@@ -4,11 +4,28 @@ Questo file raccoglie decisioni architetturali e di prodotto gia prese, in forma
 
 ## Indice
 
+- [Perimetro prodotto: utility documentale chat-first](#perimetro-prodotto-utility-documentale-chat-first)
 - [Polling invece di webhook pubblici](#polling-invece-di-webhook-pubblici)
 - [Retention breve dei file temporanei](#retention-breve-dei-file-temporanei)
 - [Auto-orientamento PDF invece di rotazione manuale come azione primaria](#auto-orientamento-pdf-invece-di-rotazione-manuale-come-azione-primaria)
 - [Fallback conservativi nella pipeline PDF](#fallback-conservativi-nella-pipeline-pdf)
 - [SQLite come persistenza locale del progetto](#sqlite-come-persistenza-locale-del-progetto)
+
+## Perimetro prodotto: utility documentale chat-first
+
+Decisione:
+- `DocMolder` resta una utility documentale chat-first, semplice, guidata e affidabile, focalizzata su trasformazioni pratiche di PDF e foto di documenti
+
+Motivazione:
+- il valore del prodotto oggi e nella rapidita, chiarezza e affidabilita del flusso via Telegram
+- allargare troppo il perimetro rischia di trasformarlo in un editor PDF generalista o in un sistema documentale molto piu complesso
+- mantenere un'operazione chiara per volta aiuta UX, manutenzione e qualita del risultato
+
+Conseguenze:
+- le nuove feature vanno accettate solo se rafforzano semplicita, qualita del risultato, chiarezza UX o affidabilita operativa
+- vanno invece trattate con molta prudenza feature che aprono mondi nuovi come document management, OCR esteso, workflow troppo complessi o automazioni poco controllabili
+- la roadmap deve essere letta dentro questo perimetro: meglio poche evoluzioni coerenti che accumulo di funzioni eterogenee
+- salvo decisione esplicita futura, consideriamo `bloat` o `too much` tutte le proposte che spingono il prodotto verso editor PDF generalista, piattaforma documentale ampia o assistente conversazionale troppo aperto
 
 ## Polling invece di webhook pubblici
 
