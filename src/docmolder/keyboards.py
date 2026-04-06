@@ -11,7 +11,6 @@ def build_actions_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton("Scala di grigi", callback_data="action:pdf_grayscale")],
             [InlineKeyboardButton("Comprimi PDF", callback_data="action:pdf_compress")],
             [InlineKeyboardButton("Unisci PDF", callback_data="action:pdf_merge")],
-            [InlineKeyboardButton("Ruota pagine", callback_data="action:pdf_rotate")],
             [InlineKeyboardButton("Correggi orientamento", callback_data="action:auto_orient")],
         ]
     )
@@ -27,29 +26,52 @@ def build_compression_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def build_rotation_keyboard() -> InlineKeyboardMarkup:
+def build_images_pdf_layout_keyboard(action: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("90°", callback_data="rotate:90")],
-            [InlineKeyboardButton("180°", callback_data="rotate:180")],
-            [InlineKeyboardButton("270°", callback_data="rotate:270")],
+            [InlineKeyboardButton("Si, impagina in A4", callback_data=f"images_pdf_layout:a4:{action}")],
+            [InlineKeyboardButton("No, mantieni formato originale", callback_data=f"images_pdf_layout:original:{action}")],
         ]
     )
 
 
-def build_result_pdf_keyboard() -> InlineKeyboardMarkup:
+def build_images_pdf_margin_keyboard(action: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("Converti in scala di grigi", callback_data="result:pdf_grayscale")],
+            [InlineKeyboardButton("Bordi larghi", callback_data=f"images_pdf_margin:wide:{action}")],
+            [InlineKeyboardButton("Bordi stretti", callback_data=f"images_pdf_margin:narrow:{action}")],
+            [InlineKeyboardButton("Nessun bordo", callback_data=f"images_pdf_margin:none:{action}")],
         ]
     )
+
+
+def build_result_pdf_keyboard(
+    *,
+    offer_grayscale: bool = True,
+    undo_rotation_job_id: int | None = None,
+) -> InlineKeyboardMarkup | None:
+    rows: list[list[InlineKeyboardButton]] = []
+    if offer_grayscale:
+        rows.append([InlineKeyboardButton("Converti in scala di grigi", callback_data="result:pdf_grayscale")])
+    if undo_rotation_job_id is not None:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    "Rifai senza rotazione automatica",
+                    callback_data=f"result:undo_rotate:{undo_rotation_job_id}",
+                )
+            ]
+        )
+    if not rows:
+        return None
+    return InlineKeyboardMarkup(rows)
 
 
 def build_main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
-            [KeyboardButton("Cosa posso fare"), KeyboardButton("Mostra sessione")],
-            [KeyboardButton("Azzera sessione")],
+            [KeyboardButton("Cosa posso fare"), KeyboardButton("Crea PDF da immagini")],
+            [KeyboardButton("Comprimi PDF"), KeyboardButton("Unisci PDF")],
         ],
         resize_keyboard=True,
         input_field_placeholder="Invia immagini o PDF, oppure usa il menu",

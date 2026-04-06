@@ -31,7 +31,6 @@ def infer_supported_actions(session: UserSession) -> list[SupportedAction]:
                 [
                     SupportedAction.PDF_GRAYSCALE,
                     SupportedAction.PDF_COMPRESS,
-                    SupportedAction.PDF_ROTATE,
                 ]
             )
 

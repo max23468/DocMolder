@@ -25,9 +25,10 @@ from docmolder.config import Settings
 from docmolder.keyboards import (
     build_actions_keyboard,
     build_compression_keyboard,
+    build_images_pdf_layout_keyboard,
+    build_images_pdf_margin_keyboard,
     build_main_menu_keyboard,
     build_result_pdf_keyboard,
-    build_rotation_keyboard,
 )
 from docmolder.messages import (
     ADMIN_ONLY_MESSAGE,
@@ -43,7 +44,14 @@ from docmolder.messages import (
     WELCOME_MESSAGE,
 )
 from docmolder.models import AdminUserStat, CompressionPreset, FileKind, JobRecord, JobStatus, SupportedAction, UserSession
-from docmolder.processing import DocumentProcessor, ProcessingResult, ProcessingUserError
+from docmolder.processing import (
+    A4_MARGIN_NARROW_PX,
+    A4_MARGIN_NONE_PX,
+    A4_MARGIN_WIDE_PX,
+    DocumentProcessor,
+    ProcessingResult,
+    ProcessingUserError,
+)
 from docmolder.services import (
     build_output_stem,
     build_session_file,
@@ -172,6 +180,15 @@ def _filter_keyboard_for_session(session: UserSession) -> InlineKeyboardMarkup |
     return InlineKeyboardMarkup(keyboard_rows)
 
 
+def _is_image_pdf_action(action: SupportedAction) -> bool:
+    return action in {
+        SupportedAction.IMAGES_TO_PDF,
+        SupportedAction.IMAGES_TO_PDF_CROP,
+        SupportedAction.IMAGES_TO_PDF_GRAYSCALE,
+        SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE,
+    }
+
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
@@ -231,7 +248,10 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     _cancel_pending_image_notification(user.id, deps)
     deps.session_store.delete(user.id)
-    await update.effective_message.reply_text("Sessione azzerata. Puoi inviarmi nuovi file quando vuoi.")
+    await update.effective_message.reply_text(
+        "Sessione azzerata. Puoi inviarmi nuovi file quando vuoi.",
+        reply_markup=build_main_menu_keyboard(),
+    )
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -374,8 +394,14 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     if action == SupportedAction.PDF_ROTATE.value:
         await query.edit_message_text(
-            "Hai scelto di ruotare le pagine. Seleziona di quanto ruotare il PDF.",
-            reply_markup=build_rotation_keyboard(),
+            "La rotazione dei PDF ora avviene automaticamente quando serve. Quando la applico, ti offro anche un pulsante per rifare il file senza rotazione automatica."
+        )
+        return
+
+    if _is_image_pdf_action(SupportedAction(action)):
+        await query.edit_message_text(
+            "Vuoi che impagini il PDF in formato A4?",
+            reply_markup=build_images_pdf_layout_keyboard(action),
         )
         return
 
@@ -434,42 +460,6 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
     )
 
 
-async def handle_rotation_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    deps = _get_dependencies(context)
-    _purge_expired_sessions(deps)
-    query = update.callback_query
-    await query.answer()
-    degrees = int((query.data or "").removeprefix("rotate:"))
-    user = query.from_user
-    if not _is_authorized(user.id if user else None, deps.settings):
-        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
-        return
-    await _maybe_notify_admins_about_new_user(user, context)
-    _cancel_pending_image_notification(user.id, deps)
-    session = deps.session_store.get(user.id)
-    if session is None or not session.files:
-        await query.edit_message_text(SESSION_EMPTY_MESSAGE)
-        return
-
-    if not _has_capacity_for_new_job(user.id, deps):
-        await query.edit_message_text(JOB_QUEUE_LIMIT_MESSAGE)
-        return
-
-    job = await _enqueue_job(
-        context=context,
-        user_id=user.id,
-        chat_id=query.message.chat_id,
-        reply_to_message_id=query.message.message_id,
-        action=SupportedAction.PDF_ROTATE,
-        session=session,
-        rotate_degrees=degrees,
-    )
-    deps.session_store.delete(user.id)
-    await query.edit_message_text(
-        f"Rotazione presa in carico. Job #{job.id} in coda.\nTi invio il risultato appena è pronto."
-    )
-
-
 async def handle_result_action_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
@@ -482,10 +472,6 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         return
     await _maybe_notify_admins_about_new_user(user, context)
 
-    if not _has_capacity_for_new_job(user.id, deps):
-        await query.message.reply_text(JOB_QUEUE_LIMIT_MESSAGE, reply_to_message_id=query.message.message_id)
-        return
-
     document = query.message.document
     if document is None or _infer_document_kind(document) != FileKind.PDF:
         await query.message.reply_text(
@@ -495,6 +481,35 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         return
 
     action = (query.data or "").removeprefix("result:")
+    if action.startswith("undo_rotate:"):
+        if not _has_capacity_for_new_job(user.id, deps):
+            await query.message.reply_text(JOB_QUEUE_LIMIT_MESSAGE, reply_to_message_id=query.message.message_id)
+            return
+        source_job_id = int(action.removeprefix("undo_rotate:"))
+        source_job = deps.session_store.get_job(source_job_id)
+        if source_job is None or source_job.user_id != user.id:
+            await query.message.reply_text(
+                "Non riesco più a recuperare l'operazione originale. Inviami di nuovo i file e la rifaccio senza rotazione automatica.",
+                reply_to_message_id=query.message.message_id,
+            )
+            return
+
+        rerun_job = await _enqueue_job_from_existing_payload(
+            context=context,
+            source_job=source_job,
+            reply_to_message_id=query.message.message_id,
+            auto_rotate_pdf=False,
+        )
+        await query.message.reply_text(
+            _build_rerun_without_rotation_message(source_job, rerun_job.id),
+            reply_to_message_id=query.message.message_id,
+        )
+        return
+
+    if not _has_capacity_for_new_job(user.id, deps):
+        await query.message.reply_text(JOB_QUEUE_LIMIT_MESSAGE, reply_to_message_id=query.message.message_id)
+        return
+
     if action != SupportedAction.PDF_GRAYSCALE.value:
         await query.message.reply_text(
             "Questa azione sul risultato non è supportata.",
@@ -520,6 +535,91 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
     )
 
 
+async def handle_images_pdf_layout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    query = update.callback_query
+    await query.answer()
+
+    user = query.from_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+
+    session = deps.session_store.get(user.id)
+    if session is None or not session.files:
+        await query.edit_message_text(SESSION_EMPTY_MESSAGE)
+        return
+
+    _, layout_choice, action_name = (query.data or "").split(":", 2)
+    action = SupportedAction(action_name)
+    if not _is_image_pdf_action(action):
+        await query.edit_message_text("Questa opzione non è supportata per il PDF richiesto.")
+        return
+
+    if layout_choice == "a4":
+        await query.edit_message_text(
+            "Che bordi vuoi nell'impaginazione A4?",
+            reply_markup=build_images_pdf_margin_keyboard(action.value),
+        )
+        return
+
+    if layout_choice != "original":
+        await query.edit_message_text("Scelta non valida.")
+        return
+
+    await _enqueue_image_pdf_job_from_callback(
+        query=query,
+        context=context,
+        user_id=user.id,
+        action=action,
+        session=session,
+        image_pdf_use_a4=False,
+        image_pdf_margin_px=A4_MARGIN_NONE_PX,
+    )
+
+
+async def handle_images_pdf_margin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    query = update.callback_query
+    await query.answer()
+
+    user = query.from_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+
+    session = deps.session_store.get(user.id)
+    if session is None or not session.files:
+        await query.edit_message_text(SESSION_EMPTY_MESSAGE)
+        return
+
+    _, margin_choice, action_name = (query.data or "").split(":", 2)
+    action = SupportedAction(action_name)
+    margin_map = {
+        "wide": A4_MARGIN_WIDE_PX,
+        "narrow": A4_MARGIN_NARROW_PX,
+        "none": A4_MARGIN_NONE_PX,
+    }
+    margin_px = margin_map.get(margin_choice)
+    if margin_px is None:
+        await query.edit_message_text("Scelta non valida.")
+        return
+
+    await _enqueue_image_pdf_job_from_callback(
+        query=query,
+        context=context,
+        user_id=user.id,
+        action=action,
+        session=session,
+        image_pdf_use_a4=True,
+        image_pdf_margin_px=margin_px,
+    )
+
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.exception("Errore non gestito", exc_info=context.error)
 
@@ -535,14 +635,14 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await _maybe_notify_admins_about_new_user(user, context)
 
     text = (message.text or "").strip()
-    if text == "Cosa posso fare":
-        await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
-        return
     if text == "Mostra sessione":
         await status_command(update, context)
         return
     if text == "Azzera sessione":
         await reset_command(update, context)
+        return
+    if text == "Cosa posso fare":
+        await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
         return
 
     session = deps.session_store.get(user.id)
@@ -552,6 +652,13 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             action, compression_preset = inferred_request
             if not _has_capacity_for_new_job(user.id, deps):
                 await message.reply_text(JOB_QUEUE_LIMIT_MESSAGE)
+                return
+
+            if _is_image_pdf_action(action):
+                await message.reply_text(
+                    "Vuoi che impagini il PDF in formato A4?",
+                    reply_markup=build_images_pdf_layout_keyboard(action.value),
+                )
                 return
 
             job = await _enqueue_job(
@@ -566,6 +673,11 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             deps.session_store.delete(user.id)
             await message.reply_text(_build_text_request_queued_message(action, job.id, compression_preset))
             return
+
+    quick_action_guidance = _build_quick_action_guidance(session, text)
+    if quick_action_guidance is not None:
+        await message.reply_text(quick_action_guidance, reply_markup=build_main_menu_keyboard())
+        return
 
     await message.reply_text(
         "Per iniziare, inviami immagini o PDF. Se vuoi una guida rapida, usa /help.",
@@ -652,7 +764,6 @@ def _build_admin_report(
         f"- Comprimi PDF: {stats['pdf_compress_total']}\n"
         f"- Scala di grigi: {stats['pdf_grayscale_total']}\n"
         f"- Unisci PDF: {stats['pdf_merge_total']}\n"
-        f"- Ruota PDF: {stats['pdf_rotate_total']}\n"
         f"- Correggi orientamento: {stats['auto_orient_total']}\n\n"
         "Utenti più attivi ultimi 7 giorni:\n"
         f"{top_users_block}\n\n"
@@ -672,7 +783,6 @@ def _format_job_line(job: JobRecord) -> str:
         "pdf_compress": "Comprimi PDF",
         "pdf_grayscale": "Scala di grigi",
         "pdf_merge": "Unisci PDF",
-        "pdf_rotate": "Ruota PDF",
         "auto_orient": "Correggi orientamento",
     }
     action_label = action_labels.get(job.action, job.action)
@@ -708,7 +818,8 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CallbackQueryHandler(handle_result_action_callback, pattern=r"^result:"))
     application.add_handler(CallbackQueryHandler(handle_compression_callback, pattern=r"^compress:"))
-    application.add_handler(CallbackQueryHandler(handle_rotation_callback, pattern=r"^rotate:"))
+    application.add_handler(CallbackQueryHandler(handle_images_pdf_margin_callback, pattern=r"^images_pdf_margin:"))
+    application.add_handler(CallbackQueryHandler(handle_images_pdf_layout_callback, pattern=r"^images_pdf_layout:"))
     application.add_handler(CallbackQueryHandler(handle_action_callback, pattern=r"^action:"))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))
@@ -785,13 +896,13 @@ def _build_image_session_message(session: UserSession) -> str:
     if image_count == 1:
         return (
             "Immagine ricevuta.\n"
-            "Puoi inviarmi altre immagini per creare un PDF unico in formato A4 con margini, "
+            "Puoi inviarmi altre immagini per creare un PDF unico scegliendo se impaginarlo in A4 oppure no, "
             "ritagliare automaticamente i bordi, oppure scegliere subito un'azione."
         )
 
     return (
         f"Ho ricevuto {image_count} immagini nella stessa sessione.\n"
-        "Puoi creare un PDF unico in formato A4 con margini, ritagliare automaticamente i bordi oppure correggere l'orientamento."
+        "Puoi creare un PDF unico scegliendo se impaginarlo in A4 oppure no, ritagliare automaticamente i bordi oppure correggere l'orientamento."
     )
 
 
@@ -871,6 +982,40 @@ def _build_text_request_queued_message(
     return f"Operazione presa in carico. Job #{job_id} in coda."
 
 
+def _build_rerun_without_rotation_message(source_job: JobRecord, job_id: int) -> str:
+    payload = json.loads(source_job.payload_json)
+    action = SupportedAction(source_job.action)
+    compression_preset = CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None
+    base_message = _build_text_request_queued_message(action, job_id, compression_preset)
+    return f"Ripeto la stessa operazione senza rotazione automatica del PDF.\n{base_message}"
+
+
+def _build_quick_action_guidance(session: UserSession | None, text: str) -> str | None:
+    if text == "Crea PDF da immagini":
+        if session is None or not session.files:
+            return "Inviami una o piu immagini e creerò un PDF unico. Se vuoi, puoi mandarne diverse nella stessa sessione."
+        if {item.kind for item in session.files} == {FileKind.PDF}:
+            return "Per creare un PDF da immagini devo partire da foto o scansioni. Usa /reset e inviami una o piu immagini."
+
+    if text == "Comprimi PDF":
+        if session is None or not session.files:
+            return "Inviami un PDF e potrò comprimerlo subito. Se ne mandi uno solo, ti proporrò anche i livelli di compressione."
+        if {item.kind for item in session.files} == {FileKind.IMAGE}:
+            return "Per comprimere serve un PDF. Se vuoi, posso prima trasformare le immagini in un PDF."
+        if len(session.files) > 1:
+            return "Per comprimere serve un solo PDF nella sessione corrente. Inviamene uno solo oppure unisci prima i file."
+
+    if text == "Unisci PDF":
+        if session is None or not session.files:
+            return "Inviami due o piu PDF nella stessa sessione e li unirò in un file unico."
+        if {item.kind for item in session.files} == {FileKind.IMAGE}:
+            return "Per unire servono PDF, non immagini. Se vuoi, posso prima creare un PDF dalle immagini che hai inviato."
+        if len(session.files) == 1:
+            return "Per unire i PDF me ne servono almeno due nella stessa sessione."
+
+    return None
+
+
 async def _enqueue_job(
     context: ContextTypes.DEFAULT_TYPE,
     user_id: int,
@@ -880,6 +1025,9 @@ async def _enqueue_job(
     session: UserSession,
     compression_preset: CompressionPreset | None = None,
     rotate_degrees: int | None = None,
+    auto_rotate_pdf: bool = True,
+    image_pdf_use_a4: bool = True,
+    image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
 ) -> JobRecord:
     deps = _get_dependencies(context)
     if action not in infer_supported_actions(session):
@@ -895,12 +1043,36 @@ async def _enqueue_job(
         ],
         "compression_preset": compression_preset.value if compression_preset else None,
         "rotate_degrees": rotate_degrees,
+        "auto_rotate_pdf": auto_rotate_pdf,
+        "image_pdf_use_a4": image_pdf_use_a4,
+        "image_pdf_margin_px": image_pdf_margin_px,
     }
     job = deps.session_store.create_job(
         user_id=user_id,
         chat_id=chat_id,
         reply_to_message_id=reply_to_message_id,
         action=action.value,
+        payload_json=json.dumps(payload),
+    )
+    await deps.job_queue.put(job.id)
+    return job
+
+
+async def _enqueue_job_from_existing_payload(
+    context: ContextTypes.DEFAULT_TYPE,
+    source_job: JobRecord,
+    reply_to_message_id: int | None,
+    *,
+    auto_rotate_pdf: bool,
+) -> JobRecord:
+    deps = _get_dependencies(context)
+    payload = json.loads(source_job.payload_json)
+    payload["auto_rotate_pdf"] = auto_rotate_pdf
+    job = deps.session_store.create_job(
+        user_id=source_job.user_id,
+        chat_id=source_job.chat_id,
+        reply_to_message_id=reply_to_message_id,
+        action=source_job.action,
         payload_json=json.dumps(payload),
     )
     await deps.job_queue.put(job.id)
@@ -980,7 +1152,7 @@ async def _process_job(application: Application, job_id: int) -> None:
     deps.session_store.mark_job_succeeded(job.id, result.message)
     deps.session_store.record_completed_action(job.user_id, job.action)
     try:
-        await _send_result(application.bot, job.chat_id, job.reply_to_message_id, result)
+        await _send_result(application.bot, job.chat_id, job.reply_to_message_id, result, source_job_id=job.id)
     finally:
         deps.processor.cleanup_job_dir(job_dir)
 
@@ -1015,8 +1187,55 @@ async def _run_job_payload(
         build_output_stem(SupportedAction(job.action)),
         CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None,
         payload.get("rotate_degrees"),
+        payload.get("auto_rotate_pdf", True),
+        payload.get("image_pdf_use_a4", True),
+        payload.get("image_pdf_margin_px", A4_MARGIN_NARROW_PX),
     )
     return result
+
+
+async def _enqueue_image_pdf_job_from_callback(
+    *,
+    query,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    action: SupportedAction,
+    session: UserSession,
+    image_pdf_use_a4: bool,
+    image_pdf_margin_px: int,
+) -> None:
+    deps = _get_dependencies(context)
+    if not _has_capacity_for_new_job(user_id, deps):
+        await query.edit_message_text(JOB_QUEUE_LIMIT_MESSAGE)
+        return
+
+    job = await _enqueue_job(
+        context=context,
+        user_id=user_id,
+        chat_id=query.message.chat_id,
+        reply_to_message_id=query.message.message_id,
+        action=action,
+        session=session,
+        image_pdf_use_a4=image_pdf_use_a4,
+        image_pdf_margin_px=image_pdf_margin_px,
+    )
+    deps.session_store.delete(user_id)
+    await query.edit_message_text(
+        f"{_describe_image_pdf_choice(image_pdf_use_a4, image_pdf_margin_px)}\n"
+        f"{_build_text_request_queued_message(action, job.id, None)}"
+    )
+
+
+def _describe_image_pdf_choice(image_pdf_use_a4: bool, image_pdf_margin_px: int) -> str:
+    if not image_pdf_use_a4:
+        return "Perfetto, manterrò il formato originale delle immagini."
+    if image_pdf_margin_px >= A4_MARGIN_WIDE_PX:
+        border_label = "bordi larghi"
+    elif image_pdf_margin_px <= A4_MARGIN_NONE_PX:
+        border_label = "nessun bordo"
+    else:
+        border_label = "bordi stretti"
+    return f"Perfetto, creerò il PDF in A4 con {border_label}."
 
 
 async def _download_session_files(
@@ -1034,7 +1253,14 @@ async def _download_session_files(
     return downloaded_paths
 
 
-async def _send_result(bot, chat_id: int, reply_to_message_id: int | None, result: ProcessingResult) -> None:
+async def _send_result(
+    bot,
+    chat_id: int,
+    reply_to_message_id: int | None,
+    result: ProcessingResult,
+    *,
+    source_job_id: int | None = None,
+) -> None:
     with result.output_path.open("rb") as payload:
         await bot.send_document(
             chat_id=chat_id,
@@ -1042,5 +1268,11 @@ async def _send_result(bot, chat_id: int, reply_to_message_id: int | None, resul
             filename=result.output_name,
             caption=result.message,
             reply_to_message_id=reply_to_message_id,
-            reply_markup=build_result_pdf_keyboard() if result.output_name.lower().endswith(".pdf") else None,
+            reply_markup=(
+                build_result_pdf_keyboard(
+                    undo_rotation_job_id=source_job_id if result.auto_rotation_applied else None,
+                )
+                if result.output_name.lower().endswith(".pdf")
+                else None
+            ),
         )

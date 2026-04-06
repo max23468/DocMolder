@@ -6,12 +6,12 @@ from pathlib import Path
 import sys
 
 from PIL import Image, ImageDraw
-from pypdf import PdfWriter
+from pypdf import PdfReader, PdfWriter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.models import CompressionPreset, SupportedAction
-from docmolder.processing import DocumentProcessor, ProcessingUserError
+from docmolder.processing import A4_MARGIN_WIDE_PX, DocumentProcessor, ProcessingUserError
 
 
 class DocumentProcessorPipelineTest(unittest.TestCase):
@@ -105,6 +105,82 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
 
         self.assertTrue(result.output_path.exists())
         self.assertEqual(result.output_name, "cropped.pdf")
+
+    def test_images_to_pdf_can_keep_original_image_format(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_2" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "photo.jpg"
+        Image.new("RGB", (320, 180), "white").save(image_path)
+
+        result = self.processor.images_to_pdf([image_path], "original_layout", use_a4_layout=False)
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("formato originale", result.message)
+
+    def test_images_to_pdf_mentions_selected_a4_margin(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_3" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "photo.jpg"
+        Image.new("RGB", (320, 180), "white").save(image_path)
+
+        result = self.processor.images_to_pdf(
+            [image_path],
+            "a4_wide",
+            use_a4_layout=True,
+            a4_margin_px=A4_MARGIN_WIDE_PX,
+        )
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("bordi larghi", result.message)
+
+    def test_auto_rotate_pdf_to_dominant_orientation_rotates_outlier_pages(self) -> None:
+        pdf_path = self.runtime_dir / "mostly_portrait.pdf"
+        output_path = self.runtime_dir / "mostly_portrait_rotated.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=400)
+        writer.add_blank_page(width=200, height=400)
+        writer.add_blank_page(width=400, height=200)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        rotated_pages = self.processor._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
+
+        self.assertEqual(rotated_pages, 1)
+        reader = PdfReader(str(output_path))
+        self.assertEqual(int(reader.pages[0].rotation or 0) % 360, 0)
+        self.assertEqual(int(reader.pages[1].rotation or 0) % 360, 0)
+        self.assertEqual(int(reader.pages[2].rotation or 0) % 360, 90)
+
+    def test_auto_rotate_pdf_to_dominant_orientation_keeps_single_landscape_document(self) -> None:
+        pdf_path = self.runtime_dir / "single_landscape.pdf"
+        output_path = self.runtime_dir / "single_landscape_rotated.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=400, height=200)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        rotated_pages = self.processor._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
+
+        self.assertEqual(rotated_pages, 0)
+        self.assertFalse(output_path.exists())
+
+    def test_auto_rotate_pdf_to_dominant_orientation_matches_landscape_majority(self) -> None:
+        pdf_path = self.runtime_dir / "mostly_landscape.pdf"
+        output_path = self.runtime_dir / "mostly_landscape_rotated.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=400, height=200)
+        writer.add_blank_page(width=400, height=200)
+        writer.add_blank_page(width=200, height=400)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        rotated_pages = self.processor._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
+
+        self.assertEqual(rotated_pages, 1)
+        reader = PdfReader(str(output_path))
+        self.assertEqual(int(reader.pages[0].rotation or 0) % 360, 0)
+        self.assertEqual(int(reader.pages[1].rotation or 0) % 360, 0)
+        self.assertEqual(int(reader.pages[2].rotation or 0) % 360, 90)
 
 
 if __name__ == "__main__":
