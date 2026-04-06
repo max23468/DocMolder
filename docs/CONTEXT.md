@@ -7,6 +7,7 @@ Obiettivo:
 - fornire contesto architetturale e operativo
 - riassumere come e dove gira il bot
 - chiarire come intervenire in locale e sulla VPS
+- ricordare anche il flusso corretto di commit, push e deploy
 
 Ultimo aggiornamento del contesto:
 - data di riferimento: `2026-04-06`

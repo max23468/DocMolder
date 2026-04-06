@@ -28,6 +28,9 @@ Preferenze:
 - commit piccoli e descrivibili con una frase chiara
 - documentazione separata dal codice quando ha senso
 - evitare commit che mischiano fix, refactor e WIP non collegati
+- eseguire `commit` e `push` in sequenza, mai in parallelo
+- dopo il `commit`, verificare che `git status` sia pulito prima del `push`
+- dopo il `push`, verificare che il remote abbia ricevuto davvero l'ultimo commit locale
 
 ## Changelog
 
@@ -59,8 +62,7 @@ La procedura operativa completa e in [docs/DEPLOY_ORACLE.md](/Users/Matteo/Docum
 
 In breve:
 
-1. aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
-2. reinstallare il progetto nel virtualenv se serve
-3. riavviare il servizio
-4. controllare i log
-5. testare il bot da Telegram
+1. eseguire il `push` dell'ultimo commit locale e verificare che sia andato a buon fine
+2. aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
+3. controllare stato servizio, log recenti e revisione live
+4. testare il bot da Telegram quando il cambiamento tocca l'esperienza utente o i flussi reali
