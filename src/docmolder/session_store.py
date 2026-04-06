@@ -5,7 +5,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Protocol
 
-from docmolder.models import AdminUserStat, FileKind, JobRecord, JobStatus, SessionFile, SessionStatus, UserSession
+from docmolder.models import AdminActionStat, AdminUserStat, FileKind, JobRecord, JobStatus, SessionFile, SessionStatus, UserSession
 
 
 class SessionStore(Protocol):
@@ -20,6 +20,10 @@ class SessionStore(Protocol):
     def register_user(self, user_id: int, username: str | None, first_name: str | None, last_name: str | None) -> bool: ...
 
     def record_completed_action(self, user_id: int, action: str) -> None: ...
+
+    def get_meta(self, key: str) -> str | None: ...
+
+    def set_meta(self, key: str, value: str) -> None: ...
 
     def build_admin_stats(self) -> dict[str, int]: ...
 
@@ -57,6 +61,8 @@ class SessionStore(Protocol):
 
     def list_top_users(self, limit: int = 5, since_days: int = 7) -> list[AdminUserStat]: ...
 
+    def list_failed_actions(self, limit: int = 5, since_days: int = 7) -> list[AdminActionStat]: ...
+
     def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]: ...
 
 
@@ -67,6 +73,7 @@ class InMemorySessionStore:
         self._known_user_ids: set[int] = set()
         self._completed_actions: list[tuple[int, str]] = []
         self._jobs: dict[int, JobRecord] = {}
+        self._meta: dict[str, str] = {}
         self._next_job_id = 1
 
     def get(self, user_id: int) -> UserSession | None:
@@ -101,6 +108,14 @@ class InMemorySessionStore:
     def record_completed_action(self, user_id: int, action: str) -> None:
         with self._lock:
             self._completed_actions.append((user_id, action))
+
+    def get_meta(self, key: str) -> str | None:
+        with self._lock:
+            return self._meta.get(key)
+
+    def set_meta(self, key: str, value: str) -> None:
+        with self._lock:
+            self._meta[key] = value
 
     def build_admin_stats(self) -> dict[str, int]:
         with self._lock:
@@ -216,6 +231,13 @@ class InMemorySessionStore:
                 if job.status in {JobStatus.QUEUED, JobStatus.RUNNING}:
                     job.status = JobStatus.QUEUED
                     job.started_at = None
+                    job.finished_at = None
+                    job.result_message = None
+                    job.error_message = None
+                    job.processing_mode = None
+                    job.input_bytes = None
+                    job.output_bytes = None
+                    job.duration_ms = None
                     jobs.append(replace(job))
             return sorted(jobs, key=lambda item: item.id)
 
@@ -242,6 +264,17 @@ class InMemorySessionStore:
             )
             for user_id, completed_actions in ranked
         ]
+
+    def list_failed_actions(self, limit: int = 5, since_days: int = 7) -> list[AdminActionStat]:
+        del since_days
+        with self._lock:
+            counts: dict[str, int] = {}
+            for job in self._jobs.values():
+                if job.status != JobStatus.FAILED:
+                    continue
+                counts[job.action] = counts.get(job.action, 0) + 1
+            ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+        return [AdminActionStat(action=action, total=total) for action, total in ranked]
 
     def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]:
         with self._lock:
@@ -402,6 +435,25 @@ class SQLiteSessionStore:
             )
             connection.commit()
 
+    def get_meta(self, key: str) -> str | None:
+        with self._lock, self._connect() as connection:
+            row = connection.execute("SELECT value FROM app_meta WHERE key = ?", (key,)).fetchone()
+        if row is None:
+            return None
+        return str(row["value"])
+
+    def set_meta(self, key: str, value: str) -> None:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO app_meta (key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (key, value),
+            )
+            connection.commit()
+
     def build_admin_stats(self) -> dict[str, int]:
         with self._lock, self._connect() as connection:
             row = connection.execute(
@@ -538,7 +590,8 @@ class SQLiteSessionStore:
             connection.execute(
                 """
                 UPDATE jobs
-                SET status = ?, started_at = NULL
+                SET status = ?, started_at = NULL, finished_at = NULL, result_message = NULL, error_message = NULL,
+                    processing_mode = NULL, input_bytes = NULL, output_bytes = NULL, duration_ms = NULL
                 WHERE status IN (?, ?)
                 """,
                 (JobStatus.QUEUED.value, JobStatus.QUEUED.value, JobStatus.RUNNING.value),
@@ -603,6 +656,21 @@ class SQLiteSessionStore:
             )
         return top_users
 
+    def list_failed_actions(self, limit: int = 5, since_days: int = 7) -> list[AdminActionStat]:
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT action, COUNT(*) AS total
+                FROM jobs
+                WHERE status = ? AND COALESCE(finished_at, created_at) >= datetime('now', ?)
+                GROUP BY action
+                ORDER BY total DESC, action ASC
+                LIMIT ?
+                """,
+                (JobStatus.FAILED.value, f"-{since_days} day", limit),
+            ).fetchall()
+        return [AdminActionStat(action=row["action"], total=int(row["total"])) for row in rows]
+
     def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]:
         query = """
             SELECT *
@@ -659,6 +727,11 @@ class SQLiteSessionStore:
                     user_id INTEGER NOT NULL,
                     action TEXT NOT NULL,
                     created_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS app_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_usage_events_created_at

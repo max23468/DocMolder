@@ -88,3 +88,9 @@ class AdminUserStat:
     user_id: int
     label: str
     completed_actions: int
+
+
+@dataclass(slots=True)
+class AdminActionStat:
+    action: str
+    total: int

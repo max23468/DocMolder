@@ -74,6 +74,9 @@ Imposta almeno:
 - `DOCMOLDER_MAX_ACTIVE_JOBS_PER_USER`
 - `DOCMOLDER_CLEANUP_INTERVAL_MINUTES`
 - `DOCMOLDER_STALE_JOB_RETENTION_HOURS`
+- `DOCMOLDER_ADMIN_DAILY_REPORT_HOUR`
+- `DOCMOLDER_ADMIN_WEEKLY_REPORT_DAY`
+- `DOCMOLDER_ADMIN_WEEKLY_REPORT_HOUR`
 - `DOCMOLDER_RUNTIME_DIR`
 - `DOCMOLDER_DATABASE_PATH`
 
@@ -84,6 +87,12 @@ Se vuoi limitare l'accesso a utenti specifici, puoi aggiungere anche:
 Se vuoi ricevere una notifica quando un utente usa il bot per la prima volta, puoi aggiungere anche:
 
 - `DOCMOLDER_ADMIN_USER_IDS`
+
+Se vuoi ricevere riepiloghi periodici admin, puoi usare anche:
+
+- `DOCMOLDER_ADMIN_DAILY_REPORT_HOUR`
+- `DOCMOLDER_ADMIN_WEEKLY_REPORT_DAY`
+- `DOCMOLDER_ADMIN_WEEKLY_REPORT_HOUR`
 
 ## Avvio del servizio
 

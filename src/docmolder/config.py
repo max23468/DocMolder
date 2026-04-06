@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     max_active_jobs_per_user: int = Field(default=2, alias="DOCMOLDER_MAX_ACTIVE_JOBS_PER_USER")
     cleanup_interval_minutes: int = Field(default=30, alias="DOCMOLDER_CLEANUP_INTERVAL_MINUTES")
     stale_job_retention_hours: int = Field(default=6, alias="DOCMOLDER_STALE_JOB_RETENTION_HOURS")
+    admin_daily_report_hour: int = Field(default=8, alias="DOCMOLDER_ADMIN_DAILY_REPORT_HOUR")
+    admin_weekly_report_day: int = Field(default=0, alias="DOCMOLDER_ADMIN_WEEKLY_REPORT_DAY")
+    admin_weekly_report_hour: int = Field(default=8, alias="DOCMOLDER_ADMIN_WEEKLY_REPORT_HOUR")
     runtime_dir: Path = Field(default=Path("./data/runtime"), alias="DOCMOLDER_RUNTIME_DIR")
     database_path: Path = Field(default=Path("./data/runtime/docmolder.db"), alias="DOCMOLDER_DATABASE_PATH")
 

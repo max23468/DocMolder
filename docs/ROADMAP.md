@@ -4,18 +4,8 @@ Questa roadmap raccoglie le priorità attuali di `DocMolder`.
 
 ## Indice
 
-- [Fase 2: Operatività e Controllo](#fase-2-operativita-e-controllo)
 - [Fase 3: Estensione Funzionale](#fase-3-estensione-funzionale)
 - [Fase 4: Miglioramenti Tecnici](#fase-4-miglioramenti-tecnici)
-
-## Fase 2: Operatività e Controllo
-
-- [ ] metriche più leggibili su utilizzo, errori e job falliti
-- [ ] strumenti admin per capire rapidamente quali trasformazioni causano più problemi
-- [ ] report admin periodici con riepilogo giornaliero o settimanale
-- [ ] introdurre o rifinire limiti su dimensione file, numero allegati e carico concorrente per utente
-- [ ] rendere più robusta la ripartenza dei job dopo crash o riavvio del servizio
-- [ ] politiche di retention e manutenzione più visibili anche lato documentazione
 
 ## Fase 3: Estensione Funzionale
 

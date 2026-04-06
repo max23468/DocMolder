@@ -35,7 +35,7 @@ make test
 - [tests/test_rate_limit.py](/Users/Matteo/Documents/DocMolder/tests/test_rate_limit.py)
   copre i limiti di upload e di job concorrenti
 - [tests/test_session_store.py](/Users/Matteo/Documents/DocMolder/tests/test_session_store.py)
-  copre persistenza, statistiche admin, stato dei job e metriche tecniche aggregate
+  copre persistenza, statistiche admin, stato dei job, metriche tecniche aggregate e meta-informazioni operative
 
 ## Comandi utili
 

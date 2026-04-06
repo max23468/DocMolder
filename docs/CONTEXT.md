@@ -171,6 +171,9 @@ Variabili importanti:
 - `DOCMOLDER_MAX_ACTIVE_JOBS_PER_USER`
 - `DOCMOLDER_CLEANUP_INTERVAL_MINUTES`
 - `DOCMOLDER_STALE_JOB_RETENTION_HOURS`
+- `DOCMOLDER_ADMIN_DAILY_REPORT_HOUR`
+- `DOCMOLDER_ADMIN_WEEKLY_REPORT_DAY`
+- `DOCMOLDER_ADMIN_WEEKLY_REPORT_HOUR`
 - `DOCMOLDER_RUNTIME_DIR`
 - `DOCMOLDER_DATABASE_PATH`
 
@@ -198,6 +201,8 @@ Punti chiave:
 Nota importante di affidabilita:
 - e gia stata corretta una regressione in cui il file temporaneo del job veniva cancellato prima dell'invio a Telegram
 - oggi il cleanup del job avviene dopo `_send_result()`
+- il report admin e stato reso piu leggibile con sintesi qualita, percentuali base e top errori per azione
+- il bot puo inviare report admin periodici giornalieri e settimanali, con stato ultimo invio persistito
 
 ### 6.4 `processing.py`
 
@@ -238,6 +243,7 @@ Responsabilita:
 - costruisce statistiche admin
 - permette di riaccodare job incompleti dopo riavvii
 - conserva anche metriche tecniche essenziali dei job riusciti, come durata, byte input/output e modalita effettiva del risultato
+- conserva anche meta-informazioni applicative come l'ultimo invio dei report admin periodici
 
 Implementazione usata in produzione:
 - `SQLiteSessionStore`

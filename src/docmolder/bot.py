@@ -44,7 +44,7 @@ from docmolder.messages import (
     UPLOAD_RATE_LIMIT_MESSAGE,
     WELCOME_MESSAGE,
 )
-from docmolder.models import AdminUserStat, CompressionPreset, FileKind, JobRecord, JobStatus, SupportedAction, UserSession
+from docmolder.models import AdminActionStat, AdminUserStat, CompressionPreset, FileKind, JobRecord, JobStatus, SupportedAction, UserSession
 from docmolder.processing import (
     A4_MARGIN_NARROW_PX,
     A4_MARGIN_NONE_PX,
@@ -79,6 +79,7 @@ class BotDependencies:
         self.job_queue: asyncio.Queue[int] = asyncio.Queue()
         self.job_worker_task: asyncio.Task[None] | None = None
         self.cleanup_task: asyncio.Task[None] | None = None
+        self.admin_report_task: asyncio.Task[None] | None = None
         self.upload_history: dict[int, deque[datetime]] = {}
 
 
@@ -110,6 +111,7 @@ async def _post_init(application: Application) -> None:
         logger.info("Ripresi %s job incompleti dalla coda persistente.", len(requeued_jobs))
     deps.job_worker_task = asyncio.create_task(_job_worker(application))
     deps.cleanup_task = asyncio.create_task(_cleanup_worker(deps))
+    deps.admin_report_task = asyncio.create_task(_admin_report_worker(application))
 
 
 async def _post_shutdown(application: Application) -> None:
@@ -124,6 +126,12 @@ async def _post_shutdown(application: Application) -> None:
         deps.cleanup_task.cancel()
         try:
             await deps.cleanup_task
+        except asyncio.CancelledError:
+            pass
+    if deps.admin_report_task is not None:
+        deps.admin_report_task.cancel()
+        try:
+            await deps.admin_report_task
         except asyncio.CancelledError:
             pass
 
@@ -231,10 +239,11 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     stats = deps.session_store.build_admin_stats()
     top_users = deps.session_store.list_top_users(limit=5, since_days=7)
+    failed_actions = deps.session_store.list_failed_actions(limit=5, since_days=7)
     recent_failed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
     recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
     await update.effective_message.reply_text(
-        _build_admin_report(stats, top_users, recent_failed_jobs, recent_completed_jobs)
+        _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs)
     )
 
 
@@ -298,7 +307,12 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     if not _consume_upload_slot(user.id, deps):
-        await message.reply_text(UPLOAD_RATE_LIMIT_MESSAGE)
+        await message.reply_text(
+            _build_upload_rate_limit_message(
+                deps.settings.upload_burst_limit,
+                deps.settings.upload_burst_window_seconds,
+            )
+        )
         return
 
     if _exceeds_file_size_limit(document.file_size, deps.settings.max_file_size_mb):
@@ -307,7 +321,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     session = _get_or_create_session(user.id, deps)
     if len(session.files) >= deps.settings.max_session_files:
-        await message.reply_text("Hai raggiunto il numero massimo di file per questa sessione. Usa /reset per ricominciare.")
+        await message.reply_text(_build_session_file_limit_message(deps.settings.max_session_files))
         return
     if session.files and any(item.kind != kind for item in session.files):
         await message.reply_text(MIXED_SESSION_MESSAGE)
@@ -343,7 +357,12 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         return
 
     if not _consume_upload_slot(user.id, deps):
-        await message.reply_text(UPLOAD_RATE_LIMIT_MESSAGE)
+        await message.reply_text(
+            _build_upload_rate_limit_message(
+                deps.settings.upload_burst_limit,
+                deps.settings.upload_burst_window_seconds,
+            )
+        )
         return
 
     best_photo = _pick_best_photo(photos)
@@ -353,7 +372,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     session = _get_or_create_session(user.id, deps)
     if len(session.files) >= deps.settings.max_session_files:
-        await message.reply_text("Hai raggiunto il numero massimo di file per questa sessione. Usa /reset per ricominciare.")
+        await message.reply_text(_build_session_file_limit_message(deps.settings.max_session_files))
         return
     if session.files and any(item.kind != FileKind.IMAGE for item in session.files):
         await message.reply_text(MIXED_SESSION_MESSAGE)
@@ -407,7 +426,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     if not _has_capacity_for_new_job(user.id, deps):
-        await query.edit_message_text(JOB_QUEUE_LIMIT_MESSAGE)
+        await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
 
     supported_action = SupportedAction(action)
@@ -443,7 +462,7 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
         return
 
     if not _has_capacity_for_new_job(user.id, deps):
-        await query.edit_message_text(JOB_QUEUE_LIMIT_MESSAGE)
+        await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
 
     job = await _enqueue_job(
@@ -484,7 +503,10 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
     action = (query.data or "").removeprefix("result:")
     if action.startswith("undo_rotate:"):
         if not _has_capacity_for_new_job(user.id, deps):
-            await query.message.reply_text(JOB_QUEUE_LIMIT_MESSAGE, reply_to_message_id=query.message.message_id)
+            await query.message.reply_text(
+                _build_job_queue_limit_message(deps.settings.max_active_jobs_per_user),
+                reply_to_message_id=query.message.message_id,
+            )
             return
         source_job_id = int(action.removeprefix("undo_rotate:"))
         source_job = deps.session_store.get_job(source_job_id)
@@ -508,7 +530,10 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         return
 
     if not _has_capacity_for_new_job(user.id, deps):
-        await query.message.reply_text(JOB_QUEUE_LIMIT_MESSAGE, reply_to_message_id=query.message.message_id)
+        await query.message.reply_text(
+            _build_job_queue_limit_message(deps.settings.max_active_jobs_per_user),
+            reply_to_message_id=query.message.message_id,
+        )
         return
 
     if action != SupportedAction.PDF_GRAYSCALE.value:
@@ -652,7 +677,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if inferred_request is not None:
             action, compression_preset = inferred_request
             if not _has_capacity_for_new_job(user.id, deps):
-                await message.reply_text(JOB_QUEUE_LIMIT_MESSAGE)
+                await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
                 return
 
             if _is_image_pdf_action(action):
@@ -736,14 +761,23 @@ def _build_new_user_notification(user: User) -> str:
 def _build_admin_report(
     stats: dict[str, int],
     top_users: list[AdminUserStat],
+    failed_actions: list[AdminActionStat],
     recent_failed_jobs: list[JobRecord],
     recent_completed_jobs: list[JobRecord],
 ) -> str:
     timestamp = datetime.now(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y alle %H:%M")
+    total_finished_jobs = stats["jobs_succeeded"] + stats["jobs_failed"]
+    success_rate = _format_percent(stats["jobs_succeeded"], total_finished_jobs)
+    failure_rate = _format_percent(stats["jobs_failed"], total_finished_jobs)
+    raster_share = _format_percent(stats["raster_results_total"], stats["jobs_succeeded"])
     top_users_block = "\n".join(
         f"- {entry.label} ({entry.user_id}): {entry.completed_actions} operazioni"
         for entry in top_users
     ) or "- Nessun dato ancora disponibile"
+    failed_actions_block = "\n".join(
+        f"- {_action_label(entry.action)}: {entry.total}"
+        for entry in failed_actions
+    ) or "- Nessun pattern di errore rilevante"
     failed_jobs_block = "\n".join(_format_job_line(job) for job in recent_failed_jobs) or "- Nessun job fallito di recente"
     completed_jobs_block = "\n".join(_format_job_line(job) for job in recent_completed_jobs) or "- Nessun job completato di recente"
     return (
@@ -765,13 +799,18 @@ def _build_admin_report(
         f"- Durata: {_format_duration_ms(stats['avg_duration_ms'])}\n"
         f"- Input: {_format_bytes(stats['avg_input_bytes'])}\n"
         f"- Output: {_format_bytes(stats['avg_output_bytes'])}\n"
-        f"- Risultati con fallback raster: {stats['raster_results_total']}\n\n"
+        f"- Risultati con fallback raster: {stats['raster_results_total']} ({raster_share})\n\n"
+        "Sintesi qualità:\n"
+        f"- Job riusciti: {stats['jobs_succeeded']} ({success_rate})\n"
+        f"- Job falliti: {stats['jobs_failed']} ({failure_rate})\n\n"
         "Dettaglio operazioni:\n"
         f"- PDF da immagini: {stats['images_to_pdf_total']}\n"
         f"- Comprimi PDF: {stats['pdf_compress_total']}\n"
         f"- Scala di grigi: {stats['pdf_grayscale_total']}\n"
         f"- Unisci PDF: {stats['pdf_merge_total']}\n"
         f"- Correggi orientamento: {stats['auto_orient_total']}\n\n"
+        "Errori più frequenti ultimi 7 giorni:\n"
+        f"{failed_actions_block}\n\n"
         "Utenti più attivi ultimi 7 giorni:\n"
         f"{top_users_block}\n\n"
         "Ultimi job completati:\n"
@@ -782,17 +821,7 @@ def _build_admin_report(
 
 
 def _format_job_line(job: JobRecord) -> str:
-    action_labels = {
-        "images_to_pdf": "PDF da immagini",
-        "images_to_pdf_crop": "PDF con ritaglio bordi",
-        "images_to_pdf_grayscale": "PDF grigio da immagini",
-        "images_to_pdf_crop_grayscale": "PDF grigio con ritaglio bordi",
-        "pdf_compress": "Comprimi PDF",
-        "pdf_grayscale": "Scala di grigi",
-        "pdf_merge": "Unisci PDF",
-        "auto_orient": "Correggi orientamento",
-    }
-    action_label = action_labels.get(job.action, job.action)
+    action_label = _action_label(job.action)
     reference_time = job.finished_at or job.created_at
     timestamp = reference_time.astimezone(ZoneInfo("Europe/Rome")).strftime("%d/%m %H:%M")
     metric_parts: list[str] = []
@@ -817,6 +846,26 @@ def _format_bytes(size_bytes: int) -> str:
     if size_bytes >= 1024:
         return f"{size_bytes / 1024:.1f} KB"
     return f"{size_bytes} B"
+
+
+def _format_percent(value: int, total: int) -> str:
+    if total <= 0:
+        return "0%"
+    return f"{(value / total) * 100:.0f}%"
+
+
+def _action_label(action: str) -> str:
+    action_labels = {
+        "images_to_pdf": "PDF da immagini",
+        "images_to_pdf_crop": "PDF con ritaglio bordi",
+        "images_to_pdf_grayscale": "PDF grigio da immagini",
+        "images_to_pdf_crop_grayscale": "PDF grigio con ritaglio bordi",
+        "pdf_compress": "Comprimi PDF",
+        "pdf_grayscale": "Scala di grigi",
+        "pdf_merge": "Unisci PDF",
+        "auto_orient": "Correggi orientamento",
+    }
+    return action_labels.get(action, action)
 
 
 def build_application(settings: Settings) -> Application:
@@ -878,6 +927,27 @@ def _exceeds_file_size_limit(file_size: int | None, max_file_size_mb: int) -> bo
 
 def _build_file_too_large_message(max_file_size_mb: int) -> str:
     return f"{FILE_TOO_LARGE_MESSAGE} Limite attuale: {max_file_size_mb} MB."
+
+
+def _build_session_file_limit_message(max_session_files: int) -> str:
+    return (
+        "Hai raggiunto il numero massimo di file per questa sessione. "
+        f"Limite attuale: {max_session_files} file. Usa /reset per ricominciare."
+    )
+
+
+def _build_upload_rate_limit_message(upload_burst_limit: int, upload_burst_window_seconds: int) -> str:
+    return (
+        f"{UPLOAD_RATE_LIMIT_MESSAGE} "
+        f"Limite attuale: {upload_burst_limit} file in {upload_burst_window_seconds} secondi."
+    )
+
+
+def _build_job_queue_limit_message(max_active_jobs_per_user: int) -> str:
+    return (
+        f"{JOB_QUEUE_LIMIT_MESSAGE} "
+        f"Limite attuale: {max_active_jobs_per_user} job attivi per utente."
+    )
 
 
 def _schedule_image_session_notification(
@@ -1156,10 +1226,80 @@ async def _cleanup_worker(deps: BotDependencies) -> None:
             logger.exception("Errore durante il cleanup schedulato.")
 
 
+async def _admin_report_worker(application: Application) -> None:
+    deps: BotDependencies = application.bot_data["deps"]
+    while True:
+        try:
+            await asyncio.sleep(300)
+            await _maybe_send_periodic_admin_reports(application, deps)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("Errore durante l'invio dei report admin periodici.")
+
+
 def _run_cleanup_cycle(deps: BotDependencies) -> None:
     removed_dirs = deps.processor.cleanup_stale_job_dirs(deps.settings.stale_job_retention_hours)
     if removed_dirs:
         logger.info("Cleanup schedulato: rimosse %s cartelle temporanee residue.", removed_dirs)
+
+
+async def _maybe_send_periodic_admin_reports(application: Application, deps: BotDependencies) -> None:
+    if not deps.settings.admin_user_ids:
+        return
+
+    now = datetime.now(ZoneInfo("Europe/Rome"))
+    await _maybe_send_admin_report_for_period(
+        application,
+        deps,
+        period="daily",
+        report_date=now.date().isoformat(),
+        should_send=now.hour >= deps.settings.admin_daily_report_hour,
+        since_days=1,
+        title="Riepilogo admin giornaliero DocMolder",
+    )
+    await _maybe_send_admin_report_for_period(
+        application,
+        deps,
+        period="weekly",
+        report_date=now.date().isoformat(),
+        should_send=(
+            now.weekday() == deps.settings.admin_weekly_report_day
+            and now.hour >= deps.settings.admin_weekly_report_hour
+        ),
+        since_days=7,
+        title="Riepilogo admin settimanale DocMolder",
+    )
+
+
+async def _maybe_send_admin_report_for_period(
+    application: Application,
+    deps: BotDependencies,
+    *,
+    period: str,
+    report_date: str,
+    should_send: bool,
+    since_days: int,
+    title: str,
+) -> None:
+    if not should_send:
+        return
+    meta_key = f"admin_report_{period}_last_sent"
+    if deps.session_store.get_meta(meta_key) == report_date:
+        return
+    report_text = _build_periodic_admin_report(deps, since_days=since_days, title=title)
+    for admin_user_id in deps.settings.admin_user_ids:
+        await application.bot.send_message(chat_id=admin_user_id, text=report_text)
+    deps.session_store.set_meta(meta_key, report_date)
+
+
+def _build_periodic_admin_report(deps: BotDependencies, *, since_days: int, title: str) -> str:
+    stats = deps.session_store.build_admin_stats()
+    top_users = deps.session_store.list_top_users(limit=5, since_days=since_days)
+    failed_actions = deps.session_store.list_failed_actions(limit=5, since_days=since_days)
+    recent_failed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
+    recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
+    return f"{title}\n\n{_build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs)}"
 
 
 async def _process_job(application: Application, job_id: int) -> None:
@@ -1269,7 +1409,7 @@ async def _enqueue_image_pdf_job_from_callback(
 ) -> None:
     deps = _get_dependencies(context)
     if not _has_capacity_for_new_job(user_id, deps):
-        await query.edit_message_text(JOB_QUEUE_LIMIT_MESSAGE)
+        await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
 
     job = await _enqueue_job(

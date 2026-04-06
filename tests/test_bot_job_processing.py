@@ -13,8 +13,14 @@ from docmolder.bot import (
     BotDependencies,
     SESSION_EMPTY_MESSAGE,
     _build_admin_report,
+    _build_file_too_large_message,
+    _build_job_queue_limit_message,
+    _build_periodic_admin_report,
     _build_processing_started_message,
     _build_text_request_queued_message,
+    _build_session_file_limit_message,
+    _build_upload_rate_limit_message,
+    _maybe_send_admin_report_for_period,
     _process_job,
     handle_images_pdf_layout_callback,
     handle_images_pdf_margin_callback,
@@ -25,6 +31,7 @@ from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
 from docmolder.processing import ProcessingResult
 from docmolder.models import CompressionPreset, FileKind, JobStatus, SupportedAction, UserSession
+from docmolder.models import AdminActionStat, AdminUserStat
 from docmolder.session_store import InMemorySessionStore
 from docmolder.services import build_session_file
 
@@ -206,7 +213,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
                 "avg_input_bytes": 4096,
                 "avg_output_bytes": 2048,
             },
-            [],
+            [AdminUserStat(user_id=7, label="@mario", completed_actions=3)],
+            [AdminActionStat(action="pdf_compress", total=2)],
             [],
             [],
         )
@@ -215,6 +223,52 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("1.5s", report)
         self.assertIn("4.0 KB", report)
         self.assertIn("2.0 KB", report)
+        self.assertIn("Sintesi qualità", report)
+        self.assertIn("100%", report)
+        self.assertIn("Errori più frequenti", report)
+        self.assertIn("Comprimi PDF: 2", report)
+
+    def test_build_limit_messages_include_current_values(self) -> None:
+        self.assertIn("20 MB", _build_file_too_large_message(20))
+        self.assertIn("12 file", _build_session_file_limit_message(12))
+        self.assertIn("3 file in 30 secondi", _build_upload_rate_limit_message(3, 30))
+        self.assertIn("4 job attivi", _build_job_queue_limit_message(4))
+
+    async def test_maybe_send_admin_report_for_period_persists_last_sent(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+        await _maybe_send_admin_report_for_period(
+            self.application,
+            self.deps,
+            period="daily",
+            report_date="2026-04-06",
+            should_send=True,
+            since_days=1,
+            title="Riepilogo admin giornaliero DocMolder",
+        )
+
+        self.bot.send_message.assert_awaited()
+        self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-04-06")
+
+        self.bot.send_message.reset_mock()
+        await _maybe_send_admin_report_for_period(
+            self.application,
+            self.deps,
+            period="daily",
+            report_date="2026-04-06",
+            should_send=True,
+            since_days=1,
+            title="Riepilogo admin giornaliero DocMolder",
+        )
+        self.bot.send_message.assert_not_awaited()
+
+    def test_build_periodic_admin_report_prefixes_title(self) -> None:
+        report = _build_periodic_admin_report(
+            self.deps,
+            since_days=1,
+            title="Riepilogo admin giornaliero DocMolder",
+        )
+
+        self.assertTrue(report.startswith("Riepilogo admin giornaliero DocMolder"))
 
     async def test_result_callback_enqueues_grayscale_job_from_sent_pdf(self) -> None:
         reply_text = AsyncMock()

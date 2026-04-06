@@ -93,6 +93,7 @@ Se `DOCMOLDER_ADMIN_USER_IDS` e configurata:
 
 - gli admin ricevono notifica al primo accesso di un nuovo utente
 - `/admin` mostra metriche sintetiche su utenti, job e attivita recenti
+- il bot puo inviare anche riepiloghi admin giornalieri e settimanali
 
 Quando qualcosa non torna, guarda prima:
 
@@ -101,3 +102,13 @@ Quando qualcosa non torna, guarda prima:
 - utenti piu attivi
 - tipo di trasformazione che fallisce piu spesso
 - durata media dei job, peso medio di input/output e quanti risultati stanno passando da fallback raster
+- tasso di successo e tasso di fallimento mostrati nel riepilogo admin
+
+## Retention e manutenzione
+
+Regole pratiche attuali:
+
+- i file di lavoro dei job restano temporanei
+- le cartelle job residue vengono pulite dal cleanup schedulato
+- i job incompleti vengono rimessi in coda dopo riavvio, ma con stato operativo ripulito
+- la documentazione operativa e di deploy va tenuta allineata quando cambiano retention, cleanup o cadenza dei report admin

@@ -88,6 +88,14 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
             payload_json='{"files": []}',
         )
         self.store.mark_job_running(second_job.id)
+        running_job = self.store.get_job(second_job.id)
+        self.assertIsNotNone(running_job)
+        running_job.finished_at = running_job.created_at
+        running_job.error_message = "Errore vecchio"
+        running_job.processing_mode = "raster"
+        running_job.input_bytes = 200
+        running_job.output_bytes = 100
+        running_job.duration_ms = 50
 
         requeued_jobs = self.store.requeue_incomplete_jobs()
 
@@ -96,6 +104,19 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertIsNotNone(requeued_second_job)
         self.assertEqual(requeued_second_job.status.value, "queued")
         self.assertIsNone(requeued_second_job.started_at)
+        self.assertIsNone(requeued_second_job.finished_at)
+        self.assertIsNone(requeued_second_job.error_message)
+        self.assertIsNone(requeued_second_job.processing_mode)
+        self.assertIsNone(requeued_second_job.input_bytes)
+        self.assertIsNone(requeued_second_job.output_bytes)
+        self.assertIsNone(requeued_second_job.duration_ms)
+
+    def test_meta_store_roundtrip(self) -> None:
+        self.assertIsNone(self.store.get_meta("admin_report_daily_last_sent"))
+
+        self.store.set_meta("admin_report_daily_last_sent", "2026-04-06")
+
+        self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-04-06")
 
     def test_admin_lists_expose_top_users_and_recent_jobs(self) -> None:
         self.store.register_user(10, "mario", "Mario", "Rossi")
@@ -123,12 +144,15 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.store.mark_job_succeeded(success_job.id, "Completato")
 
         top_users = self.store.list_top_users(limit=5, since_days=7)
+        failed_actions = self.store.list_failed_actions(limit=5, since_days=7)
         recent_failed_jobs = self.store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
         recent_completed_jobs = self.store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
 
         self.assertEqual(top_users[0].user_id, 10)
         self.assertEqual(top_users[0].completed_actions, 2)
         self.assertTrue(top_users[0].label in {"@mario", "mario"})
+        self.assertEqual(failed_actions[0].action, "pdf_compress")
+        self.assertEqual(failed_actions[0].total, 1)
         self.assertEqual(recent_failed_jobs[0].id, failed_job.id)
         self.assertEqual(recent_completed_jobs[0].id, success_job.id)
 

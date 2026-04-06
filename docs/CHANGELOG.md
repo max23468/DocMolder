@@ -23,10 +23,16 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 - la roadmap e stata riorganizzata come checklist operativa separata dal changelog
 - i flussi da immagini che producono PDF in scala di grigi generano ora il PDF grigio direttamente, senza dipendere da una riconversione successiva del PDF
 - i messaggi di presa in carico, lavorazione e risultato spiegano meglio quando una conversione PDF puo richiedere piu tempo o usare fallback che non preservano pienamente la struttura nativa
+- il report admin evidenzia meglio utilizzo, qualita dei job, fallback raster e azioni che falliscono piu spesso
+- il bot puo inviare report admin periodici giornalieri e settimanali senza duplicare lo stesso riepilogo dopo un riavvio
+- i limiti operativi comunicano meglio i valori effettivi su file, burst upload e job concorrenti
+- la roadmap ora passa direttamente alle fasi funzionali e tecniche successive dopo il completamento della fase operativa
 
 ### Tecnico
 
 - ampliata la copertura dei test per il layout dei PDF da immagini e per l'auto-orientamento dei PDF
 - ampliata la copertura dei test per PDF vuoti o corrotti, PDF multipagina piu pesanti e documenti con pagine quadrate o orientamenti misti
 - aggiunto tracciamento di durata job, dimensione input/output e modalita effettiva del risultato per migliorare il monitoraggio tecnico
+- introdotto uno storage meta persistente per report admin periodici e stato operativo del bot
+- la riaccodatura dei job dopo riavvio ripulisce meglio stato, errori e metriche residue dei job incompleti
 - aggiornato il contesto tecnico del progetto per riflettere il nuovo flusso PDF
