@@ -2,6 +2,14 @@
 
 Questa guida serve per riprendere `DocMolder` in locale senza dover ricordare ogni volta i passaggi.
 
+## Indice
+
+- [Primo avvio](#primo-avvio)
+- [Avvio rapido](#avvio-rapido)
+- [Verifiche utili](#verifiche-utili)
+- [Flusso quotidiano consigliato](#flusso-quotidiano-consigliato)
+- [Note pratiche](#note-pratiche)
+
 ## Primo avvio
 
 1. Crea il virtualenv e installa il progetto:

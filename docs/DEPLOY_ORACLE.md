@@ -2,6 +2,18 @@
 
 Questa guida prepara `DocMolder` per una VPS Oracle con Ubuntu.
 
+## Indice
+
+- [Perche Ubuntu](#perche-ubuntu)
+- [Configurazione consigliata](#configurazione-consigliata)
+- [Flusso consigliato](#flusso-consigliato)
+- [Comandi iniziali](#comandi-iniziali)
+- [Variabili da configurare](#variabili-da-configurare)
+- [Avvio del servizio](#avvio-del-servizio)
+- [Log](#log)
+- [Aggiornare il bot dopo un push](#aggiornare-il-bot-dopo-un-push)
+- [Note operative](#note-operative)
+
 ## Perche Ubuntu
 
 La scelta di Ubuntu e pratica:

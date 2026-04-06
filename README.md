@@ -88,6 +88,21 @@ Per la guida completa, vedi [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md).
 
 Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPLOY_ORACLE.md).
 
+## Documentazione
+
+Documenti utili:
+
+- [`docs/CHANGELOG.md`](docs/CHANGELOG.md)
+- [`docs/CONTEXT.md`](docs/CONTEXT.md)
+- [`docs/DECISIONS.md`](docs/DECISIONS.md)
+- [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md)
+- [`docs/DEPLOY_ORACLE.md`](docs/DEPLOY_ORACLE.md)
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
+- [`docs/PDF_PIPELINE.md`](docs/PDF_PIPELINE.md)
+- [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
+- [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/TESTING.md`](docs/TESTING.md)
+
 ## Variabili ambiente
 
 - `DOCMOLDER_TELEGRAM_TOKEN`
@@ -109,6 +124,7 @@ Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPL
 ## Prossimi passi suggeriti
 
 La roadmap corrente del progetto è in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+Le modifiche rilevanti vengono annotate anche in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 In sintesi, le priorità attuali sono:
 

@@ -2,6 +2,13 @@
 
 Questa roadmap raccoglie le priorità attuali di `DocMolder`.
 
+## Indice
+
+- [Fase 1: Qualità e Affidabilità](#fase-1-qualita-e-affidabilita)
+- [Fase 2: Operatività e Controllo](#fase-2-operativita-e-controllo)
+- [Fase 3: Estensione Funzionale](#fase-3-estensione-funzionale)
+- [Fase 4: Miglioramenti Tecnici](#fase-4-miglioramenti-tecnici)
+
 ## Fase 1: Qualità e Affidabilità
 
 - [ ] ampliare i test automatici su PDF reali, corrotti, pesanti o con struttura insolita

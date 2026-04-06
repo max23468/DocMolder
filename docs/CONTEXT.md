@@ -17,6 +17,21 @@ Importante:
 - puo contenere percorsi, hostname, IP, workflow operativi e metodi di login
 - token, chiavi private e credenziali restano fuori dal repository
 
+## Indice
+
+- [1. Cos'e DocMolder](#1-cose-docmolder)
+- [2. Stato attuale del prodotto](#2-stato-attuale-del-prodotto)
+- [3. Esperienza utente](#3-esperienza-utente)
+- [4. Linguaggio naturale supportato](#4-linguaggio-naturale-supportato)
+- [5. Architettura del codice](#5-architettura-del-codice)
+- [6. Componenti principali e responsabilita](#6-componenti-principali-e-responsabilita)
+- [7. Regole di sessione e coda](#7-regole-di-sessione-e-coda)
+- [8. File temporanei e retention](#8-file-temporanei-e-retention)
+- [9. Deploy e runtime reale](#9-deploy-e-runtime-reale)
+- [10. Flusso operativo di modifica consigliato](#10-flusso-operativo-di-modifica-consigliato)
+- [11. Rischi e attenzioni pratiche](#11-rischi-e-attenzioni-pratiche)
+- [12. Documenti da tenere allineati](#12-documenti-da-tenere-allineati)
+
 ## 1. Cos'e DocMolder
 
 `DocMolder` e un bot Telegram-first per trasformazioni documentali semplici, guidate e pensate per uso pratico rapido da chat.
