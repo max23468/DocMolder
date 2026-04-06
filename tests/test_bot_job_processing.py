@@ -9,11 +9,11 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import BotDependencies, _process_job
+from docmolder.bot import BotDependencies, _process_job, handle_result_action_callback
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
 from docmolder.processing import ProcessingResult
-from docmolder.models import JobStatus
+from docmolder.models import JobStatus, SupportedAction
 from docmolder.session_store import InMemorySessionStore
 
 
@@ -79,6 +79,32 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(sent_paths), 1)
         self.assertFalse(sent_paths[0].exists())
         self.assertEqual(self.store.get_job(job.id).status, JobStatus.SUCCEEDED)
+
+    async def test_result_callback_enqueues_grayscale_job_from_sent_pdf(self) -> None:
+        reply_text = AsyncMock()
+        message = SimpleNamespace(
+            chat_id=99,
+            message_id=321,
+            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            reply_text=reply_text,
+        )
+        query = SimpleNamespace(
+            data="result:pdf_grayscale",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=message,
+            answer=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=5))) as enqueue_job:
+            await handle_result_action_callback(update, context)
+
+        enqueue_job.assert_awaited_once()
+        enqueue_call = enqueue_job.await_args.kwargs
+        self.assertEqual(enqueue_call["action"], SupportedAction.PDF_GRAYSCALE)
+        self.assertEqual(enqueue_call["session"].files[0].telegram_file_id, "telegram-pdf-id")
+        reply_text.assert_awaited_once()
 
 
 if __name__ == "__main__":

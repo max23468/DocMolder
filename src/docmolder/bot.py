@@ -25,6 +25,7 @@ from docmolder.keyboards import (
     build_actions_keyboard,
     build_compression_keyboard,
     build_main_menu_keyboard,
+    build_result_pdf_keyboard,
     build_rotation_keyboard,
 )
 from docmolder.messages import (
@@ -468,6 +469,56 @@ async def handle_rotation_callback(update: Update, context: ContextTypes.DEFAULT
     )
 
 
+async def handle_result_action_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    query = update.callback_query
+    await query.answer()
+
+    user = query.from_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await query.message.reply_text(UNAUTHORIZED_MESSAGE)
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+
+    if not _has_capacity_for_new_job(user.id, deps):
+        await query.message.reply_text(JOB_QUEUE_LIMIT_MESSAGE, reply_to_message_id=query.message.message_id)
+        return
+
+    document = query.message.document
+    if document is None or _infer_document_kind(document) != FileKind.PDF:
+        await query.message.reply_text(
+            "Non riesco più a recuperare questo PDF. Inviamelo di nuovo e lo converto subito.",
+            reply_to_message_id=query.message.message_id,
+        )
+        return
+
+    action = (query.data or "").removeprefix("result:")
+    if action != SupportedAction.PDF_GRAYSCALE.value:
+        await query.message.reply_text(
+            "Questa azione sul risultato non è supportata.",
+            reply_to_message_id=query.message.message_id,
+        )
+        return
+
+    session = UserSession(
+        user_id=user.id,
+        files=[build_session_file(document.file_id, document.file_name, FileKind.PDF)],
+    )
+    job = await _enqueue_job(
+        context=context,
+        user_id=user.id,
+        chat_id=query.message.chat_id,
+        reply_to_message_id=query.message.message_id,
+        action=SupportedAction.PDF_GRAYSCALE,
+        session=session,
+    )
+    await query.message.reply_text(
+        f"Conversione in scala di grigi presa in carico. Job #{job.id} in coda.\nTi invio il PDF appena è pronto.",
+        reply_to_message_id=query.message.message_id,
+    )
+
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.exception("Errore non gestito", exc_info=context.error)
 
@@ -629,6 +680,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CallbackQueryHandler(handle_result_action_callback, pattern=r"^result:"))
     application.add_handler(CallbackQueryHandler(handle_compression_callback, pattern=r"^compress:"))
     application.add_handler(CallbackQueryHandler(handle_rotation_callback, pattern=r"^rotate:"))
     application.add_handler(CallbackQueryHandler(handle_action_callback, pattern=r"^action:"))
@@ -888,4 +940,5 @@ async def _send_result(bot, chat_id: int, reply_to_message_id: int | None, resul
             filename=result.output_name,
             caption=result.message,
             reply_to_message_id=reply_to_message_id,
+            reply_markup=build_result_pdf_keyboard() if result.output_name.lower().endswith(".pdf") else None,
         )

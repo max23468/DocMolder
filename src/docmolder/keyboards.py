@@ -36,6 +36,14 @@ def build_rotation_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def build_result_pdf_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Converti in scala di grigi", callback_data="result:pdf_grayscale")],
+        ]
+    )
+
+
 def build_main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
