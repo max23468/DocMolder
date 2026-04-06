@@ -118,6 +118,17 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
 
         self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-04-06")
 
+    def test_session_pending_action_roundtrip(self) -> None:
+        from docmolder.models import UserSession
+
+        session = UserSession(user_id=55, pending_action="pdf_extract_pages")
+        self.store.save(session)
+
+        loaded = self.store.get(55)
+
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded.pending_action, "pdf_extract_pages")
+
     def test_admin_lists_expose_top_users_and_recent_jobs(self) -> None:
         self.store.register_user(10, "mario", "Mario", "Rossi")
         self.store.register_user(20, None, "Luca", "Bianchi")
@@ -155,6 +166,35 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertEqual(failed_actions[0].total, 1)
         self.assertEqual(recent_failed_jobs[0].id, failed_job.id)
         self.assertEqual(recent_completed_jobs[0].id, success_job.id)
+
+    def test_list_user_jobs_returns_latest_jobs_for_user(self) -> None:
+        job_one = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="images_to_pdf",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_succeeded(job_one.id, "Completato")
+        job_two = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_failed(job_two.id, "Errore")
+        self.store.create_job(
+            user_id=99,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_merge",
+            payload_json='{"files": []}',
+        )
+
+        jobs = self.store.list_user_jobs(10, limit=5)
+
+        self.assertEqual([job.id for job in jobs], [job_two.id, job_one.id])
 
 
 if __name__ == "__main__":

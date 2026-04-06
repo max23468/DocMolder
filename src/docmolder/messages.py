@@ -6,10 +6,12 @@ WELCOME_MESSAGE = (
     "- comprimere un PDF\n"
     "- convertire un PDF in scala di grigi\n"
     "- unire più PDF\n"
+    "- estrarre, riordinare, eliminare o ruotare pagine di un PDF\n"
+    "- aggiungere un watermark testuale a un PDF\n"
     "- correggere automaticamente l'orientamento dei PDF durante l'elaborazione, quando serve\n"
     "- correggere l'orientamento delle immagini\n\n"
     "Per iniziare, inviami immagini o PDF.\n"
-    "Se vuoi, puoi anche usare il menu qui sotto."
+    "Se vuoi, puoi anche usare il menu qui sotto o consultare /history per gli ultimi job."
 )
 
 HELP_MESSAGE = (
@@ -23,6 +25,7 @@ HELP_MESSAGE = (
     "- immagini scannerizzate -> ritaglio bordi e PDF\n"
     "- immagini -> PDF con formato originale oppure A4 con bordi a scelta\n"
     "- un PDF -> comprimi o scala di grigi\n"
+    "- un PDF -> estrai pagine, riordinale, eliminale, ruotale o aggiungi un watermark\n"
     "- più PDF -> unisci\n\n"
     "Puoi anche scrivermi richieste semplici come:\n"
     "- fammi un pdf in scala di grigi\n"
@@ -33,6 +36,7 @@ HELP_MESSAGE = (
     "Comandi utili:\n"
     "/start\n"
     "/help\n"
+    "/history\n"
     "/status\n"
     "/reset"
 )

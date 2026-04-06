@@ -61,6 +61,22 @@ Per l'unione:
 - puo preparare i documenti con auto-orientamento prima della fusione
 - produce un unico output PDF finale
 
+### Operazioni native su singolo PDF
+
+Per un singolo PDF il bot supporta anche:
+
+- estrazione pagine
+- riordino completo delle pagine
+- eliminazione pagine
+- rotazione manuale di tutte le pagine
+- watermark testuale
+
+Questi flussi:
+
+- restano nativi, senza passare da rasterizzazione
+- chiedono in chat solo il minimo input necessario, per esempio `1,3,5-7` oppure un testo semplice
+- validano in modo esplicito selezioni pagina, ordine completo o gradi ammessi
+
 ### PDF da immagini
 
 Per le immagini:

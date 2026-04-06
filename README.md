@@ -18,9 +18,15 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 - Conversione PDF in scala di grigi
 - Compressione PDF solo su richiesta
 - Unione PDF
+- Estrazione pagine da un PDF
+- Riordino pagine di un PDF
+- Eliminazione pagine da un PDF
+- Rotazione manuale delle pagine di un PDF
+- Watermark testuale su PDF
 - Correzione automatica dell'orientamento dei PDF quando serve, con possibilità di rifare il file senza auto-rotazione
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere più file in messaggi successivi
+- Storico ultimi job con dettaglio essenziale e possibilità di rilanciare un'elaborazione
 
 ## Flusso utente
 
@@ -49,10 +55,16 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - creazione PDF da immagini
 - scelta guidata A4 / formato originale per i PDF creati da immagini
 - unione PDF
+- estrazione pagine PDF
+- riordino pagine PDF
+- eliminazione pagine PDF
+- rotazione manuale pagine PDF
+- watermark testuale PDF
 - conversione PDF in scala di grigi
 - compressione PDF con livelli semplici
 - correzione automatica dell'orientamento PDF nei flussi compatibili
 - correzione orientamento immagini
+- storico lavori utente con recupero rapido del job via rilancio
 
 ## Nota sul motore PDF attuale
 
@@ -131,10 +143,14 @@ In sintesi, le priorità attuali sono:
 - aumentare affidabilità e copertura dei test sui PDF più difficili
 - migliorare messaggi utente, fallback e tracciamento della qualità delle trasformazioni
 - rafforzare metriche admin, limiti operativi e ripartenza dei job dopo crash o riavvio
-- introdurre in una fase successiva funzioni utente come storico lavori, estrazione pagine, riordino, eliminazione, rotazione manuale e watermark
+- concentrarsi ora soprattutto sul consolidamento tecnico della pipeline, della coda job e dei messaggi operativi
 
 ## Monitoraggio admin
 
 Se configuri `DOCMOLDER_ADMIN_USER_IDS`, l'admin può usare anche:
 
 - `/admin` per vedere un riepilogo rapido di utenti, nuovi accessi, operazioni completate, stato coda, utenti più attivi e ultimi job riusciti o falliti
+
+Comandi utente utili:
+
+- `/history` per vedere gli ultimi job personali, aprirne i dettagli essenziali o rilanciarli

@@ -26,9 +26,11 @@ from docmolder.config import Settings
 from docmolder.keyboards import (
     build_actions_keyboard,
     build_compression_keyboard,
+    build_history_keyboard,
     build_images_pdf_layout_keyboard,
     build_images_pdf_margin_keyboard,
     build_main_menu_keyboard,
+    build_rotate_keyboard,
     build_result_pdf_keyboard,
 )
 from docmolder.messages import (
@@ -228,6 +230,29 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
 
 
+async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    user = update.effective_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await update.effective_message.reply_text(UNAUTHORIZED_MESSAGE)
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+
+    jobs = deps.session_store.list_user_jobs(user.id, limit=5)
+    if not jobs:
+        await update.effective_message.reply_text(
+            "Non hai ancora uno storico lavori. Inviami immagini o PDF e terrò traccia degli ultimi job qui.",
+            reply_markup=build_main_menu_keyboard(),
+        )
+        return
+
+    await update.effective_message.reply_text(
+        _build_user_history_summary(jobs),
+        reply_markup=build_history_keyboard([job.id for job in jobs]),
+    )
+
+
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
@@ -281,8 +306,13 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         return
 
+    extra_note = (
+        f"\nSto aspettando un tuo input per: {_action_label(session.pending_action)}."
+        if session.pending_action
+        else ""
+    )
     await update.effective_message.reply_text(
-        f"{describe_session(session)}\nScegli cosa vuoi fare.",
+        f"{describe_session(session)}{extra_note}\nScegli cosa vuoi fare.",
         reply_markup=_filter_keyboard_for_session(session),
     )
 
@@ -328,6 +358,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     session.files.append(build_session_file(document.file_id, document.file_name, kind))
+    session.pending_action = None
     session.touch()
     deps.session_store.save(session)
 
@@ -380,6 +411,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
     generated_name = f"foto_{len(session.files) + 1}.jpg"
     session.files.append(build_session_file(best_photo.file_id, generated_name, FileKind.IMAGE))
+    session.pending_action = None
     session.touch()
     deps.session_store.save(session)
 
@@ -414,8 +446,21 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     if action == SupportedAction.PDF_ROTATE.value:
         await query.edit_message_text(
-            "La rotazione dei PDF ora avviene automaticamente quando serve. Quando la applico, ti offro anche un pulsante per rifare il file senza rotazione automatica."
+            "Di quanti gradi vuoi ruotare tutte le pagine del PDF?",
+            reply_markup=build_rotate_keyboard(),
         )
+        return
+
+    if action in {
+        SupportedAction.PDF_EXTRACT_PAGES.value,
+        SupportedAction.PDF_REORDER_PAGES.value,
+        SupportedAction.PDF_DELETE_PAGES.value,
+        SupportedAction.PDF_WATERMARK.value,
+    }:
+        session.pending_action = action
+        session.touch()
+        deps.session_store.save(session)
+        await query.edit_message_text(_build_pending_action_prompt(SupportedAction(action)))
         return
 
     if _is_image_pdf_action(SupportedAction(action)):
@@ -561,6 +606,98 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
     )
 
 
+async def handle_history_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    query = update.callback_query
+    await query.answer()
+
+    user = query.from_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await query.message.reply_text(UNAUTHORIZED_MESSAGE, reply_to_message_id=query.message.message_id)
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+
+    try:
+        _, action, raw_job_id = (query.data or "").split(":", 2)
+        job_id = int(raw_job_id)
+    except (TypeError, ValueError):
+        await query.message.reply_text("Richiesta non valida.", reply_to_message_id=query.message.message_id)
+        return
+
+    job = deps.session_store.get_job(job_id)
+    if job is None or job.user_id != user.id:
+        await query.message.reply_text(
+            "Non riesco più a recuperare questo job dal tuo storico.",
+            reply_to_message_id=query.message.message_id,
+        )
+        return
+
+    if action == "details":
+        await query.message.reply_text(
+            _build_user_history_job_detail(job),
+            reply_to_message_id=query.message.message_id,
+        )
+        return
+
+    if action == "rerun":
+        if not _has_capacity_for_new_job(user.id, deps):
+            await query.message.reply_text(
+                _build_job_queue_limit_message(deps.settings.max_active_jobs_per_user),
+                reply_to_message_id=query.message.message_id,
+            )
+            return
+        rerun_job = await _enqueue_job_from_existing_payload(
+            context=context,
+            source_job=job,
+            reply_to_message_id=query.message.message_id,
+        )
+        await query.message.reply_text(
+            _build_history_rerun_message(job, rerun_job.id),
+            reply_to_message_id=query.message.message_id,
+        )
+        return
+
+    await query.message.reply_text("Azione storico non supportata.", reply_to_message_id=query.message.message_id)
+
+
+async def handle_rotate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    query = update.callback_query
+    await query.answer()
+
+    user = query.from_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+
+    session = deps.session_store.get(user.id)
+    if session is None or not session.files:
+        await query.edit_message_text(SESSION_EMPTY_MESSAGE)
+        return
+
+    degrees = int((query.data or "").removeprefix("rotate:"))
+    if not _has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+        return
+
+    job = await _enqueue_job(
+        context=context,
+        user_id=user.id,
+        chat_id=query.message.chat_id,
+        reply_to_message_id=query.message.message_id,
+        action=SupportedAction.PDF_ROTATE,
+        session=session,
+        rotate_degrees=degrees,
+    )
+    deps.session_store.delete(user.id)
+    await query.edit_message_text(
+        f"Rotazione manuale presa in carico di {degrees} gradi. Job #{job.id} in coda.\nTi invio il PDF appena è pronto."
+    )
+
+
 async def handle_images_pdf_layout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
@@ -664,6 +801,9 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if text == "Mostra sessione":
         await status_command(update, context)
         return
+    if text == "Storico lavori":
+        await history_command(update, context)
+        return
     if text == "Azzera sessione":
         await reset_command(update, context)
         return
@@ -673,6 +813,19 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     session = deps.session_store.get(user.id)
     if session is not None and session.files:
+        if session.pending_action is not None:
+            handled = await _handle_pending_session_input(
+                update=update,
+                context=context,
+                session=session,
+                user_id=user.id,
+                chat_id=message.chat_id,
+                reply_to_message_id=message.message_id,
+                text=text,
+            )
+            if handled:
+                return
+
         inferred_request = _infer_text_requested_action(session, text)
         if inferred_request is not None:
             action, compression_preset = inferred_request
@@ -804,11 +957,16 @@ def _build_admin_report(
         f"- Job riusciti: {stats['jobs_succeeded']} ({success_rate})\n"
         f"- Job falliti: {stats['jobs_failed']} ({failure_rate})\n\n"
         "Dettaglio operazioni:\n"
-        f"- PDF da immagini: {stats['images_to_pdf_total']}\n"
-        f"- Comprimi PDF: {stats['pdf_compress_total']}\n"
-        f"- Scala di grigi: {stats['pdf_grayscale_total']}\n"
-        f"- Unisci PDF: {stats['pdf_merge_total']}\n"
-        f"- Correggi orientamento: {stats['auto_orient_total']}\n\n"
+        f"- PDF da immagini: {stats.get('images_to_pdf_total', 0)}\n"
+        f"- Comprimi PDF: {stats.get('pdf_compress_total', 0)}\n"
+        f"- Scala di grigi: {stats.get('pdf_grayscale_total', 0)}\n"
+        f"- Unisci PDF: {stats.get('pdf_merge_total', 0)}\n"
+        f"- Estrai pagine: {stats.get('pdf_extract_pages_total', 0)}\n"
+        f"- Riordina pagine: {stats.get('pdf_reorder_pages_total', 0)}\n"
+        f"- Elimina pagine: {stats.get('pdf_delete_pages_total', 0)}\n"
+        f"- Ruota pagine: {stats.get('pdf_rotate_total', 0)}\n"
+        f"- Watermark: {stats.get('pdf_watermark_total', 0)}\n"
+        f"- Correggi orientamento: {stats.get('auto_orient_total', 0)}\n\n"
         "Errori più frequenti ultimi 7 giorni:\n"
         f"{failed_actions_block}\n\n"
         "Utenti più attivi ultimi 7 giorni:\n"
@@ -863,6 +1021,11 @@ def _action_label(action: str) -> str:
         "pdf_compress": "Comprimi PDF",
         "pdf_grayscale": "Scala di grigi",
         "pdf_merge": "Unisci PDF",
+        "pdf_extract_pages": "Estrai pagine",
+        "pdf_reorder_pages": "Riordina pagine",
+        "pdf_delete_pages": "Elimina pagine",
+        "pdf_rotate": "Ruota pagine",
+        "pdf_watermark": "Watermark testuale",
         "auto_orient": "Correggi orientamento",
     }
     return action_labels.get(action, action)
@@ -889,9 +1052,12 @@ def build_application(settings: Settings) -> Application:
 
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("history", history_command))
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CallbackQueryHandler(handle_history_callback, pattern=r"^history:"))
+    application.add_handler(CallbackQueryHandler(handle_rotate_callback, pattern=r"^rotate:"))
     application.add_handler(CallbackQueryHandler(handle_result_action_callback, pattern=r"^result:"))
     application.add_handler(CallbackQueryHandler(handle_compression_callback, pattern=r"^compress:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_margin_callback, pattern=r"^images_pdf_margin:"))
@@ -950,6 +1116,84 @@ def _build_job_queue_limit_message(max_active_jobs_per_user: int) -> str:
     )
 
 
+def _build_user_history_summary(jobs: list[JobRecord]) -> str:
+    lines = [
+        "Storico ultimi job",
+        "",
+        "Qui sotto trovi gli ultimi lavori eseguiti o tentati. Puoi aprire i dettagli o rilanciare un job.",
+        "",
+    ]
+    lines.extend(_format_user_history_line(job) for job in jobs)
+    return "\n".join(lines)
+
+
+def _format_user_history_line(job: JobRecord) -> str:
+    reference_time = job.finished_at or job.created_at
+    timestamp = reference_time.astimezone(ZoneInfo("Europe/Rome")).strftime("%d/%m %H:%M")
+    status_label = {
+        JobStatus.QUEUED: "in coda",
+        JobStatus.RUNNING: "in lavorazione",
+        JobStatus.SUCCEEDED: "completato",
+        JobStatus.FAILED: "fallito",
+    }[job.status]
+    return f"- Job #{job.id} | {_action_label(job.action)} | {status_label} | {timestamp}"
+
+
+def _build_user_history_job_detail(job: JobRecord) -> str:
+    payload = json.loads(job.payload_json)
+    file_count = len(payload.get("files", []))
+    reference_time = (job.finished_at or job.created_at).astimezone(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y %H:%M")
+    detail_lines = [
+        f"Dettaglio Job #{job.id}",
+        f"Azione: {_action_label(job.action)}",
+        f"Stato: {_format_job_status(job.status)}",
+        f"Riferimento temporale: {reference_time}",
+        f"File sorgente: {file_count}",
+    ]
+    if payload.get("compression_preset"):
+        detail_lines.append(f"Compressione: {payload['compression_preset']}")
+    if payload.get("page_selection"):
+        detail_lines.append(f"Selezione pagine: {payload['page_selection']}")
+    if payload.get("image_pdf_use_a4") is not None and job.action.startswith("images_to_pdf"):
+        detail_lines.append("Impaginazione: A4" if payload.get("image_pdf_use_a4") else "Impaginazione: formato originale")
+    if payload.get("auto_rotate_pdf") is not None:
+        detail_lines.append(
+            "Rotazione automatica PDF: attiva" if payload.get("auto_rotate_pdf") else "Rotazione automatica PDF: disattiva"
+        )
+    if payload.get("rotate_degrees") is not None:
+        detail_lines.append(f"Rotazione manuale: {payload['rotate_degrees']} gradi")
+    if payload.get("watermark_text"):
+        detail_lines.append(f'Watermark: "{payload["watermark_text"]}"')
+    if job.processing_mode:
+        detail_lines.append(f"Strategia finale: {job.processing_mode}")
+    if job.duration_ms is not None:
+        detail_lines.append(f"Durata: {_format_duration_ms(job.duration_ms)}")
+    if job.input_bytes is not None and job.output_bytes is not None:
+        detail_lines.append(f"Dimensioni: {_format_bytes(job.input_bytes)} -> {_format_bytes(job.output_bytes)}")
+    if job.result_message:
+        detail_lines.append(f"Esito: {job.result_message}")
+    if job.error_message:
+        detail_lines.append(f"Errore: {job.error_message}")
+    detail_lines.append("Puoi usare il pulsante del job per rilanciarlo e recuperare di nuovo il risultato.")
+    return "\n".join(detail_lines)
+
+
+def _build_history_rerun_message(source_job: JobRecord, job_id: int) -> str:
+    payload = json.loads(source_job.payload_json)
+    compression_preset = CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None
+    base_message = _build_text_request_queued_message(SupportedAction(source_job.action), job_id, compression_preset)
+    return f"Ripeto il job #{source_job.id} dal tuo storico.\n{base_message}"
+
+
+def _format_job_status(status: JobStatus) -> str:
+    return {
+        JobStatus.QUEUED: "In coda",
+        JobStatus.RUNNING: "In lavorazione",
+        JobStatus.SUCCEEDED: "Completato",
+        JobStatus.FAILED: "Fallito",
+    }[status]
+
+
 def _schedule_image_session_notification(
     chat_id: int,
     user_id: int,
@@ -1006,6 +1250,101 @@ def _build_image_session_message(session: UserSession) -> str:
 def _normalize_free_text(text: str) -> str:
     normalized = unicodedata.normalize("NFKD", text.casefold())
     return "".join(char for char in normalized if not unicodedata.combining(char))
+
+
+def _build_pending_action_prompt(action: SupportedAction) -> str:
+    if action == SupportedAction.PDF_EXTRACT_PAGES:
+        return (
+            "Scrivimi quali pagine vuoi estrarre, ad esempio `1,3,5-7`.\n"
+            "Puoi combinare pagine singole e intervalli."
+        )
+    if action == SupportedAction.PDF_REORDER_PAGES:
+        return (
+            "Scrivimi il nuovo ordine completo delle pagine, ad esempio `3,1,2`.\n"
+            "Devi indicare tutte le pagine del PDF una sola volta."
+        )
+    if action == SupportedAction.PDF_DELETE_PAGES:
+        return (
+            "Scrivimi quali pagine vuoi eliminare, ad esempio `2,4-5`.\n"
+            "Il bot manterrà tutte le altre."
+        )
+    if action == SupportedAction.PDF_WATERMARK:
+        return "Scrivimi il testo semplice che vuoi usare come watermark su tutte le pagine del PDF."
+    return "Scrivimi i dettagli necessari per continuare."
+
+
+async def _handle_pending_session_input(
+    *,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    session: UserSession,
+    user_id: int,
+    chat_id: int,
+    reply_to_message_id: int | None,
+    text: str,
+) -> bool:
+    deps = _get_dependencies(context)
+    pending_action = SupportedAction(session.pending_action)
+    if not _has_capacity_for_new_job(user_id, deps):
+        await update.effective_message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+        return True
+
+    try:
+        enqueue_kwargs: dict[str, object] = {}
+        if pending_action in {
+            SupportedAction.PDF_EXTRACT_PAGES,
+            SupportedAction.PDF_REORDER_PAGES,
+            SupportedAction.PDF_DELETE_PAGES,
+        }:
+            _validate_page_input_text(text)
+            enqueue_kwargs["page_selection"] = text.strip()
+        elif pending_action == SupportedAction.PDF_WATERMARK:
+            watermark_text = text.strip()
+            if not watermark_text:
+                await update.effective_message.reply_text("Il watermark testuale non può essere vuoto. Scrivimi un testo semplice.")
+                return True
+            enqueue_kwargs["watermark_text"] = watermark_text
+        else:
+            return False
+
+        job = await _enqueue_job(
+            context=context,
+            user_id=user_id,
+            chat_id=chat_id,
+            reply_to_message_id=reply_to_message_id,
+            action=pending_action,
+            session=session,
+            **enqueue_kwargs,
+        )
+    except ProcessingUserError as exc:
+        await update.effective_message.reply_text(str(exc))
+        return True
+
+    deps.session_store.delete(user_id)
+    await update.effective_message.reply_text(_build_pending_action_queued_message(pending_action, job.id, text))
+    return True
+
+
+def _validate_page_input_text(text: str) -> None:
+    value = text.strip()
+    if not value:
+        raise ProcessingUserError("Non ho ricevuto nessuna selezione pagine. Usa un formato come 1,3,5-7.")
+    allowed_chars = set("0123456789,- ")
+    if any(char not in allowed_chars for char in value):
+        raise ProcessingUserError("Usa solo numeri, virgole e intervalli, ad esempio 1,3,5-7.")
+
+
+def _build_pending_action_queued_message(action: SupportedAction, job_id: int, raw_value: str) -> str:
+    cleaned_value = raw_value.strip()
+    if action == SupportedAction.PDF_EXTRACT_PAGES:
+        return f"Estrazione pagine presa in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_REORDER_PAGES:
+        return f"Riordino pagine preso in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_DELETE_PAGES:
+        return f"Eliminazione pagine presa in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_WATERMARK:
+        return f'Watermark testuale preso in carico ("{cleaned_value}"). Job #{job_id} in coda.\nTi invio il PDF appena è pronto.'
+    return f"Operazione presa in carico. Job #{job_id} in coda."
 
 
 def _contains_any(text: str, fragments: tuple[str, ...]) -> bool:
@@ -1071,6 +1410,12 @@ def _build_text_request_queued_message(
         )
     if action == SupportedAction.PDF_MERGE:
         return f"Unione PDF presa in carico. Job #{job_id} in coda.\nTi invio il file appena è pronto."
+    if action == SupportedAction.PDF_EXTRACT_PAGES:
+        return f"Estrazione pagine presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_REORDER_PAGES:
+        return f"Riordino pagine preso in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_DELETE_PAGES:
+        return f"Eliminazione pagine presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
     if action == SupportedAction.PDF_COMPRESS:
         preset_label = (compression_preset or CompressionPreset.MEDIUM).value
         extra_note = (
@@ -1084,6 +1429,10 @@ def _build_text_request_queued_message(
         )
     if action == SupportedAction.AUTO_ORIENT:
         return f"Correzione orientamento presa in carico. Job #{job_id} in coda.\nTi invio il risultato appena è pronto."
+    if action == SupportedAction.PDF_ROTATE:
+        return f"Rotazione manuale presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_WATERMARK:
+        return f"Watermark testuale preso in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
     return f"Operazione presa in carico. Job #{job_id} in coda."
 
 
@@ -1108,6 +1457,14 @@ def _build_processing_started_message(action: SupportedAction, job_id: int) -> s
             f"Job #{job_id} in elaborazione.\n"
             "Nei casi più difficili la compressione può richiedere un po' di più per trovare il fallback più adatto."
         )
+    if action in {
+        SupportedAction.PDF_EXTRACT_PAGES,
+        SupportedAction.PDF_REORDER_PAGES,
+        SupportedAction.PDF_DELETE_PAGES,
+        SupportedAction.PDF_ROTATE,
+        SupportedAction.PDF_WATERMARK,
+    }:
+        return f"{PROCESSING_MESSAGE}\nJob #{job_id} in elaborazione."
     return f"{PROCESSING_MESSAGE}\nJob #{job_id} in elaborazione."
 
 
@@ -1146,6 +1503,8 @@ async def _enqueue_job(
     session: UserSession,
     compression_preset: CompressionPreset | None = None,
     rotate_degrees: int | None = None,
+    page_selection: str | None = None,
+    watermark_text: str | None = None,
     auto_rotate_pdf: bool = True,
     image_pdf_use_a4: bool = True,
     image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
@@ -1164,6 +1523,8 @@ async def _enqueue_job(
         ],
         "compression_preset": compression_preset.value if compression_preset else None,
         "rotate_degrees": rotate_degrees,
+        "page_selection": page_selection,
+        "watermark_text": watermark_text,
         "auto_rotate_pdf": auto_rotate_pdf,
         "image_pdf_use_a4": image_pdf_use_a4,
         "image_pdf_margin_px": image_pdf_margin_px,
@@ -1184,11 +1545,12 @@ async def _enqueue_job_from_existing_payload(
     source_job: JobRecord,
     reply_to_message_id: int | None,
     *,
-    auto_rotate_pdf: bool,
+    auto_rotate_pdf: bool | None = None,
 ) -> JobRecord:
     deps = _get_dependencies(context)
     payload = json.loads(source_job.payload_json)
-    payload["auto_rotate_pdf"] = auto_rotate_pdf
+    if auto_rotate_pdf is not None:
+        payload["auto_rotate_pdf"] = auto_rotate_pdf
     job = deps.session_store.create_job(
         user_id=source_job.user_id,
         chat_id=source_job.chat_id,
@@ -1390,6 +1752,8 @@ async def _run_job_payload(
         build_output_stem(SupportedAction(job.action)),
         CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None,
         payload.get("rotate_degrees"),
+        payload.get("page_selection"),
+        payload.get("watermark_text"),
         payload.get("auto_rotate_pdf", True),
         payload.get("image_pdf_use_a4", True),
         payload.get("image_pdf_margin_px", A4_MARGIN_NARROW_PX),

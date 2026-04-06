@@ -27,15 +27,15 @@ make test
 ## Suite principali
 
 - [tests/test_processing_pipeline.py](/Users/Matteo/Documents/DocMolder/tests/test_processing_pipeline.py)
-  copre la pipeline documentale, compresi casi PDF e immagini, PDF vuoti o corrotti, documenti multipagina, strutture pagina insolite e flussi grayscale da immagini
+  copre la pipeline documentale, compresi casi PDF e immagini, PDF vuoti o corrotti, documenti multipagina, strutture pagina insolite, flussi grayscale da immagini e operazioni native sulle pagine PDF
 - [tests/test_bot_job_processing.py](/Users/Matteo/Documents/DocMolder/tests/test_bot_job_processing.py)
-  copre i flussi del bot, la coda job e varie interazioni utente
+  copre i flussi del bot, la coda job, lo storico lavori e varie interazioni utente
 - [tests/test_processing_cleanup.py](/Users/Matteo/Documents/DocMolder/tests/test_processing_cleanup.py)
   copre la pulizia delle cartelle temporanee dei job
 - [tests/test_rate_limit.py](/Users/Matteo/Documents/DocMolder/tests/test_rate_limit.py)
   copre i limiti di upload e di job concorrenti
 - [tests/test_session_store.py](/Users/Matteo/Documents/DocMolder/tests/test_session_store.py)
-  copre persistenza, statistiche admin, stato dei job, metriche tecniche aggregate e meta-informazioni operative
+  copre persistenza, statistiche admin, stato dei job, metriche tecniche aggregate, meta-informazioni operative e stato conversazionale minimo delle sessioni
 
 ## Comandi utili
 
@@ -72,3 +72,4 @@ Aggiungi o estendi test quando cambi:
 - logica di cleanup
 - payload dei job
 - messaggi o callback che cambiano il flusso utente
+- storico lavori, dettaglio job o meccanismi di rilancio

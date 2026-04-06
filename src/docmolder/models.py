@@ -18,7 +18,11 @@ class SupportedAction(StrEnum):
     PDF_GRAYSCALE = "pdf_grayscale"
     PDF_COMPRESS = "pdf_compress"
     PDF_MERGE = "pdf_merge"
+    PDF_EXTRACT_PAGES = "pdf_extract_pages"
+    PDF_REORDER_PAGES = "pdf_reorder_pages"
+    PDF_DELETE_PAGES = "pdf_delete_pages"
     PDF_ROTATE = "pdf_rotate"
+    PDF_WATERMARK = "pdf_watermark"
     AUTO_ORIENT = "auto_orient"
 
 
@@ -53,6 +57,7 @@ class UserSession:
     user_id: int
     files: list[SessionFile] = field(default_factory=list)
     status: SessionStatus = SessionStatus.COLLECTING
+    pending_action: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 

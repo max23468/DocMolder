@@ -63,6 +63,8 @@ class SessionStore(Protocol):
 
     def list_failed_actions(self, limit: int = 5, since_days: int = 7) -> list[AdminActionStat]: ...
 
+    def list_user_jobs(self, user_id: int, limit: int = 5) -> list[JobRecord]: ...
+
     def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]: ...
 
 
@@ -131,7 +133,11 @@ class InMemorySessionStore:
                 "pdf_compress_total": sum(1 for _, action in self._completed_actions if action == "pdf_compress"),
                 "pdf_grayscale_total": sum(1 for _, action in self._completed_actions if action == "pdf_grayscale"),
                 "pdf_merge_total": sum(1 for _, action in self._completed_actions if action == "pdf_merge"),
+                "pdf_extract_pages_total": sum(1 for _, action in self._completed_actions if action == "pdf_extract_pages"),
+                "pdf_reorder_pages_total": sum(1 for _, action in self._completed_actions if action == "pdf_reorder_pages"),
+                "pdf_delete_pages_total": sum(1 for _, action in self._completed_actions if action == "pdf_delete_pages"),
                 "pdf_rotate_total": sum(1 for _, action in self._completed_actions if action == "pdf_rotate"),
+                "pdf_watermark_total": sum(1 for _, action in self._completed_actions if action == "pdf_watermark"),
                 "auto_orient_total": sum(1 for _, action in self._completed_actions if action == "auto_orient"),
                 "jobs_queued": sum(1 for job in self._jobs.values() if job.status == JobStatus.QUEUED),
                 "jobs_running": sum(1 for job in self._jobs.values() if job.status == JobStatus.RUNNING),
@@ -276,6 +282,18 @@ class InMemorySessionStore:
             ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
         return [AdminActionStat(action=action, total=total) for action, total in ranked]
 
+    def list_user_jobs(self, user_id: int, limit: int = 5) -> list[JobRecord]:
+        with self._lock:
+            jobs = [job for job in self._jobs.values() if job.user_id == user_id]
+            jobs.sort(
+                key=lambda job: (
+                    job.finished_at or job.created_at,
+                    job.id,
+                ),
+                reverse=True,
+            )
+            return jobs[:limit]
+
     def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]:
         with self._lock:
             jobs = list(self._jobs.values())
@@ -303,7 +321,7 @@ class SQLiteSessionStore:
         with self._lock, self._connect() as connection:
             session_row = connection.execute(
                 """
-                SELECT user_id, status, created_at, updated_at
+                SELECT user_id, status, pending_action, created_at, updated_at
                 FROM sessions
                 WHERE user_id = ?
                 """,
@@ -335,6 +353,7 @@ class SQLiteSessionStore:
         return UserSession(
             user_id=session_row["user_id"],
             status=SessionStatus(session_row["status"]),
+            pending_action=session_row["pending_action"] if "pending_action" in session_row.keys() else None,
             created_at=_from_isoformat(session_row["created_at"]),
             updated_at=_from_isoformat(session_row["updated_at"]),
             files=files,
@@ -344,16 +363,18 @@ class SQLiteSessionStore:
         with self._lock, self._connect() as connection:
             connection.execute(
                 """
-                INSERT INTO sessions (user_id, status, created_at, updated_at)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO sessions (user_id, status, pending_action, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                     status = excluded.status,
+                    pending_action = excluded.pending_action,
                     created_at = excluded.created_at,
                     updated_at = excluded.updated_at
                 """,
                 (
                     session.user_id,
                     session.status.value,
+                    session.pending_action,
                     session.created_at.isoformat(),
                     session.updated_at.isoformat(),
                 ),
@@ -470,7 +491,11 @@ class SQLiteSessionStore:
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_compress') AS pdf_compress_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_grayscale') AS pdf_grayscale_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_merge') AS pdf_merge_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_extract_pages') AS pdf_extract_pages_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_reorder_pages') AS pdf_reorder_pages_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_delete_pages') AS pdf_delete_pages_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_rotate') AS pdf_rotate_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_watermark') AS pdf_watermark_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'auto_orient') AS auto_orient_total,
                     (SELECT COUNT(*) FROM jobs WHERE status = 'queued') AS jobs_queued,
                     (SELECT COUNT(*) FROM jobs WHERE status = 'running') AS jobs_running,
@@ -671,6 +696,20 @@ class SQLiteSessionStore:
             ).fetchall()
         return [AdminActionStat(action=row["action"], total=int(row["total"])) for row in rows]
 
+    def list_user_jobs(self, user_id: int, limit: int = 5) -> list[JobRecord]:
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM jobs
+                WHERE user_id = ?
+                ORDER BY COALESCE(finished_at, created_at) DESC, id DESC
+                LIMIT ?
+                """,
+                (user_id, limit),
+            ).fetchall()
+        return [_job_from_row(row) for row in rows]
+
     def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]:
         query = """
             SELECT *
@@ -696,6 +735,7 @@ class SQLiteSessionStore:
                 CREATE TABLE IF NOT EXISTS sessions (
                     user_id INTEGER PRIMARY KEY,
                     status TEXT NOT NULL,
+                    pending_action TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 );
@@ -764,6 +804,7 @@ class SQLiteSessionStore:
                 """
             )
             self._ensure_job_metrics_columns(connection)
+            self._ensure_session_columns(connection)
             connection.commit()
 
     def _ensure_job_metrics_columns(self, connection: sqlite3.Connection) -> None:
@@ -776,6 +817,11 @@ class SQLiteSessionStore:
             connection.execute("ALTER TABLE jobs ADD COLUMN output_bytes INTEGER")
         if "duration_ms" not in columns:
             connection.execute("ALTER TABLE jobs ADD COLUMN duration_ms INTEGER")
+
+    def _ensure_session_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(sessions)").fetchall()}
+        if "pending_action" not in columns:
+            connection.execute("ALTER TABLE sessions ADD COLUMN pending_action TEXT")
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path)

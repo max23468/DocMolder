@@ -59,6 +59,11 @@ Funzionalita gia presenti:
 - conversione PDF in scala di grigi
 - compressione PDF
 - unione PDF
+- estrazione pagine PDF
+- riordino pagine PDF
+- eliminazione pagine PDF
+- rotazione manuale pagine PDF
+- watermark testuale PDF
 - correzione automatica dell'orientamento PDF durante elaborazioni compatibili, con opzione per rifare il file senza auto-rotazione
 - correzione orientamento immagini
 - supporto a richieste testuali naturali semplici
@@ -67,6 +72,7 @@ Funzionalita gia presenti:
 - code job persistenti
 - sessioni utente persistenti su SQLite
 - report admin via comando Telegram
+- storico lavori utente con dettaglio essenziale e rilancio del job
 
 Il progetto ha superato la fase MVP e la documentazione usa linguaggio da prodotto attuale, non da fase iniziale.
 
@@ -192,7 +198,10 @@ Punti chiave:
 - `handle_document()` gestisce PDF e immagini come documenti Telegram
 - `handle_photo()` gestisce foto Telegram
 - `handle_action_callback()` gestisce pulsanti azione standard
+- `handle_rotate_callback()` gestisce la scelta rapida dei gradi per la rotazione manuale
 - `handle_result_action_callback()` gestisce il pulsante sotto i PDF restituiti
+- `history_command()` mostra gli ultimi job personali e offre pulsanti di dettaglio o rilancio
+- `handle_history_callback()` gestisce lo storico utente
 - `handle_menu_text()` gestisce testo libero e menu
 - `_process_job()` esegue un job e invia il risultato
 - `_send_result()` manda il file in chat
@@ -221,6 +230,11 @@ Azioni supportate a livello di pipeline:
 - `pdf_grayscale`
 - `pdf_compress`
 - `pdf_merge`
+- `pdf_extract_pages`
+- `pdf_reorder_pages`
+- `pdf_delete_pages`
+- `pdf_rotate`
+- `pdf_watermark`
 - `auto_orient`
 
 Dettagli tecnici importanti:
@@ -244,6 +258,7 @@ Responsabilita:
 - permette di riaccodare job incompleti dopo riavvii
 - conserva anche metriche tecniche essenziali dei job riusciti, come durata, byte input/output e modalita effettiva del risultato
 - conserva anche meta-informazioni applicative come l'ultimo invio dei report admin periodici
+- espone anche query per recuperare gli ultimi job di uno specifico utente
 
 Implementazione usata in produzione:
 - `SQLiteSessionStore`
@@ -258,6 +273,8 @@ Responsabilita:
 
 Punti rilevanti:
 - esiste un pulsante per il flusso `Ritaglia bordi e crea PDF`
+- esiste un accesso rapido a `Storico lavori` nella tastiera principale
+- per le funzioni PDF che richiedono parametri aggiuntivi, il bot usa piccoli prompt testuali persistenti in sessione
 - esiste un flusso guidato che chiede `A4 sì/no` e, se serve, il tipo di bordo per i PDF creati da immagini
 - esiste un pulsante sotto al PDF risultato per `Converti in scala di grigi`
 

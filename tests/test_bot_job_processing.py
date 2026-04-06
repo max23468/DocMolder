@@ -14,14 +14,21 @@ from docmolder.bot import (
     SESSION_EMPTY_MESSAGE,
     _build_admin_report,
     _build_file_too_large_message,
+    _build_history_rerun_message,
+    _build_user_history_job_detail,
+    _build_user_history_summary,
     _build_job_queue_limit_message,
     _build_periodic_admin_report,
     _build_processing_started_message,
     _build_text_request_queued_message,
     _build_session_file_limit_message,
     _build_upload_rate_limit_message,
+    handle_action_callback,
+    handle_history_callback,
+    handle_rotate_callback,
     _maybe_send_admin_report_for_period,
     _process_job,
+    history_command,
     handle_images_pdf_layout_callback,
     handle_images_pdf_margin_callback,
     handle_menu_text,
@@ -233,6 +240,43 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("12 file", _build_session_file_limit_message(12))
         self.assertIn("3 file in 30 secondi", _build_upload_rate_limit_message(3, 30))
         self.assertIn("4 job attivi", _build_job_queue_limit_message(4))
+        self.assertIn("Watermark", _build_user_history_job_detail(
+            self.store.create_job(
+                user_id=7,
+                chat_id=99,
+                reply_to_message_id=123,
+                action="pdf_watermark",
+                payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"watermark_text":"BOZZA"}',
+            )
+        ))
+
+    def test_build_user_history_summary_and_detail(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="images_to_pdf",
+            payload_json='{"files":[{"telegram_file_id":"img-1","file_name":"foto.jpg","kind":"image"}],"compression_preset":null,"auto_rotate_pdf":true,"image_pdf_use_a4":true}',
+        )
+        self.store.mark_job_succeeded_with_metrics(
+            job.id,
+            "PDF creato.",
+            processing_mode="lossless",
+            input_bytes=1200,
+            output_bytes=800,
+            duration_ms=950,
+        )
+        stored_job = self.store.get_job(job.id)
+
+        summary = _build_user_history_summary([stored_job])
+        detail = _build_user_history_job_detail(stored_job)
+        rerun_message = _build_history_rerun_message(stored_job, 12)
+
+        self.assertIn("Storico ultimi job", summary)
+        self.assertIn(f"Job #{job.id}", summary)
+        self.assertIn("Dettaglio Job", detail)
+        self.assertIn("Strategia finale: lossless", detail)
+        self.assertIn("Ripeto il job", rerun_message)
 
     async def test_maybe_send_admin_report_for_period_persists_last_sent(self) -> None:
         self.deps.settings.admin_user_ids = [999]
@@ -326,6 +370,174 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(queued_jobs), 1)
         self.assertIn('"auto_rotate_pdf": false', queued_jobs[0].payload_json)
         reply_text.assert_awaited_once()
+
+    async def test_history_command_lists_recent_jobs(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":"medium"}',
+        )
+        self.store.mark_job_succeeded(job.id, "Completato")
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await history_command(update, context)
+
+        message.reply_text.assert_awaited_once()
+        self.assertIn("Storico ultimi job", message.reply_text.await_args.args[0])
+
+    async def test_history_callback_details_shows_job_detail(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":null}',
+        )
+        self.store.mark_job_failed(job.id, "Errore di test")
+        reply_text = AsyncMock()
+        query = SimpleNamespace(
+            data=f"history:details:{job.id}",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(message_id=600, reply_text=reply_text),
+            answer=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_history_callback(update, context)
+
+        reply_text.assert_awaited_once()
+        self.assertIn("Dettaglio Job", reply_text.await_args.args[0])
+
+    async def test_history_callback_rerun_enqueues_same_payload(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":"medium","auto_rotate_pdf":true}',
+        )
+        reply_text = AsyncMock()
+        query = SimpleNamespace(
+            data=f"history:rerun:{job.id}",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=601, reply_text=reply_text),
+            answer=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_history_callback(update, context)
+
+        queued_jobs = [queued_job for queued_job in self.store._jobs.values() if queued_job.id != job.id]
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertIn('"compression_preset": "medium"', queued_jobs[0].payload_json)
+        reply_text.assert_awaited_once()
+
+    async def test_action_callback_extract_pages_sets_pending_action(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        query = SimpleNamespace(
+            data="action:pdf_extract_pages",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=700),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_action_callback(update, context)
+
+        self.assertEqual(self.store.get(7).pending_action, "pdf_extract_pages")
+        self.assertIn("1,3,5-7", query.edit_message_text.await_args.args[0])
+
+    async def test_pending_extract_pages_text_enqueues_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_extract_pages",
+            )
+        )
+        message = SimpleNamespace(
+            text="1,3-4",
+            chat_id=99,
+            message_id=701,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"page_selection": "1,3-4"', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
+        message.reply_text.assert_awaited_once()
+
+    async def test_pending_watermark_text_enqueues_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_watermark",
+            )
+        )
+        message = SimpleNamespace(
+            text="BOZZA",
+            chat_id=99,
+            message_id=702,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"watermark_text": "BOZZA"', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
+
+    async def test_rotate_callback_enqueues_manual_rotation_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        query = SimpleNamespace(
+            data="rotate:180",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=703),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_rotate_callback(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"rotate_degrees": 180', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
 
     async def test_text_request_for_grayscale_pdf_from_images_prompts_for_layout_choice(self) -> None:
         self.store.save(
@@ -518,6 +730,24 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(enqueue_call["compression_preset"].value, "medium")
         message.reply_text.assert_awaited_once()
         self.assertIsNone(self.store.get(7))
+
+    async def test_menu_text_storico_lavori_delegates_to_history(self) -> None:
+        message = SimpleNamespace(
+            text="Storico lavori",
+            chat_id=99,
+            message_id=790,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        with patch("docmolder.bot.history_command", new=AsyncMock()) as history_mock:
+            await handle_menu_text(update, context)
+
+        history_mock.assert_awaited_once()
 
     async def test_quick_action_button_guides_user_when_session_is_empty(self) -> None:
         message = SimpleNamespace(

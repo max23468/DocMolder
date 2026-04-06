@@ -83,6 +83,8 @@ class DocumentProcessor:
         output_stem: str,
         compression_preset: CompressionPreset | None = None,
         rotate_degrees: int | None = None,
+        page_selection: str | None = None,
+        watermark_text: str | None = None,
         auto_rotate_pdf: bool = True,
         image_pdf_use_a4: bool = True,
         image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
@@ -121,6 +123,18 @@ class DocumentProcessor:
             )
         if action == SupportedAction.PDF_MERGE:
             return self.merge_pdfs(input_paths, output_stem, auto_rotate_pdf=auto_rotate_pdf)
+        if action == SupportedAction.PDF_EXTRACT_PAGES:
+            if page_selection is None:
+                raise ValueError("Selezione pagine mancante.")
+            return self.extract_pdf_pages(input_paths[0], output_stem, page_selection=page_selection)
+        if action == SupportedAction.PDF_REORDER_PAGES:
+            if page_selection is None:
+                raise ValueError("Selezione pagine mancante.")
+            return self.reorder_pdf_pages(input_paths[0], output_stem, page_selection=page_selection)
+        if action == SupportedAction.PDF_DELETE_PAGES:
+            if page_selection is None:
+                raise ValueError("Selezione pagine mancante.")
+            return self.delete_pdf_pages(input_paths[0], output_stem, page_selection=page_selection)
         if action == SupportedAction.PDF_GRAYSCALE:
             return self.pdf_to_grayscale(input_paths[0], output_stem, auto_rotate_pdf=auto_rotate_pdf)
         if action == SupportedAction.PDF_COMPRESS:
@@ -131,6 +145,10 @@ class DocumentProcessor:
             if rotate_degrees is None:
                 raise ValueError("Rotazione mancante.")
             return self.rotate_pdf(input_paths[0], output_stem, rotate_degrees)
+        if action == SupportedAction.PDF_WATERMARK:
+            if watermark_text is None:
+                raise ValueError("Testo watermark mancante.")
+            return self.add_text_watermark(input_paths[0], output_stem, watermark_text=watermark_text)
         if action == SupportedAction.AUTO_ORIENT:
             return self.auto_orient_images(input_paths, output_stem)
         raise ValueError(f"Azione non supportata: {action}")
@@ -323,6 +341,8 @@ class DocumentProcessor:
         )
 
     def rotate_pdf(self, pdf_path: Path, output_stem: str, rotate_degrees: int) -> ProcessingResult:
+        if rotate_degrees not in {90, 180, 270}:
+            raise ProcessingUserError("Per la rotazione manuale puoi usare solo 90, 180 o 270 gradi.")
         output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
         try:
             reader = PdfReader(str(pdf_path))
@@ -349,6 +369,93 @@ class DocumentProcessor:
             output_path=output_path,
             output_name=output_path.name,
             message=f"Ho ruotato le pagine di {rotate_degrees} gradi.",
+            processing_mode="native",
+        )
+
+    def extract_pdf_pages(self, pdf_path: Path, output_stem: str, *, page_selection: str) -> ProcessingResult:
+        page_numbers = self._parse_page_selection(page_selection, pdf_path, mode="subset")
+        output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
+        reader = self._build_pdf_reader(pdf_path)
+        writer = PdfWriter()
+        for page_number in page_numbers:
+            writer.add_page(reader.pages[page_number - 1])
+        with output_path.open("wb") as handle:
+            writer.write(handle)
+        return ProcessingResult(
+            output_path=output_path,
+            output_name=output_path.name,
+            message=f"Ho estratto le pagine {self._format_page_numbers(page_numbers)}.",
+            processing_mode="native",
+        )
+
+    def reorder_pdf_pages(self, pdf_path: Path, output_stem: str, *, page_selection: str) -> ProcessingResult:
+        reader = self._build_pdf_reader(pdf_path)
+        page_numbers = self._parse_page_selection(page_selection, pdf_path, mode="full_reorder")
+        if len(page_numbers) != len(reader.pages):
+            raise ProcessingUserError(
+                "Per riordinare le pagine devo ricevere l'ordine completo del PDF, ad esempio 3,1,2 per un PDF di 3 pagine."
+            )
+        output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
+        writer = PdfWriter()
+        for page_number in page_numbers:
+            writer.add_page(reader.pages[page_number - 1])
+        with output_path.open("wb") as handle:
+            writer.write(handle)
+        return ProcessingResult(
+            output_path=output_path,
+            output_name=output_path.name,
+            message=f"Ho riordinato le pagine nel nuovo ordine {self._format_page_numbers(page_numbers)}.",
+            processing_mode="native",
+        )
+
+    def delete_pdf_pages(self, pdf_path: Path, output_stem: str, *, page_selection: str) -> ProcessingResult:
+        reader = self._build_pdf_reader(pdf_path)
+        to_delete = set(self._parse_page_selection(page_selection, pdf_path, mode="subset"))
+        remaining_pages = [index + 1 for index in range(len(reader.pages)) if (index + 1) not in to_delete]
+        if not remaining_pages:
+            raise ProcessingUserError("Non posso eliminare tutte le pagine del PDF. Deve restarne almeno una.")
+        output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
+        writer = PdfWriter()
+        for page_number in remaining_pages:
+            writer.add_page(reader.pages[page_number - 1])
+        with output_path.open("wb") as handle:
+            writer.write(handle)
+        return ProcessingResult(
+            output_path=output_path,
+            output_name=output_path.name,
+            message=f"Ho eliminato le pagine {self._format_page_numbers(sorted(to_delete))}.",
+            processing_mode="native",
+        )
+
+    def add_text_watermark(self, pdf_path: Path, output_stem: str, *, watermark_text: str) -> ProcessingResult:
+        normalized_text = watermark_text.strip()
+        if not normalized_text:
+            raise ProcessingUserError("Il watermark testuale non può essere vuoto.")
+        output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
+        document = self._open_pdf_document(pdf_path)
+        try:
+            for page in document:
+                width = float(page.rect.width)
+                height = float(page.rect.height)
+                font_size = max(18, min(42, int(min(width, height) * 0.06)))
+                rect = fitz.Rect(width * 0.08, height * 0.42, width * 0.92, height * 0.58)
+                page.insert_textbox(
+                    rect,
+                    normalized_text,
+                    fontsize=font_size,
+                    fontname="helv",
+                    color=(0.55, 0.55, 0.55),
+                    rotate=0,
+                    align=fitz.TEXT_ALIGN_CENTER,
+                    overlay=True,
+                )
+            document.save(output_path, garbage=4, clean=True, deflate=True, deflate_images=True, deflate_fonts=True)
+        finally:
+            document.close()
+        return ProcessingResult(
+            output_path=output_path,
+            output_name=output_path.name,
+            message=f'Ho aggiunto il watermark testuale "{normalized_text}" al PDF.',
             processing_mode="native",
         )
 
@@ -689,6 +796,65 @@ class DocumentProcessor:
                 "Per elaborarlo, invia prima una versione non protetta."
             )
         return document
+
+    def _build_pdf_reader(self, pdf_path: Path) -> PdfReader:
+        try:
+            reader = PdfReader(str(pdf_path))
+            if reader.is_encrypted:
+                raise ProcessingUserError(
+                    "Questo PDF sembra protetto da password. "
+                    "Per elaborarlo, invia prima una versione non protetta."
+                )
+            return reader
+        except (PdfReadError, FileNotDecryptedError) as exc:
+            raise ProcessingUserError(
+                "Non riesco a leggere questo PDF. "
+                "Potrebbe essere corrotto o protetto da password."
+            ) from exc
+
+    def _parse_page_selection(self, raw_value: str, pdf_path: Path, *, mode: str) -> list[int]:
+        reader = self._build_pdf_reader(pdf_path)
+        total_pages = len(reader.pages)
+        value = raw_value.strip()
+        if not value:
+            raise ProcessingUserError("Non ho ricevuto nessuna selezione pagine. Usa un formato come 1,3,5-7.")
+
+        page_numbers: list[int] = []
+        for raw_token in value.split(","):
+            token = raw_token.strip()
+            if not token:
+                raise ProcessingUserError("La selezione pagine contiene una virgola vuota. Usa un formato come 1,3,5-7.")
+            if "-" in token:
+                start_text, end_text = token.split("-", 1)
+                if not start_text.strip().isdigit() or not end_text.strip().isdigit():
+                    raise ProcessingUserError("Gli intervalli pagina devono essere numerici, ad esempio 2-5.")
+                start = int(start_text.strip())
+                end = int(end_text.strip())
+                if start <= 0 or end <= 0 or start > end:
+                    raise ProcessingUserError("Gli intervalli pagina devono essere validi, ad esempio 2-5.")
+                page_numbers.extend(range(start, end + 1))
+            else:
+                if not token.isdigit():
+                    raise ProcessingUserError("La selezione pagine deve usare solo numeri e intervalli, ad esempio 1,3,5-7.")
+                page_numbers.append(int(token))
+
+        if any(page_number < 1 or page_number > total_pages for page_number in page_numbers):
+            raise ProcessingUserError(f"Questo PDF ha {total_pages} pagine. Controlla la selezione e riprova.")
+
+        if mode == "full_reorder":
+            if len(page_numbers) != total_pages or len(set(page_numbers)) != total_pages:
+                raise ProcessingUserError(
+                    f"Per riordinare le pagine di un PDF da {total_pages} pagine devo ricevere ogni pagina una sola volta."
+                )
+
+        return page_numbers
+
+    def _format_page_numbers(self, page_numbers: list[int]) -> str:
+        if not page_numbers:
+            return ""
+        if len(page_numbers) == 1:
+            return str(page_numbers[0])
+        return ", ".join(str(number) for number in page_numbers)
 
     def _build_images_to_pdf_message(
         self,

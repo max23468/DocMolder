@@ -4,17 +4,7 @@ Questa roadmap raccoglie le priorità attuali di `DocMolder`.
 
 ## Indice
 
-- [Fase 3: Estensione Funzionale](#fase-3-estensione-funzionale)
 - [Fase 4: Miglioramenti Tecnici](#fase-4-miglioramenti-tecnici)
-
-## Fase 3: Estensione Funzionale
-
-- [ ] storico lavori per l'utente, con elenco delle conversioni già eseguite e possibilità di recuperare risultati o dettagli essenziali del job
-- [ ] estrazione pagine
-- [ ] riordino pagine
-- [ ] eliminazione pagine
-- [ ] rotazione pagine manuale
-- [ ] watermark
 
 ## Fase 4: Miglioramenti Tecnici
 

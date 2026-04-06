@@ -15,6 +15,8 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 - scelta guidata tra formato originale immagini e impaginazione A4 con bordi configurabili durante la creazione di PDF da immagini
 - possibilita di rifare un'elaborazione PDF senza auto-rotazione quando il risultato e stato corretto automaticamente
 - changelog di progetto per raccogliere le modifiche rilevanti gia introdotte
+- comando `/history` con storico degli ultimi job utente, dettaglio essenziale e possibilita di rilanciare una lavorazione gia eseguita
+- nuove funzioni PDF su singolo documento: estrazione pagine, riordino pagine, eliminazione pagine, rotazione manuale e watermark testuale
 
 ### Modificato
 
@@ -27,6 +29,8 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 - il bot puo inviare report admin periodici giornalieri e settimanali senza duplicare lo stesso riepilogo dopo un riavvio
 - i limiti operativi comunicano meglio i valori effettivi su file, burst upload e job concorrenti
 - la roadmap ora passa direttamente alle fasi funzionali e tecniche successive dopo il completamento della fase operativa
+- la tastiera principale e i messaggi guida espongono anche lo storico lavori personale
+- il bot gestisce ora piccoli step conversazionali persistenti per chiedere in chat selezione pagine o testo watermark prima di mettere in coda il job
 
 ### Tecnico
 
@@ -36,3 +40,5 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 - introdotto uno storage meta persistente per report admin periodici e stato operativo del bot
 - la riaccodatura dei job dopo riavvio ripulisce meglio stato, errori e metriche residue dei job incompleti
 - aggiornato il contesto tecnico del progetto per riflettere il nuovo flusso PDF
+- aggiunta una query dedicata per recuperare gli ultimi job di un utente e ampliata la copertura test su storico, dettagli e rilancio dei job
+- ampliata la pipeline PDF con operazioni native di estrazione, riordino, eliminazione, rotazione manuale e watermark, insieme ai relativi test automatici

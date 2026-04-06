@@ -111,4 +111,5 @@ Regole pratiche attuali:
 - i file di lavoro dei job restano temporanei
 - le cartelle job residue vengono pulite dal cleanup schedulato
 - i job incompleti vengono rimessi in coda dopo riavvio, ma con stato operativo ripulito
+- lo storico lavori utente conserva metadati e payload del job, non i file finali gia prodotti: il recupero del risultato avviene rilanciando l'elaborazione
 - la documentazione operativa e di deploy va tenuta allineata quando cambiano retention, cleanup o cadenza dei report admin

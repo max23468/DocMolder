@@ -31,6 +31,11 @@ def infer_supported_actions(session: UserSession) -> list[SupportedAction]:
                 [
                     SupportedAction.PDF_GRAYSCALE,
                     SupportedAction.PDF_COMPRESS,
+                    SupportedAction.PDF_EXTRACT_PAGES,
+                    SupportedAction.PDF_REORDER_PAGES,
+                    SupportedAction.PDF_DELETE_PAGES,
+                    SupportedAction.PDF_ROTATE,
+                    SupportedAction.PDF_WATERMARK,
                 ]
             )
 
@@ -69,7 +74,11 @@ def build_output_stem(action: SupportedAction) -> str:
         SupportedAction.PDF_GRAYSCALE: "docmolder_grayscale",
         SupportedAction.PDF_COMPRESS: "docmolder_compressed",
         SupportedAction.PDF_MERGE: "docmolder_merged",
+        SupportedAction.PDF_EXTRACT_PAGES: "docmolder_extracted_pages",
+        SupportedAction.PDF_REORDER_PAGES: "docmolder_reordered_pages",
+        SupportedAction.PDF_DELETE_PAGES: "docmolder_deleted_pages",
         SupportedAction.PDF_ROTATE: "docmolder_rotated",
+        SupportedAction.PDF_WATERMARK: "docmolder_watermarked",
         SupportedAction.AUTO_ORIENT: "docmolder_oriented",
     }
     return labels[action]

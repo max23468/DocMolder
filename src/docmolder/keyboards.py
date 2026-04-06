@@ -11,6 +11,11 @@ def build_actions_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton("Scala di grigi", callback_data="action:pdf_grayscale")],
             [InlineKeyboardButton("Comprimi PDF", callback_data="action:pdf_compress")],
             [InlineKeyboardButton("Unisci PDF", callback_data="action:pdf_merge")],
+            [InlineKeyboardButton("Estrai pagine", callback_data="action:pdf_extract_pages")],
+            [InlineKeyboardButton("Riordina pagine", callback_data="action:pdf_reorder_pages")],
+            [InlineKeyboardButton("Elimina pagine", callback_data="action:pdf_delete_pages")],
+            [InlineKeyboardButton("Ruota pagine", callback_data="action:pdf_rotate")],
+            [InlineKeyboardButton("Aggiungi watermark", callback_data="action:pdf_watermark")],
             [InlineKeyboardButton("Correggi orientamento", callback_data="action:auto_orient")],
         ]
     )
@@ -67,11 +72,34 @@ def build_result_pdf_keyboard(
     return InlineKeyboardMarkup(rows)
 
 
+def build_history_keyboard(job_ids: list[int]) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    for job_id in job_ids:
+        rows.append(
+            [
+                InlineKeyboardButton(f"Dettagli #{job_id}", callback_data=f"history:details:{job_id}"),
+                InlineKeyboardButton(f"Rifai #{job_id}", callback_data=f"history:rerun:{job_id}"),
+            ]
+        )
+    return InlineKeyboardMarkup(rows)
+
+
+def build_rotate_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("90°", callback_data="rotate:90")],
+            [InlineKeyboardButton("180°", callback_data="rotate:180")],
+            [InlineKeyboardButton("270°", callback_data="rotate:270")],
+        ]
+    )
+
+
 def build_main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [
             [KeyboardButton("Cosa posso fare"), KeyboardButton("Crea PDF da immagini")],
             [KeyboardButton("Comprimi PDF"), KeyboardButton("Unisci PDF")],
+            [KeyboardButton("Storico lavori"), KeyboardButton("Mostra sessione")],
         ],
         resize_keyboard=True,
         input_field_placeholder="Invia immagini o PDF, oppure usa il menu",

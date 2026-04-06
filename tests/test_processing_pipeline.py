@@ -88,6 +88,70 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with self.assertRaises(ProcessingUserError):
             self.processor.compress_pdf(protected_pdf, "compressed", CompressionPreset.MEDIUM)
 
+    def test_extract_pdf_pages_creates_subset(self) -> None:
+        pdf_path = self.runtime_dir / "source_extract.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=300)
+        writer.add_blank_page(width=220, height=300)
+        writer.add_blank_page(width=240, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        result = self.processor.extract_pdf_pages(pdf_path, "extracted", page_selection="1,3")
+
+        self.assertTrue(result.output_path.exists())
+        reader = PdfReader(str(result.output_path))
+        self.assertEqual(len(reader.pages), 2)
+        self.assertIn("1, 3", result.message)
+
+    def test_reorder_pdf_pages_requires_full_unique_order(self) -> None:
+        pdf_path = self.runtime_dir / "source_reorder.pdf"
+        writer = PdfWriter()
+        for _ in range(3):
+            writer.add_blank_page(width=200, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        with self.assertRaises(ProcessingUserError):
+            self.processor.reorder_pdf_pages(pdf_path, "reordered", page_selection="3,1")
+
+    def test_delete_pdf_pages_keeps_remaining_pages(self) -> None:
+        pdf_path = self.runtime_dir / "source_delete.pdf"
+        writer = PdfWriter()
+        for _ in range(4):
+            writer.add_blank_page(width=200, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        result = self.processor.delete_pdf_pages(pdf_path, "deleted", page_selection="2-3")
+
+        self.assertTrue(result.output_path.exists())
+        reader = PdfReader(str(result.output_path))
+        self.assertEqual(len(reader.pages), 2)
+        self.assertIn("2, 3", result.message)
+
+    def test_rotate_pdf_rejects_invalid_degrees(self) -> None:
+        pdf_path = self.runtime_dir / "source_rotate.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        with self.assertRaises(ProcessingUserError):
+            self.processor.rotate_pdf(pdf_path, "rotated_invalid", 45)
+
+    def test_add_text_watermark_creates_output(self) -> None:
+        pdf_path = self.runtime_dir / "source_watermark.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=300, height=400)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        result = self.processor.add_text_watermark(pdf_path, "watermarked", watermark_text="BOZZA")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("BOZZA", result.message)
+
     def test_auto_crop_scan_borders_removes_uniform_border(self) -> None:
         image = Image.new("RGB", (400, 300), "white")
         draw = ImageDraw.Draw(image)
