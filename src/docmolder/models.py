@@ -12,7 +12,9 @@ class SessionStatus(StrEnum):
 
 class SupportedAction(StrEnum):
     IMAGES_TO_PDF = "images_to_pdf"
+    IMAGES_TO_PDF_CROP = "images_to_pdf_crop"
     IMAGES_TO_PDF_GRAYSCALE = "images_to_pdf_grayscale"
+    IMAGES_TO_PDF_CROP_GRAYSCALE = "images_to_pdf_crop_grayscale"
     PDF_GRAYSCALE = "pdf_grayscale"
     PDF_COMPRESS = "pdf_compress"
     PDF_MERGE = "pdf_merge"

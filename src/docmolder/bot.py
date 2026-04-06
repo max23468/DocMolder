@@ -666,7 +666,9 @@ def _build_admin_report(
 def _format_job_line(job: JobRecord) -> str:
     action_labels = {
         "images_to_pdf": "PDF da immagini",
+        "images_to_pdf_crop": "PDF con ritaglio bordi",
         "images_to_pdf_grayscale": "PDF grigio da immagini",
+        "images_to_pdf_crop_grayscale": "PDF grigio con ritaglio bordi",
         "pdf_compress": "Comprimi PDF",
         "pdf_grayscale": "Scala di grigi",
         "pdf_merge": "Unisci PDF",
@@ -784,12 +786,12 @@ def _build_image_session_message(session: UserSession) -> str:
         return (
             "Immagine ricevuta.\n"
             "Puoi inviarmi altre immagini per creare un PDF unico in formato A4 con margini, "
-            "oppure scegliere subito un'azione."
+            "ritagliare automaticamente i bordi, oppure scegliere subito un'azione."
         )
 
     return (
         f"Ho ricevuto {image_count} immagini nella stessa sessione.\n"
-        "Puoi creare un PDF unico in formato A4 con margini oppure correggere l'orientamento."
+        "Puoi creare un PDF unico in formato A4 con margini, ritagliare automaticamente i bordi oppure correggere l'orientamento."
     )
 
 
@@ -814,10 +816,15 @@ def _infer_text_requested_action(
         ("scala di grigi", "bianco e nero", "bianco nero", "grayscale", "grigio"),
     )
     wants_pdf = _contains_any(normalized, ("pdf", "documento"))
+    wants_crop = _contains_any(normalized, ("ritaglia", "ritaglio", "bordi", "margini", "scannerizzato", "scansionato"))
     wants_merge = _contains_any(normalized, ("unisci", "accorpa", "merge"))
     wants_compress = _contains_any(normalized, ("comprimi", "compressione", "alleggerisci", "riduci"))
     wants_orient = _contains_any(normalized, ("orientamento", "raddrizza", "raddrizzare"))
 
+    if SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE in supported and wants_crop and wants_grayscale:
+        return SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE, None
+    if SupportedAction.IMAGES_TO_PDF_CROP in supported and wants_crop and wants_pdf:
+        return SupportedAction.IMAGES_TO_PDF_CROP, None
     if SupportedAction.PDF_MERGE in supported and wants_merge:
         return SupportedAction.PDF_MERGE, None
     if SupportedAction.PDF_COMPRESS in supported and wants_compress:
@@ -838,6 +845,13 @@ def _build_text_request_queued_message(
     job_id: int,
     compression_preset: CompressionPreset | None,
 ) -> str:
+    if action == SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE:
+        return (
+            f"Ritaglio automatico e PDF in scala di grigi presi in carico. "
+            f"Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
+        )
+    if action == SupportedAction.IMAGES_TO_PDF_CROP:
+        return f"Ritaglio automatico e creazione PDF presi in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
     if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:
         return f"PDF in scala di grigi preso in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
     if action == SupportedAction.IMAGES_TO_PDF:

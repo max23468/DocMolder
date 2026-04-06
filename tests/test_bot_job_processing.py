@@ -137,6 +137,36 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         message.reply_text.assert_awaited_once()
         self.assertIsNone(self.store.get(7))
 
+    async def test_text_request_enqueues_cropped_grayscale_pdf_from_images(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[
+                    build_session_file("img-1", "foto_1.jpg", FileKind.IMAGE),
+                    build_session_file("img-2", "foto_2.jpg", FileKind.IMAGE),
+                ],
+            )
+        )
+        message = SimpleNamespace(
+            text="Ritaglia i bordi e fammi un pdf in scala di grigi",
+            chat_id=99,
+            message_id=654,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=10))) as enqueue_job:
+            await handle_menu_text(update, context)
+
+        enqueue_call = enqueue_job.await_args.kwargs
+        self.assertEqual(enqueue_call["action"], SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE)
+        message.reply_text.assert_awaited_once()
+        self.assertIsNone(self.store.get(7))
+
     async def test_text_request_enqueues_medium_compression_for_pdf(self) -> None:
         self.store.save(
             UserSession(

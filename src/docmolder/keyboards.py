@@ -7,6 +7,7 @@ def build_actions_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton("Crea PDF da immagini", callback_data="action:images_to_pdf")],
+            [InlineKeyboardButton("Ritaglia bordi e crea PDF", callback_data="action:images_to_pdf_crop")],
             [InlineKeyboardButton("Scala di grigi", callback_data="action:pdf_grayscale")],
             [InlineKeyboardButton("Comprimi PDF", callback_data="action:pdf_compress")],
             [InlineKeyboardButton("Unisci PDF", callback_data="action:pdf_merge")],

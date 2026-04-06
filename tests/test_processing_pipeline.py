@@ -5,11 +5,12 @@ import unittest
 from pathlib import Path
 import sys
 
+from PIL import Image, ImageDraw
 from pypdf import PdfWriter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.models import CompressionPreset
+from docmolder.models import CompressionPreset, SupportedAction
 from docmolder.processing import DocumentProcessor, ProcessingUserError
 
 
@@ -78,6 +79,32 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
 
         with self.assertRaises(ProcessingUserError):
             self.processor.compress_pdf(protected_pdf, "compressed", CompressionPreset.MEDIUM)
+
+    def test_auto_crop_scan_borders_removes_uniform_border(self) -> None:
+        image = Image.new("RGB", (400, 300), "white")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((60, 40, 340, 260), fill="black")
+
+        cropped = self.processor._auto_crop_scan_borders(image)
+
+        self.assertLess(cropped.width, image.width)
+        self.assertLess(cropped.height, image.height)
+        self.assertGreaterEqual(cropped.width, 260)
+        self.assertGreaterEqual(cropped.height, 200)
+
+    def test_process_images_to_pdf_crop_creates_pdf(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_1" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "scan.jpg"
+        image = Image.new("RGB", (400, 300), "white")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((70, 50, 330, 250), fill="black")
+        image.save(image_path)
+
+        result = self.processor.process(SupportedAction.IMAGES_TO_PDF_CROP, [image_path], "cropped")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.output_name, "cropped.pdf")
 
 
 if __name__ == "__main__":

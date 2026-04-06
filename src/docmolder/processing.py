@@ -11,7 +11,7 @@ from io import BytesIO
 from pathlib import Path
 
 import fitz
-from PIL import Image, ImageOps
+from PIL import Image, ImageChops, ImageOps
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import FileNotDecryptedError, PdfReadError
 
@@ -82,8 +82,13 @@ class DocumentProcessor:
     ) -> ProcessingResult:
         if action == SupportedAction.IMAGES_TO_PDF:
             return self.images_to_pdf(input_paths, output_stem)
+        if action == SupportedAction.IMAGES_TO_PDF_CROP:
+            return self.images_to_pdf(input_paths, output_stem, auto_crop=True)
         if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:
             intermediate = self.images_to_pdf(input_paths, "docmolder_pdf")
+            return self.pdf_to_grayscale(intermediate.output_path, output_stem)
+        if action == SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE:
+            intermediate = self.images_to_pdf(input_paths, "docmolder_pdf", auto_crop=True)
             return self.pdf_to_grayscale(intermediate.output_path, output_stem)
         if action == SupportedAction.PDF_MERGE:
             return self.merge_pdfs(input_paths, output_stem)
@@ -101,7 +106,7 @@ class DocumentProcessor:
             return self.auto_orient_images(input_paths, output_stem)
         raise ValueError(f"Azione non supportata: {action}")
 
-    def images_to_pdf(self, image_paths: list[Path], output_stem: str) -> ProcessingResult:
+    def images_to_pdf(self, image_paths: list[Path], output_stem: str, auto_crop: bool = False) -> ProcessingResult:
         if not image_paths:
             raise ProcessingUserError("Non ho ricevuto immagini da convertire in PDF.")
         output_path = image_paths[0].parent.parent / f"{output_stem}.pdf"
@@ -114,6 +119,8 @@ class DocumentProcessor:
                         corrected = corrected.convert("RGB")
                     elif corrected.mode == "L":
                         corrected = corrected.convert("RGB")
+                    if auto_crop:
+                        corrected = self._auto_crop_scan_borders(corrected)
                     prepared_images.append(self._build_a4_page(corrected))
 
             first, *rest = prepared_images
@@ -122,10 +129,14 @@ class DocumentProcessor:
             for image in prepared_images:
                 image.close()
 
+        message = "PDF creato con successo in formato A4 con margini a partire dalle immagini ricevute."
+        if auto_crop:
+            message = "PDF creato con successo dopo il ritaglio automatico dei bordi delle immagini."
+
         return ProcessingResult(
             output_path=output_path,
             output_name=output_path.name,
-            message="PDF creato con successo in formato A4 con margini a partire dalle immagini ricevute.",
+            message=message,
         )
 
     def merge_pdfs(self, pdf_paths: list[Path], output_stem: str) -> ProcessingResult:
@@ -526,3 +537,47 @@ class DocumentProcessor:
         page.paste(content, (offset_x, offset_y))
         content.close()
         return page
+
+    def _auto_crop_scan_borders(self, image: Image.Image) -> Image.Image:
+        width, height = image.size
+        if width < 40 or height < 40:
+            return image.copy()
+
+        background = self._estimate_background_color(image)
+        diff = ImageChops.difference(image, Image.new("RGB", image.size, background))
+        grayscale = diff.convert("L")
+        bbox = grayscale.point(lambda value: 255 if value > 18 else 0).getbbox()
+        if bbox is None:
+            return image.copy()
+
+        left, top, right, bottom = bbox
+        if (right - left) >= width - 8 and (bottom - top) >= height - 8:
+            return image.copy()
+
+        padding = max(6, min(width, height) // 100)
+        left = max(0, left - padding)
+        top = max(0, top - padding)
+        right = min(width, right + padding)
+        bottom = min(height, bottom + padding)
+
+        if right - left < width * 0.35 or bottom - top < height * 0.35:
+            return image.copy()
+
+        return image.crop((left, top, right, bottom))
+
+    def _estimate_background_color(self, image: Image.Image) -> tuple[int, int, int]:
+        width, height = image.size
+        patch_size = max(4, min(width, height) // 20)
+        patches = [
+            image.crop((0, 0, patch_size, patch_size)),
+            image.crop((width - patch_size, 0, width, patch_size)),
+            image.crop((0, height - patch_size, patch_size, height)),
+            image.crop((width - patch_size, height - patch_size, width, height)),
+        ]
+        channels = [0, 0, 0]
+        for patch in patches:
+            red, green, blue = patch.resize((1, 1), Image.Resampling.BOX).getpixel((0, 0))
+            channels[0] += int(red)
+            channels[1] += int(green)
+            channels[2] += int(blue)
+        return tuple(channel // len(patches) for channel in channels)
