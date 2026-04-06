@@ -13,6 +13,7 @@ Va letta dentro il perimetro definito in [docs/DECISIONS.md](/Users/Matteo/Docum
 - [Fase 5: Evoluzione Esperienza Utente](#fase-5-evoluzione-esperienza-utente)
 - [Fase 6: Scansione Documento da Foto](#fase-6-scansione-documento-da-foto)
 - [Fase 7: Robustezza VPS e Performance](#fase-7-robustezza-vps-e-performance)
+- [Fase 8: Ottimizzazione del Funzionamento](#fase-8-ottimizzazione-del-funzionamento)
 
 ## Fase 1: Rifinitura Prodotto
 
@@ -78,9 +79,24 @@ Va letta dentro il perimetro definito in [docs/DECISIONS.md](/Users/Matteo/Docum
 - [ ] aggiungere un health check post-deploy più forte, non limitato al solo stato `active` del servizio
 - [ ] introdurre backup automatico di SQLite con strategia semplice e restore verificabile
 - [ ] configurare meglio rotazione log e housekeeping della VPS
+- [ ] rendere più rigoroso il cleanup di file temporanei e directory di runtime per evitare accumuli inutili sulla VPS
 - [ ] aggiungere monitor leggero di CPU, RAM, disco e crescita del runtime dir
 - [ ] introdurre alert su errori anomali o aumenti anomali dei job falliti
+- [ ] introdurre limiti più intelligenti sui batch pesanti per evitare saturazione di RAM e CPU su upload molto grandi
+- [ ] aggiungere downscale preventivo delle immagini enormi quando eccedono chiaramente il necessario per un PDF leggibile
+- [ ] regolare meglio il parallelismo effettivo dei job più costosi per non sovraccaricare la VPS
 - [ ] aggiungere piccoli test di carico locali e ripetibili sui flussi più pesanti
 - [ ] profilare i flussi più costosi come compressione, grayscale e foto verso PDF
 - [ ] rendere più esplicite e controllate le dipendenze di sistema tra locale e VPS
 - [ ] aggiungere verifica periodica dello spazio disco disponibile sulla VPS
+- [ ] mantenere una retention corta e automatica per log e backup in modo da limitare l'occupazione disco
+
+## Fase 8: Ottimizzazione del Funzionamento
+
+- [ ] introdurre una analisi strutturata della sessione corrente, non limitata a un semplice recap testuale, con conteggi, tipo di contenuti, azioni consigliate ed eventuali warning
+- [ ] evitare di ricalcolare più volte nella stessa catena le azioni supportate o esposte, riusando un risultato già inferito quando possibile
+- [ ] profilare e ottimizzare meglio il flusso immagini verso PDF per ridurre uso di memoria sui batch più pesanti
+- [ ] sostituire il dispatch lineare delle azioni nel processor con una mappa più chiara tra azione e handler
+- [ ] distinguere meglio nel codice e nei messaggi le nozioni di azioni supportate, azioni esposte e azioni consigliate
+- [ ] consolidare naming output e metadati job per avere convenzioni più coerenti tra file restituiti, storico e riepiloghi utente
+- [ ] valutare se una parte minima dello stato upload usato per i limiti operativi debba sopravvivere ai riavvii invece di restare solo in memoria
