@@ -25,8 +25,10 @@ Va letta dentro il perimetro definito in [docs/DECISIONS.md](/Users/Matteo/Docum
 - [ ] uniformare meglio lo stile visivo e il tono dei messaggi del bot
 - [ ] rendere più guidati gli input per selezione pagine e watermark
 - [ ] migliorare i messaggi di errore e correzione input per aiutare subito l'utente a riprovare nel formato giusto
+- [ ] rendere più tolleranti gli input strutturati frequenti, ad esempio accettando anche sequenze come `3 1 2 4 5` per il riordino pagine
 - [ ] aggiungere micro-spiegazioni più chiare per scelte come compressione e operazioni PDF sensibili
 - [ ] aggiungere spiegazioni preventive più chiare prima delle operazioni PDF più invasive
+- [ ] permettere di continuare a lavorare sullo stesso PDF già caricato o sul risultato appena prodotto senza doverlo ricaricare ogni volta
 - [ ] migliorare `/history` con distinzione più chiara tra job riusciti, falliti e rilanciati
 - [ ] rendere più naturali alcune richieste testuali frequenti come estrazione pagina, rotazione e watermark
 - [ ] introdurre template rapidi per pochi flussi ricorrenti e coerenti, come “scansiona e comprimi” o “foto in A4”
