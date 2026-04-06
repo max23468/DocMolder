@@ -1,6 +1,6 @@
-# Roadmap Post-MVP
+# Roadmap Prodotto
 
-Questa roadmap raccoglie le priorità successive al primo MVP funzionante di `DocMolder`.
+Questa roadmap raccoglie le priorità attuali di `DocMolder`.
 
 ## Fase 1: Qualità e Affidabilità
 

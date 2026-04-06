@@ -11,7 +11,7 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 - Elaborazione asincrona delle operazioni
 - Retention breve dei file temporanei
 
-## MVP previsto
+## Funzionalità attuali
 
 - Creazione PDF da immagini
 - Conversione PDF in scala di grigi
@@ -32,7 +32,7 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 
 ## Sicurezza operativa
 
-- Nessun salvataggio permanente dei file utente nel MVP
+- Nessun salvataggio permanente dei file utente nel perimetro attuale del prodotto
 - Pulizia automatica delle cartelle temporanee
 - Limiti su dimensione file e numero di allegati da introdurre o rifinire prima di un uso piu ampio
 
@@ -106,7 +106,7 @@ Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPL
 
 ## Prossimi passi suggeriti
 
-La roadmap post-MVP del progetto è in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+La roadmap corrente del progetto è in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ## Monitoraggio admin
 

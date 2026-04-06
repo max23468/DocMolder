@@ -104,7 +104,7 @@ DOCMOLDER_DATABASE_PATH=/opt/docmolder/data/runtime/docmolder.db
 
 ## Note operative
 
-- Nel MVP usiamo polling, quindi non servono dominio pubblico o webhook
+- Attualmente usiamo polling, quindi non servono dominio pubblico o webhook
 - SQLite e file temporanei restano sulla VPS, separati dal clone Git del progetto
 - `Ghostscript` viene installato per migliorare la conversione PDF in scala di grigi
 - Se in futuro il carico cresce, possiamo spostare database e storage su componenti dedicati
