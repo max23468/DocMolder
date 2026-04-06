@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from docmolder.bot import BotDependencies, _process_job
+from docmolder.config import Settings
+from docmolder.processing import DocumentProcessor
+from docmolder.processing import ProcessingResult
+from docmolder.models import JobStatus
+from docmolder.session_store import InMemorySessionStore
+
+
+class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.runtime_dir = Path(self.temp_dir.name) / "runtime"
+        self.runtime_dir.mkdir(parents=True, exist_ok=True)
+        self.settings = Settings.model_construct(
+            telegram_token="test-token",
+            allowed_user_ids=[],
+            admin_user_ids=[],
+            default_language="it",
+            session_ttl_minutes=30,
+            max_session_files=20,
+            max_file_size_mb=20,
+            upload_burst_limit=8,
+            upload_burst_window_seconds=30,
+            max_active_jobs_per_user=2,
+            cleanup_interval_minutes=30,
+            stale_job_retention_hours=6,
+            runtime_dir=self.runtime_dir,
+            database_path=self.runtime_dir / "docmolder.db",
+        )
+        self.store = InMemorySessionStore()
+        self.processor = DocumentProcessor(self.runtime_dir)
+        self.deps = BotDependencies(self.settings, self.store, self.processor)
+        self.bot = SimpleNamespace(send_message=AsyncMock())
+        self.application = SimpleNamespace(bot=self.bot, bot_data={"deps": self.deps})
+
+    def tearDown(self) -> None:
+        self.temp_dir.cleanup()
+
+    async def test_process_job_cleans_up_only_after_result_is_sent(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="images_to_pdf",
+            payload_json='{"files":[]}',
+        )
+        sent_paths: list[Path] = []
+
+        async def fake_run_job_payload(_application, _job, job_dir: Path) -> ProcessingResult:
+            output_path = job_dir / "docmolder_pdf.pdf"
+            output_path.write_bytes(b"%PDF-1.4 test")
+            return ProcessingResult(
+                output_path=output_path,
+                output_name=output_path.name,
+                message="ok",
+            )
+
+        async def fake_send_result(_bot, _chat_id, _reply_to_message_id, result: ProcessingResult) -> None:
+            self.assertTrue(result.output_path.exists())
+            sent_paths.append(result.output_path)
+
+        with (
+            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot._send_result", side_effect=fake_send_result),
+        ):
+            await _process_job(self.application, job.id)
+
+        self.assertEqual(len(sent_paths), 1)
+        self.assertFalse(sent_paths[0].exists())
+        self.assertEqual(self.store.get_job(job.id).status, JobStatus.SUCCEEDED)
+
+
+if __name__ == "__main__":
+    unittest.main()

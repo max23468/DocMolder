@@ -802,8 +802,9 @@ async def _process_job(application: Application, job_id: int) -> None:
         reply_to_message_id=job.reply_to_message_id,
     )
 
+    job_dir = deps.processor.create_job_dir(job.user_id)
     try:
-        result = await _run_job_payload(application, job)
+        result = await _run_job_payload(application, job, job_dir)
     except ProcessingUserError as exc:
         deps.session_store.mark_job_failed(job.id, str(exc))
         await application.bot.send_message(
@@ -824,12 +825,16 @@ async def _process_job(application: Application, job_id: int) -> None:
 
     deps.session_store.mark_job_succeeded(job.id, result.message)
     deps.session_store.record_completed_action(job.user_id, job.action)
-    await _send_result(application.bot, job.chat_id, job.reply_to_message_id, result)
+    try:
+        await _send_result(application.bot, job.chat_id, job.reply_to_message_id, result)
+    finally:
+        deps.processor.cleanup_job_dir(job_dir)
 
 
 async def _run_job_payload(
     application: Application,
     job: JobRecord,
+    job_dir: Path,
 ) -> ProcessingResult:
     deps: BotDependencies = application.bot_data["deps"]
     payload = json.loads(job.payload_json)
@@ -845,23 +850,19 @@ async def _run_job_payload(
         ],
     )
 
-    job_dir = deps.processor.create_job_dir(session.user_id)
-    try:
-        input_dir = job_dir / "input"
-        input_dir.mkdir(parents=True, exist_ok=True)
-        downloaded_paths = await _download_session_files(application, session, input_dir)
+    input_dir = job_dir / "input"
+    input_dir.mkdir(parents=True, exist_ok=True)
+    downloaded_paths = await _download_session_files(application, session, input_dir)
 
-        result = await asyncio.to_thread(
-            deps.processor.process,
-            SupportedAction(job.action),
-            downloaded_paths,
-            build_output_stem(SupportedAction(job.action)),
-            CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None,
-            payload.get("rotate_degrees"),
-        )
-        return result
-    finally:
-        deps.processor.cleanup_job_dir(job_dir)
+    result = await asyncio.to_thread(
+        deps.processor.process,
+        SupportedAction(job.action),
+        downloaded_paths,
+        build_output_stem(SupportedAction(job.action)),
+        CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None,
+        payload.get("rotate_degrees"),
+    )
+    return result
 
 
 async def _download_session_files(
