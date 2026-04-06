@@ -12,12 +12,14 @@ Va letta dentro il perimetro definito in [docs/DECISIONS.md](/Users/Matteo/Docum
 - [Fase 4: Estensioni PDF Mirate](#fase-4-estensioni-pdf-mirate)
 - [Fase 5: Evoluzione Esperienza Utente](#fase-5-evoluzione-esperienza-utente)
 - [Fase 6: Scansione Documento da Foto](#fase-6-scansione-documento-da-foto)
+- [Fase 7: Robustezza VPS e Performance](#fase-7-robustezza-vps-e-performance)
 
 ## Fase 1: Rifinitura Prodotto
 
 - [ ] rendere più esplicito il recap della sessione corrente con file presenti e azioni consigliate
 - [ ] aggiungere suggerimenti contestuali sul prossimo passo utile in base al tipo di file ricevuto
 - [ ] suggerire azioni utili anche dopo il risultato finale, in base al file appena prodotto
+- [ ] introdurre una memoria leggera e revocabile dell'ultima scelta utile, usata solo come default modificabile o suggerimento rapido
 - [ ] migliorare i messaggi finali per renderli più brevi, chiari e uniformi
 - [ ] uniformare meglio lo stile visivo e il tono dei messaggi del bot
 - [ ] rendere più guidati gli input per selezione pagine e watermark
@@ -70,3 +72,15 @@ Va letta dentro il perimetro definito in [docs/DECISIONS.md](/Users/Matteo/Docum
 - [ ] aggiungere un post-processing da scansione per pulizia sfondo, contrasto e resa più leggibile del documento
 - [ ] introdurre controlli di qualità input per segnalare foto troppo storte, scure o incomplete
 - [ ] migliorare la gestione dei margini finali per evitare ritagli troppo aggressivi
+
+## Fase 7: Robustezza VPS e Performance
+
+- [ ] aggiungere un health check post-deploy più forte, non limitato al solo stato `active` del servizio
+- [ ] introdurre backup automatico di SQLite con strategia semplice e restore verificabile
+- [ ] configurare meglio rotazione log e housekeeping della VPS
+- [ ] aggiungere monitor leggero di CPU, RAM, disco e crescita del runtime dir
+- [ ] introdurre alert su errori anomali o aumenti anomali dei job falliti
+- [ ] aggiungere piccoli test di carico locali e ripetibili sui flussi più pesanti
+- [ ] profilare i flussi più costosi come compressione, grayscale e foto verso PDF
+- [ ] rendere più esplicite e controllate le dipendenze di sistema tra locale e VPS
+- [ ] aggiungere verifica periodica dello spazio disco disponibile sulla VPS
