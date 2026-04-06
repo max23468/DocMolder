@@ -12,6 +12,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from docmolder.bot import (
     BotDependencies,
     SESSION_EMPTY_MESSAGE,
+    _build_admin_report,
+    _build_processing_started_message,
+    _build_text_request_queued_message,
     _process_job,
     handle_images_pdf_layout_callback,
     handle_images_pdf_margin_callback,
@@ -21,7 +24,7 @@ from docmolder.bot import (
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
 from docmolder.processing import ProcessingResult
-from docmolder.models import FileKind, JobStatus, SupportedAction, UserSession
+from docmolder.models import CompressionPreset, FileKind, JobStatus, SupportedAction, UserSession
 from docmolder.session_store import InMemorySessionStore
 from docmolder.services import build_session_file
 
@@ -96,6 +99,122 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(sent_paths), 1)
         self.assertFalse(sent_paths[0].exists())
         self.assertEqual(self.store.get_job(job.id).status, JobStatus.SUCCEEDED)
+
+    async def test_process_job_announces_fallback_risk_for_pdf_grayscale(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+
+        async def fake_run_job_payload(_application, _job, job_dir: Path) -> ProcessingResult:
+            output_path = job_dir / "docmolder_grayscale.pdf"
+            output_path.write_bytes(b"%PDF-1.4 test")
+            return ProcessingResult(
+                output_path=output_path,
+                output_name=output_path.name,
+                message="ok",
+            )
+
+        with (
+            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot._send_result", new=AsyncMock()),
+        ):
+            await _process_job(self.application, job.id)
+
+        self.bot.send_message.assert_awaited()
+        first_message = self.bot.send_message.await_args_list[0].kwargs["text"]
+        self.assertIn("soluzione di ripiego", first_message)
+
+    async def test_process_job_persists_basic_processing_metrics(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+
+        async def fake_run_job_payload(_application, _job, job_dir: Path) -> ProcessingResult:
+            input_dir = job_dir / "input"
+            input_dir.mkdir(parents=True, exist_ok=True)
+            (input_dir / "source.pdf").write_bytes(b"x" * 1200)
+            output_path = job_dir / "docmolder_grayscale.pdf"
+            output_path.write_bytes(b"y" * 800)
+            return ProcessingResult(
+                output_path=output_path,
+                output_name=output_path.name,
+                message="ok",
+                processing_mode="raster",
+            )
+
+        with (
+            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot._send_result", new=AsyncMock()),
+        ):
+            await _process_job(self.application, job.id)
+
+        stored_job = self.store.get_job(job.id)
+        self.assertIsNotNone(stored_job)
+        self.assertEqual(stored_job.processing_mode, "raster")
+        self.assertEqual(stored_job.input_bytes, 1200)
+        self.assertEqual(stored_job.output_bytes, 800)
+        self.assertIsNotNone(stored_job.duration_ms)
+        self.assertGreaterEqual(stored_job.duration_ms, 0)
+
+    def test_build_text_request_queued_message_mentions_fallback_for_pdf_grayscale(self) -> None:
+        message = _build_text_request_queued_message(SupportedAction.PDF_GRAYSCALE, 12, None)
+
+        self.assertIn("fallback", message)
+        self.assertIn("Job #12", message)
+
+    def test_build_text_request_queued_message_mentions_longer_processing_for_medium_compression(self) -> None:
+        message = _build_text_request_queued_message(SupportedAction.PDF_COMPRESS, 13, CompressionPreset.MEDIUM)
+
+        self.assertIn("più tempo", message)
+        self.assertIn("fallback", message)
+
+    def test_build_processing_started_message_mentions_fallback_for_pdf_grayscale(self) -> None:
+        message = _build_processing_started_message(SupportedAction.PDF_GRAYSCALE, 14)
+
+        self.assertIn("ripiego", message)
+        self.assertIn("Job #14", message)
+
+    def test_build_admin_report_includes_processing_metrics(self) -> None:
+        report = _build_admin_report(
+            {
+                "known_users_total": 1,
+                "known_users_last_24h": 1,
+                "known_users_last_7d": 1,
+                "completed_actions_total": 3,
+                "completed_actions_last_24h": 3,
+                "completed_actions_last_7d": 3,
+                "active_sessions": 0,
+                "images_to_pdf_total": 1,
+                "pdf_compress_total": 1,
+                "pdf_grayscale_total": 1,
+                "pdf_merge_total": 0,
+                "auto_orient_total": 0,
+                "jobs_queued": 0,
+                "jobs_running": 0,
+                "jobs_failed": 0,
+                "jobs_succeeded": 3,
+                "raster_results_total": 1,
+                "avg_duration_ms": 1500,
+                "avg_input_bytes": 4096,
+                "avg_output_bytes": 2048,
+            },
+            [],
+            [],
+            [],
+        )
+
+        self.assertIn("Metriche tecniche medie", report)
+        self.assertIn("1.5s", report)
+        self.assertIn("4.0 KB", report)
+        self.assertIn("2.0 KB", report)
 
     async def test_result_callback_enqueues_grayscale_job_from_sent_pdf(self) -> None:
         reply_text = AsyncMock()

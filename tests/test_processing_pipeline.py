@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 from PIL import Image, ImageDraw
 from pypdf import PdfReader, PdfWriter
@@ -69,6 +70,13 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with self.assertRaises(ProcessingUserError):
             self.processor.pdf_to_grayscale(invalid_pdf, "grayscale")
 
+    def test_grayscale_rejects_empty_pdf(self) -> None:
+        empty_pdf = self.runtime_dir / "empty.pdf"
+        empty_pdf.write_bytes(b"")
+
+        with self.assertRaises(ProcessingUserError):
+            self.processor.pdf_to_grayscale(empty_pdf, "grayscale_empty")
+
     def test_compress_rejects_password_protected_pdf(self) -> None:
         protected_pdf = self.runtime_dir / "protected.pdf"
         writer = PdfWriter()
@@ -133,6 +141,57 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertTrue(result.output_path.exists())
         self.assertIn("bordi larghi", result.message)
 
+    def test_images_to_pdf_can_create_grayscale_output_directly(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_4" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "photo.jpg"
+        Image.new("RGB", (320, 180), "white").save(image_path)
+
+        result = self.processor.images_to_pdf([image_path], "gray_direct", grayscale_output=True)
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("scala di grigi", result.message)
+
+    def test_process_images_to_pdf_grayscale_does_not_roundtrip_through_pdf_grayscale(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_5" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "photo.jpg"
+        Image.new("RGB", (320, 180), "white").save(image_path)
+
+        with patch.object(self.processor, "pdf_to_grayscale", side_effect=AssertionError("unexpected roundtrip")):
+            result = self.processor.process(SupportedAction.IMAGES_TO_PDF_GRAYSCALE, [image_path], "gray_process")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.output_name, "gray_process.pdf")
+        self.assertIn("scala di grigi", result.message)
+
+    def test_merge_rejects_corrupt_pdf_among_inputs(self) -> None:
+        valid_pdf = self.runtime_dir / "valid.pdf"
+        corrupt_pdf = self.runtime_dir / "corrupt.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=400)
+        with valid_pdf.open("wb") as handle:
+            writer.write(handle)
+        corrupt_pdf.write_text("not a pdf", encoding="utf-8")
+
+        with self.assertRaises(ProcessingUserError):
+            self.processor.merge_pdfs([valid_pdf, corrupt_pdf], "merged_corrupt")
+
+    def test_compress_light_handles_multipage_pdf(self) -> None:
+        multipage_pdf = self.runtime_dir / "multipage.pdf"
+        writer = PdfWriter()
+        for _ in range(24):
+            writer.add_blank_page(width=595, height=842)
+        with multipage_pdf.open("wb") as handle:
+            writer.write(handle)
+
+        result = self.processor.compress_pdf(multipage_pdf, "multipage_light", CompressionPreset.LIGHT)
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("livello light", result.message)
+        reader = PdfReader(str(result.output_path))
+        self.assertEqual(len(reader.pages), 24)
+
     def test_auto_rotate_pdf_to_dominant_orientation_rotates_outlier_pages(self) -> None:
         pdf_path = self.runtime_dir / "mostly_portrait.pdf"
         output_path = self.runtime_dir / "mostly_portrait_rotated.pdf"
@@ -150,6 +209,26 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertEqual(int(reader.pages[0].rotation or 0) % 360, 0)
         self.assertEqual(int(reader.pages[1].rotation or 0) % 360, 0)
         self.assertEqual(int(reader.pages[2].rotation or 0) % 360, 90)
+
+    def test_auto_rotate_pdf_to_dominant_orientation_ignores_square_pages(self) -> None:
+        pdf_path = self.runtime_dir / "portrait_with_square.pdf"
+        output_path = self.runtime_dir / "portrait_with_square_rotated.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=400)
+        writer.add_blank_page(width=200, height=400)
+        writer.add_blank_page(width=300, height=300)
+        writer.add_blank_page(width=400, height=200)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        rotated_pages = self.processor._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
+
+        self.assertEqual(rotated_pages, 1)
+        reader = PdfReader(str(output_path))
+        self.assertEqual(int(reader.pages[0].rotation or 0) % 360, 0)
+        self.assertEqual(int(reader.pages[1].rotation or 0) % 360, 0)
+        self.assertEqual(int(reader.pages[2].rotation or 0) % 360, 0)
+        self.assertEqual(int(reader.pages[3].rotation or 0) % 360, 90)
 
     def test_auto_rotate_pdf_to_dominant_orientation_keeps_single_landscape_document(self) -> None:
         pdf_path = self.runtime_dir / "single_landscape.pdf"

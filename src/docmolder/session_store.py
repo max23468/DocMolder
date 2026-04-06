@@ -38,6 +38,17 @@ class SessionStore(Protocol):
 
     def mark_job_succeeded(self, job_id: int, result_message: str) -> None: ...
 
+    def mark_job_succeeded_with_metrics(
+        self,
+        job_id: int,
+        result_message: str,
+        *,
+        processing_mode: str | None,
+        input_bytes: int | None,
+        output_bytes: int | None,
+        duration_ms: int | None,
+    ) -> None: ...
+
     def mark_job_failed(self, job_id: int, error_message: str) -> None: ...
 
     def requeue_incomplete_jobs(self) -> list[JobRecord]: ...
@@ -110,6 +121,17 @@ class InMemorySessionStore:
                 "jobs_queued": sum(1 for job in self._jobs.values() if job.status == JobStatus.QUEUED),
                 "jobs_running": sum(1 for job in self._jobs.values() if job.status == JobStatus.RUNNING),
                 "jobs_failed": sum(1 for job in self._jobs.values() if job.status == JobStatus.FAILED),
+                "jobs_succeeded": sum(1 for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED),
+                "raster_results_total": sum(1 for job in self._jobs.values() if job.processing_mode == "raster"),
+                "avg_duration_ms": _safe_average(
+                    job.duration_ms for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED
+                ),
+                "avg_input_bytes": _safe_average(
+                    job.input_bytes for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED
+                ),
+                "avg_output_bytes": _safe_average(
+                    job.output_bytes for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED
+                ),
             }
 
     def create_job(
@@ -157,6 +179,24 @@ class InMemorySessionStore:
             job.status = JobStatus.SUCCEEDED
             job.finished_at = datetime.now(timezone.utc)
             job.result_message = result_message
+
+    def mark_job_succeeded_with_metrics(
+        self,
+        job_id: int,
+        result_message: str,
+        *,
+        processing_mode: str | None,
+        input_bytes: int | None,
+        output_bytes: int | None,
+        duration_ms: int | None,
+    ) -> None:
+        self.mark_job_succeeded(job_id, result_message)
+        with self._lock:
+            job = self._jobs[job_id]
+            job.processing_mode = processing_mode
+            job.input_bytes = input_bytes
+            job.output_bytes = output_bytes
+            job.duration_ms = duration_ms
 
     def mark_job_failed(self, job_id: int, error_message: str) -> None:
         from datetime import datetime, timezone
@@ -382,7 +422,12 @@ class SQLiteSessionStore:
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'auto_orient') AS auto_orient_total,
                     (SELECT COUNT(*) FROM jobs WHERE status = 'queued') AS jobs_queued,
                     (SELECT COUNT(*) FROM jobs WHERE status = 'running') AS jobs_running,
-                    (SELECT COUNT(*) FROM jobs WHERE status = 'failed') AS jobs_failed
+                    (SELECT COUNT(*) FROM jobs WHERE status = 'failed') AS jobs_failed,
+                    (SELECT COUNT(*) FROM jobs WHERE status = 'succeeded') AS jobs_succeeded,
+                    (SELECT COUNT(*) FROM jobs WHERE processing_mode = 'raster') AS raster_results_total,
+                    (SELECT COALESCE(ROUND(AVG(duration_ms)), 0) FROM jobs WHERE status = 'succeeded' AND duration_ms IS NOT NULL) AS avg_duration_ms,
+                    (SELECT COALESCE(ROUND(AVG(input_bytes)), 0) FROM jobs WHERE status = 'succeeded' AND input_bytes IS NOT NULL) AS avg_input_bytes,
+                    (SELECT COALESCE(ROUND(AVG(output_bytes)), 0) FROM jobs WHERE status = 'succeeded' AND output_bytes IS NOT NULL) AS avg_output_bytes
                 """
             ).fetchone()
 
@@ -437,14 +482,42 @@ class SQLiteSessionStore:
             connection.commit()
 
     def mark_job_succeeded(self, job_id: int, result_message: str) -> None:
+        self.mark_job_succeeded_with_metrics(
+            job_id,
+            result_message,
+            processing_mode=None,
+            input_bytes=None,
+            output_bytes=None,
+            duration_ms=None,
+        )
+
+    def mark_job_succeeded_with_metrics(
+        self,
+        job_id: int,
+        result_message: str,
+        *,
+        processing_mode: str | None,
+        input_bytes: int | None,
+        output_bytes: int | None,
+        duration_ms: int | None,
+    ) -> None:
         with self._lock, self._connect() as connection:
             connection.execute(
                 """
                 UPDATE jobs
-                SET status = ?, finished_at = CURRENT_TIMESTAMP, result_message = ?, error_message = NULL
+                SET status = ?, finished_at = CURRENT_TIMESTAMP, result_message = ?, error_message = NULL,
+                    processing_mode = ?, input_bytes = ?, output_bytes = ?, duration_ms = ?
                 WHERE id = ?
                 """,
-                (JobStatus.SUCCEEDED.value, result_message, job_id),
+                (
+                    JobStatus.SUCCEEDED.value,
+                    result_message,
+                    processing_mode,
+                    input_bytes,
+                    output_bytes,
+                    duration_ms,
+                    job_id,
+                ),
             )
             connection.commit()
 
@@ -606,14 +679,30 @@ class SQLiteSessionStore:
                     started_at TEXT,
                     finished_at TEXT,
                     result_message TEXT,
-                    error_message TEXT
+                    error_message TEXT,
+                    processing_mode TEXT,
+                    input_bytes INTEGER,
+                    output_bytes INTEGER,
+                    duration_ms INTEGER
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_jobs_status_created_at
                     ON jobs(status, created_at);
                 """
             )
+            self._ensure_job_metrics_columns(connection)
             connection.commit()
+
+    def _ensure_job_metrics_columns(self, connection: sqlite3.Connection) -> None:
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()}
+        if "processing_mode" not in columns:
+            connection.execute("ALTER TABLE jobs ADD COLUMN processing_mode TEXT")
+        if "input_bytes" not in columns:
+            connection.execute("ALTER TABLE jobs ADD COLUMN input_bytes INTEGER")
+        if "output_bytes" not in columns:
+            connection.execute("ALTER TABLE jobs ADD COLUMN output_bytes INTEGER")
+        if "duration_ms" not in columns:
+            connection.execute("ALTER TABLE jobs ADD COLUMN duration_ms INTEGER")
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.db_path)
@@ -649,4 +738,15 @@ def _job_from_row(row: sqlite3.Row) -> JobRecord:
         finished_at=_from_sqlite_datetime(row["finished_at"]),
         result_message=row["result_message"],
         error_message=row["error_message"],
+        processing_mode=row["processing_mode"] if "processing_mode" in row.keys() else None,
+        input_bytes=row["input_bytes"] if "input_bytes" in row.keys() else None,
+        output_bytes=row["output_bytes"] if "output_bytes" in row.keys() else None,
+        duration_ms=row["duration_ms"] if "duration_ms" in row.keys() else None,
     )
+
+
+def _safe_average(values) -> int:
+    collected = [int(value) for value in values if value is not None]
+    if not collected:
+        return 0
+    return sum(collected) // len(collected)

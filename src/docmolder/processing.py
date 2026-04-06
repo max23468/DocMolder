@@ -32,6 +32,7 @@ class ProcessingResult:
     output_name: str
     message: str
     auto_rotation_applied: bool = False
+    processing_mode: str | None = None
 
 
 class ProcessingUserError(Exception):
@@ -102,22 +103,22 @@ class DocumentProcessor:
                 a4_margin_px=image_pdf_margin_px,
             )
         if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:
-            intermediate = self.images_to_pdf(
+            return self.images_to_pdf(
                 input_paths,
-                "docmolder_pdf",
+                output_stem,
+                grayscale_output=True,
                 use_a4_layout=image_pdf_use_a4,
                 a4_margin_px=image_pdf_margin_px,
             )
-            return self.pdf_to_grayscale(intermediate.output_path, output_stem)
         if action == SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE:
-            intermediate = self.images_to_pdf(
+            return self.images_to_pdf(
                 input_paths,
-                "docmolder_pdf",
+                output_stem,
                 auto_crop=True,
+                grayscale_output=True,
                 use_a4_layout=image_pdf_use_a4,
                 a4_margin_px=image_pdf_margin_px,
             )
-            return self.pdf_to_grayscale(intermediate.output_path, output_stem)
         if action == SupportedAction.PDF_MERGE:
             return self.merge_pdfs(input_paths, output_stem, auto_rotate_pdf=auto_rotate_pdf)
         if action == SupportedAction.PDF_GRAYSCALE:
@@ -140,6 +141,7 @@ class DocumentProcessor:
         output_stem: str,
         auto_crop: bool = False,
         *,
+        grayscale_output: bool = False,
         use_a4_layout: bool = True,
         a4_margin_px: int = A4_MARGIN_NARROW_PX,
     ) -> ProcessingResult:
@@ -151,7 +153,10 @@ class DocumentProcessor:
             for image_path in image_paths:
                 with Image.open(image_path) as image:
                     corrected = ImageOps.exif_transpose(image)
-                    if corrected.mode not in ("RGB", "L"):
+                    if grayscale_output:
+                        if corrected.mode != "L":
+                            corrected = ImageOps.grayscale(corrected)
+                    elif corrected.mode not in ("RGB", "L"):
                         corrected = corrected.convert("RGB")
                     elif corrected.mode == "L":
                         corrected = corrected.convert("RGB")
@@ -170,6 +175,7 @@ class DocumentProcessor:
 
         message = self._build_images_to_pdf_message(
             auto_crop=auto_crop,
+            grayscale_output=grayscale_output,
             use_a4_layout=use_a4_layout,
             a4_margin_px=a4_margin_px,
         )
@@ -178,6 +184,7 @@ class DocumentProcessor:
             output_path=output_path,
             output_name=output_path.name,
             message=message,
+            processing_mode="native" if grayscale_output else None,
         )
 
     def merge_pdfs(self, pdf_paths: list[Path], output_stem: str, auto_rotate_pdf: bool = True) -> ProcessingResult:
@@ -209,6 +216,7 @@ class DocumentProcessor:
             output_name=output_path.name,
             message=message,
             auto_rotation_applied=rotated_pages > 0,
+            processing_mode="native",
         )
 
     def pdf_to_grayscale(self, pdf_path: Path, output_stem: str, auto_rotate_pdf: bool = True) -> ProcessingResult:
@@ -235,7 +243,7 @@ class DocumentProcessor:
         if conversion_mode == "native":
             message += " Ho convertito soprattutto le immagini interne e preservato la struttura del PDF dove possibile."
         elif conversion_mode == "raster":
-            message += " Ho usato una soluzione visiva di ripiego per garantire compatibilità."
+            message += " Ho usato una soluzione visiva di ripiego per garantire compatibilità. Il risultato potrebbe non mantenere testo ricercabile o struttura interna del PDF."
         if rotated_pages:
             message += f" Ho anche corretto automaticamente l'orientamento di {rotated_pages} pagine."
         return ProcessingResult(
@@ -243,6 +251,7 @@ class DocumentProcessor:
             output_name=output_path.name,
             message=message,
             auto_rotation_applied=rotated_pages > 0,
+            processing_mode=conversion_mode,
         )
 
     def compress_pdf(
@@ -302,7 +311,7 @@ class DocumentProcessor:
         if mode == "ghostscript":
             message += " Ho mantenuto il PDF nativo con una compressione più fedele."
         elif mode == "raster":
-            message += " Ho usato una soluzione visiva di ripiego per i casi più difficili."
+            message += " Ho usato una soluzione visiva di ripiego per i casi più difficili. Il risultato finale potrebbe non mantenere pienamente testo ricercabile o struttura interna del PDF."
         if rotated_pages:
             message += f" Ho anche corretto automaticamente l'orientamento di {rotated_pages} pagine."
         return ProcessingResult(
@@ -310,6 +319,7 @@ class DocumentProcessor:
             output_name=output_path.name,
             message=message,
             auto_rotation_applied=rotated_pages > 0,
+            processing_mode=mode,
         )
 
     def rotate_pdf(self, pdf_path: Path, output_stem: str, rotate_degrees: int) -> ProcessingResult:
@@ -339,6 +349,7 @@ class DocumentProcessor:
             output_path=output_path,
             output_name=output_path.name,
             message=f"Ho ruotato le pagine di {rotate_degrees} gradi.",
+            processing_mode="native",
         )
 
     def _prepare_pdf_inputs_for_processing(self, pdf_paths: list[Path]) -> tuple[list[Path], int]:
@@ -442,6 +453,7 @@ class DocumentProcessor:
                 output_path=single,
                 output_name=single.name,
                 message="Ho corretto l'orientamento dell'immagine.",
+                processing_mode="native",
             )
 
         archive_path = image_paths[0].parent.parent / f"{output_stem}.zip"
@@ -453,6 +465,7 @@ class DocumentProcessor:
             output_path=archive_path,
             output_name=archive_path.name,
             message="Ho corretto l'orientamento delle immagini e creato un archivio ZIP.",
+            processing_mode="native",
         )
 
     def _render_pdf_as_images(
@@ -677,12 +690,20 @@ class DocumentProcessor:
             )
         return document
 
-    def _build_images_to_pdf_message(self, *, auto_crop: bool, use_a4_layout: bool, a4_margin_px: int) -> str:
+    def _build_images_to_pdf_message(
+        self,
+        *,
+        auto_crop: bool,
+        grayscale_output: bool,
+        use_a4_layout: bool,
+        a4_margin_px: int,
+    ) -> str:
         crop_prefix = "dopo il ritaglio automatico dei bordi delle immagini, " if auto_crop else ""
+        grayscale_prefix = "in scala di grigi " if grayscale_output else ""
         if not use_a4_layout:
-            return f"PDF creato con successo {crop_prefix}mantenendo il formato originale delle immagini."
+            return f"PDF creato con successo {crop_prefix}{grayscale_prefix}mantenendo il formato originale delle immagini."
         margin_label = self._describe_a4_margin(a4_margin_px)
-        return f"PDF creato con successo {crop_prefix}in formato A4 con {margin_label}."
+        return f"PDF creato con successo {crop_prefix}{grayscale_prefix}in formato A4 con {margin_label}."
 
     def _describe_a4_margin(self, margin_px: int) -> str:
         if margin_px >= A4_MARGIN_WIDE_PX:
@@ -692,7 +713,9 @@ class DocumentProcessor:
         return "bordi stretti"
 
     def _build_a4_page(self, image: Image.Image, *, margin_px: int) -> Image.Image:
-        page = Image.new("RGB", (A4_WIDTH_PX, A4_HEIGHT_PX), "white")
+        page_mode = "L" if image.mode == "L" else "RGB"
+        page_background = 255 if page_mode == "L" else "white"
+        page = Image.new(page_mode, (A4_WIDTH_PX, A4_HEIGHT_PX), page_background)
         safe_margin_px = max(0, min(margin_px, min(A4_WIDTH_PX, A4_HEIGHT_PX) // 2 - 1))
         available_width = max(1, A4_WIDTH_PX - (2 * safe_margin_px))
         available_height = max(1, A4_HEIGHT_PX - (2 * safe_margin_px))

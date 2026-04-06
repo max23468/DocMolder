@@ -7,6 +7,7 @@ import logging
 import unicodedata
 from collections import deque
 from datetime import datetime, timezone
+from time import perf_counter
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -758,7 +759,13 @@ def _build_admin_report(
         "Stato coda:\n"
         f"- In coda: {stats['jobs_queued']}\n"
         f"- In lavorazione: {stats['jobs_running']}\n"
-        f"- Falliti: {stats['jobs_failed']}\n\n"
+        f"- Falliti: {stats['jobs_failed']}\n"
+        f"- Completati: {stats['jobs_succeeded']}\n\n"
+        "Metriche tecniche medie:\n"
+        f"- Durata: {_format_duration_ms(stats['avg_duration_ms'])}\n"
+        f"- Input: {_format_bytes(stats['avg_input_bytes'])}\n"
+        f"- Output: {_format_bytes(stats['avg_output_bytes'])}\n"
+        f"- Risultati con fallback raster: {stats['raster_results_total']}\n\n"
         "Dettaglio operazioni:\n"
         f"- PDF da immagini: {stats['images_to_pdf_total']}\n"
         f"- Comprimi PDF: {stats['pdf_compress_total']}\n"
@@ -788,8 +795,28 @@ def _format_job_line(job: JobRecord) -> str:
     action_label = action_labels.get(job.action, job.action)
     reference_time = job.finished_at or job.created_at
     timestamp = reference_time.astimezone(ZoneInfo("Europe/Rome")).strftime("%d/%m %H:%M")
+    metric_parts: list[str] = []
+    if job.duration_ms:
+        metric_parts.append(_format_duration_ms(job.duration_ms))
+    if job.processing_mode:
+        metric_parts.append(job.processing_mode)
+    metrics_suffix = f" | {', '.join(metric_parts)}" if metric_parts else ""
     suffix = f" - {job.error_message}" if job.error_message else ""
-    return f"- Job #{job.id} | {action_label} | utente {job.user_id} | {timestamp}{suffix}"
+    return f"- Job #{job.id} | {action_label} | utente {job.user_id} | {timestamp}{metrics_suffix}{suffix}"
+
+
+def _format_duration_ms(duration_ms: int) -> str:
+    if duration_ms >= 1000:
+        return f"{duration_ms / 1000:.1f}s"
+    return f"{duration_ms}ms"
+
+
+def _format_bytes(size_bytes: int) -> str:
+    if size_bytes >= 1024 * 1024:
+        return f"{size_bytes / (1024 * 1024):.1f} MB"
+    if size_bytes >= 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes} B"
 
 
 def build_application(settings: Settings) -> Application:
@@ -968,14 +995,22 @@ def _build_text_request_queued_message(
     if action == SupportedAction.IMAGES_TO_PDF:
         return f"Creazione PDF presa in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
     if action == SupportedAction.PDF_GRAYSCALE:
-        return f"Conversione in scala di grigi presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+        return (
+            f"Conversione in scala di grigi presa in carico. Job #{job_id} in coda.\n"
+            "Se il PDF è complesso potrei impiegare un po' di più o usare un fallback per garantirti comunque un risultato."
+        )
     if action == SupportedAction.PDF_MERGE:
         return f"Unione PDF presa in carico. Job #{job_id} in coda.\nTi invio il file appena è pronto."
     if action == SupportedAction.PDF_COMPRESS:
         preset_label = (compression_preset or CompressionPreset.MEDIUM).value
+        extra_note = (
+            "\nSe il PDF è difficile da comprimere potrei impiegare più tempo o usare un fallback compatibile."
+            if preset_label in {CompressionPreset.MEDIUM.value, CompressionPreset.STRONG.value}
+            else ""
+        )
         return (
             f"Compressione PDF presa in carico con livello {preset_label}. "
-            f"Job #{job_id} in coda.\nTi invio il file appena è pronto."
+            f"Job #{job_id} in coda.\nTi invio il file appena è pronto.{extra_note}"
         )
     if action == SupportedAction.AUTO_ORIENT:
         return f"Correzione orientamento presa in carico. Job #{job_id} in coda.\nTi invio il risultato appena è pronto."
@@ -988,6 +1023,22 @@ def _build_rerun_without_rotation_message(source_job: JobRecord, job_id: int) ->
     compression_preset = CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None
     base_message = _build_text_request_queued_message(action, job_id, compression_preset)
     return f"Ripeto la stessa operazione senza rotazione automatica del PDF.\n{base_message}"
+
+
+def _build_processing_started_message(action: SupportedAction, job_id: int) -> str:
+    if action == SupportedAction.PDF_GRAYSCALE:
+        return (
+            f"Sto elaborando i file. Potrebbe volerci qualche secondo.\n"
+            f"Job #{job_id} in elaborazione.\n"
+            "Se il PDF non si lascia convertire bene in modo nativo, proverò una soluzione di ripiego compatibile."
+        )
+    if action == SupportedAction.PDF_COMPRESS:
+        return (
+            f"Sto elaborando i file. Potrebbe volerci qualche secondo.\n"
+            f"Job #{job_id} in elaborazione.\n"
+            "Nei casi più difficili la compressione può richiedere un po' di più per trovare il fallback più adatto."
+        )
+    return f"{PROCESSING_MESSAGE}\nJob #{job_id} in elaborazione."
 
 
 def _build_quick_action_guidance(session: UserSession | None, text: str) -> str | None:
@@ -1124,11 +1175,12 @@ async def _process_job(application: Application, job_id: int) -> None:
 
     await application.bot.send_message(
         chat_id=job.chat_id,
-        text=f"{PROCESSING_MESSAGE}\nJob #{job.id} in elaborazione.",
+        text=_build_processing_started_message(SupportedAction(job.action), job.id),
         reply_to_message_id=job.reply_to_message_id,
     )
 
     job_dir = deps.processor.create_job_dir(job.user_id)
+    started_monotonic = perf_counter()
     try:
         result = await _run_job_payload(application, job, job_dir)
     except ProcessingUserError as exc:
@@ -1149,7 +1201,18 @@ async def _process_job(application: Application, job_id: int) -> None:
         )
         return
 
-    deps.session_store.mark_job_succeeded(job.id, result.message)
+    input_dir = job_dir / "input"
+    input_bytes = _sum_file_sizes(input_dir.iterdir()) if input_dir.exists() else 0
+    output_bytes = result.output_path.stat().st_size if result.output_path.exists() else 0
+    duration_ms = int((perf_counter() - started_monotonic) * 1000)
+    deps.session_store.mark_job_succeeded_with_metrics(
+        job.id,
+        result.message,
+        processing_mode=result.processing_mode,
+        input_bytes=input_bytes,
+        output_bytes=output_bytes,
+        duration_ms=duration_ms,
+    )
     deps.session_store.record_completed_action(job.user_id, job.action)
     try:
         await _send_result(application.bot, job.chat_id, job.reply_to_message_id, result, source_job_id=job.id)
@@ -1276,3 +1339,13 @@ async def _send_result(
                 else None
             ),
         )
+
+
+def _sum_file_sizes(paths) -> int:
+    total = 0
+    for path in paths:
+        try:
+            total += path.stat().st_size
+        except OSError:
+            continue
+    return total

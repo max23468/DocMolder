@@ -44,17 +44,33 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertEqual(running_stats["jobs_queued"], 0)
         self.assertEqual(running_stats["jobs_running"], 1)
 
-        self.store.mark_job_succeeded(job.id, "Operazione completata.")
+        self.store.mark_job_succeeded_with_metrics(
+            job.id,
+            "Operazione completata.",
+            processing_mode="raster",
+            input_bytes=4000,
+            output_bytes=1500,
+            duration_ms=900,
+        )
         succeeded_job = self.store.get_job(job.id)
         self.assertIsNotNone(succeeded_job)
         self.assertEqual(succeeded_job.status.value, "succeeded")
         self.assertEqual(succeeded_job.result_message, "Operazione completata.")
         self.assertIsNotNone(succeeded_job.finished_at)
+        self.assertEqual(succeeded_job.processing_mode, "raster")
+        self.assertEqual(succeeded_job.input_bytes, 4000)
+        self.assertEqual(succeeded_job.output_bytes, 1500)
+        self.assertEqual(succeeded_job.duration_ms, 900)
 
         final_stats = self.store.build_admin_stats()
         self.assertEqual(final_stats["jobs_queued"], 0)
         self.assertEqual(final_stats["jobs_running"], 0)
         self.assertEqual(final_stats["jobs_failed"], 0)
+        self.assertEqual(final_stats["jobs_succeeded"], 1)
+        self.assertEqual(final_stats["raster_results_total"], 1)
+        self.assertEqual(final_stats["avg_duration_ms"], 900)
+        self.assertEqual(final_stats["avg_input_bytes"], 4000)
+        self.assertEqual(final_stats["avg_output_bytes"], 1500)
 
     def test_requeue_incomplete_jobs_resets_running_jobs(self) -> None:
         first_job = self.store.create_job(

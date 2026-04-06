@@ -27,7 +27,7 @@ make test
 ## Suite principali
 
 - [tests/test_processing_pipeline.py](/Users/Matteo/Documents/DocMolder/tests/test_processing_pipeline.py)
-  copre la pipeline documentale, compresi casi PDF e immagini
+  copre la pipeline documentale, compresi casi PDF e immagini, PDF vuoti o corrotti, documenti multipagina, strutture pagina insolite e flussi grayscale da immagini
 - [tests/test_bot_job_processing.py](/Users/Matteo/Documents/DocMolder/tests/test_bot_job_processing.py)
   copre i flussi del bot, la coda job e varie interazioni utente
 - [tests/test_processing_cleanup.py](/Users/Matteo/Documents/DocMolder/tests/test_processing_cleanup.py)
@@ -35,7 +35,7 @@ make test
 - [tests/test_rate_limit.py](/Users/Matteo/Documents/DocMolder/tests/test_rate_limit.py)
   copre i limiti di upload e di job concorrenti
 - [tests/test_session_store.py](/Users/Matteo/Documents/DocMolder/tests/test_session_store.py)
-  copre persistenza, statistiche admin e stato dei job
+  copre persistenza, statistiche admin, stato dei job e metriche tecniche aggregate
 
 ## Comandi utili
 

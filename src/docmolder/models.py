@@ -77,6 +77,10 @@ class JobRecord:
     finished_at: datetime | None = None
     result_message: str | None = None
     error_message: str | None = None
+    processing_mode: str | None = None
+    input_bytes: int | None = None
+    output_bytes: int | None = None
+    duration_ms: int | None = None
 
 
 @dataclass(slots=True)

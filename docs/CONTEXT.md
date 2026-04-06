@@ -193,6 +193,7 @@ Punti chiave:
 - `handle_menu_text()` gestisce testo libero e menu
 - `_process_job()` esegue un job e invia il risultato
 - `_send_result()` manda il file in chat
+- i messaggi di coda e di elaborazione possono differenziare meglio i casi in cui un job PDF potrebbe richiedere piu tempo o usare fallback compatibili
 
 Nota importante di affidabilita:
 - e gia stata corretta una regressione in cui il file temporaneo del job veniva cancellato prima dell'invio a Telegram
@@ -236,6 +237,7 @@ Responsabilita:
 - gestisce persistenza job
 - costruisce statistiche admin
 - permette di riaccodare job incompleti dopo riavvii
+- conserva anche metriche tecniche essenziali dei job riusciti, come durata, byte input/output e modalita effettiva del risultato
 
 Implementazione usata in produzione:
 - `SQLiteSessionStore`

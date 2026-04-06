@@ -100,3 +100,4 @@ Quando qualcosa non torna, guarda prima:
 - job falliti recenti
 - utenti piu attivi
 - tipo di trasformazione che fallisce piu spesso
+- durata media dei job, peso medio di input/output e quanti risultati stanno passando da fallback raster

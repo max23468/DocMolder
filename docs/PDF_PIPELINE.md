@@ -69,6 +69,7 @@ Per le immagini:
 - oppure puo impaginarle in A4
 - se usa A4, chiede anche il tipo di bordo
 - in alcuni flussi puo applicare ritaglio bordi e conversione in scala di grigi
+- quando il risultato richiesto e un PDF in scala di grigi da immagini, il bot lo genera direttamente in grigio invece di creare prima un PDF a colori e riconvertirlo dopo
 
 ## Auto-orientamento PDF
 
@@ -96,6 +97,7 @@ Se fallisce o non esiste:
 
 - la pipeline non si ferma subito
 - prova altre strategie
+- i messaggi utente cercano di anticipare che, nei casi complessi, il risultato potrebbe richiedere piu tempo o passare a un fallback compatibile
 
 ## Quando entra in gioco il raster fallback
 
@@ -106,3 +108,4 @@ Implicazioni:
 - il risultato visivo viene mantenuto
 - il PDF puo perdere caratteristiche native utili
 - per questo e importante tracciare bene quanto spesso accade
+- quando questo succede, i messaggi finali cercano di esplicitare meglio il compromesso fatto sul PDF nativo
