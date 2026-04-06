@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 import sys
 from unittest.mock import patch
+import subprocess
 
 from PIL import Image, ImageDraw
 from pypdf import PdfReader, PdfWriter
@@ -50,6 +51,30 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertIn("-dPDFSETTINGS=/ebook", command)
         self.assertIn(f"-sOutputFile={output_path}", command)
         self.assertEqual(command[-1], str(pdf_path))
+
+    def test_run_ghostscript_grayscale_returns_false_on_timeout(self) -> None:
+        pdf_path = Path("/tmp/input.pdf")
+        output_path = Path("/tmp/output.pdf")
+
+        with (
+            patch("docmolder.processing.shutil.which", return_value="gs"),
+            patch("docmolder.processing.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["gs"], timeout=5)),
+        ):
+            result = self.processor._run_ghostscript_grayscale(pdf_path, output_path)
+
+        self.assertFalse(result)
+
+    def test_run_ghostscript_compress_returns_false_on_timeout(self) -> None:
+        pdf_path = Path("/tmp/input.pdf")
+        output_path = Path("/tmp/output.pdf")
+
+        with (
+            patch("docmolder.processing.shutil.which", return_value="gs"),
+            patch("docmolder.processing.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["gs"], timeout=5)),
+        ):
+            result = self.processor._run_ghostscript_compress(pdf_path, output_path, quality_profile="/ebook")
+
+        self.assertFalse(result)
 
     def test_merge_requires_at_least_two_pdfs(self) -> None:
         with self.assertRaises(ProcessingUserError):

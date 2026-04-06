@@ -37,6 +37,13 @@ class DocumentProcessorCleanupTest(unittest.TestCase):
         self.assertFalse(stale_dir.exists())
         self.assertTrue(fresh_dir.exists())
 
+    def test_cleanup_job_dir_ignores_missing_directory(self) -> None:
+        missing_dir = self.runtime_dir / "jobs" / "missing_job"
+
+        self.processor.cleanup_job_dir(missing_dir)
+
+        self.assertFalse(missing_dir.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -27,6 +27,7 @@ L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output dirett
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 - Storico ultimi job con dettaglio essenziale e possibilità di rilanciare un'elaborazione
+- Nomi output più leggibili, derivati dal file sorgente e dall'azione eseguita
 
 ## Flusso utente
 
@@ -136,6 +137,7 @@ Documenti utili:
 - `DOCMOLDER_MAX_ACTIVE_JOBS_PER_USER`
 - `DOCMOLDER_CLEANUP_INTERVAL_MINUTES`
 - `DOCMOLDER_STALE_JOB_RETENTION_HOURS`
+- `DOCMOLDER_GHOSTSCRIPT_TIMEOUT_SECONDS`
 - `DOCMOLDER_RUNTIME_DIR`
 - `DOCMOLDER_DATABASE_PATH`
 
@@ -146,10 +148,7 @@ Le modifiche rilevanti vengono annotate anche in [`docs/CHANGELOG.md`](docs/CHAN
 
 In sintesi, le priorità attuali sono:
 
-- aumentare affidabilità e copertura dei test sui PDF più difficili
-- migliorare messaggi utente, fallback e tracciamento della qualità delle trasformazioni
-- rafforzare metriche admin, limiti operativi e ripartenza dei job dopo crash o riavvio
-- concentrarsi ora soprattutto sul consolidamento tecnico della pipeline, della coda job e dei messaggi operativi
+- la roadmap corrente non ha item aperti: le prossime priorita verranno aggiunte quando decideremo il prossimo blocco di evoluzione del prodotto
 
 ## Monitoraggio admin
 

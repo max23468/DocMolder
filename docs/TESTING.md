@@ -26,16 +26,20 @@ make test
 
 ## Suite principali
 
+- [tests/test_models.py](/Users/Matteo/Documents/DocMolder/tests/test_models.py)
+  copre il roundtrip tipizzato dei payload job
 - [tests/test_processing_pipeline.py](/Users/Matteo/Documents/DocMolder/tests/test_processing_pipeline.py)
-  copre la pipeline documentale, compresi casi PDF e immagini, PDF vuoti o corrotti, documenti multipagina, strutture pagina insolite, flussi grayscale da immagini e operazioni native sulle pagine PDF
+  copre la pipeline documentale, compresi casi PDF e immagini, PDF vuoti o corrotti, documenti multipagina, strutture pagina insolite, flussi grayscale da immagini, timeout `Ghostscript` e operazioni native sulle pagine PDF
 - [tests/test_bot_job_processing.py](/Users/Matteo/Documents/DocMolder/tests/test_bot_job_processing.py)
   copre i flussi del bot, la coda job, lo storico lavori e varie interazioni utente
 - [tests/test_processing_cleanup.py](/Users/Matteo/Documents/DocMolder/tests/test_processing_cleanup.py)
-  copre la pulizia delle cartelle temporanee dei job
+  copre la pulizia delle cartelle temporanee dei job, inclusi casi di cartella gia assente
 - [tests/test_rate_limit.py](/Users/Matteo/Documents/DocMolder/tests/test_rate_limit.py)
   copre i limiti di upload e di job concorrenti
 - [tests/test_session_store.py](/Users/Matteo/Documents/DocMolder/tests/test_session_store.py)
   copre persistenza, statistiche admin, stato dei job, metriche tecniche aggregate, meta-informazioni operative e stato conversazionale minimo delle sessioni
+- [tests/test_services.py](/Users/Matteo/Documents/DocMolder/tests/test_services.py)
+  copre helper trasversali come la generazione dei nomi file in output e l'allineamento tra azioni esposte e catalogo centrale
 
 ## Comandi utili
 
@@ -62,6 +66,7 @@ Eseguire tutta la suite:
 - se usi `python3` di sistema invece del virtualenv, potresti non avere dipendenze come `Pillow` o `python-telegram-bot`
 - alcuni test usano PDF volutamente invalidi; messaggi come `invalid pdf header` o `EOF marker not found` possono comparire in output senza indicare un fallimento della suite
 - prima di considerare verde una modifica alla pipeline, conviene eseguire almeno i test di `processing` e `bot_job_processing`
+- i test sui timeout `Ghostscript` possono produrre una riga di warning nei log senza indicare un fallimento della suite
 
 ## Quando aggiungere test
 

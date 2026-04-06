@@ -10,7 +10,7 @@ Obiettivo:
 
 Ultimo aggiornamento del contesto:
 - data di riferimento: `2026-04-06`
-- commit locale corrente quando questo file e stato scritto: `e84dadc`
+- commit locale corrente quando questo file e stato scritto: `working tree locale oltre b9777fa`
 
 Importante:
 - questo file non deve contenere segreti
@@ -124,6 +124,9 @@ Configurazione:
 Logica bot Telegram:
 - [src/docmolder/bot.py](/Users/Matteo/Documents/DocMolder/src/docmolder/bot.py)
 
+Orchestrazione job:
+- [src/docmolder/job_flow.py](/Users/Matteo/Documents/DocMolder/src/docmolder/job_flow.py)
+
 Pipeline documentale:
 - [src/docmolder/processing.py](/Users/Matteo/Documents/DocMolder/src/docmolder/processing.py)
 
@@ -143,11 +146,13 @@ Tastiere Telegram:
 - [src/docmolder/keyboards.py](/Users/Matteo/Documents/DocMolder/src/docmolder/keyboards.py)
 
 Test:
+- [tests/test_models.py](/Users/Matteo/Documents/DocMolder/tests/test_models.py)
 - [tests/test_processing_pipeline.py](/Users/Matteo/Documents/DocMolder/tests/test_processing_pipeline.py)
 - [tests/test_processing_cleanup.py](/Users/Matteo/Documents/DocMolder/tests/test_processing_cleanup.py)
 - [tests/test_bot_job_processing.py](/Users/Matteo/Documents/DocMolder/tests/test_bot_job_processing.py)
 - [tests/test_rate_limit.py](/Users/Matteo/Documents/DocMolder/tests/test_rate_limit.py)
 - [tests/test_session_store.py](/Users/Matteo/Documents/DocMolder/tests/test_session_store.py)
+- [tests/test_services.py](/Users/Matteo/Documents/DocMolder/tests/test_services.py)
 
 ## 6. Componenti principali e responsabilita
 
@@ -177,6 +182,7 @@ Variabili importanti:
 - `DOCMOLDER_MAX_ACTIVE_JOBS_PER_USER`
 - `DOCMOLDER_CLEANUP_INTERVAL_MINUTES`
 - `DOCMOLDER_STALE_JOB_RETENTION_HOURS`
+- `DOCMOLDER_GHOSTSCRIPT_TIMEOUT_SECONDS`
 - `DOCMOLDER_ADMIN_DAILY_REPORT_HOUR`
 - `DOCMOLDER_ADMIN_WEEKLY_REPORT_DAY`
 - `DOCMOLDER_ADMIN_WEEKLY_REPORT_HOUR`
@@ -206,12 +212,15 @@ Punti chiave:
 - `_process_job()` esegue un job e invia il risultato
 - `_send_result()` manda il file in chat
 - i messaggi di coda e di elaborazione possono differenziare meglio i casi in cui un job PDF potrebbe richiedere piu tempo o usare fallback compatibili
+- il payload persistito dei job viene ora deserializzato tramite una struttura tipizzata dedicata, non tramite accessi sparsi a dizionari JSON anonimi
+- il bot mantiene wrapper compatibili per i job, ma la logica concreta di enqueue e riesecuzione del payload e stata spostata in un modulo dedicato
 
 Nota importante di affidabilita:
 - e gia stata corretta una regressione in cui il file temporaneo del job veniva cancellato prima dell'invio a Telegram
-- oggi il cleanup del job avviene dopo `_send_result()`
+- oggi il cleanup del job avviene sempre in `finally`, ma solo dopo il tentativo di `_send_result()`
 - il report admin e stato reso piu leggibile con sintesi qualita, percentuali base e top errori per azione
 - il bot puo inviare report admin periodici giornalieri e settimanali, con stato ultimo invio persistito, ma evita di mandare riepiloghi vuoti quando il periodo non ha attivita utile
+- le statistiche admin non passano piu come `dict[str, int]`, ma tramite una struttura tipizzata dedicata
 
 ### 6.4 `processing.py`
 
@@ -239,17 +248,27 @@ Azioni supportate a livello di pipeline:
 
 Dettagli tecnici importanti:
 - `Ghostscript` viene usato quando disponibile per migliorare grigio/compressione
+- i passaggi `Ghostscript` hanno ora un timeout configurabile via ambiente per evitare job bloccati troppo a lungo
 - se `Ghostscript` manca o fallisce, ci sono fallback piu conservativi o raster
+- alcuni `except Exception` troppo ampi sono gia stati sostituiti con errori piu mirati nella pipeline PDF
 - il ritaglio automatico bordi usa un confronto con il colore medio degli angoli dell'immagine per stimare lo sfondo e ricavare il bounding box del contenuto
 
 ### 6.5 `services.py`
 
 Responsabilita:
 - determina le azioni compatibili per la sessione
-- genera nomi output coerenti
+- espone il catalogo centrale delle etichette azione e dell'ordine con cui mostrarle all'utente
+- genera nomi output coerenti e piu informativi, derivandoli dal file sorgente e dall'azione eseguita
 - normalizza nomi file
 
-### 6.6 `session_store.py`
+### 6.6 `job_flow.py`
+
+Responsabilita:
+- mette in coda i job a partire da sessioni o da job gia esistenti
+- ricostruisce sessione e payload persistito per l'esecuzione reale
+- separa la logica di orchestration interna dagli handler Telegram
+
+### 6.7 `session_store.py`
 
 Responsabilita:
 - gestisce persistenza sessioni utente

@@ -2,23 +2,18 @@ from __future__ import annotations
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
+from docmolder.models import SupportedAction
+from docmolder.services import get_action_label
 
-def build_actions_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Crea PDF da immagini", callback_data="action:images_to_pdf")],
-            [InlineKeyboardButton("Ritaglia bordi e crea PDF", callback_data="action:images_to_pdf_crop")],
-            [InlineKeyboardButton("Scala di grigi", callback_data="action:pdf_grayscale")],
-            [InlineKeyboardButton("Comprimi PDF", callback_data="action:pdf_compress")],
-            [InlineKeyboardButton("Unisci PDF", callback_data="action:pdf_merge")],
-            [InlineKeyboardButton("Estrai pagine", callback_data="action:pdf_extract_pages")],
-            [InlineKeyboardButton("Riordina pagine", callback_data="action:pdf_reorder_pages")],
-            [InlineKeyboardButton("Elimina pagine", callback_data="action:pdf_delete_pages")],
-            [InlineKeyboardButton("Ruota pagine", callback_data="action:pdf_rotate")],
-            [InlineKeyboardButton("Aggiungi watermark", callback_data="action:pdf_watermark")],
-            [InlineKeyboardButton("Correggi orientamento", callback_data="action:auto_orient")],
-        ]
-    )
+
+def build_actions_keyboard(actions: list[SupportedAction]) -> InlineKeyboardMarkup | None:
+    rows: list[list[InlineKeyboardButton]] = []
+    for action in actions:
+        label = "Aggiungi watermark" if action == SupportedAction.PDF_WATERMARK else get_action_label(action)
+        rows.append([InlineKeyboardButton(label, callback_data=f"action:{action.value}")])
+    if not rows:
+        return None
+    return InlineKeyboardMarkup(rows)
 
 
 def build_compression_keyboard() -> InlineKeyboardMarkup:

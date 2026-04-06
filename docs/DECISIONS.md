@@ -66,6 +66,19 @@ Conseguenze:
 - la pipeline ha piu rami e va osservata bene
 - servono test e metriche per capire quando entra in gioco il fallback piu invasivo
 
+## Catalogo centrale delle azioni
+
+Decisione:
+- etichette utente, ordine di esposizione e azioni compatibili devono derivare da un punto centrale, non da mapping duplicati tra bot, tastiere e messaggi
+
+Motivazione:
+- riduce il rischio che una nuova azione venga supportata dalla pipeline ma non compaia in tastiera, o viceversa
+- rende piu semplice verificare l'allineamento tra modello interno e UI Telegram
+
+Conseguenze:
+- l'introduzione di una nuova azione passa prima dal catalogo in `services.py`
+- tastiere e report si appoggiano a etichette condivise invece di duplicare stringhe locali
+
 ## SQLite come persistenza locale del progetto
 
 Decisione:

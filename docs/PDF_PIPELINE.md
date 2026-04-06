@@ -109,6 +109,11 @@ Serve soprattutto per:
 - scala di grigi piu fedele su alcuni PDF
 - compressione PDF nativa in alcuni preset
 
+Per evitare job troppo lunghi:
+
+- i passaggi `Ghostscript` hanno un timeout esplicito configurabile con `DOCMOLDER_GHOSTSCRIPT_TIMEOUT_SECONDS`
+- se il timeout scatta, la pipeline lo tratta come un fallimento gestito e passa al fallback successivo
+
 Se fallisce o non esiste:
 
 - la pipeline non si ferma subito

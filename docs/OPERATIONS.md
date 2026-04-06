@@ -59,6 +59,7 @@ Se i job falliscono:
 - controlla i log del servizio
 - verifica se il problema coinvolge PDF corrotti o protetti
 - verifica se `Ghostscript` e disponibile ma sta fallendo
+- verifica se `Ghostscript` sta andando in timeout ripetuti, soprattutto su PDF piu pesanti o complessi
 - controlla spazio disco e permessi sotto il runtime dir
 
 Se il bot accumula file temporanei:
@@ -92,6 +93,7 @@ Se manca o fallisce:
 - il bot prova fallback alternativi
 - la qualita del risultato puo cambiare
 - e utile verificare quale strategia effettiva e stata usata
+- il timeout massimo e regolabile con `DOCMOLDER_GHOSTSCRIPT_TIMEOUT_SECONDS`
 
 ## Admin e osservabilita
 
@@ -109,6 +111,7 @@ Quando qualcosa non torna, guarda prima:
 - tipo di trasformazione che fallisce piu spesso
 - durata media dei job, peso medio di input/output e quanti risultati stanno passando da fallback raster
 - tasso di successo e tasso di fallimento mostrati nel riepilogo admin
+- se una nuova azione non compare in tastiera, verifica prima il catalogo centrale delle azioni in `services.py` e non solo il markup Telegram
 
 ## Retention e manutenzione
 
@@ -116,6 +119,7 @@ Regole pratiche attuali:
 
 - i file di lavoro dei job restano temporanei
 - le cartelle job residue vengono pulite dal cleanup schedulato
+- il cleanup della singola cartella job avviene ora anche quando il job termina con errore applicativo
 - i job incompleti vengono rimessi in coda dopo riavvio, ma con stato operativo ripulito
 - lo storico lavori utente conserva metadati e payload del job, non i file finali gia prodotti: il recupero del risultato avviene rilanciando l'elaborazione
 - la documentazione operativa e di deploy va tenuta allineata quando cambiano retention, cleanup o cadenza dei report admin

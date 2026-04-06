@@ -40,8 +40,9 @@ class ProcessingUserError(Exception):
 
 
 class DocumentProcessor:
-    def __init__(self, runtime_dir: Path) -> None:
+    def __init__(self, runtime_dir: Path, ghostscript_timeout_seconds: int = 120) -> None:
         self.runtime_dir = runtime_dir
+        self.ghostscript_timeout_seconds = max(1, ghostscript_timeout_seconds)
 
     def create_job_dir(self, user_id: int) -> Path:
         job_dir = self.runtime_dir / "jobs" / f"user_{user_id}_{uuid.uuid4().hex[:12]}"
@@ -49,7 +50,12 @@ class DocumentProcessor:
         return job_dir
 
     def cleanup_job_dir(self, job_dir: Path) -> None:
-        shutil.rmtree(job_dir, ignore_errors=True)
+        try:
+            shutil.rmtree(job_dir)
+        except FileNotFoundError:
+            return
+        except OSError:
+            logger.exception("Impossibile ripulire la cartella temporanea del job %s", job_dir)
 
     def cleanup_stale_job_dirs(self, max_age_hours: int) -> int:
         jobs_dir = self.runtime_dir / "jobs"
@@ -661,7 +667,7 @@ class DocumentProcessor:
                 use_objstms=1,
             )
             return True
-        except Exception:
+        except (RuntimeError, ValueError, OSError):
             logger.exception("Compressione conservativa non riuscita, usero un fallback.")
             return False
         finally:
@@ -674,10 +680,22 @@ class DocumentProcessor:
 
         command = self._build_ghostscript_grayscale_command(ghostscript, pdf_path, output_path)
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=self.ghostscript_timeout_seconds,
+            )
             return True
         except subprocess.CalledProcessError:
             logger.exception("Ghostscript non è riuscito a convertire il PDF in scala di grigi.")
+            return False
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "Ghostscript ha superato il timeout di %s secondi durante la conversione in scala di grigi.",
+                self.ghostscript_timeout_seconds,
+            )
             return False
 
     def _run_ghostscript_compress(self, pdf_path: Path, output_path: Path, quality_profile: str) -> bool:
@@ -692,10 +710,23 @@ class DocumentProcessor:
             quality_profile=quality_profile,
         )
         try:
-            subprocess.run(command, check=True, capture_output=True, text=True)
+            subprocess.run(
+                command,
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=self.ghostscript_timeout_seconds,
+            )
             return True
         except subprocess.CalledProcessError:
             logger.exception("Ghostscript non è riuscito a comprimere il PDF con profilo %s.", quality_profile)
+            return False
+        except subprocess.TimeoutExpired:
+            logger.warning(
+                "Ghostscript ha superato il timeout di %s secondi durante la compressione con profilo %s.",
+                self.ghostscript_timeout_seconds,
+                quality_profile,
+            )
             return False
 
     def _build_ghostscript_grayscale_command(self, ghostscript: str, pdf_path: Path, output_path: Path) -> list[str]:
@@ -761,7 +792,7 @@ class DocumentProcessor:
                 use_objstms=1,
             )
             return True
-        except Exception:
+        except (RuntimeError, ValueError, OSError):
             logger.exception("Conversione nativa in scala di grigi non riuscita, usero un fallback.")
             return False
         finally:
@@ -772,7 +803,7 @@ class DocumentProcessor:
         if callable(subset_fonts):
             try:
                 subset_fonts()
-            except Exception:
+            except (RuntimeError, ValueError, OSError):
                 logger.exception("Subset dei font non riuscito, continuo senza questo passaggio.")
 
     def _validate_pdf_for_processing(self, pdf_path: Path) -> None:

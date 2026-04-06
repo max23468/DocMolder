@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import asyncio
 import html
-import json
 import logging
 import unicodedata
 from collections import deque
@@ -33,6 +32,11 @@ from docmolder.keyboards import (
     build_rotate_keyboard,
     build_result_pdf_keyboard,
 )
+from docmolder.job_flow import (
+    enqueue_job as enqueue_job_flow,
+    enqueue_job_from_existing_payload as enqueue_job_from_existing_payload_flow,
+    run_job_payload as run_job_payload_flow,
+)
 from docmolder.messages import (
     ADMIN_ONLY_MESSAGE,
     FILE_TOO_LARGE_MESSAGE,
@@ -40,13 +44,16 @@ from docmolder.messages import (
     HELP_MESSAGE,
     JOB_QUEUE_LIMIT_MESSAGE,
     MIXED_SESSION_MESSAGE,
-    PROCESSING_MESSAGE,
     SESSION_EMPTY_MESSAGE,
     UNAUTHORIZED_MESSAGE,
     UPLOAD_RATE_LIMIT_MESSAGE,
     WELCOME_MESSAGE,
+    build_pending_action_prompt,
+    build_pending_action_queued_message,
+    build_processing_started_message,
+    build_text_request_queued_message,
 )
-from docmolder.models import AdminActionStat, AdminUserStat, CompressionPreset, FileKind, JobRecord, JobStatus, SupportedAction, UserSession
+from docmolder.models import AdminActionStat, AdminStats, AdminUserStat, CompressionPreset, FileKind, JobPayload, JobRecord, JobStatus, SupportedAction, UserSession
 from docmolder.processing import (
     A4_MARGIN_NARROW_PX,
     A4_MARGIN_NONE_PX,
@@ -55,16 +62,15 @@ from docmolder.processing import (
     ProcessingResult,
     ProcessingUserError,
 )
-from docmolder.services import (
-    build_output_stem,
-    build_session_file,
-    describe_session,
-    infer_supported_actions,
-    sanitize_filename,
-)
+from docmolder.services import build_session_file, describe_session, get_action_label, infer_exposed_actions, infer_supported_actions, sanitize_filename
 from docmolder.session_store import SQLiteSessionStore, SessionStore
 
 logger = logging.getLogger(__name__)
+
+_build_pending_action_prompt = build_pending_action_prompt
+_build_pending_action_queued_message = build_pending_action_queued_message
+_build_processing_started_message = build_processing_started_message
+_build_text_request_queued_message = build_text_request_queued_message
 
 
 class BotDependencies:
@@ -101,6 +107,70 @@ def _is_admin(user_id: int | None, settings: Settings) -> bool:
 
 def _get_dependencies(context: ContextTypes.DEFAULT_TYPE) -> BotDependencies:
     return context.application.bot_data["deps"]
+
+
+async def _enqueue_job(
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    chat_id: int,
+    reply_to_message_id: int | None,
+    action: SupportedAction,
+    session: UserSession,
+    compression_preset: CompressionPreset | None = None,
+    rotate_degrees: int | None = None,
+    page_selection: str | None = None,
+    watermark_text: str | None = None,
+    auto_rotate_pdf: bool = True,
+    image_pdf_use_a4: bool = True,
+    image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
+) -> JobRecord:
+    deps = _get_dependencies(context)
+    return await enqueue_job_flow(
+        deps=deps,
+        user_id=user_id,
+        chat_id=chat_id,
+        reply_to_message_id=reply_to_message_id,
+        action=action,
+        session=session,
+        compression_preset=compression_preset,
+        rotate_degrees=rotate_degrees,
+        page_selection=page_selection,
+        watermark_text=watermark_text,
+        auto_rotate_pdf=auto_rotate_pdf,
+        image_pdf_use_a4=image_pdf_use_a4,
+        image_pdf_margin_px=image_pdf_margin_px,
+    )
+
+
+async def _enqueue_job_from_existing_payload(
+    context: ContextTypes.DEFAULT_TYPE,
+    source_job: JobRecord,
+    reply_to_message_id: int | None,
+    *,
+    auto_rotate_pdf: bool | None = None,
+) -> JobRecord:
+    deps = _get_dependencies(context)
+    return await enqueue_job_from_existing_payload_flow(
+        deps=deps,
+        source_job=source_job,
+        reply_to_message_id=reply_to_message_id,
+        auto_rotate_pdf=auto_rotate_pdf,
+    )
+
+
+async def _run_job_payload(
+    application: Application,
+    job: JobRecord,
+    job_dir: Path,
+) -> ProcessingResult:
+    deps: BotDependencies = application.bot_data["deps"]
+    return await run_job_payload_flow(
+        application=application,
+        processor=deps.processor,
+        job=job,
+        job_dir=job_dir,
+        download_session_files=_download_session_files,
+    )
 
 
 async def _post_init(application: Application) -> None:
@@ -178,17 +248,7 @@ def _has_capacity_for_new_job(user_id: int, deps: BotDependencies) -> bool:
 
 
 def _filter_keyboard_for_session(session: UserSession) -> InlineKeyboardMarkup | None:
-    allowed = set(infer_supported_actions(session))
-    if not allowed:
-        return None
-
-    keyboard_rows = []
-    for row in build_actions_keyboard().inline_keyboard:
-        button = row[0]
-        callback = (button.callback_data or "").removeprefix("action:")
-        if callback in allowed:
-            keyboard_rows.append(row)
-    return InlineKeyboardMarkup(keyboard_rows)
+    return build_actions_keyboard(infer_exposed_actions(session))
 
 
 def _is_image_pdf_action(action: SupportedAction) -> bool:
@@ -912,17 +972,17 @@ def _build_new_user_notification(user: User) -> str:
 
 
 def _build_admin_report(
-    stats: dict[str, int],
+    stats: AdminStats,
     top_users: list[AdminUserStat],
     failed_actions: list[AdminActionStat],
     recent_failed_jobs: list[JobRecord],
     recent_completed_jobs: list[JobRecord],
 ) -> str:
     timestamp = datetime.now(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y alle %H:%M")
-    total_finished_jobs = stats["jobs_succeeded"] + stats["jobs_failed"]
-    success_rate = _format_percent(stats["jobs_succeeded"], total_finished_jobs)
-    failure_rate = _format_percent(stats["jobs_failed"], total_finished_jobs)
-    raster_share = _format_percent(stats["raster_results_total"], stats["jobs_succeeded"])
+    total_finished_jobs = stats.jobs_succeeded + stats.jobs_failed
+    success_rate = _format_percent(stats.jobs_succeeded, total_finished_jobs)
+    failure_rate = _format_percent(stats.jobs_failed, total_finished_jobs)
+    raster_share = _format_percent(stats.raster_results_total, stats.jobs_succeeded)
     top_users_block = "\n".join(
         f"- {entry.label} ({entry.user_id}): {entry.completed_actions} operazioni"
         for entry in top_users
@@ -936,37 +996,37 @@ def _build_admin_report(
     return (
         "Riepilogo admin DocMolder\n"
         f"Aggiornato: {timestamp}\n\n"
-        f"Utenti unici totali: {stats['known_users_total']}\n"
-        f"Nuovi utenti ultime 24 ore: {stats['known_users_last_24h']}\n"
-        f"Nuovi utenti ultimi 7 giorni: {stats['known_users_last_7d']}\n"
-        f"Operazioni completate totali: {stats['completed_actions_total']}\n"
-        f"Operazioni completate ultime 24 ore: {stats['completed_actions_last_24h']}\n"
-        f"Operazioni completate ultimi 7 giorni: {stats['completed_actions_last_7d']}\n"
-        f"Sessioni attive ora: {stats['active_sessions']}\n\n"
+        f"Utenti unici totali: {stats.known_users_total}\n"
+        f"Nuovi utenti ultime 24 ore: {stats.known_users_last_24h}\n"
+        f"Nuovi utenti ultimi 7 giorni: {stats.known_users_last_7d}\n"
+        f"Operazioni completate totali: {stats.completed_actions_total}\n"
+        f"Operazioni completate ultime 24 ore: {stats.completed_actions_last_24h}\n"
+        f"Operazioni completate ultimi 7 giorni: {stats.completed_actions_last_7d}\n"
+        f"Sessioni attive ora: {stats.active_sessions}\n\n"
         "Stato coda:\n"
-        f"- In coda: {stats['jobs_queued']}\n"
-        f"- In lavorazione: {stats['jobs_running']}\n"
-        f"- Falliti: {stats['jobs_failed']}\n"
-        f"- Completati: {stats['jobs_succeeded']}\n\n"
+        f"- In coda: {stats.jobs_queued}\n"
+        f"- In lavorazione: {stats.jobs_running}\n"
+        f"- Falliti: {stats.jobs_failed}\n"
+        f"- Completati: {stats.jobs_succeeded}\n\n"
         "Metriche tecniche medie:\n"
-        f"- Durata: {_format_duration_ms(stats['avg_duration_ms'])}\n"
-        f"- Input: {_format_bytes(stats['avg_input_bytes'])}\n"
-        f"- Output: {_format_bytes(stats['avg_output_bytes'])}\n"
-        f"- Risultati con fallback raster: {stats['raster_results_total']} ({raster_share})\n\n"
+        f"- Durata: {_format_duration_ms(stats.avg_duration_ms)}\n"
+        f"- Input: {_format_bytes(stats.avg_input_bytes)}\n"
+        f"- Output: {_format_bytes(stats.avg_output_bytes)}\n"
+        f"- Risultati con fallback raster: {stats.raster_results_total} ({raster_share})\n\n"
         "Sintesi qualità:\n"
-        f"- Job riusciti: {stats['jobs_succeeded']} ({success_rate})\n"
-        f"- Job falliti: {stats['jobs_failed']} ({failure_rate})\n\n"
+        f"- Job riusciti: {stats.jobs_succeeded} ({success_rate})\n"
+        f"- Job falliti: {stats.jobs_failed} ({failure_rate})\n\n"
         "Dettaglio operazioni:\n"
-        f"- PDF da immagini: {stats.get('images_to_pdf_total', 0)}\n"
-        f"- Comprimi PDF: {stats.get('pdf_compress_total', 0)}\n"
-        f"- Scala di grigi: {stats.get('pdf_grayscale_total', 0)}\n"
-        f"- Unisci PDF: {stats.get('pdf_merge_total', 0)}\n"
-        f"- Estrai pagine: {stats.get('pdf_extract_pages_total', 0)}\n"
-        f"- Riordina pagine: {stats.get('pdf_reorder_pages_total', 0)}\n"
-        f"- Elimina pagine: {stats.get('pdf_delete_pages_total', 0)}\n"
-        f"- Ruota pagine: {stats.get('pdf_rotate_total', 0)}\n"
-        f"- Watermark: {stats.get('pdf_watermark_total', 0)}\n"
-        f"- Correggi orientamento: {stats.get('auto_orient_total', 0)}\n\n"
+        f"- PDF da immagini: {stats.images_to_pdf_total}\n"
+        f"- Comprimi PDF: {stats.pdf_compress_total}\n"
+        f"- Scala di grigi: {stats.pdf_grayscale_total}\n"
+        f"- Unisci PDF: {stats.pdf_merge_total}\n"
+        f"- Estrai pagine: {stats.pdf_extract_pages_total}\n"
+        f"- Riordina pagine: {stats.pdf_reorder_pages_total}\n"
+        f"- Elimina pagine: {stats.pdf_delete_pages_total}\n"
+        f"- Ruota pagine: {stats.pdf_rotate_total}\n"
+        f"- Watermark: {stats.pdf_watermark_total}\n"
+        f"- Correggi orientamento: {stats.auto_orient_total}\n\n"
         "Errori più frequenti ultimi 7 giorni:\n"
         f"{failed_actions_block}\n\n"
         "Utenti più attivi ultimi 7 giorni:\n"
@@ -1013,22 +1073,7 @@ def _format_percent(value: int, total: int) -> str:
 
 
 def _action_label(action: str) -> str:
-    action_labels = {
-        "images_to_pdf": "PDF da immagini",
-        "images_to_pdf_crop": "PDF con ritaglio bordi",
-        "images_to_pdf_grayscale": "PDF grigio da immagini",
-        "images_to_pdf_crop_grayscale": "PDF grigio con ritaglio bordi",
-        "pdf_compress": "Comprimi PDF",
-        "pdf_grayscale": "Scala di grigi",
-        "pdf_merge": "Unisci PDF",
-        "pdf_extract_pages": "Estrai pagine",
-        "pdf_reorder_pages": "Riordina pagine",
-        "pdf_delete_pages": "Elimina pagine",
-        "pdf_rotate": "Ruota pagine",
-        "pdf_watermark": "Watermark testuale",
-        "auto_orient": "Correggi orientamento",
-    }
-    return action_labels.get(action, action)
+    return get_action_label(action)
 
 
 def build_application(settings: Settings) -> Application:
@@ -1038,7 +1083,10 @@ def build_application(settings: Settings) -> Application:
     )
 
     session_store = SQLiteSessionStore(settings.database_path)
-    processor = DocumentProcessor(runtime_dir=settings.runtime_dir)
+    processor = DocumentProcessor(
+        runtime_dir=settings.runtime_dir,
+        ghostscript_timeout_seconds=settings.ghostscript_timeout_seconds,
+    )
     deps = BotDependencies(settings=settings, session_store=session_store, processor=processor)
 
     application = (
@@ -1140,8 +1188,8 @@ def _format_user_history_line(job: JobRecord) -> str:
 
 
 def _build_user_history_job_detail(job: JobRecord) -> str:
-    payload = json.loads(job.payload_json)
-    file_count = len(payload.get("files", []))
+    payload = JobPayload.from_json(job.payload_json)
+    file_count = len(payload.files)
     reference_time = (job.finished_at or job.created_at).astimezone(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y %H:%M")
     detail_lines = [
         f"Dettaglio Job #{job.id}",
@@ -1150,20 +1198,20 @@ def _build_user_history_job_detail(job: JobRecord) -> str:
         f"Riferimento temporale: {reference_time}",
         f"File sorgente: {file_count}",
     ]
-    if payload.get("compression_preset"):
-        detail_lines.append(f"Compressione: {payload['compression_preset']}")
-    if payload.get("page_selection"):
-        detail_lines.append(f"Selezione pagine: {payload['page_selection']}")
-    if payload.get("image_pdf_use_a4") is not None and job.action.startswith("images_to_pdf"):
-        detail_lines.append("Impaginazione: A4" if payload.get("image_pdf_use_a4") else "Impaginazione: formato originale")
-    if payload.get("auto_rotate_pdf") is not None:
+    if payload.compression_preset:
+        detail_lines.append(f"Compressione: {payload.compression_preset.value}")
+    if payload.page_selection:
+        detail_lines.append(f"Selezione pagine: {payload.page_selection}")
+    if payload.image_pdf_use_a4 is not None and job.action.startswith("images_to_pdf"):
+        detail_lines.append("Impaginazione: A4" if payload.image_pdf_use_a4 else "Impaginazione: formato originale")
+    if payload.auto_rotate_pdf is not None:
         detail_lines.append(
-            "Rotazione automatica PDF: attiva" if payload.get("auto_rotate_pdf") else "Rotazione automatica PDF: disattiva"
+            "Rotazione automatica PDF: attiva" if payload.auto_rotate_pdf else "Rotazione automatica PDF: disattiva"
         )
-    if payload.get("rotate_degrees") is not None:
-        detail_lines.append(f"Rotazione manuale: {payload['rotate_degrees']} gradi")
-    if payload.get("watermark_text"):
-        detail_lines.append(f'Watermark: "{payload["watermark_text"]}"')
+    if payload.rotate_degrees is not None:
+        detail_lines.append(f"Rotazione manuale: {payload.rotate_degrees} gradi")
+    if payload.watermark_text:
+        detail_lines.append(f'Watermark: "{payload.watermark_text}"')
     if job.processing_mode:
         detail_lines.append(f"Strategia finale: {job.processing_mode}")
     if job.duration_ms is not None:
@@ -1179,9 +1227,12 @@ def _build_user_history_job_detail(job: JobRecord) -> str:
 
 
 def _build_history_rerun_message(source_job: JobRecord, job_id: int) -> str:
-    payload = json.loads(source_job.payload_json)
-    compression_preset = CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None
-    base_message = _build_text_request_queued_message(SupportedAction(source_job.action), job_id, compression_preset)
+    payload = JobPayload.from_json(source_job.payload_json)
+    base_message = _build_text_request_queued_message(
+        SupportedAction(source_job.action),
+        job_id,
+        payload.compression_preset,
+    )
     return f"Ripeto il job #{source_job.id} dal tuo storico.\n{base_message}"
 
 
@@ -1252,27 +1303,6 @@ def _normalize_free_text(text: str) -> str:
     return "".join(char for char in normalized if not unicodedata.combining(char))
 
 
-def _build_pending_action_prompt(action: SupportedAction) -> str:
-    if action == SupportedAction.PDF_EXTRACT_PAGES:
-        return (
-            "Scrivimi quali pagine vuoi estrarre, ad esempio `1,3,5-7`.\n"
-            "Puoi combinare pagine singole e intervalli."
-        )
-    if action == SupportedAction.PDF_REORDER_PAGES:
-        return (
-            "Scrivimi il nuovo ordine completo delle pagine, ad esempio `3,1,2`.\n"
-            "Devi indicare tutte le pagine del PDF una sola volta."
-        )
-    if action == SupportedAction.PDF_DELETE_PAGES:
-        return (
-            "Scrivimi quali pagine vuoi eliminare, ad esempio `2,4-5`.\n"
-            "Il bot manterrà tutte le altre."
-        )
-    if action == SupportedAction.PDF_WATERMARK:
-        return "Scrivimi il testo semplice che vuoi usare come watermark su tutte le pagine del PDF."
-    return "Scrivimi i dettagli necessari per continuare."
-
-
 async def _handle_pending_session_input(
     *,
     update: Update,
@@ -1334,19 +1364,6 @@ def _validate_page_input_text(text: str) -> None:
         raise ProcessingUserError("Usa solo numeri, virgole e intervalli, ad esempio 1,3,5-7.")
 
 
-def _build_pending_action_queued_message(action: SupportedAction, job_id: int, raw_value: str) -> str:
-    cleaned_value = raw_value.strip()
-    if action == SupportedAction.PDF_EXTRACT_PAGES:
-        return f"Estrazione pagine presa in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
-    if action == SupportedAction.PDF_REORDER_PAGES:
-        return f"Riordino pagine preso in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
-    if action == SupportedAction.PDF_DELETE_PAGES:
-        return f"Eliminazione pagine presa in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
-    if action == SupportedAction.PDF_WATERMARK:
-        return f'Watermark testuale preso in carico ("{cleaned_value}"). Job #{job_id} in coda.\nTi invio il PDF appena è pronto.'
-    return f"Operazione presa in carico. Job #{job_id} in coda."
-
-
 def _contains_any(text: str, fragments: tuple[str, ...]) -> bool:
     return any(fragment in text for fragment in fragments)
 
@@ -1387,85 +1404,11 @@ def _infer_text_requested_action(
     return None
 
 
-def _build_text_request_queued_message(
-    action: SupportedAction,
-    job_id: int,
-    compression_preset: CompressionPreset | None,
-) -> str:
-    if action == SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE:
-        return (
-            f"Ritaglio automatico e PDF in scala di grigi presi in carico. "
-            f"Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
-        )
-    if action == SupportedAction.IMAGES_TO_PDF_CROP:
-        return f"Ritaglio automatico e creazione PDF presi in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
-    if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:
-        return f"PDF in scala di grigi preso in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
-    if action == SupportedAction.IMAGES_TO_PDF:
-        return f"Creazione PDF presa in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
-    if action == SupportedAction.PDF_GRAYSCALE:
-        return (
-            f"Conversione in scala di grigi presa in carico. Job #{job_id} in coda.\n"
-            "Se il PDF è complesso potrei impiegare un po' di più o usare un fallback per garantirti comunque un risultato."
-        )
-    if action == SupportedAction.PDF_MERGE:
-        return f"Unione PDF presa in carico. Job #{job_id} in coda.\nTi invio il file appena è pronto."
-    if action == SupportedAction.PDF_EXTRACT_PAGES:
-        return f"Estrazione pagine presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
-    if action == SupportedAction.PDF_REORDER_PAGES:
-        return f"Riordino pagine preso in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
-    if action == SupportedAction.PDF_DELETE_PAGES:
-        return f"Eliminazione pagine presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
-    if action == SupportedAction.PDF_COMPRESS:
-        preset_label = (compression_preset or CompressionPreset.MEDIUM).value
-        extra_note = (
-            "\nSe il PDF è difficile da comprimere potrei impiegare più tempo o usare un fallback compatibile."
-            if preset_label in {CompressionPreset.MEDIUM.value, CompressionPreset.STRONG.value}
-            else ""
-        )
-        return (
-            f"Compressione PDF presa in carico con livello {preset_label}. "
-            f"Job #{job_id} in coda.\nTi invio il file appena è pronto.{extra_note}"
-        )
-    if action == SupportedAction.AUTO_ORIENT:
-        return f"Correzione orientamento presa in carico. Job #{job_id} in coda.\nTi invio il risultato appena è pronto."
-    if action == SupportedAction.PDF_ROTATE:
-        return f"Rotazione manuale presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
-    if action == SupportedAction.PDF_WATERMARK:
-        return f"Watermark testuale preso in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
-    return f"Operazione presa in carico. Job #{job_id} in coda."
-
-
 def _build_rerun_without_rotation_message(source_job: JobRecord, job_id: int) -> str:
-    payload = json.loads(source_job.payload_json)
+    payload = JobPayload.from_json(source_job.payload_json)
     action = SupportedAction(source_job.action)
-    compression_preset = CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None
-    base_message = _build_text_request_queued_message(action, job_id, compression_preset)
+    base_message = _build_text_request_queued_message(action, job_id, payload.compression_preset)
     return f"Ripeto la stessa operazione senza rotazione automatica del PDF.\n{base_message}"
-
-
-def _build_processing_started_message(action: SupportedAction, job_id: int) -> str:
-    if action == SupportedAction.PDF_GRAYSCALE:
-        return (
-            f"Sto elaborando i file. Potrebbe volerci qualche secondo.\n"
-            f"Job #{job_id} in elaborazione.\n"
-            "Se il PDF non si lascia convertire bene in modo nativo, proverò una soluzione di ripiego compatibile."
-        )
-    if action == SupportedAction.PDF_COMPRESS:
-        return (
-            f"Sto elaborando i file. Potrebbe volerci qualche secondo.\n"
-            f"Job #{job_id} in elaborazione.\n"
-            "Nei casi più difficili la compressione può richiedere un po' di più per trovare il fallback più adatto."
-        )
-    if action in {
-        SupportedAction.PDF_EXTRACT_PAGES,
-        SupportedAction.PDF_REORDER_PAGES,
-        SupportedAction.PDF_DELETE_PAGES,
-        SupportedAction.PDF_ROTATE,
-        SupportedAction.PDF_WATERMARK,
-    }:
-        return f"{PROCESSING_MESSAGE}\nJob #{job_id} in elaborazione."
-    return f"{PROCESSING_MESSAGE}\nJob #{job_id} in elaborazione."
 
 
 def _build_quick_action_guidance(session: UserSession | None, text: str) -> str | None:
@@ -1492,74 +1435,6 @@ def _build_quick_action_guidance(session: UserSession | None, text: str) -> str 
             return "Per unire i PDF me ne servono almeno due nella stessa sessione."
 
     return None
-
-
-async def _enqueue_job(
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    chat_id: int,
-    reply_to_message_id: int | None,
-    action: SupportedAction,
-    session: UserSession,
-    compression_preset: CompressionPreset | None = None,
-    rotate_degrees: int | None = None,
-    page_selection: str | None = None,
-    watermark_text: str | None = None,
-    auto_rotate_pdf: bool = True,
-    image_pdf_use_a4: bool = True,
-    image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
-) -> JobRecord:
-    deps = _get_dependencies(context)
-    if action not in infer_supported_actions(session):
-        raise ProcessingUserError("L'azione scelta non è più disponibile per la sessione corrente.")
-    payload = {
-        "files": [
-            {
-                "telegram_file_id": item.telegram_file_id,
-                "file_name": item.file_name,
-                "kind": item.kind.value,
-            }
-            for item in session.files
-        ],
-        "compression_preset": compression_preset.value if compression_preset else None,
-        "rotate_degrees": rotate_degrees,
-        "page_selection": page_selection,
-        "watermark_text": watermark_text,
-        "auto_rotate_pdf": auto_rotate_pdf,
-        "image_pdf_use_a4": image_pdf_use_a4,
-        "image_pdf_margin_px": image_pdf_margin_px,
-    }
-    job = deps.session_store.create_job(
-        user_id=user_id,
-        chat_id=chat_id,
-        reply_to_message_id=reply_to_message_id,
-        action=action.value,
-        payload_json=json.dumps(payload),
-    )
-    await deps.job_queue.put(job.id)
-    return job
-
-
-async def _enqueue_job_from_existing_payload(
-    context: ContextTypes.DEFAULT_TYPE,
-    source_job: JobRecord,
-    reply_to_message_id: int | None,
-    *,
-    auto_rotate_pdf: bool | None = None,
-) -> JobRecord:
-    deps = _get_dependencies(context)
-    payload = json.loads(source_job.payload_json)
-    if auto_rotate_pdf is not None:
-        payload["auto_rotate_pdf"] = auto_rotate_pdf
-    job = deps.session_store.create_job(
-        user_id=source_job.user_id,
-        chat_id=source_job.chat_id,
-        reply_to_message_id=reply_to_message_id,
-        action=source_job.action,
-        payload_json=json.dumps(payload),
-    )
-    await deps.job_queue.put(job.id)
-    return job
 
 
 async def _job_worker(application: Application) -> None:
@@ -1659,8 +1534,10 @@ async def _maybe_send_admin_report_for_period(
 
 def _period_has_useful_admin_data(deps: BotDependencies, *, since_days: int) -> bool:
     stats = deps.session_store.build_admin_stats()
-    completed_actions_key = "completed_actions_last_24h" if since_days <= 1 else "completed_actions_last_7d"
-    if stats.get(completed_actions_key, 0) > 0:
+    completed_actions_total = (
+        stats.completed_actions_last_24h if since_days <= 1 else stats.completed_actions_last_7d
+    )
+    if completed_actions_total > 0:
         return True
     if deps.session_store.list_failed_actions(limit=1, since_days=since_days):
         return True
@@ -1696,81 +1573,42 @@ async def _process_job(application: Application, job_id: int) -> None:
     job_dir = deps.processor.create_job_dir(job.user_id)
     started_monotonic = perf_counter()
     try:
-        result = await _run_job_payload(application, job, job_dir)
-    except ProcessingUserError as exc:
-        deps.session_store.mark_job_failed(job.id, str(exc))
-        await application.bot.send_message(
-            chat_id=job.chat_id,
-            text=f"Job #{job.id} non riuscito.\n{exc}",
-            reply_to_message_id=job.reply_to_message_id,
-        )
-        return
-    except Exception:
-        logger.exception("Errore durante il job %s", job.id)
-        deps.session_store.mark_job_failed(job.id, GENERIC_ERROR_MESSAGE)
-        await application.bot.send_message(
-            chat_id=job.chat_id,
-            text=f"Job #{job.id} non riuscito.\n{GENERIC_ERROR_MESSAGE}",
-            reply_to_message_id=job.reply_to_message_id,
-        )
-        return
+        try:
+            result = await _run_job_payload(application, job, job_dir)
+        except ProcessingUserError as exc:
+            deps.session_store.mark_job_failed(job.id, str(exc))
+            await application.bot.send_message(
+                chat_id=job.chat_id,
+                text=f"Job #{job.id} non riuscito.\n{exc}",
+                reply_to_message_id=job.reply_to_message_id,
+            )
+            return
+        except Exception:
+            logger.exception("Errore durante il job %s", job.id)
+            deps.session_store.mark_job_failed(job.id, GENERIC_ERROR_MESSAGE)
+            await application.bot.send_message(
+                chat_id=job.chat_id,
+                text=f"Job #{job.id} non riuscito.\n{GENERIC_ERROR_MESSAGE}",
+                reply_to_message_id=job.reply_to_message_id,
+            )
+            return
 
-    input_dir = job_dir / "input"
-    input_bytes = _sum_file_sizes(input_dir.iterdir()) if input_dir.exists() else 0
-    output_bytes = result.output_path.stat().st_size if result.output_path.exists() else 0
-    duration_ms = int((perf_counter() - started_monotonic) * 1000)
-    deps.session_store.mark_job_succeeded_with_metrics(
-        job.id,
-        result.message,
-        processing_mode=result.processing_mode,
-        input_bytes=input_bytes,
-        output_bytes=output_bytes,
-        duration_ms=duration_ms,
-    )
-    deps.session_store.record_completed_action(job.user_id, job.action)
-    try:
+        input_dir = job_dir / "input"
+        input_bytes = _sum_file_sizes(input_dir.iterdir()) if input_dir.exists() else 0
+        output_bytes = result.output_path.stat().st_size if result.output_path.exists() else 0
+        duration_ms = int((perf_counter() - started_monotonic) * 1000)
+        deps.session_store.mark_job_succeeded_with_metrics(
+            job.id,
+            result.message,
+            processing_mode=result.processing_mode,
+            input_bytes=input_bytes,
+            output_bytes=output_bytes,
+            duration_ms=duration_ms,
+        )
+        deps.session_store.record_completed_action(job.user_id, job.action)
         await _send_result(application.bot, job.chat_id, job.reply_to_message_id, result, source_job_id=job.id)
     finally:
         deps.processor.cleanup_job_dir(job_dir)
-
-
-async def _run_job_payload(
-    application: Application,
-    job: JobRecord,
-    job_dir: Path,
-) -> ProcessingResult:
-    deps: BotDependencies = application.bot_data["deps"]
-    payload = json.loads(job.payload_json)
-    session = UserSession(
-        user_id=job.user_id,
-        files=[
-            build_session_file(
-                file_id=item["telegram_file_id"],
-                file_name=item["file_name"],
-                kind=FileKind(item["kind"]),
-            )
-            for item in payload["files"]
-        ],
-    )
-
-    input_dir = job_dir / "input"
-    input_dir.mkdir(parents=True, exist_ok=True)
-    downloaded_paths = await _download_session_files(application, session, input_dir)
-
-    result = await asyncio.to_thread(
-        deps.processor.process,
-        SupportedAction(job.action),
-        downloaded_paths,
-        build_output_stem(SupportedAction(job.action)),
-        CompressionPreset(payload["compression_preset"]) if payload.get("compression_preset") else None,
-        payload.get("rotate_degrees"),
-        payload.get("page_selection"),
-        payload.get("watermark_text"),
-        payload.get("auto_rotate_pdf", True),
-        payload.get("image_pdf_use_a4", True),
-        payload.get("image_pdf_margin_px", A4_MARGIN_NARROW_PX),
-    )
-    return result
 
 
 async def _enqueue_image_pdf_job_from_callback(

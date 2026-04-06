@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from docmolder.models import CompressionPreset, SupportedAction
+
 WELCOME_MESSAGE = (
     "Ciao, sono DocMolder.\n\n"
     "Posso aiutarti a lavorare su immagini e PDF direttamente qui su Telegram.\n\n"
@@ -79,3 +83,102 @@ GENERIC_ERROR_MESSAGE = (
 )
 
 ADMIN_ONLY_MESSAGE = "Questo comando è disponibile solo per l'admin del bot."
+
+
+def build_pending_action_prompt(action: SupportedAction) -> str:
+    if action == SupportedAction.PDF_EXTRACT_PAGES:
+        return (
+            "Scrivimi quali pagine vuoi estrarre, ad esempio `1,3,5-7`.\n"
+            "Puoi combinare pagine singole e intervalli."
+        )
+    if action == SupportedAction.PDF_REORDER_PAGES:
+        return (
+            "Scrivimi il nuovo ordine completo delle pagine, ad esempio `3,1,2`.\n"
+            "Devi indicare tutte le pagine del PDF una sola volta."
+        )
+    if action == SupportedAction.PDF_DELETE_PAGES:
+        return (
+            "Scrivimi quali pagine vuoi eliminare, ad esempio `2,4-5`.\n"
+            "Il bot manterrà tutte le altre."
+        )
+    if action == SupportedAction.PDF_WATERMARK:
+        return "Scrivimi il testo semplice che vuoi usare come watermark su tutte le pagine del PDF."
+    return "Scrivimi i dettagli necessari per continuare."
+
+
+def build_pending_action_queued_message(action: SupportedAction, job_id: int, raw_value: str) -> str:
+    cleaned_value = raw_value.strip()
+    if action == SupportedAction.PDF_EXTRACT_PAGES:
+        return f"Estrazione pagine presa in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_REORDER_PAGES:
+        return f"Riordino pagine preso in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_DELETE_PAGES:
+        return f"Eliminazione pagine presa in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_WATERMARK:
+        return f'Watermark testuale preso in carico ("{cleaned_value}"). Job #{job_id} in coda.\nTi invio il PDF appena è pronto.'
+    return f"Operazione presa in carico. Job #{job_id} in coda."
+
+
+def build_text_request_queued_message(
+    action: SupportedAction,
+    job_id: int,
+    compression_preset: CompressionPreset | None,
+) -> str:
+    if action == SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE:
+        return (
+            f"Ritaglio automatico e PDF in scala di grigi presi in carico. "
+            f"Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
+        )
+    if action == SupportedAction.IMAGES_TO_PDF_CROP:
+        return f"Ritaglio automatico e creazione PDF presi in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
+    if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:
+        return f"PDF in scala di grigi preso in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
+    if action == SupportedAction.IMAGES_TO_PDF:
+        return f"Creazione PDF presa in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
+    if action == SupportedAction.PDF_GRAYSCALE:
+        return (
+            f"Conversione in scala di grigi presa in carico. Job #{job_id} in coda.\n"
+            "Se il PDF è complesso potrei impiegare un po' di più o usare un fallback per garantirti comunque un risultato."
+        )
+    if action == SupportedAction.PDF_MERGE:
+        return f"Unione PDF presa in carico. Job #{job_id} in coda.\nTi invio il file appena è pronto."
+    if action == SupportedAction.PDF_EXTRACT_PAGES:
+        return f"Estrazione pagine presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_REORDER_PAGES:
+        return f"Riordino pagine preso in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_DELETE_PAGES:
+        return f"Eliminazione pagine presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_COMPRESS:
+        preset_label = (compression_preset or CompressionPreset.MEDIUM).value
+        extra_note = (
+            "\nSe il PDF è difficile da comprimere potrei impiegare più tempo o usare un fallback compatibile."
+            if preset_label in {CompressionPreset.MEDIUM.value, CompressionPreset.STRONG.value}
+            else ""
+        )
+        return (
+            f"Compressione PDF presa in carico con livello {preset_label}. "
+            f"Job #{job_id} in coda.\nTi invio il file appena è pronto.{extra_note}"
+        )
+    if action == SupportedAction.AUTO_ORIENT:
+        return f"Correzione orientamento presa in carico. Job #{job_id} in coda.\nTi invio il risultato appena è pronto."
+    if action == SupportedAction.PDF_ROTATE:
+        return f"Rotazione manuale presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.PDF_WATERMARK:
+        return f"Watermark testuale preso in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    return f"Operazione presa in carico. Job #{job_id} in coda."
+
+
+def build_processing_started_message(action: SupportedAction, job_id: int) -> str:
+    if action == SupportedAction.PDF_GRAYSCALE:
+        return (
+            f"Sto elaborando i file. Potrebbe volerci qualche secondo.\n"
+            f"Job #{job_id} in elaborazione.\n"
+            "Se il PDF non si lascia convertire bene in modo nativo, proverò una soluzione di ripiego compatibile."
+        )
+    if action == SupportedAction.PDF_COMPRESS:
+        return (
+            f"Sto elaborando i file. Potrebbe volerci qualche secondo.\n"
+            f"Job #{job_id} in elaborazione.\n"
+            "Nei casi più difficili la compressione può richiedere un po' di più per trovare il fallback più adatto."
+        )
+    return f"{PROCESSING_MESSAGE}\nJob #{job_id} in elaborazione."

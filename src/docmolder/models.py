@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
+import json
 
 
 class SessionStatus(StrEnum):
@@ -89,6 +90,109 @@ class JobRecord:
 
 
 @dataclass(slots=True)
+class JobPayloadFile:
+    telegram_file_id: str
+    file_name: str
+    kind: FileKind
+
+
+@dataclass(slots=True)
+class JobPayload:
+    files: list[JobPayloadFile]
+    compression_preset: CompressionPreset | None = None
+    rotate_degrees: int | None = None
+    page_selection: str | None = None
+    watermark_text: str | None = None
+    auto_rotate_pdf: bool = True
+    image_pdf_use_a4: bool = True
+    image_pdf_margin_px: int | None = None
+
+    @classmethod
+    def from_json(cls, payload_json: str) -> "JobPayload":
+        raw_payload = json.loads(payload_json)
+        return cls.from_dict(raw_payload)
+
+    @classmethod
+    def from_dict(cls, raw_payload: dict[str, object]) -> "JobPayload":
+        raw_files = raw_payload.get("files", [])
+        files = [
+            JobPayloadFile(
+                telegram_file_id=str(item["telegram_file_id"]),
+                file_name=str(item["file_name"]),
+                kind=FileKind(str(item["kind"])),
+            )
+            for item in raw_files
+            if isinstance(item, dict)
+        ]
+        compression_raw = raw_payload.get("compression_preset")
+        return cls(
+            files=files,
+            compression_preset=CompressionPreset(str(compression_raw)) if compression_raw else None,
+            rotate_degrees=int(raw_payload["rotate_degrees"]) if raw_payload.get("rotate_degrees") is not None else None,
+            page_selection=str(raw_payload["page_selection"]) if raw_payload.get("page_selection") is not None else None,
+            watermark_text=str(raw_payload["watermark_text"]) if raw_payload.get("watermark_text") is not None else None,
+            auto_rotate_pdf=bool(raw_payload.get("auto_rotate_pdf", True)),
+            image_pdf_use_a4=bool(raw_payload.get("image_pdf_use_a4", True)),
+            image_pdf_margin_px=(
+                int(raw_payload["image_pdf_margin_px"]) if raw_payload.get("image_pdf_margin_px") is not None else None
+            ),
+        )
+
+    @classmethod
+    def from_session(
+        cls,
+        session: UserSession,
+        *,
+        compression_preset: CompressionPreset | None = None,
+        rotate_degrees: int | None = None,
+        page_selection: str | None = None,
+        watermark_text: str | None = None,
+        auto_rotate_pdf: bool = True,
+        image_pdf_use_a4: bool = True,
+        image_pdf_margin_px: int | None = None,
+    ) -> "JobPayload":
+        return cls(
+            files=[
+                JobPayloadFile(
+                    telegram_file_id=item.telegram_file_id,
+                    file_name=item.file_name,
+                    kind=item.kind,
+                )
+                for item in session.files
+            ],
+            compression_preset=compression_preset,
+            rotate_degrees=rotate_degrees,
+            page_selection=page_selection,
+            watermark_text=watermark_text,
+            auto_rotate_pdf=auto_rotate_pdf,
+            image_pdf_use_a4=image_pdf_use_a4,
+            image_pdf_margin_px=image_pdf_margin_px,
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "files": [
+                {
+                    "telegram_file_id": item.telegram_file_id,
+                    "file_name": item.file_name,
+                    "kind": item.kind.value,
+                }
+                for item in self.files
+            ],
+            "compression_preset": self.compression_preset.value if self.compression_preset else None,
+            "rotate_degrees": self.rotate_degrees,
+            "page_selection": self.page_selection,
+            "watermark_text": self.watermark_text,
+            "auto_rotate_pdf": self.auto_rotate_pdf,
+            "image_pdf_use_a4": self.image_pdf_use_a4,
+            "image_pdf_margin_px": self.image_pdf_margin_px,
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict())
+
+
+@dataclass(slots=True)
 class AdminUserStat:
     user_id: int
     label: str
@@ -99,3 +203,32 @@ class AdminUserStat:
 class AdminActionStat:
     action: str
     total: int
+
+
+@dataclass(slots=True)
+class AdminStats:
+    known_users_total: int
+    known_users_last_24h: int
+    known_users_last_7d: int
+    completed_actions_total: int
+    completed_actions_last_24h: int
+    completed_actions_last_7d: int
+    active_sessions: int
+    images_to_pdf_total: int
+    pdf_compress_total: int
+    pdf_grayscale_total: int
+    pdf_merge_total: int
+    pdf_extract_pages_total: int
+    pdf_reorder_pages_total: int
+    pdf_delete_pages_total: int
+    pdf_rotate_total: int
+    pdf_watermark_total: int
+    auto_orient_total: int
+    jobs_queued: int
+    jobs_running: int
+    jobs_failed: int
+    jobs_succeeded: int
+    raster_results_total: int
+    avg_duration_ms: int
+    avg_input_bytes: int
+    avg_output_bytes: int

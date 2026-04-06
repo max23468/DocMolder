@@ -17,6 +17,7 @@ Verifica almeno:
 - codice coerente con il comportamento voluto
 - test rilevanti verdi
 - documentazione aggiornata se cambia il flusso utente o operativo
+- se cambia il catalogo azioni o la struttura dei job, aggiorna anche contesto, testing e decisioni tecniche correlate
 - roadmap aggiornata solo se cambia il piano futuro
 - changelog aggiornato solo per modifiche gia effettive e rilevanti
 

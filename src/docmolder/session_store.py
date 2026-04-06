@@ -5,7 +5,17 @@ from pathlib import Path
 from threading import Lock
 from typing import Protocol
 
-from docmolder.models import AdminActionStat, AdminUserStat, FileKind, JobRecord, JobStatus, SessionFile, SessionStatus, UserSession
+from docmolder.models import (
+    AdminActionStat,
+    AdminStats,
+    AdminUserStat,
+    FileKind,
+    JobRecord,
+    JobStatus,
+    SessionFile,
+    SessionStatus,
+    UserSession,
+)
 
 
 class SessionStore(Protocol):
@@ -25,7 +35,7 @@ class SessionStore(Protocol):
 
     def set_meta(self, key: str, value: str) -> None: ...
 
-    def build_admin_stats(self) -> dict[str, int]: ...
+    def build_admin_stats(self) -> AdminStats: ...
 
     def create_job(
         self,
@@ -119,41 +129,45 @@ class InMemorySessionStore:
         with self._lock:
             self._meta[key] = value
 
-    def build_admin_stats(self) -> dict[str, int]:
+    def build_admin_stats(self) -> AdminStats:
         with self._lock:
-            return {
-                "known_users_total": len(self._known_user_ids),
-                "known_users_last_24h": len(self._known_user_ids),
-                "known_users_last_7d": len(self._known_user_ids),
-                "completed_actions_total": len(self._completed_actions),
-                "completed_actions_last_24h": len(self._completed_actions),
-                "completed_actions_last_7d": len(self._completed_actions),
-                "active_sessions": len(self._sessions),
-                "images_to_pdf_total": sum(1 for _, action in self._completed_actions if action == "images_to_pdf"),
-                "pdf_compress_total": sum(1 for _, action in self._completed_actions if action == "pdf_compress"),
-                "pdf_grayscale_total": sum(1 for _, action in self._completed_actions if action == "pdf_grayscale"),
-                "pdf_merge_total": sum(1 for _, action in self._completed_actions if action == "pdf_merge"),
-                "pdf_extract_pages_total": sum(1 for _, action in self._completed_actions if action == "pdf_extract_pages"),
-                "pdf_reorder_pages_total": sum(1 for _, action in self._completed_actions if action == "pdf_reorder_pages"),
-                "pdf_delete_pages_total": sum(1 for _, action in self._completed_actions if action == "pdf_delete_pages"),
-                "pdf_rotate_total": sum(1 for _, action in self._completed_actions if action == "pdf_rotate"),
-                "pdf_watermark_total": sum(1 for _, action in self._completed_actions if action == "pdf_watermark"),
-                "auto_orient_total": sum(1 for _, action in self._completed_actions if action == "auto_orient"),
-                "jobs_queued": sum(1 for job in self._jobs.values() if job.status == JobStatus.QUEUED),
-                "jobs_running": sum(1 for job in self._jobs.values() if job.status == JobStatus.RUNNING),
-                "jobs_failed": sum(1 for job in self._jobs.values() if job.status == JobStatus.FAILED),
-                "jobs_succeeded": sum(1 for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED),
-                "raster_results_total": sum(1 for job in self._jobs.values() if job.processing_mode == "raster"),
-                "avg_duration_ms": _safe_average(
+            return AdminStats(
+                known_users_total=len(self._known_user_ids),
+                known_users_last_24h=len(self._known_user_ids),
+                known_users_last_7d=len(self._known_user_ids),
+                completed_actions_total=len(self._completed_actions),
+                completed_actions_last_24h=len(self._completed_actions),
+                completed_actions_last_7d=len(self._completed_actions),
+                active_sessions=len(self._sessions),
+                images_to_pdf_total=sum(1 for _, action in self._completed_actions if action == "images_to_pdf"),
+                pdf_compress_total=sum(1 for _, action in self._completed_actions if action == "pdf_compress"),
+                pdf_grayscale_total=sum(1 for _, action in self._completed_actions if action == "pdf_grayscale"),
+                pdf_merge_total=sum(1 for _, action in self._completed_actions if action == "pdf_merge"),
+                pdf_extract_pages_total=sum(
+                    1 for _, action in self._completed_actions if action == "pdf_extract_pages"
+                ),
+                pdf_reorder_pages_total=sum(
+                    1 for _, action in self._completed_actions if action == "pdf_reorder_pages"
+                ),
+                pdf_delete_pages_total=sum(1 for _, action in self._completed_actions if action == "pdf_delete_pages"),
+                pdf_rotate_total=sum(1 for _, action in self._completed_actions if action == "pdf_rotate"),
+                pdf_watermark_total=sum(1 for _, action in self._completed_actions if action == "pdf_watermark"),
+                auto_orient_total=sum(1 for _, action in self._completed_actions if action == "auto_orient"),
+                jobs_queued=sum(1 for job in self._jobs.values() if job.status == JobStatus.QUEUED),
+                jobs_running=sum(1 for job in self._jobs.values() if job.status == JobStatus.RUNNING),
+                jobs_failed=sum(1 for job in self._jobs.values() if job.status == JobStatus.FAILED),
+                jobs_succeeded=sum(1 for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED),
+                raster_results_total=sum(1 for job in self._jobs.values() if job.processing_mode == "raster"),
+                avg_duration_ms=_safe_average(
                     job.duration_ms for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED
                 ),
-                "avg_input_bytes": _safe_average(
+                avg_input_bytes=_safe_average(
                     job.input_bytes for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED
                 ),
-                "avg_output_bytes": _safe_average(
+                avg_output_bytes=_safe_average(
                     job.output_bytes for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED
                 ),
-            }
+            )
 
     def create_job(
         self,
@@ -475,7 +489,7 @@ class SQLiteSessionStore:
             )
             connection.commit()
 
-    def build_admin_stats(self) -> dict[str, int]:
+    def build_admin_stats(self) -> AdminStats:
         with self._lock, self._connect() as connection:
             row = connection.execute(
                 """
@@ -508,7 +522,7 @@ class SQLiteSessionStore:
                 """
             ).fetchone()
 
-        return {key: int(row[key]) for key in row.keys()}
+        return AdminStats(**{key: int(row[key]) for key in row.keys()})
 
     def create_job(
         self,

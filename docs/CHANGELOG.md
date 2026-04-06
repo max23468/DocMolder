@@ -32,6 +32,13 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 - la tastiera principale e i messaggi guida espongono anche lo storico lavori personale
 - il bot gestisce ora piccoli step conversazionali persistenti per chiedere in chat selezione pagine o testo watermark prima di mettere in coda il job
 - i report admin periodici evitano ora l'invio di riepiloghi vuoti quando nel periodo non c'e nulla di utile da mostrare
+- la pipeline PDF gestisce in modo piu robusto il cleanup delle cartelle job anche in caso di errore, oltre a imporre un timeout esplicito ai passaggi `Ghostscript`
+- i report admin usano ora una struttura tipizzata dedicata invece di un dizionario generico di contatori
+- i payload dei job passano ora da una struttura tipizzata dedicata invece di essere manipolati come JSON anonimo in piu punti del bot
+- i file restituiti usano ora nomi piu leggibili, derivati dal file sorgente e dal tipo di trasformazione eseguita
+- la tastiera delle azioni e le etichette utente derivano ora da un catalogo centrale condiviso, evitando disallineamenti tra azioni supportate e azioni esposte
+- i messaggi operativi di coda e avvio lavorazione sono stati centralizzati fuori dal modulo bot
+- la logica di payload job, enqueue e riesecuzione del payload e stata spostata in un modulo dedicato per separare meglio UI Telegram e orchestration dei job
 
 ### Tecnico
 
@@ -43,3 +50,6 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 - aggiornato il contesto tecnico del progetto per riflettere il nuovo flusso PDF
 - aggiunta una query dedicata per recuperare gli ultimi job di un utente e ampliata la copertura test su storico, dettagli e rilancio dei job
 - ampliata la pipeline PDF con operazioni native di estrazione, riordino, eliminazione, rotazione manuale e watermark, insieme ai relativi test automatici
+- ridotti alcuni fallback con `except Exception` troppo ampi nella pipeline PDF, distinguendo meglio timeout `Ghostscript` e errori attesi di processing
+- ampliata la copertura test su timeout `Ghostscript`, cleanup delle cartelle job e gestione degli errori utente durante l'esecuzione dei job
+- aggiunti test dedicati per roundtrip del payload job, allineamento delle azioni esposte e naming degli output

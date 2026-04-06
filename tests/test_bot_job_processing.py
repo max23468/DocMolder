@@ -37,8 +37,9 @@ from docmolder.bot import (
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
 from docmolder.processing import ProcessingResult
+from docmolder.processing import ProcessingUserError
 from docmolder.models import CompressionPreset, FileKind, JobStatus, SupportedAction, UserSession
-from docmolder.models import AdminActionStat, AdminUserStat
+from docmolder.models import AdminActionStat, AdminStats, AdminUserStat
 from docmolder.session_store import InMemorySessionStore
 from docmolder.services import build_session_file
 
@@ -178,6 +179,30 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(stored_job.duration_ms)
         self.assertGreaterEqual(stored_job.duration_ms, 0)
 
+    async def test_process_job_cleans_up_even_after_processing_user_error(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        job_dir = self.runtime_dir / "jobs" / "failed_job"
+        job_dir.mkdir(parents=True, exist_ok=True)
+        (job_dir / "partial.tmp").write_text("temp", encoding="utf-8")
+
+        async def fake_run_job_payload(_application, _job, _job_dir: Path) -> ProcessingResult:
+            raise ProcessingUserError("Errore controllato")
+
+        with (
+            patch.object(self.processor, "create_job_dir", return_value=job_dir),
+            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
+        ):
+            await _process_job(self.application, job.id)
+
+        self.assertFalse(job_dir.exists())
+        self.assertEqual(self.store.get_job(job.id).status, JobStatus.FAILED)
+
     def test_build_text_request_queued_message_mentions_fallback_for_pdf_grayscale(self) -> None:
         message = _build_text_request_queued_message(SupportedAction.PDF_GRAYSCALE, 12, None)
 
@@ -198,28 +223,33 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
     def test_build_admin_report_includes_processing_metrics(self) -> None:
         report = _build_admin_report(
-            {
-                "known_users_total": 1,
-                "known_users_last_24h": 1,
-                "known_users_last_7d": 1,
-                "completed_actions_total": 3,
-                "completed_actions_last_24h": 3,
-                "completed_actions_last_7d": 3,
-                "active_sessions": 0,
-                "images_to_pdf_total": 1,
-                "pdf_compress_total": 1,
-                "pdf_grayscale_total": 1,
-                "pdf_merge_total": 0,
-                "auto_orient_total": 0,
-                "jobs_queued": 0,
-                "jobs_running": 0,
-                "jobs_failed": 0,
-                "jobs_succeeded": 3,
-                "raster_results_total": 1,
-                "avg_duration_ms": 1500,
-                "avg_input_bytes": 4096,
-                "avg_output_bytes": 2048,
-            },
+            AdminStats(
+                known_users_total=1,
+                known_users_last_24h=1,
+                known_users_last_7d=1,
+                completed_actions_total=3,
+                completed_actions_last_24h=3,
+                completed_actions_last_7d=3,
+                active_sessions=0,
+                images_to_pdf_total=1,
+                pdf_compress_total=1,
+                pdf_grayscale_total=1,
+                pdf_merge_total=0,
+                pdf_extract_pages_total=0,
+                pdf_reorder_pages_total=0,
+                pdf_delete_pages_total=0,
+                pdf_rotate_total=0,
+                pdf_watermark_total=0,
+                auto_orient_total=0,
+                jobs_queued=0,
+                jobs_running=0,
+                jobs_failed=0,
+                jobs_succeeded=3,
+                raster_results_total=1,
+                avg_duration_ms=1500,
+                avg_input_bytes=4096,
+                avg_output_bytes=2048,
+            ),
             [AdminUserStat(user_id=7, label="@mario", completed_actions=3)],
             [AdminActionStat(action="pdf_compress", total=2)],
             [],
