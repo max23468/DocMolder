@@ -37,13 +37,14 @@ Il progetto non e una web app e non usa webhook pubblici:
 
 Funzionalita gia presenti:
 - creazione PDF da immagini
+- scelta tra formato originale immagini oppure impaginazione A4 con bordi configurabili
 - creazione PDF da immagini con ritaglio automatico bordi
 - creazione PDF da immagini direttamente in scala di grigi
 - creazione PDF da immagini con ritaglio bordi + scala di grigi
 - conversione PDF in scala di grigi
 - compressione PDF
 - unione PDF
-- rotazione PDF
+- correzione automatica dell'orientamento PDF durante elaborazioni compatibili, con opzione per rifare il file senza auto-rotazione
 - correzione orientamento immagini
 - supporto a richieste testuali naturali semplici
 - pulsante sotto ai PDF generati per convertirli subito in scala di grigi
@@ -79,6 +80,7 @@ Il bot oggi riconosce richieste testuali semplici quando il contesto della sessi
 Esempi funzionanti:
 - `fammi un pdf`
 - `fammi un pdf in scala di grigi`
+- `crea pdf da immagini`
 - `converti in bianco e nero`
 - `comprimi questo pdf`
 - `unisci questi pdf`
@@ -198,7 +200,6 @@ Azioni supportate a livello di pipeline:
 - `pdf_grayscale`
 - `pdf_compress`
 - `pdf_merge`
-- `pdf_rotate`
 - `auto_orient`
 
 Dettagli tecnici importanti:
@@ -234,6 +235,7 @@ Responsabilita:
 
 Punti rilevanti:
 - esiste un pulsante per il flusso `Ritaglia bordi e crea PDF`
+- esiste un flusso guidato che chiede `A4 sì/no` e, se serve, il tipo di bordo per i PDF creati da immagini
 - esiste un pulsante sotto al PDF risultato per `Converti in scala di grigi`
 
 ## 7. Regole di sessione e coda
@@ -241,7 +243,7 @@ Punti rilevanti:
 Regole principali:
 - una sessione contiene solo immagini oppure solo PDF
 - per immagini il bot puo accumulare piu file prima di proporre l'azione
-- per PDF singolo supporta grigio/compressione/rotazione
+- per PDF singolo supporta grigio/compressione
 - per PDF multipli supporta unione
 - esistono limiti di burst upload e di numero massimo job attivi per utente
 
