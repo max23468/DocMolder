@@ -1,0 +1,47 @@
+name: Bug report
+description: Segnala un comportamento inatteso o regressione.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Grazie per il report. Compila i campi in modo pratico e riproducibile.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Descrizione
+      description: Cosa succede e perché è un problema.
+      placeholder: Descrivi il comportamento osservato.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passi per riprodurre
+      description: Elenco numerato dei passi.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento atteso
+      placeholder: Cosa ti aspettavi.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log / stack trace
+      description: Incolla solo estratti utili, senza dati sensibili.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Versione / commit
+      placeholder: es. main@abc1234
