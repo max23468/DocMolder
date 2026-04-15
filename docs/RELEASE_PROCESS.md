@@ -34,7 +34,7 @@ Preferenze:
 
 ## Changelog
 
-Aggiorna [docs/CHANGELOG.md](/Users/Matteo/Documents/DocMolder/docs/CHANGELOG.md) quando:
+Aggiorna [docs/CHANGELOG.md](./CHANGELOG.md) quando:
 
 - cambia il comportamento percepito dall'utente
 - cambia un flusso operativo importante
@@ -58,7 +58,7 @@ Per cambi mirati, puoi eseguire solo le suite toccate.
 
 ## Deploy
 
-La procedura operativa completa e in [docs/DEPLOY_ORACLE.md](/Users/Matteo/Documents/DocMolder/docs/DEPLOY_ORACLE.md).
+La procedura operativa completa e in [docs/VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 
 In breve:
 

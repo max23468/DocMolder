@@ -111,11 +111,11 @@ cp .env.example .env
 make run
 ```
 
-Per la guida completa, vedi [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md).
+Per la guida completa di setup e test locali, vedi [`docs/LOCAL_DEV.md`](docs/LOCAL_DEV.md).
 
 ## Deploy Oracle
 
-Per il deploy su Oracle VPS con Ubuntu, vedi [`docs/DEPLOY_ORACLE.md`](docs/DEPLOY_ORACLE.md).
+Per setup e gestione operativa su Oracle VPS con Ubuntu, vedi [`docs/VPS_RUNBOOK.md`](docs/VPS_RUNBOOK.md).
 
 Per gli aggiornamenti successivi sulla VPS, il flusso standard e:
 
@@ -130,13 +130,12 @@ Documenti utili:
 - [`docs/CHANGELOG.md`](docs/CHANGELOG.md)
 - [`docs/CONTEXT.md`](docs/CONTEXT.md)
 - [`docs/DECISIONS.md`](docs/DECISIONS.md)
-- [`docs/LOCAL_SETUP.md`](docs/LOCAL_SETUP.md)
-- [`docs/DEPLOY_ORACLE.md`](docs/DEPLOY_ORACLE.md)
-- [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
+- [`docs/INDEX.md`](docs/INDEX.md)
+- [`docs/LOCAL_DEV.md`](docs/LOCAL_DEV.md)
+- [`docs/VPS_RUNBOOK.md`](docs/VPS_RUNBOOK.md)
 - [`docs/PDF_PIPELINE.md`](docs/PDF_PIPELINE.md)
 - [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- [`docs/TESTING.md`](docs/TESTING.md)
 
 ## Variabili ambiente
 
