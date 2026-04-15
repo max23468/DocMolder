@@ -9,3 +9,5 @@ data/runtime/
 dist/
 build/
 *.egg-info/
+
+tmp/

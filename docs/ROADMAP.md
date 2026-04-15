@@ -2,7 +2,7 @@
 
 Questa roadmap raccoglie le priorità attuali di `DocMolder`.
 
-Va letta dentro il perimetro definito in [docs/DECISIONS.md](/Users/Matteo/Documents/DocMolder/docs/DECISIONS.md): `DocMolder` resta una utility documentale chat-first, semplice, guidata e affidabile.
+Va letta dentro il perimetro definito in [docs/DECISIONS.md](./DECISIONS.md): `DocMolder` resta una utility documentale chat-first, semplice, guidata e affidabile.
 
 ## Indice
 
