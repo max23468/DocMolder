@@ -25,7 +25,6 @@ from docmolder.config import Settings
 from docmolder.keyboards import (
     build_actions_keyboard,
     build_compression_keyboard,
-    build_history_keyboard,
     build_images_pdf_layout_keyboard,
     build_images_pdf_margin_keyboard,
     build_main_menu_keyboard,
@@ -38,16 +37,13 @@ from docmolder.job_flow import (
     run_job_payload as run_job_payload_flow,
 )
 from docmolder.messages import (
-    ADMIN_ONLY_MESSAGE,
     FILE_TOO_LARGE_MESSAGE,
     GENERIC_ERROR_MESSAGE,
     HELP_MESSAGE,
     JOB_QUEUE_LIMIT_MESSAGE,
-    MIXED_SESSION_MESSAGE,
     SESSION_EMPTY_MESSAGE,
     UNAUTHORIZED_MESSAGE,
     UPLOAD_RATE_LIMIT_MESSAGE,
-    WELCOME_MESSAGE,
     build_pending_action_prompt,
     build_pending_action_queued_message,
     build_processing_started_message,
@@ -62,7 +58,7 @@ from docmolder.processing import (
     ProcessingResult,
     ProcessingUserError,
 )
-from docmolder.services import build_session_file, describe_session, get_action_label, infer_exposed_actions, infer_supported_actions, sanitize_filename
+from docmolder.services import build_session_file, get_action_label, infer_exposed_actions, infer_supported_actions, sanitize_filename
 from docmolder.session_store import SQLiteSessionStore, SessionStore
 
 logger = logging.getLogger(__name__)
