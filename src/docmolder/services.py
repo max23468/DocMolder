@@ -21,6 +21,40 @@ ACTION_LABELS: dict[SupportedAction, str] = {
     SupportedAction.AUTO_ORIENT: "Correggi orientamento",
 }
 
+OUTPUT_SUFFIX_BY_ACTION: dict[SupportedAction, str] = {
+    SupportedAction.IMAGES_TO_PDF: "pdf",
+    SupportedAction.IMAGES_TO_PDF_CROP: "cropped_pdf",
+    SupportedAction.IMAGES_TO_PDF_GRAYSCALE: "grayscale",
+    SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: "cropped_grayscale",
+    SupportedAction.PDF_GRAYSCALE: "grayscale",
+    SupportedAction.PDF_COMPRESS: "compressed",
+    SupportedAction.PDF_MERGE: "merged",
+    SupportedAction.PDF_EXTRACT_PAGES: "extracted_pages",
+    SupportedAction.PDF_REORDER_PAGES: "reordered_pages",
+    SupportedAction.PDF_DELETE_PAGES: "deleted_pages",
+    SupportedAction.PDF_ROTATE: "rotated",
+    SupportedAction.PDF_WATERMARK: "watermarked",
+    SupportedAction.AUTO_ORIENT: "oriented",
+}
+
+IMAGE_ONLY_ACTIONS: tuple[SupportedAction, ...] = (
+    SupportedAction.IMAGES_TO_PDF,
+    SupportedAction.IMAGES_TO_PDF_CROP,
+    SupportedAction.IMAGES_TO_PDF_GRAYSCALE,
+    SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE,
+    SupportedAction.AUTO_ORIENT,
+)
+
+SINGLE_PDF_ACTIONS: tuple[SupportedAction, ...] = (
+    SupportedAction.PDF_GRAYSCALE,
+    SupportedAction.PDF_COMPRESS,
+    SupportedAction.PDF_EXTRACT_PAGES,
+    SupportedAction.PDF_REORDER_PAGES,
+    SupportedAction.PDF_DELETE_PAGES,
+    SupportedAction.PDF_ROTATE,
+    SupportedAction.PDF_WATERMARK,
+)
+
 EXPOSED_ACTION_ORDER: tuple[SupportedAction, ...] = (
     SupportedAction.IMAGES_TO_PDF,
     SupportedAction.IMAGES_TO_PDF_CROP,
@@ -45,31 +79,13 @@ def infer_supported_actions(session: UserSession) -> list[SupportedAction]:
     actions: list[SupportedAction] = []
 
     if kinds == {FileKind.IMAGE}:
-        actions.extend(
-            [
-                SupportedAction.IMAGES_TO_PDF,
-                SupportedAction.IMAGES_TO_PDF_CROP,
-                SupportedAction.IMAGES_TO_PDF_GRAYSCALE,
-                SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE,
-                SupportedAction.AUTO_ORIENT,
-            ]
-        )
+        actions.extend(IMAGE_ONLY_ACTIONS)
 
     if kinds == {FileKind.PDF}:
         if len(session.files) > 1:
             actions.append(SupportedAction.PDF_MERGE)
         if len(session.files) == 1:
-            actions.extend(
-                [
-                    SupportedAction.PDF_GRAYSCALE,
-                    SupportedAction.PDF_COMPRESS,
-                    SupportedAction.PDF_EXTRACT_PAGES,
-                    SupportedAction.PDF_REORDER_PAGES,
-                    SupportedAction.PDF_DELETE_PAGES,
-                    SupportedAction.PDF_ROTATE,
-                    SupportedAction.PDF_WATERMARK,
-                ]
-            )
+            actions.extend(SINGLE_PDF_ACTIONS)
 
     return actions
 
@@ -111,23 +127,8 @@ def build_session_file(file_id: str, file_name: str | None, kind: FileKind) -> S
 
 
 def build_output_stem(action: SupportedAction, files: list[SessionFile]) -> str:
-    labels = {
-        SupportedAction.IMAGES_TO_PDF: "pdf",
-        SupportedAction.IMAGES_TO_PDF_CROP: "cropped_pdf",
-        SupportedAction.IMAGES_TO_PDF_GRAYSCALE: "grayscale",
-        SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: "cropped_grayscale",
-        SupportedAction.PDF_GRAYSCALE: "grayscale",
-        SupportedAction.PDF_COMPRESS: "compressed",
-        SupportedAction.PDF_MERGE: "merged",
-        SupportedAction.PDF_EXTRACT_PAGES: "extracted_pages",
-        SupportedAction.PDF_REORDER_PAGES: "reordered_pages",
-        SupportedAction.PDF_DELETE_PAGES: "deleted_pages",
-        SupportedAction.PDF_ROTATE: "rotated",
-        SupportedAction.PDF_WATERMARK: "watermarked",
-        SupportedAction.AUTO_ORIENT: "oriented",
-    }
     base_name = _build_output_base_name(files)
-    return f"{base_name}_{labels[action]}"
+    return f"{base_name}_{OUTPUT_SUFFIX_BY_ACTION[action]}"
 
 
 def _build_output_base_name(files: list[SessionFile]) -> str:
