@@ -136,6 +136,7 @@ Documenti utili:
 - [`docs/PDF_PIPELINE.md`](docs/PDF_PIPELINE.md)
 - [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/GITHUB_ALIGNMENT.md`](docs/GITHUB_ALIGNMENT.md)
 
 ## Variabili ambiente
 

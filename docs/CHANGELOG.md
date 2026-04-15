@@ -6,7 +6,20 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 
 ## Indice
 
+- [2026-04-15](#2026-04-15)
 - [2026-04-06](#2026-04-06)
+
+## 2026-04-15
+
+### Aggiunto
+
+- workflow GitHub Actions di CI (`.github/workflows/ci.yml`) con test unitari e compilazione su Python 3.11, 3.12 e 3.13
+- template GitHub per PR e issue (`bug` e `feature`) per standardizzare la gestione del backlog anche in modalita maintainer singolo
+- guida operativa `docs/GITHUB_ALIGNMENT.md` con impostazioni repository e best practice GitHub orientate a un progetto gestito da una sola persona
+
+### Modificato
+
+- indice documentazione e README aggiornati per includere la nuova guida di allineamento GitHub
 
 ## 2026-04-06
 

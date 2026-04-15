@@ -11,6 +11,7 @@ Indice unico della documentazione operativa.
 
 - [VPS_RUNBOOK.md](./VPS_RUNBOOK.md): setup Oracle VPS + operations day-2.
 - [RELEASE_PROCESS.md](./RELEASE_PROCESS.md): checklist di rilascio e deploy.
+- [GITHUB_ALIGNMENT.md](./GITHUB_ALIGNMENT.md): setup GitHub e best practice per maintainer singolo.
 
 ## Prodotto e decisioni
 
