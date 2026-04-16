@@ -11,7 +11,6 @@ Scope: intera repository (salvo override in AGENTS.md più specifici in sottocar
 ## 2) Principi di lavoro
 - Cambia solo ciò che è necessario per la richiesta corrente.
 - Prima di modificare: comprendi il contesto e i vincoli esistenti.
-- Mantieni retrocompatibilità quando ragionevole.
 - Non introdurre dipendenze nuove senza una motivazione esplicita.
 
 ## 3) Stile e qualità del codice
