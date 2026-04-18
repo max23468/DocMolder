@@ -124,6 +124,38 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(sent_paths), 1)
         self.assertFalse(sent_paths[0].exists())
 
+    async def test_process_job_saves_result_pdf_as_new_session(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+
+        async def fake_run_job_payload(_application, _job, job_dir: Path) -> ProcessingResult:
+            output_path = job_dir / "docmolder_pdf.pdf"
+            output_path.write_bytes(b"%PDF-1.4 test")
+            return ProcessingResult(
+                output_path=output_path,
+                output_name=output_path.name,
+                message="ok",
+            )
+
+        sent_message = SimpleNamespace(
+            document=SimpleNamespace(file_id="result-file-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf")
+        )
+
+        with (
+            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot._send_result", new=AsyncMock(return_value=sent_message)),
+        ):
+            await _process_job(self.application, job.id)
+
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(saved_session.files[0].telegram_file_id, "result-file-id")
+
     def test_main_menu_keyboard_exposes_quick_templates(self) -> None:
         keyboard = build_main_menu_keyboard()
 
@@ -955,6 +987,89 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         message.reply_text.assert_awaited_once()
         self.assertIn("formato A4", message.reply_text.await_args.args[0])
         self.assertIsNotNone(self.store.get(7))
+
+    async def test_text_request_for_image_pdf_marks_pending_layout_choice(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("img-1", "foto_1.jpg", FileKind.IMAGE)],
+            )
+        )
+        message = SimpleNamespace(
+            text="PDF da immagini",
+            chat_id=99,
+            message_id=655,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(saved_session.pending_action, "images_pdf_layout:images_to_pdf")
+        message.reply_text.assert_awaited_once()
+        self.assertIn("formato A4", message.reply_text.await_args.args[0])
+
+    async def test_pending_image_pdf_layout_text_can_ask_for_margin(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("img-1", "foto_1.jpg", FileKind.IMAGE)],
+                pending_action="images_pdf_layout:images_to_pdf",
+            )
+        )
+        message = SimpleNamespace(
+            text="Si, impagina in A4",
+            chat_id=99,
+            message_id=656,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(saved_session.pending_action, "images_pdf_margin:images_to_pdf")
+        message.reply_text.assert_awaited_once()
+        self.assertIn("Che bordi vuoi", message.reply_text.await_args.args[0])
+
+    async def test_pending_image_pdf_margin_text_enqueues_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("img-1", "foto_1.jpg", FileKind.IMAGE)],
+                pending_action="images_pdf_margin:images_to_pdf",
+            )
+        )
+        message = SimpleNamespace(
+            text="bordi stretti",
+            chat_id=99,
+            message_id=657,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"image_pdf_use_a4": true', queued_job.payload_json)
+        self.assertIn('"image_pdf_margin_px": 48', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
+        message.reply_text.assert_awaited_once()
 
     async def test_text_request_enqueues_medium_compression_for_pdf(self) -> None:
         self.store.save(

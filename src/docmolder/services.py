@@ -65,6 +65,11 @@ RESULT_FOLLOWUP_ACTIONS: tuple[SupportedAction, ...] = (
     SupportedAction.PDF_WATERMARK,
 )
 
+PENDING_ACTION_LABELS: dict[str, str] = {
+    "images_pdf_layout": "impaginazione PDF da immagini",
+    "images_pdf_margin": "bordi impaginazione A4",
+}
+
 EXPOSED_ACTION_ORDER: tuple[SupportedAction, ...] = (
     SupportedAction.IMAGES_TO_PDF,
     SupportedAction.IMAGES_TO_PDF_CROP,
@@ -109,7 +114,9 @@ def get_action_label(action: SupportedAction | str) -> str:
     try:
         resolved = SupportedAction(action)
     except ValueError:
-        return str(action)
+        raw_action = str(action)
+        pending_label = PENDING_ACTION_LABELS.get(raw_action.split(":", 1)[0])
+        return pending_label or raw_action
     return ACTION_LABELS.get(resolved, resolved.value)
 
 

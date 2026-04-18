@@ -79,6 +79,9 @@ _build_pending_action_queued_message = build_pending_action_queued_message
 _build_processing_started_message = build_processing_started_message
 _build_text_request_queued_message = build_text_request_queued_message
 
+_PENDING_IMAGES_PDF_LAYOUT_PREFIX = "images_pdf_layout"
+_PENDING_IMAGES_PDF_MARGIN_PREFIX = "images_pdf_margin"
+
 
 class BotDependencies:
     def __init__(
@@ -833,6 +836,9 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 return
 
             if _is_image_pdf_action(action):
+                session.pending_action = _build_images_pdf_layout_pending_action(action)
+                session.touch()
+                deps.session_store.save(session)
                 await message.reply_text(
                     _build_image_pdf_layout_prompt(user.id, deps),
                     reply_markup=build_images_pdf_layout_keyboard(action.value),
@@ -1323,6 +1329,31 @@ async def _handle_pending_session_input(
     text: str,
 ) -> bool:
     deps = _get_dependencies(context)
+    if session.pending_action is None:
+        return False
+
+    if session.pending_action.startswith(f"{_PENDING_IMAGES_PDF_LAYOUT_PREFIX}:"):
+        return await _handle_pending_images_pdf_layout_input(
+            update=update,
+            context=context,
+            session=session,
+            user_id=user_id,
+            chat_id=chat_id,
+            reply_to_message_id=reply_to_message_id,
+            text=text,
+        )
+
+    if session.pending_action.startswith(f"{_PENDING_IMAGES_PDF_MARGIN_PREFIX}:"):
+        return await _handle_pending_images_pdf_margin_input(
+            update=update,
+            context=context,
+            session=session,
+            user_id=user_id,
+            chat_id=chat_id,
+            reply_to_message_id=reply_to_message_id,
+            text=text,
+        )
+
     pending_action = SupportedAction(session.pending_action)
     if not _has_capacity_for_new_job(user_id, deps):
         await update.effective_message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
@@ -1367,6 +1398,171 @@ async def _handle_pending_session_input(
     deps.session_store.delete(user_id)
     raw_value = enqueue_kwargs.get("page_selection") or enqueue_kwargs.get("watermark_text") or text
     await update.effective_message.reply_text(_build_pending_action_queued_message(pending_action, job.id, str(raw_value)))
+    return True
+
+
+def _build_images_pdf_layout_pending_action(action: SupportedAction) -> str:
+    return f"{_PENDING_IMAGES_PDF_LAYOUT_PREFIX}:{action.value}"
+
+
+def _build_images_pdf_margin_pending_action(action: SupportedAction) -> str:
+    return f"{_PENDING_IMAGES_PDF_MARGIN_PREFIX}:{action.value}"
+
+
+def _extract_pending_images_pdf_action(pending_action: str, prefix: str) -> SupportedAction | None:
+    if not pending_action.startswith(f"{prefix}:"):
+        return None
+    raw_action = pending_action.split(":", 1)[1]
+    try:
+        action = SupportedAction(raw_action)
+    except ValueError:
+        return None
+    if not _is_image_pdf_action(action):
+        return None
+    return action
+
+
+def _parse_image_pdf_layout_choice(text: str) -> bool | None:
+    normalized = _normalize_free_text(text)
+    wants_a4 = "a4" in normalized and _contains_any(normalized, ("si", "sì", "impagina", "usa"))
+    wants_original = _contains_any(
+        normalized,
+        ("mantieni formato originale", "formato originale", "originale", "non impaginare", "no a4"),
+    ) or ("no" in normalized and "a4" in normalized)
+    if wants_a4:
+        return True
+    if wants_original:
+        return False
+    return None
+
+
+def _parse_image_pdf_margin_choice(text: str) -> int | None:
+    normalized = _normalize_free_text(text)
+    if _contains_any(normalized, ("senza bordi", "nessun bordo", "nessuno", "no bordi")):
+        return A4_MARGIN_NONE_PX
+    if _contains_any(normalized, ("bordi larghi", "bordi ampi", "larghi", "ampi")):
+        return A4_MARGIN_WIDE_PX
+    if _contains_any(normalized, ("bordi stretti", "stretto", "stretti", "narrow")):
+        return A4_MARGIN_NARROW_PX
+    return None
+
+
+async def _handle_pending_images_pdf_layout_input(
+    *,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    session: UserSession,
+    user_id: int,
+    chat_id: int,
+    reply_to_message_id: int | None,
+    text: str,
+) -> bool:
+    deps = _get_dependencies(context)
+    action = _extract_pending_images_pdf_action(session.pending_action or "", _PENDING_IMAGES_PDF_LAYOUT_PREFIX)
+    if action is None:
+        return False
+
+    use_a4 = _parse_image_pdf_layout_choice(text)
+    if use_a4 is None:
+        await update.effective_message.reply_text(
+            "Dimmi se vuoi il PDF in A4 oppure nel formato originale.\n"
+            "Puoi scrivere ad esempio `Si, impagina in A4` oppure `No, mantieni formato originale`."
+        )
+        return True
+
+    if use_a4:
+        session.pending_action = _build_images_pdf_margin_pending_action(action)
+        session.touch()
+        deps.session_store.save(session)
+        await update.effective_message.reply_text(
+            "Che bordi vuoi nell'impaginazione A4?\n"
+            "Puoi scrivere ad esempio `bordi stretti`, `bordi larghi` oppure `senza bordi`.",
+            reply_markup=build_images_pdf_margin_keyboard(action.value),
+        )
+        return True
+
+    return await _enqueue_image_pdf_job_from_text(
+        update=update,
+        context=context,
+        user_id=user_id,
+        chat_id=chat_id,
+        reply_to_message_id=reply_to_message_id,
+        action=action,
+        session=session,
+        image_pdf_use_a4=False,
+        image_pdf_margin_px=A4_MARGIN_NONE_PX,
+    )
+
+
+async def _handle_pending_images_pdf_margin_input(
+    *,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    session: UserSession,
+    user_id: int,
+    chat_id: int,
+    reply_to_message_id: int | None,
+    text: str,
+) -> bool:
+    action = _extract_pending_images_pdf_action(session.pending_action or "", _PENDING_IMAGES_PDF_MARGIN_PREFIX)
+    if action is None:
+        return False
+
+    margin_px = _parse_image_pdf_margin_choice(text)
+    if margin_px is None:
+        await update.effective_message.reply_text(
+            "Dimmi che bordi vuoi in A4.\n"
+            "Puoi scrivere `bordi stretti`, `bordi larghi` oppure `senza bordi`."
+        )
+        return True
+
+    return await _enqueue_image_pdf_job_from_text(
+        update=update,
+        context=context,
+        user_id=user_id,
+        chat_id=chat_id,
+        reply_to_message_id=reply_to_message_id,
+        action=action,
+        session=session,
+        image_pdf_use_a4=True,
+        image_pdf_margin_px=margin_px,
+    )
+
+
+async def _enqueue_image_pdf_job_from_text(
+    *,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    chat_id: int,
+    reply_to_message_id: int | None,
+    action: SupportedAction,
+    session: UserSession,
+    image_pdf_use_a4: bool,
+    image_pdf_margin_px: int,
+) -> bool:
+    deps = _get_dependencies(context)
+    if not _has_capacity_for_new_job(user_id, deps):
+        await update.effective_message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+        return True
+
+    job = await _enqueue_job(
+        context=context,
+        user_id=user_id,
+        chat_id=chat_id,
+        reply_to_message_id=reply_to_message_id,
+        action=action,
+        session=session,
+        image_pdf_use_a4=image_pdf_use_a4,
+        image_pdf_margin_px=image_pdf_margin_px,
+    )
+    deps.session_store.set_user_preference(user_id, "image_pdf_layout", "a4" if image_pdf_use_a4 else "original")
+    deps.session_store.set_user_preference(user_id, "image_pdf_margin_px", str(image_pdf_margin_px))
+    deps.session_store.delete(user_id)
+    await update.effective_message.reply_text(
+        f"{_describe_image_pdf_choice(image_pdf_use_a4, image_pdf_margin_px)}\n"
+        f"{_build_text_request_queued_message(action, job.id, None)}"
+    )
     return True
 
 
@@ -1747,7 +1943,7 @@ async def _process_job(application: Application, job_id: int) -> None:
             duration_ms=duration_ms,
         )
         deps.session_store.record_completed_action(job.user_id, job.action)
-        await _send_result(
+        result_message = await _send_result(
             application.bot,
             job.chat_id,
             job.reply_to_message_id,
@@ -1755,6 +1951,20 @@ async def _process_job(application: Application, job_id: int) -> None:
             source_action=SupportedAction(job.action),
             source_job_id=job.id,
         )
+        if result_message is not None and getattr(result_message, "document", None) is not None:
+            result_document = result_message.document
+            result_file_id = getattr(result_document, "file_id", None)
+            result_file_name = getattr(result_document, "file_name", None)
+            if isinstance(result_file_id, str) and (
+                result_file_name is None or isinstance(result_file_name, str)
+            ) and _infer_document_kind(result_document) == FileKind.PDF:
+                deps.session_store.save(
+                    _build_result_pdf_session(
+                        job.user_id,
+                        result_file_id,
+                        result_file_name,
+                    )
+                )
     finally:
         deps.processor.cleanup_job_dir(job_dir)
 
@@ -1828,9 +2038,9 @@ async def _send_result(
     *,
     source_action: SupportedAction | None = None,
     source_job_id: int | None = None,
-) -> None:
+    ):
     with result.output_path.open("rb") as payload:
-        await bot.send_document(
+        return await bot.send_document(
             chat_id=chat_id,
             document=payload,
             filename=result.output_name,
