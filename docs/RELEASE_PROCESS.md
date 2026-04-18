@@ -59,10 +59,14 @@ Per cambi mirati, puoi eseguire solo le suite toccate.
 ## Deploy
 
 La procedura operativa completa e in [docs/VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
+La strategia di smoke test post-deploy e in [docs/SMOKE_TESTS.md](./SMOKE_TESTS.md).
 
 In breve:
 
 1. eseguire il `push` dell'ultimo commit locale e verificare che sia andato a buon fine
 2. aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
 3. controllare stato servizio, log recenti e revisione live
-4. testare il bot da Telegram quando il cambiamento tocca l'esperienza utente o i flussi reali
+4. eseguire almeno uno smoke test coerente con il tipo di modifica:
+   - Livello 1 per fix tecnici
+   - Livello 1 + 2 per cambi funzionali
+   - Livello 1 + 2 + una verifica UI per cambi UX sensibili

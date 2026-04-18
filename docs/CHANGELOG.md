@@ -24,6 +24,9 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 - lo storico utente distingue meglio i job per stato, separando piu chiaramente lavori in corso, riusciti e falliti
 - i job rilanciati dallo storico o dal risultato tracciano ora esplicitamente la loro origine, cosi `/history` li evidenzia come rilanci separati
 - help, prompt guidati e messaggi di correzione input sono stati rifiniti per spiegare meglio formati attesi, limiti e scorciatoie disponibili
+- aggiunta [docs/SMOKE_TESTS.md](./SMOKE_TESTS.md) con una strategia esplicita per smoke test post-deploy piu rapidi
+- aggiunto [scripts/smoke_telegram_desktop.py](../scripts/smoke_telegram_desktop.py) per automatizzare i principali smoke test post-deploy su Telegram Desktop
+- formalizzato Telegram Desktop scriptato come canale principale per smoke test funzionali, lasciando la verifica UI manuale solo per controlli mirati
 
 ## 2026-04-15
 
