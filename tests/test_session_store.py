@@ -119,6 +119,20 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
 
         self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-04-06")
 
+    def test_user_preference_roundtrip_and_clear(self) -> None:
+        self.assertIsNone(self.store.get_user_preference(55, "compression_preset"))
+
+        self.store.set_user_preference(55, "compression_preset", "medium")
+        self.store.set_user_preference(55, "image_pdf_layout", "a4")
+
+        self.assertEqual(self.store.get_user_preference(55, "compression_preset"), "medium")
+        self.assertEqual(self.store.get_user_preference(55, "image_pdf_layout"), "a4")
+
+        self.store.clear_user_preferences(55)
+
+        self.assertIsNone(self.store.get_user_preference(55, "compression_preset"))
+        self.assertIsNone(self.store.get_user_preference(55, "image_pdf_layout"))
+
     def test_session_pending_action_roundtrip(self) -> None:
         from docmolder.models import UserSession
 
@@ -227,6 +241,28 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         jobs = self.store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,), since_days=7)
 
         self.assertEqual([job.id for job in jobs], [recent_job.id])
+
+    def test_create_job_persists_rerun_origin(self) -> None:
+        source_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files": []}',
+        )
+        rerun_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files": []}',
+            rerun_of_job_id=source_job.id,
+        )
+
+        loaded = self.store.get_job(rerun_job.id)
+
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded.rerun_of_job_id, source_job.id)
 
 
 if __name__ == "__main__":

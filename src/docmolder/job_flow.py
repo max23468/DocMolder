@@ -75,6 +75,7 @@ async def enqueue_job_from_existing_payload(
         reply_to_message_id=reply_to_message_id,
         action=source_job.action,
         payload_json=payload.to_json(),
+        rerun_of_job_id=source_job.id,
     )
     await deps.job_queue.put(job.id)
     return job

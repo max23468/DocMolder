@@ -15,7 +15,8 @@ WELCOME_MESSAGE = (
     "- correggere automaticamente l'orientamento dei PDF durante l'elaborazione, quando serve\n"
     "- correggere l'orientamento delle immagini\n\n"
     "Per iniziare, inviami immagini o PDF.\n"
-    "Se vuoi, puoi anche usare il menu qui sotto o consultare /history per gli ultimi job."
+    "Se vuoi, puoi anche usare il menu qui sotto, consultare /history per gli ultimi job "
+    "oppure usare template rapidi come `Foto in A4` e `Scansiona e comprimi`."
 )
 
 HELP_MESSAGE = (
@@ -36,13 +37,18 @@ HELP_MESSAGE = (
     "- ritaglia i bordi e crea un pdf\n"
     "- converti in bianco e nero\n"
     "- unisci questi pdf\n"
-    "- comprimi questo pdf\n\n"
+    "- comprimi questo pdf\n"
+    "- estrai pagine 2-4\n"
+    "- ruota questo pdf di 90 gradi\n"
+    "- aggiungi watermark BOZZA\n"
+    "- foto in A4\n"
+    "- scansiona e comprimi\n\n"
     "Comandi utili:\n"
     "/start\n"
     "/help\n"
     "/history\n"
     "/status\n"
-    "/reset"
+    "/reset  (azzera sessione e ultime scelte rapide)"
 )
 
 UNAUTHORIZED_MESSAGE = (
@@ -89,20 +95,26 @@ def build_pending_action_prompt(action: SupportedAction) -> str:
     if action == SupportedAction.PDF_EXTRACT_PAGES:
         return (
             "Scrivimi quali pagine vuoi estrarre, ad esempio `1,3,5-7`.\n"
-            "Puoi combinare pagine singole e intervalli."
+            "Puoi combinare pagine singole e intervalli. Se preferisci, vanno bene anche spazi semplici come `1 3 5-7`.\n"
+            "Se sbagli formato, ti dico subito come correggerlo."
         )
     if action == SupportedAction.PDF_REORDER_PAGES:
         return (
             "Scrivimi il nuovo ordine completo delle pagine, ad esempio `3,1,2`.\n"
-            "Devi indicare tutte le pagine del PDF una sola volta."
+            "Devi indicare tutte le pagine del PDF una sola volta. Accetto anche sequenze con spazi, ad esempio `3 1 2`.\n"
+            "Se il PDF ha 5 pagine, devo ricevere tutte e 5 le posizioni."
         )
     if action == SupportedAction.PDF_DELETE_PAGES:
         return (
             "Scrivimi quali pagine vuoi eliminare, ad esempio `2,4-5`.\n"
-            "Il bot manterrà tutte le altre."
+            "Il bot manterra tutte le altre. Se preferisci, vanno bene anche spazi semplici come `2 4-5`.\n"
+            "Attenzione: deve restare almeno una pagina nel PDF finale."
         )
     if action == SupportedAction.PDF_WATERMARK:
-        return "Scrivimi il testo semplice che vuoi usare come watermark su tutte le pagine del PDF."
+        return (
+            "Scrivimi il testo semplice che vuoi usare come watermark su tutte le pagine del PDF.\n"
+            "Esempio: `BOZZA`, `COPIA` oppure il nome del destinatario."
+        )
     return "Scrivimi i dettagli necessari per continuare."
 
 

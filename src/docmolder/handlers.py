@@ -12,7 +12,7 @@ def _bot():
 from docmolder.keyboards import build_history_keyboard, build_main_menu_keyboard
 from docmolder.messages import ADMIN_ONLY_MESSAGE, HELP_MESSAGE, MIXED_SESSION_MESSAGE, SESSION_EMPTY_MESSAGE, UNAUTHORIZED_MESSAGE, WELCOME_MESSAGE
 from docmolder.models import FileKind, JobStatus
-from docmolder.services import build_session_file, describe_session
+from docmolder.services import build_session_file, build_session_recap
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -98,8 +98,9 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     _bot()._cancel_pending_image_notification(user.id, deps)
     deps.session_store.delete(user.id)
+    deps.session_store.clear_user_preferences(user.id)
     await update.effective_message.reply_text(
-        "Sessione azzerata. Puoi inviarmi nuovi file quando vuoi.",
+        "Sessione azzerata. Ho dimenticato anche le ultime scelte rapide salvate. Puoi inviarmi nuovi file quando vuoi.",
         reply_markup=build_main_menu_keyboard(),
     )
 
@@ -122,12 +123,12 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     extra_note = (
-        f"\nSto aspettando un tuo input per: {_bot()._action_label(session.pending_action)}."
+        f"\nSto aspettando il tuo input per {_bot()._action_label(session.pending_action)}."
         if session.pending_action
         else ""
     )
     await update.effective_message.reply_text(
-        f"{describe_session(session)}{extra_note}\nScegli cosa vuoi fare.",
+        f"{build_session_recap(session)}{extra_note}",
         reply_markup=_bot()._filter_keyboard_for_session(session),
     )
 
@@ -183,7 +184,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     _bot()._cancel_pending_image_notification(user.id, deps)
     await message.reply_text(
-        f"File ricevuto. {describe_session(session)}\nScegli la prossima azione.",
+        f"File ricevuto.\n{build_session_recap(session)}",
         reply_markup=_bot()._filter_keyboard_for_session(session),
     )
 

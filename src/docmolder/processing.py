@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import shutil
 import subprocess
 import uuid
@@ -232,7 +233,7 @@ class DocumentProcessor:
         with output_path.open("wb") as handle:
             writer.write(handle)
 
-        message = "Ho unito i PDF in un unico documento."
+        message = "PDF pronto. Ho unito i file in un unico documento."
         if rotated_pages:
             message += f" Ho anche corretto automaticamente l'orientamento di {rotated_pages} pagine."
         return ProcessingResult(
@@ -263,7 +264,7 @@ class DocumentProcessor:
             )
             conversion_mode = "raster"
 
-        message = "PDF convertito in scala di grigi."
+        message = "PDF pronto in scala di grigi."
         if conversion_mode == "native":
             message += " Ho convertito soprattutto le immagini interne e preservato la struttura del PDF dove possibile."
         elif conversion_mode == "raster":
@@ -331,7 +332,7 @@ class DocumentProcessor:
                     mode = "raster"
             else:
                 mode = "conservative"
-        message = f"PDF compresso con livello {preset.value}."
+        message = f"PDF pronto. Compressione completata con livello {preset.value}."
         if mode == "ghostscript":
             message += " Ho mantenuto il PDF nativo con una compressione più fedele."
         elif mode == "raster":
@@ -374,7 +375,7 @@ class DocumentProcessor:
         return ProcessingResult(
             output_path=output_path,
             output_name=output_path.name,
-            message=f"Ho ruotato le pagine di {rotate_degrees} gradi.",
+            message=f"PDF pronto. Ho ruotato le pagine di {rotate_degrees} gradi.",
             processing_mode="native",
         )
 
@@ -390,7 +391,7 @@ class DocumentProcessor:
         return ProcessingResult(
             output_path=output_path,
             output_name=output_path.name,
-            message=f"Ho estratto le pagine {self._format_page_numbers(page_numbers)}.",
+            message=f"PDF pronto. Ho estratto le pagine {self._format_page_numbers(page_numbers)}.",
             processing_mode="native",
         )
 
@@ -410,7 +411,7 @@ class DocumentProcessor:
         return ProcessingResult(
             output_path=output_path,
             output_name=output_path.name,
-            message=f"Ho riordinato le pagine nel nuovo ordine {self._format_page_numbers(page_numbers)}.",
+            message=f"PDF pronto. Ho riordinato le pagine nel nuovo ordine {self._format_page_numbers(page_numbers)}.",
             processing_mode="native",
         )
 
@@ -429,7 +430,7 @@ class DocumentProcessor:
         return ProcessingResult(
             output_path=output_path,
             output_name=output_path.name,
-            message=f"Ho eliminato le pagine {self._format_page_numbers(sorted(to_delete))}.",
+            message=f"PDF pronto. Ho eliminato le pagine {self._format_page_numbers(sorted(to_delete))}.",
             processing_mode="native",
         )
 
@@ -461,7 +462,7 @@ class DocumentProcessor:
         return ProcessingResult(
             output_path=output_path,
             output_name=output_path.name,
-            message=f'Ho aggiunto il watermark testuale "{normalized_text}" al PDF.',
+            message=f'PDF pronto. Ho aggiunto il watermark testuale "{normalized_text}" al PDF.',
             processing_mode="native",
         )
 
@@ -846,7 +847,8 @@ class DocumentProcessor:
     def _parse_page_selection(self, raw_value: str, pdf_path: Path, *, mode: str) -> list[int]:
         reader = self._build_pdf_reader(pdf_path)
         total_pages = len(reader.pages)
-        value = raw_value.strip()
+        value = re.sub(r"(?<=\d)\s+(?=\d)", ",", raw_value.strip())
+        value = re.sub(r"\s*,\s*", ",", value)
         if not value:
             raise ProcessingUserError("Non ho ricevuto nessuna selezione pagine. Usa un formato come 1,3,5-7.")
 

@@ -3,7 +3,7 @@
 Questo file e un handoff rapido: descrive il minimo contesto utile e punta alla documentazione specialistica.
 
 Ultimo aggiornamento del contesto:
-- data di riferimento: `2026-04-15`
+- data di riferimento: `2026-04-18`
 
 ## Cos'e DocMolder
 
@@ -34,3 +34,11 @@ Ultimo aggiornamento del contesto:
 - non introdurre dipendenze senza motivazione
 - aggiornare docs e changelog quando cambia comportamento utente/operativo
 - validare con test rilevanti prima del deploy
+
+## Ultime note rilevanti
+
+- il bot espone ora un recap sessione piu strutturato, con azioni consigliate e suggerimento sul prossimo passo
+- gli input pagina sono piu tolleranti e accettano anche sequenze separate da spazi nei flussi guidati
+- il risultato di un PDF puo diventare subito il punto di partenza per una nuova operazione tramite pulsanti contestuali sul file restituito
+- il bot conserva in modo leggero alcune ultime scelte frequenti per proporle come scorciatoie, ma le cancella con `/reset`
+- lo storico distingue ora anche i job rilanciati come entita separate, mantenendo il riferimento al job di origine

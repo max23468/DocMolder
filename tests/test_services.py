@@ -8,7 +8,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.keyboards import build_actions_keyboard
 from docmolder.models import FileKind, SupportedAction, UserSession
-from docmolder.services import build_output_stem, build_session_file, get_action_label, infer_exposed_actions
+from docmolder.services import (
+    build_next_step_hint,
+    build_output_stem,
+    build_session_file,
+    build_session_recap,
+    get_action_label,
+    infer_exposed_actions,
+    infer_result_followup_actions,
+    infer_recommended_actions,
+)
 
 
 class ServiceHelpersTest(unittest.TestCase):
@@ -57,6 +66,51 @@ class ServiceHelpersTest(unittest.TestCase):
         self.assertIsNotNone(keyboard)
         labels = [row[0].text for row in keyboard.inline_keyboard]
         self.assertEqual(labels, [get_action_label(SupportedAction.PDF_GRAYSCALE), "Aggiungi watermark"])
+
+    def test_build_session_recap_highlights_recommended_action_for_multi_pdf_session(self) -> None:
+        session = UserSession(
+            user_id=9,
+            files=[
+                build_session_file("pdf-1", "Contratto.pdf", FileKind.PDF),
+                build_session_file("pdf-2", "Allegato.pdf", FileKind.PDF),
+            ],
+        )
+
+        recap = build_session_recap(session)
+
+        self.assertIn("- File: 2 PDF", recap)
+        self.assertIn("Azioni consigliate: Unisci PDF", recap)
+        self.assertIn("Contratto.pdf, Allegato.pdf", recap)
+
+    def test_infer_recommended_actions_prefers_merge_for_multi_pdf_session(self) -> None:
+        session = UserSession(
+            user_id=10,
+            files=[
+                build_session_file("pdf-1", "Contratto.pdf", FileKind.PDF),
+                build_session_file("pdf-2", "Allegato.pdf", FileKind.PDF),
+            ],
+        )
+
+        recommended = infer_recommended_actions(session)
+
+        self.assertEqual(recommended, [SupportedAction.PDF_MERGE])
+
+    def test_build_next_step_hint_mentions_pending_action(self) -> None:
+        session = UserSession(
+            user_id=11,
+            files=[build_session_file("pdf-1", "Contratto.pdf", FileKind.PDF)],
+            pending_action=SupportedAction.PDF_WATERMARK.value,
+        )
+
+        hint = build_next_step_hint(session)
+
+        self.assertIn("watermark", hint.lower())
+
+    def test_infer_result_followup_actions_skips_source_action(self) -> None:
+        actions = infer_result_followup_actions(SupportedAction.PDF_GRAYSCALE)
+
+        self.assertNotIn(SupportedAction.PDF_GRAYSCALE, actions)
+        self.assertIn(SupportedAction.PDF_COMPRESS, actions)
 
 
 if __name__ == "__main__":

@@ -140,6 +140,19 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with self.assertRaises(ProcessingUserError):
             self.processor.reorder_pdf_pages(pdf_path, "reordered", page_selection="3,1")
 
+    def test_reorder_pdf_pages_accepts_space_separated_order(self) -> None:
+        pdf_path = self.runtime_dir / "source_reorder_spaces.pdf"
+        writer = PdfWriter()
+        for _ in range(3):
+            writer.add_blank_page(width=200, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        result = self.processor.reorder_pdf_pages(pdf_path, "reordered_spaces", page_selection="3 1 2")
+
+        reader = PdfReader(str(result.output_path))
+        self.assertEqual(len(reader.pages), 3)
+
     def test_delete_pdf_pages_keeps_remaining_pages(self) -> None:
         pdf_path = self.runtime_dir / "source_delete.pdf"
         writer = PdfWriter()

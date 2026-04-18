@@ -35,6 +35,12 @@ class SessionStore(Protocol):
 
     def set_meta(self, key: str, value: str) -> None: ...
 
+    def get_user_preference(self, user_id: int, key: str) -> str | None: ...
+
+    def set_user_preference(self, user_id: int, key: str, value: str) -> None: ...
+
+    def clear_user_preferences(self, user_id: int) -> None: ...
+
     def build_admin_stats(self) -> AdminStats: ...
 
     def create_job(
@@ -44,6 +50,7 @@ class SessionStore(Protocol):
         reply_to_message_id: int | None,
         action: str,
         payload_json: str,
+        rerun_of_job_id: int | None = None,
     ) -> JobRecord: ...
 
     def get_job(self, job_id: int) -> JobRecord | None: ...
@@ -134,6 +141,20 @@ class InMemorySessionStore:
         with self._lock:
             self._meta[key] = value
 
+    def get_user_preference(self, user_id: int, key: str) -> str | None:
+        with self._lock:
+            return self._meta.get(f"user_pref:{user_id}:{key}")
+
+    def set_user_preference(self, user_id: int, key: str, value: str) -> None:
+        with self._lock:
+            self._meta[f"user_pref:{user_id}:{key}"] = value
+
+    def clear_user_preferences(self, user_id: int) -> None:
+        prefix = f"user_pref:{user_id}:"
+        with self._lock:
+            for meta_key in [meta_key for meta_key in self._meta if meta_key.startswith(prefix)]:
+                self._meta.pop(meta_key, None)
+
     def build_admin_stats(self) -> AdminStats:
         with self._lock:
             return AdminStats(
@@ -181,6 +202,7 @@ class InMemorySessionStore:
         reply_to_message_id: int | None,
         action: str,
         payload_json: str,
+        rerun_of_job_id: int | None = None,
     ) -> JobRecord:
         from datetime import datetime, timezone
 
@@ -194,6 +216,7 @@ class InMemorySessionStore:
                 payload_json=payload_json,
                 status=JobStatus.QUEUED,
                 created_at=datetime.now(timezone.utc),
+                rerun_of_job_id=rerun_of_job_id,
             )
             self._jobs[job.id] = job
             self._next_job_id += 1
@@ -504,6 +527,20 @@ class SQLiteSessionStore:
             )
             connection.commit()
 
+    def get_user_preference(self, user_id: int, key: str) -> str | None:
+        return self.get_meta(f"user_pref:{user_id}:{key}")
+
+    def set_user_preference(self, user_id: int, key: str, value: str) -> None:
+        self.set_meta(f"user_pref:{user_id}:{key}", value)
+
+    def clear_user_preferences(self, user_id: int) -> None:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                "DELETE FROM app_meta WHERE key LIKE ?",
+                (f"user_pref:{user_id}:%",),
+            )
+            connection.commit()
+
     def build_admin_stats(self) -> AdminStats:
         with self._lock, self._connect() as connection:
             row = connection.execute(
@@ -546,6 +583,7 @@ class SQLiteSessionStore:
         reply_to_message_id: int | None,
         action: str,
         payload_json: str,
+        rerun_of_job_id: int | None = None,
     ) -> JobRecord:
         with self._lock, self._connect() as connection:
             cursor = connection.execute(
@@ -556,12 +594,13 @@ class SQLiteSessionStore:
                     reply_to_message_id,
                     action,
                     payload_json,
+                    rerun_of_job_id,
                     status,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 """,
-                (user_id, chat_id, reply_to_message_id, action, payload_json, JobStatus.QUEUED.value),
+                (user_id, chat_id, reply_to_message_id, action, payload_json, rerun_of_job_id, JobStatus.QUEUED.value),
             )
             connection.commit()
             job_id = int(cursor.lastrowid)
@@ -827,6 +866,7 @@ class SQLiteSessionStore:
                     reply_to_message_id INTEGER,
                     action TEXT NOT NULL,
                     payload_json TEXT NOT NULL,
+                    rerun_of_job_id INTEGER,
                     status TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     started_at TEXT,
@@ -845,6 +885,7 @@ class SQLiteSessionStore:
             )
             self._ensure_job_metrics_columns(connection)
             self._ensure_session_columns(connection)
+            self._ensure_job_rerun_column(connection)
             connection.commit()
 
     def _ensure_job_metrics_columns(self, connection: sqlite3.Connection) -> None:
@@ -857,6 +898,11 @@ class SQLiteSessionStore:
             connection.execute("ALTER TABLE jobs ADD COLUMN output_bytes INTEGER")
         if "duration_ms" not in columns:
             connection.execute("ALTER TABLE jobs ADD COLUMN duration_ms INTEGER")
+
+    def _ensure_job_rerun_column(self, connection: sqlite3.Connection) -> None:
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()}
+        if "rerun_of_job_id" not in columns:
+            connection.execute("ALTER TABLE jobs ADD COLUMN rerun_of_job_id INTEGER")
 
     def _ensure_session_columns(self, connection: sqlite3.Connection) -> None:
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(sessions)").fetchall()}
@@ -893,6 +939,7 @@ def _job_from_row(row: sqlite3.Row) -> JobRecord:
         payload_json=row["payload_json"],
         status=JobStatus(row["status"]),
         created_at=_from_sqlite_datetime(row["created_at"]),
+        rerun_of_job_id=row["rerun_of_job_id"] if "rerun_of_job_id" in row.keys() else None,
         started_at=_from_sqlite_datetime(row["started_at"]),
         finished_at=_from_sqlite_datetime(row["finished_at"]),
         result_message=row["result_message"],

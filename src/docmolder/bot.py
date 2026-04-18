@@ -59,7 +59,15 @@ from docmolder.processing import (
     ProcessingResult,
     ProcessingUserError,
 )
-from docmolder.services import build_session_file, get_action_label, infer_exposed_actions, infer_supported_actions, sanitize_filename
+from docmolder.services import (
+    build_session_file,
+    build_session_recap,
+    get_action_label,
+    infer_exposed_actions,
+    infer_result_followup_actions,
+    infer_supported_actions,
+    sanitize_filename,
+)
 from docmolder.session_store import SQLiteSessionStore, SessionStore
 
 logger = logging.getLogger(__name__)
@@ -365,7 +373,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     action = (query.data or "").removeprefix("action:")
     if action == SupportedAction.PDF_COMPRESS.value:
         await query.edit_message_text(
-            "Hai scelto la compressione PDF. Seleziona il livello.",
+            _build_compression_prompt(user.id, deps),
             reply_markup=build_compression_keyboard(),
         )
         return
@@ -391,7 +399,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     if _is_image_pdf_action(SupportedAction(action)):
         await query.edit_message_text(
-            "Vuoi che impagini il PDF in formato A4?",
+            _build_image_pdf_layout_prompt(user.id, deps),
             reply_markup=build_images_pdf_layout_keyboard(action),
         )
         return
@@ -445,6 +453,7 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
         session=session,
         compression_preset=CompressionPreset(preset),
     )
+    deps.session_store.set_user_preference(user.id, "compression_preset", preset)
     deps.session_store.delete(user.id)
     await query.edit_message_text(
         f"Compressione presa in carico. Job #{job.id} in coda.\nTi invio il PDF appena è pronto."
@@ -507,27 +516,60 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         )
         return
 
-    if action != SupportedAction.PDF_GRAYSCALE.value:
+    try:
+        selected_action = SupportedAction(action)
+    except ValueError:
         await query.message.reply_text(
             "Questa azione sul risultato non è supportata.",
             reply_to_message_id=query.message.message_id,
         )
         return
 
-    session = UserSession(
-        user_id=user.id,
-        files=[build_session_file(document.file_id, document.file_name, FileKind.PDF)],
-    )
+    session = _build_result_pdf_session(user.id, document.file_id, document.file_name)
+    deps.session_store.save(session)
+
+    if selected_action == SupportedAction.PDF_COMPRESS:
+        await query.message.reply_text(
+            _build_compression_prompt(user.id, deps),
+            reply_to_message_id=query.message.message_id,
+            reply_markup=build_compression_keyboard(),
+        )
+        return
+
+    if selected_action == SupportedAction.PDF_ROTATE:
+        await query.message.reply_text(
+            "Di quanti gradi vuoi ruotare tutte le pagine del PDF?\nScelta rapida: tocca uno dei pulsanti qui sotto.",
+            reply_to_message_id=query.message.message_id,
+            reply_markup=build_rotate_keyboard(),
+        )
+        return
+
+    if selected_action in {
+        SupportedAction.PDF_EXTRACT_PAGES,
+        SupportedAction.PDF_REORDER_PAGES,
+        SupportedAction.PDF_DELETE_PAGES,
+        SupportedAction.PDF_WATERMARK,
+    }:
+        session.pending_action = selected_action.value
+        session.touch()
+        deps.session_store.save(session)
+        await query.message.reply_text(
+            _build_pending_action_prompt(selected_action),
+            reply_to_message_id=query.message.message_id,
+        )
+        return
+
     job = await _enqueue_job(
         context=context,
         user_id=user.id,
         chat_id=query.message.chat_id,
         reply_to_message_id=query.message.message_id,
-        action=SupportedAction.PDF_GRAYSCALE,
+        action=selected_action,
         session=session,
     )
+    deps.session_store.delete(user.id)
     await query.message.reply_text(
-        f"Conversione in scala di grigi presa in carico. Job #{job.id} in coda.\nTi invio il PDF appena è pronto.",
+        _build_text_request_queued_message(selected_action, job.id, None),
         reply_to_message_id=query.message.message_id,
     )
 
@@ -752,6 +794,37 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             if handled:
                 return
 
+        structured_request = _infer_structured_text_request(session, text)
+        if structured_request is not None:
+            action = structured_request["action"]
+            if not _has_capacity_for_new_job(user.id, deps):
+                await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+                return
+
+            job = await _enqueue_job(
+                context=context,
+                user_id=user.id,
+                chat_id=message.chat_id,
+                reply_to_message_id=message.message_id,
+                action=action,
+                session=session,
+                rotate_degrees=structured_request.get("rotate_degrees"),
+                page_selection=structured_request.get("page_selection"),
+                watermark_text=structured_request.get("watermark_text"),
+            )
+            deps.session_store.delete(user.id)
+            if structured_request.get("page_selection") or structured_request.get("watermark_text"):
+                raw_value = structured_request.get("page_selection") or structured_request.get("watermark_text") or ""
+                await message.reply_text(_build_pending_action_queued_message(action, job.id, str(raw_value)))
+            elif structured_request.get("rotate_degrees") is not None:
+                await message.reply_text(
+                    f"Rotazione manuale presa in carico di {structured_request['rotate_degrees']} gradi. "
+                    f"Job #{job.id} in coda.\nTi invio il PDF appena è pronto."
+                )
+            else:
+                await message.reply_text(_build_text_request_queued_message(action, job.id, None))
+            return
+
         inferred_request = _infer_text_requested_action(session, text)
         if inferred_request is not None:
             action, compression_preset = inferred_request
@@ -761,7 +834,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
             if _is_image_pdf_action(action):
                 await message.reply_text(
-                    "Vuoi che impagini il PDF in formato A4?",
+                    _build_image_pdf_layout_prompt(user.id, deps),
                     reply_markup=build_images_pdf_layout_keyboard(action.value),
                 )
                 return
@@ -1035,10 +1108,23 @@ def _build_user_history_summary(jobs: list[JobRecord]) -> str:
     lines = [
         "Storico ultimi job",
         "",
-        "Qui sotto trovi gli ultimi lavori eseguiti o tentati. Puoi aprire i dettagli o rilanciare un job.",
+        "Qui sotto trovi gli ultimi lavori raggruppati per stato e rilancio. Puoi aprire i dettagli o rilanciare un job.",
         "",
     ]
-    lines.extend(_format_user_history_line(job) for job in jobs)
+    grouped_jobs = [
+        ("Rilanciati", [job for job in jobs if job.rerun_of_job_id is not None]),
+        ("In lavorazione", [job for job in jobs if job.status in {JobStatus.QUEUED, JobStatus.RUNNING} and job.rerun_of_job_id is None]),
+        ("Riusciti", [job for job in jobs if job.status == JobStatus.SUCCEEDED and job.rerun_of_job_id is None]),
+        ("Falliti", [job for job in jobs if job.status == JobStatus.FAILED and job.rerun_of_job_id is None]),
+    ]
+    for heading, grouped in grouped_jobs:
+        if not grouped:
+            continue
+        lines.append(f"{heading}:")
+        lines.extend(_format_user_history_line(job) for job in grouped)
+        lines.append("")
+    if lines[-1] == "":
+        lines.pop()
     return "\n".join(lines)
 
 
@@ -1051,7 +1137,8 @@ def _format_user_history_line(job: JobRecord) -> str:
         JobStatus.SUCCEEDED: "completato",
         JobStatus.FAILED: "fallito",
     }[job.status]
-    return f"- Job #{job.id} | {_action_label(job.action)} | {status_label} | {timestamp}"
+    rerun_suffix = f" | rilancio di #{job.rerun_of_job_id}" if job.rerun_of_job_id is not None else ""
+    return f"- Job #{job.id} | {_action_label(job.action)} | {status_label} | {timestamp}{rerun_suffix}"
 
 
 def _build_user_history_job_detail(job: JobRecord) -> str:
@@ -1065,6 +1152,8 @@ def _build_user_history_job_detail(job: JobRecord) -> str:
         f"Riferimento temporale: {reference_time}",
         f"File sorgente: {file_count}",
     ]
+    if job.rerun_of_job_id is not None:
+        detail_lines.append(f"Origine rilancio: job #{job.rerun_of_job_id}")
     if payload.compression_preset:
         detail_lines.append(f"Compressione: {payload.compression_preset.value}")
     if payload.page_selection:
@@ -1153,15 +1242,68 @@ async def _send_image_session_notification(
 def _build_image_session_message(session: UserSession) -> str:
     image_count = sum(1 for item in session.files if item.kind == FileKind.IMAGE)
     if image_count == 1:
-        return (
-            "Immagine ricevuta.\n"
-            "Puoi inviarmi altre immagini per creare un PDF unico scegliendo se impaginarlo in A4 oppure no, "
-            "ritagliare automaticamente i bordi, oppure scegliere subito un'azione."
-        )
+        intro = "Immagine ricevuta."
+    else:
+        intro = f"Ho ricevuto {image_count} immagini nella stessa sessione."
+    return f"{intro}\n{build_session_recap(session)}"
 
+
+def _build_result_pdf_session(user_id: int, file_id: str, file_name: str | None) -> UserSession:
+    return UserSession(
+        user_id=user_id,
+        files=[build_session_file(file_id, file_name, FileKind.PDF)],
+    )
+
+
+def _build_compression_prompt(user_id: int, deps: BotDependencies) -> str:
+    saved_preset = deps.session_store.get_user_preference(user_id, "compression_preset")
+    saved_note = f"\nUltima scelta rapida salvata: {saved_preset}." if saved_preset else ""
     return (
-        f"Ho ricevuto {image_count} immagini nella stessa sessione.\n"
-        "Puoi creare un PDF unico scegliendo se impaginarlo in A4 oppure no, ritagliare automaticamente i bordi oppure correggere l'orientamento."
+        "Hai scelto la compressione PDF. Seleziona il livello.\n"
+        "Leggera preserva di piu il file; Media e Forte cercano una riduzione piu evidente."
+        f"{saved_note}"
+    )
+
+
+def _build_image_pdf_layout_prompt(user_id: int, deps: BotDependencies) -> str:
+    saved_layout = deps.session_store.get_user_preference(user_id, "image_pdf_layout")
+    saved_margin = deps.session_store.get_user_preference(user_id, "image_pdf_margin_px")
+    saved_note = ""
+    if saved_layout == "original":
+        saved_note = "\nUltima scelta rapida salvata: formato originale."
+    elif saved_layout == "a4":
+        saved_note = "\nUltima scelta rapida salvata: A4"
+        if saved_margin == str(A4_MARGIN_WIDE_PX):
+            saved_note += " con bordi larghi."
+        elif saved_margin == str(A4_MARGIN_NONE_PX):
+            saved_note += " senza bordi."
+        else:
+            saved_note += " con bordi stretti."
+    return f"Vuoi che impagini il PDF in formato A4?{saved_note}"
+
+
+def _build_result_delivery_message(result: ProcessingResult, source_action: SupportedAction | None) -> str:
+    if not result.output_name.lower().endswith(".pdf"):
+        return result.message
+
+    followup_actions = infer_result_followup_actions(source_action)
+    if not followup_actions:
+        return result.message
+
+    quick_labels = ", ".join(get_action_label(action) for action in followup_actions[:3])
+    return f"{result.message}\n\nSe vuoi, puoi continuare su questo PDF con: {quick_labels}."
+
+
+def _build_result_followup_keyboard(
+    result: ProcessingResult,
+    source_action: SupportedAction | None,
+    source_job_id: int | None,
+) -> InlineKeyboardMarkup | None:
+    if not result.output_name.lower().endswith(".pdf"):
+        return None
+    return build_result_pdf_keyboard(
+        quick_actions=infer_result_followup_actions(source_action),
+        undo_rotation_job_id=source_job_id if result.auto_rotation_applied else None,
     )
 
 
@@ -1193,12 +1335,15 @@ async def _handle_pending_session_input(
             SupportedAction.PDF_REORDER_PAGES,
             SupportedAction.PDF_DELETE_PAGES,
         }:
-            _validate_page_input_text(text)
-            enqueue_kwargs["page_selection"] = text.strip()
+            normalized_page_selection = _normalize_page_selection_text(text)
+            _validate_page_input_text(normalized_page_selection)
+            enqueue_kwargs["page_selection"] = normalized_page_selection
         elif pending_action == SupportedAction.PDF_WATERMARK:
             watermark_text = text.strip()
             if not watermark_text:
-                await update.effective_message.reply_text("Il watermark testuale non può essere vuoto. Scrivimi un testo semplice.")
+                await update.effective_message.reply_text(
+                    "Il watermark testuale non puo essere vuoto. Scrivimi una parola o una frase breve, ad esempio BOZZA."
+                )
                 return True
             enqueue_kwargs["watermark_text"] = watermark_text
         else:
@@ -1214,11 +1359,14 @@ async def _handle_pending_session_input(
             **enqueue_kwargs,
         )
     except ProcessingUserError as exc:
-        await update.effective_message.reply_text(str(exc))
+        await update.effective_message.reply_text(
+            f"{exc}\n\n{_build_pending_action_prompt(pending_action)}"
+        )
         return True
 
     deps.session_store.delete(user_id)
-    await update.effective_message.reply_text(_build_pending_action_queued_message(pending_action, job.id, text))
+    raw_value = enqueue_kwargs.get("page_selection") or enqueue_kwargs.get("watermark_text") or text
+    await update.effective_message.reply_text(_build_pending_action_queued_message(pending_action, job.id, str(raw_value)))
     return True
 
 
@@ -1229,6 +1377,11 @@ def _validate_page_input_text(text: str) -> None:
     allowed_chars = set("0123456789,- ")
     if any(char not in allowed_chars for char in value):
         raise ProcessingUserError("Usa solo numeri, virgole e intervalli, ad esempio 1,3,5-7.")
+
+
+def _normalize_page_selection_text(text: str) -> str:
+    value = re.sub(r"(?<=\d)\s+(?=\d)", ",", text.strip())
+    return re.sub(r"\s*,\s*", ",", value)
 
 
 def _contains_any(text: str, fragments: tuple[str, ...]) -> bool:
@@ -1271,6 +1424,64 @@ def _infer_text_requested_action(
     return None
 
 
+def _infer_structured_text_request(session: UserSession, text: str) -> dict[str, object] | None:
+    normalized = _normalize_free_text(text)
+    supported = set(infer_supported_actions(session))
+
+    if SupportedAction.PDF_ROTATE in supported and _contains_any(normalized, ("ruota", "rotazione")):
+        degrees = _extract_rotation_degrees(normalized)
+        if degrees is not None:
+            return {"action": SupportedAction.PDF_ROTATE, "rotate_degrees": degrees}
+
+    if SupportedAction.PDF_EXTRACT_PAGES in supported and _contains_any(normalized, ("estrai", "estrazione")):
+        page_selection = _extract_page_selection_from_text(normalized)
+        if page_selection:
+            return {"action": SupportedAction.PDF_EXTRACT_PAGES, "page_selection": page_selection}
+
+    if SupportedAction.PDF_DELETE_PAGES in supported and _contains_any(normalized, ("elimina", "rimuovi", "cancella")):
+        page_selection = _extract_page_selection_from_text(normalized)
+        if page_selection:
+            return {"action": SupportedAction.PDF_DELETE_PAGES, "page_selection": page_selection}
+
+    if SupportedAction.PDF_REORDER_PAGES in supported and _contains_any(normalized, ("riordina", "riordinare", "ordina")):
+        page_selection = _extract_page_selection_from_text(normalized, allow_keywordless_sequence=True)
+        if page_selection:
+            return {"action": SupportedAction.PDF_REORDER_PAGES, "page_selection": page_selection}
+
+    if SupportedAction.PDF_WATERMARK in supported and "watermark" in normalized:
+        watermark_text = _extract_watermark_text(text)
+        if watermark_text:
+            return {"action": SupportedAction.PDF_WATERMARK, "watermark_text": watermark_text}
+
+    return None
+
+
+def _extract_rotation_degrees(text: str) -> int | None:
+    for degrees in (90, 180, 270):
+        if str(degrees) in text:
+            return degrees
+    return None
+
+
+def _extract_page_selection_from_text(text: str, *, allow_keywordless_sequence: bool = False) -> str | None:
+    match = re.search(r"(?:pagina|pagine)\s+([0-9,\-\s]+)", text)
+    if match:
+        return _normalize_page_selection_text(match.group(1))
+    if allow_keywordless_sequence:
+        match = re.search(r"([0-9][0-9,\-\s]+)$", text.strip())
+        if match:
+            return _normalize_page_selection_text(match.group(1))
+    return None
+
+
+def _extract_watermark_text(text: str) -> str | None:
+    match = re.search(r"watermark(?:\s+testuale)?[:\s]+(.+)$", text, flags=re.IGNORECASE)
+    if match is None:
+        return None
+    watermark_text = match.group(1).strip().strip("\"'“”")
+    return watermark_text or None
+
+
 def _build_rerun_without_rotation_message(source_job: JobRecord, job_id: int) -> str:
     payload = JobPayload.from_json(source_job.payload_json)
     action = SupportedAction(source_job.action)
@@ -1279,6 +1490,8 @@ def _build_rerun_without_rotation_message(source_job: JobRecord, job_id: int) ->
 
 
 def _build_quick_action_guidance(session: UserSession | None, text: str) -> str | None:
+    normalized = _normalize_free_text(text)
+
     if text == "Crea PDF da immagini":
         if session is None or not session.files:
             return "Inviami una o piu immagini e creerò un PDF unico. Se vuoi, puoi mandarne diverse nella stessa sessione."
@@ -1300,6 +1513,27 @@ def _build_quick_action_guidance(session: UserSession | None, text: str) -> str 
             return "Per unire servono PDF, non immagini. Se vuoi, posso prima creare un PDF dalle immagini che hai inviato."
         if len(session.files) == 1:
             return "Per unire i PDF me ne servono almeno due nella stessa sessione."
+
+    if "foto in a4" in normalized or "immagini in a4" in normalized:
+        if session is None or not session.files:
+            return "Inviami una o piu immagini e ti guidero subito verso un PDF impaginato in A4."
+        if {item.kind for item in session.files} == {FileKind.IMAGE}:
+            return "Perfetto: scegli 'PDF da immagini' e poi conferma l'impaginazione A4. Se vuoi, puoi anche aggiungere altre foto prima."
+        return "Per il template 'foto in A4' devo partire da immagini o foto, non da PDF."
+
+    if "scansiona e comprimi" in normalized or ("scansiona" in normalized and "comprimi" in normalized):
+        if session is None or not session.files:
+            return (
+                "Inviami una o piu foto del documento. Ti conviene partire con un PDF da immagini, meglio ancora con ritaglio bordi, "
+                "e poi comprimere il risultato finale con un secondo passaggio guidato."
+            )
+        if {item.kind for item in session.files} == {FileKind.IMAGE}:
+            return (
+                "Per questo flusso ti conviene: 1) creare un PDF da immagini, meglio con ritaglio bordi se serve; "
+                "2) comprimere il PDF finale dal messaggio risultato, senza ricaricarlo."
+            )
+        if {item.kind for item in session.files} == {FileKind.PDF}:
+            return "Se hai gia un PDF, puoi saltare la parte scansione e comprimere direttamente il file corrente."
 
     return None
 
@@ -1513,7 +1747,14 @@ async def _process_job(application: Application, job_id: int) -> None:
             duration_ms=duration_ms,
         )
         deps.session_store.record_completed_action(job.user_id, job.action)
-        await _send_result(application.bot, job.chat_id, job.reply_to_message_id, result, source_job_id=job.id)
+        await _send_result(
+            application.bot,
+            job.chat_id,
+            job.reply_to_message_id,
+            result,
+            source_action=SupportedAction(job.action),
+            source_job_id=job.id,
+        )
     finally:
         deps.processor.cleanup_job_dir(job_dir)
 
@@ -1543,6 +1784,8 @@ async def _enqueue_image_pdf_job_from_callback(
         image_pdf_use_a4=image_pdf_use_a4,
         image_pdf_margin_px=image_pdf_margin_px,
     )
+    deps.session_store.set_user_preference(user_id, "image_pdf_layout", "a4" if image_pdf_use_a4 else "original")
+    deps.session_store.set_user_preference(user_id, "image_pdf_margin_px", str(image_pdf_margin_px))
     deps.session_store.delete(user_id)
     await query.edit_message_text(
         f"{_describe_image_pdf_choice(image_pdf_use_a4, image_pdf_margin_px)}\n"
@@ -1583,6 +1826,7 @@ async def _send_result(
     reply_to_message_id: int | None,
     result: ProcessingResult,
     *,
+    source_action: SupportedAction | None = None,
     source_job_id: int | None = None,
 ) -> None:
     with result.output_path.open("rb") as payload:
@@ -1590,15 +1834,9 @@ async def _send_result(
             chat_id=chat_id,
             document=payload,
             filename=result.output_name,
-            caption=result.message,
+            caption=_build_result_delivery_message(result, source_action),
             reply_to_message_id=reply_to_message_id,
-            reply_markup=(
-                build_result_pdf_keyboard(
-                    undo_rotation_job_id=source_job_id if result.auto_rotation_applied else None,
-                )
-                if result.output_name.lower().endswith(".pdf")
-                else None
-            ),
+            reply_markup=_build_result_followup_keyboard(result, source_action, source_job_id),
         )
 
 

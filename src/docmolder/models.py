@@ -79,6 +79,7 @@ class JobRecord:
     payload_json: str
     status: JobStatus
     created_at: datetime
+    rerun_of_job_id: int | None = None
     started_at: datetime | None = None
     finished_at: datetime | None = None
     result_message: str | None = None

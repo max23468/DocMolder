@@ -47,12 +47,13 @@ def build_images_pdf_margin_keyboard(action: str) -> InlineKeyboardMarkup:
 
 def build_result_pdf_keyboard(
     *,
-    offer_grayscale: bool = True,
+    quick_actions: list[SupportedAction] | None = None,
     undo_rotation_job_id: int | None = None,
 ) -> InlineKeyboardMarkup | None:
     rows: list[list[InlineKeyboardButton]] = []
-    if offer_grayscale:
-        rows.append([InlineKeyboardButton("Converti in scala di grigi", callback_data="result:pdf_grayscale")])
+    for action in quick_actions or []:
+        label = "Aggiungi watermark" if action == SupportedAction.PDF_WATERMARK else get_action_label(action)
+        rows.append([InlineKeyboardButton(label, callback_data=f"result:{action.value}")])
     if undo_rotation_job_id is not None:
         rows.append(
             [
@@ -94,8 +95,9 @@ def build_main_menu_keyboard() -> ReplyKeyboardMarkup:
         [
             [KeyboardButton("Cosa posso fare"), KeyboardButton("Crea PDF da immagini")],
             [KeyboardButton("Comprimi PDF"), KeyboardButton("Unisci PDF")],
+            [KeyboardButton("Foto in A4"), KeyboardButton("Scansiona e comprimi")],
             [KeyboardButton("Storico lavori"), KeyboardButton("Mostra sessione")],
         ],
         resize_keyboard=True,
-        input_field_placeholder="Invia immagini o PDF, oppure usa il menu",
+        input_field_placeholder="Invia immagini o PDF, oppure scegli un'azione o un template rapido",
     )

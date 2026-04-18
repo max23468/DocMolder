@@ -6,8 +6,24 @@ Il formato e semplice e orientato al progetto: aggiorniamo il changelog solo qua
 
 ## Indice
 
+- [2026-04-18](#2026-04-18)
 - [2026-04-15](#2026-04-15)
 - [2026-04-06](#2026-04-06)
+
+## 2026-04-18
+
+### Modificato
+
+- riepilogo sessione utente reso piu esplicito con file presenti, anteprima contenuto, azioni consigliate, azioni alternative e prossimo passo suggerito
+- messaggi di stato, upload PDF e raccolta immagini allineati al nuovo recap strutturato della sessione
+- prompt guidati per estrazione, riordino, eliminazione pagine e watermark resi piu chiari con esempi concreti
+- input pagina resi piu tolleranti accettando anche sequenze separate da spazi, come `3 1 2`
+- i PDF prodotti dal bot offrono ora azioni di continuazione direttamente dal messaggio risultato, senza dover ricaricare il file per i passaggi successivi piu comuni
+- introdotta una memoria rapida e revocabile per alcune scelte frequenti, come preset di compressione e layout immagini verso PDF, azzerata con `/reset`
+- alcune richieste testuali naturali su PDF singolo vengono capite direttamente, ad esempio estrazione pagine, rotazione e watermark con parametro gia incluso
+- lo storico utente distingue meglio i job per stato, separando piu chiaramente lavori in corso, riusciti e falliti
+- i job rilanciati dallo storico o dal risultato tracciano ora esplicitamente la loro origine, cosi `/history` li evidenzia come rilanci separati
+- help, prompt guidati e messaggi di correzione input sono stati rifiniti per spiegare meglio formati attesi, limiti e scorciatoie disponibili
 
 ## 2026-04-15
 
