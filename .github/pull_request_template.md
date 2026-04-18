@@ -4,6 +4,9 @@
 ## Soluzione adottata
 <!-- Scelte principali implementate. -->
 
+## Titolo PR
+<!-- Usa un titolo in formato Conventional Commits, ad esempio: feat(bot): add restart action -->
+
 ## Impatti e rischi
 - [ ] Nessun impatto operativo rilevante
 - [ ] Impatto su configurazione/deploy (descrivere)

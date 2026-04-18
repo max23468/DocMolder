@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   dependency-review:
+    if: ${{ !github.event.repository.private }}
     name: Dependency Review
     runs-on: ubuntu-latest
     steps:

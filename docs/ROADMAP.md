@@ -17,27 +17,27 @@ Va letta dentro il perimetro definito in [docs/DECISIONS.md](./DECISIONS.md): `D
 
 ## Fase 1: Rifinitura Prodotto
 
-- [ ] rendere più esplicito il recap della sessione corrente con file presenti e azioni consigliate
-- [ ] aggiungere suggerimenti contestuali sul prossimo passo utile in base al tipo di file ricevuto
-- [ ] suggerire azioni utili anche dopo il risultato finale, in base al file appena prodotto
-- [ ] introdurre una memoria leggera e revocabile dell'ultima scelta utile, usata solo come default modificabile o suggerimento rapido
-- [ ] migliorare i messaggi finali per renderli più brevi, chiari e uniformi
-- [ ] uniformare meglio lo stile visivo e il tono dei messaggi del bot
-- [ ] rendere più guidati gli input per selezione pagine e watermark
-- [ ] migliorare i messaggi di errore e correzione input per aiutare subito l'utente a riprovare nel formato giusto
-- [ ] rendere più tolleranti gli input strutturati frequenti, ad esempio accettando anche sequenze come `3 1 2 4 5` per il riordino pagine
-- [ ] aggiungere micro-spiegazioni più chiare per scelte come compressione e operazioni PDF sensibili
-- [ ] aggiungere spiegazioni preventive più chiare prima delle operazioni PDF più invasive
-- [ ] permettere di continuare a lavorare sullo stesso PDF già caricato o sul risultato appena prodotto senza doverlo ricaricare ogni volta
-- [ ] migliorare `/history` con distinzione più chiara tra job riusciti, falliti e rilanciati
-- [ ] rendere più naturali alcune richieste testuali frequenti come estrazione pagina, rotazione e watermark
-- [ ] introdurre template rapidi per pochi flussi ricorrenti e coerenti, come “scansiona e comprimi” o “foto in A4”
-- [ ] rifinire ulteriormente testi azione e dettagli job per massima chiarezza utente
+- [x] rendere più esplicito il recap della sessione corrente con file presenti e azioni consigliate
+- [x] aggiungere suggerimenti contestuali sul prossimo passo utile in base al tipo di file ricevuto
+- [x] suggerire azioni utili anche dopo il risultato finale, in base al file appena prodotto
+- [x] introdurre una memoria leggera e revocabile dell'ultima scelta utile, usata solo come default modificabile o suggerimento rapido
+- [x] migliorare i messaggi finali per renderli più brevi, chiari e uniformi
+- [x] uniformare meglio lo stile visivo e il tono dei messaggi del bot
+- [x] rendere più guidati gli input per selezione pagine e watermark
+- [x] migliorare i messaggi di errore e correzione input per aiutare subito l'utente a riprovare nel formato giusto
+- [x] rendere più tolleranti gli input strutturati frequenti, ad esempio accettando anche sequenze come `3 1 2 4 5` per il riordino pagine
+- [x] aggiungere micro-spiegazioni più chiare per scelte come compressione e operazioni PDF sensibili
+- [x] aggiungere spiegazioni preventive più chiare prima delle operazioni PDF più invasive
+- [x] permettere di continuare a lavorare sullo stesso PDF già caricato o sul risultato appena prodotto senza doverlo ricaricare ogni volta
+- [x] migliorare `/history` con distinzione più chiara tra job riusciti, falliti e rilanciati
+- [x] rendere più naturali alcune richieste testuali frequenti come estrazione pagina, rotazione e watermark
+- [x] introdurre template rapidi per pochi flussi ricorrenti e coerenti, come “scansiona e comprimi” o “foto in A4”
+- [x] rifinire ulteriormente testi azione e dettagli job per massima chiarezza utente
 
 ## Fase 2: Affidabilità Operativa Avanzata
 
-- [ ] aggiungere uno smoke check post-deploy sulla VPS
-- [ ] rendere la verifica tecnica post-deploy più completa, non limitata al solo stato del servizio
+- [x] aggiungere uno smoke check post-deploy sulla VPS
+- [x] rendere la verifica tecnica post-deploy più completa, non limitata al solo stato del servizio
 - [ ] introdurre alert admin per errori ripetuti o tassi di fallimento anomali
 - [ ] migliorare backup e ripristino del database SQLite
 - [ ] introdurre backup automatico del database SQLite con una strategia semplice e verificabile
