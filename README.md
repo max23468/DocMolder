@@ -117,6 +117,8 @@ Per la guida completa di setup e test locali, vedi [`docs/LOCAL_DEV.md`](docs/LO
 
 Per setup e gestione operativa su Oracle VPS con Ubuntu, vedi [`docs/VPS_RUNBOOK.md`](docs/VPS_RUNBOOK.md).
 
+Per usare Codex su `chatgpt.com` come postazione di deploy senza dipendere dal Mac, vedi [`docs/CODEX_CLOUD_DEPLOY.md`](docs/CODEX_CLOUD_DEPLOY.md).
+
 Per gli aggiornamenti successivi sulla VPS, il flusso standard e:
 
 ```bash
@@ -133,6 +135,7 @@ Documenti utili:
 - [`docs/INDEX.md`](docs/INDEX.md)
 - [`docs/LOCAL_DEV.md`](docs/LOCAL_DEV.md)
 - [`docs/VPS_RUNBOOK.md`](docs/VPS_RUNBOOK.md)
+- [`docs/CODEX_CLOUD_DEPLOY.md`](docs/CODEX_CLOUD_DEPLOY.md)
 - [`docs/PDF_PIPELINE.md`](docs/PDF_PIPELINE.md)
 - [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
 - [`docs/VERSIONING.md`](docs/VERSIONING.md)
