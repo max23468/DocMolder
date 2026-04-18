@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.bot import (
     BotDependencies,
+    SensitiveLogFilter,
     SESSION_EMPTY_MESSAGE,
     _build_admin_report,
     _build_file_too_large_message,
@@ -23,6 +25,7 @@ from docmolder.bot import (
     _build_text_request_queued_message,
     _build_session_file_limit_message,
     _build_upload_rate_limit_message,
+    _redact_sensitive_text,
     handle_action_callback,
     handle_history_callback,
     handle_rotate_callback,
@@ -908,6 +911,39 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Sessione azzerata", message.reply_text.await_args.args[0])
         self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
         self.assertIsNone(self.store.get(7))
+
+
+class SensitiveLoggingTest(unittest.TestCase):
+    def test_redact_sensitive_text_masks_telegram_bot_token_in_url(self) -> None:
+        text = (
+            'HTTP Request: POST '
+            'https://api.telegram.org/bot123456:ABCdef_GHI-123/getUpdates '
+            '"HTTP/1.1 200 OK"'
+        )
+
+        redacted = _redact_sensitive_text(text)
+
+        self.assertNotIn("ABCdef_GHI-123", redacted)
+        self.assertIn("https://api.telegram.org/bot<redacted>/getUpdates", redacted)
+
+    def test_sensitive_log_filter_redacts_tuple_args(self) -> None:
+        record = logging.LogRecord(
+            name="httpx",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg="Request to %s",
+            args=("https://api.telegram.org/bot123456:ABCdef_GHI-123/getUpdates",),
+            exc_info=None,
+        )
+
+        allowed = SensitiveLogFilter().filter(record)
+
+        self.assertTrue(allowed)
+        self.assertEqual(
+            record.args,
+            ("https://api.telegram.org/bot<redacted>/getUpdates",),
+        )
 
 
 if __name__ == "__main__":

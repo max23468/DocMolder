@@ -3,11 +3,12 @@ from __future__ import annotations
 import asyncio
 import html
 import logging
+import re
 import unicodedata
 from collections import deque
 from datetime import datetime, timezone
-from time import perf_counter
 from pathlib import Path
+from time import perf_counter
 from zoneinfo import ZoneInfo
 
 from telegram import Document, InlineKeyboardMarkup, PhotoSize, Update, User
@@ -63,6 +64,8 @@ from docmolder.session_store import SQLiteSessionStore, SessionStore
 
 logger = logging.getLogger(__name__)
 
+_TELEGRAM_TOKEN_IN_URL_RE = re.compile(r"/bot[^/]+/")
+
 _build_pending_action_prompt = build_pending_action_prompt
 _build_pending_action_queued_message = build_pending_action_queued_message
 _build_processing_started_message = build_processing_started_message
@@ -85,6 +88,43 @@ class BotDependencies:
         self.cleanup_task: asyncio.Task[None] | None = None
         self.admin_report_task: asyncio.Task[None] | None = None
         self.upload_history: dict[int, deque[datetime]] = {}
+
+
+class SensitiveLogFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.msg, str):
+            record.msg = _redact_sensitive_text(record.msg)
+        if isinstance(record.args, tuple):
+            record.args = tuple(_redact_sensitive_arg(arg) for arg in record.args)
+        elif isinstance(record.args, dict):
+            record.args = {key: _redact_sensitive_arg(value) for key, value in record.args.items()}
+        return True
+
+
+def _redact_sensitive_arg(value: object) -> object:
+    if isinstance(value, str):
+        return _redact_sensitive_text(value)
+    return value
+
+
+def _redact_sensitive_text(text: str) -> str:
+    return _TELEGRAM_TOKEN_IN_URL_RE.sub("/bot<redacted>/", text)
+
+
+def _configure_logging() -> None:
+    logging.basicConfig(
+        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+        level=logging.INFO,
+    )
+    sensitive_filter = SensitiveLogFilter()
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers:
+        handler.addFilter(sensitive_filter)
+
+    # Reduce request/response chatter from the Telegram HTTP client and avoid
+    # leaking full URLs with the bot token into service logs.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def _is_authorized(user_id: int | None, settings: Settings) -> bool:
@@ -903,10 +943,7 @@ def _action_label(action: str) -> str:
 
 
 def build_application(settings: Settings) -> Application:
-    logging.basicConfig(
-        format="%(asctime)s %(levelname)s %(name)s - %(message)s",
-        level=logging.INFO,
-    )
+    _configure_logging()
 
     session_store = SQLiteSessionStore(settings.database_path)
     processor = DocumentProcessor(
