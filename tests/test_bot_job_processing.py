@@ -379,6 +379,31 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.bot.send_message.assert_awaited()
         self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-04-06")
 
+    async def test_maybe_send_admin_report_for_period_weekly_skips_without_new_users_or_operations(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+        failed_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_failed(failed_job.id, "Errore di test")
+
+        await _maybe_send_admin_report_for_period(
+            self.application,
+            self.deps,
+            period="weekly",
+            report_date="2026-04-06",
+            should_send=True,
+            since_days=7,
+            title="Riepilogo admin settimanale DocMolder",
+            require_new_users_or_completed_actions=True,
+        )
+
+        self.bot.send_message.assert_not_awaited()
+        self.assertIsNone(self.store.get_meta("admin_report_weekly_last_sent"))
+
     def test_build_periodic_admin_report_prefixes_title(self) -> None:
         report = _build_periodic_admin_report(
             self.deps,
@@ -387,6 +412,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertTrue(report.startswith("Riepilogo admin giornaliero DocMolder"))
+        self.assertIn("Errori più frequenti ultime 24 ore", report)
+        self.assertIn("Job completati nelle ultime 24 ore", report)
 
     async def test_result_callback_enqueues_grayscale_job_from_sent_pdf(self) -> None:
         reply_text = AsyncMock()

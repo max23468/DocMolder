@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 
@@ -195,6 +196,37 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         jobs = self.store.list_user_jobs(10, limit=5)
 
         self.assertEqual([job.id for job in jobs], [job_two.id, job_one.id])
+
+    def test_list_recent_jobs_can_filter_by_period(self) -> None:
+        old_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="images_to_pdf",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_succeeded(old_job.id, "Vecchio")
+
+        recent_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_succeeded(recent_job.id, "Recente")
+
+        old_timestamp = (datetime.now(timezone.utc) - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
+        with self.store._connect() as connection:
+            connection.execute(
+                "UPDATE jobs SET created_at = ?, finished_at = ? WHERE id = ?",
+                (old_timestamp, old_timestamp, old_job.id),
+            )
+            connection.commit()
+
+        jobs = self.store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,), since_days=7)
+
+        self.assertEqual([job.id for job in jobs], [recent_job.id])
 
 
 if __name__ == "__main__":

@@ -75,7 +75,12 @@ class SessionStore(Protocol):
 
     def list_user_jobs(self, user_id: int, limit: int = 5) -> list[JobRecord]: ...
 
-    def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]: ...
+    def list_recent_jobs(
+        self,
+        limit: int = 5,
+        statuses: tuple[JobStatus, ...] | None = None,
+        since_days: int | None = None,
+    ) -> list[JobRecord]: ...
 
 
 class InMemorySessionStore:
@@ -308,12 +313,22 @@ class InMemorySessionStore:
             )
             return jobs[:limit]
 
-    def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]:
+    def list_recent_jobs(
+        self,
+        limit: int = 5,
+        statuses: tuple[JobStatus, ...] | None = None,
+        since_days: int | None = None,
+    ) -> list[JobRecord]:
+        from datetime import datetime, timedelta, timezone
+
         with self._lock:
             jobs = list(self._jobs.values())
             if statuses is not None:
                 allowed = set(statuses)
                 jobs = [job for job in jobs if job.status in allowed]
+            if since_days is not None:
+                threshold = datetime.now(timezone.utc) - timedelta(days=since_days)
+                jobs = [job for job in jobs if (job.finished_at or job.created_at) >= threshold]
             jobs.sort(
                 key=lambda job: (
                     job.finished_at or job.created_at,
@@ -724,16 +739,27 @@ class SQLiteSessionStore:
             ).fetchall()
         return [_job_from_row(row) for row in rows]
 
-    def list_recent_jobs(self, limit: int = 5, statuses: tuple[JobStatus, ...] | None = None) -> list[JobRecord]:
+    def list_recent_jobs(
+        self,
+        limit: int = 5,
+        statuses: tuple[JobStatus, ...] | None = None,
+        since_days: int | None = None,
+    ) -> list[JobRecord]:
         query = """
             SELECT *
             FROM jobs
         """
         params: list[object] = []
+        conditions: list[str] = []
         if statuses:
             placeholders = ", ".join("?" for _ in statuses)
-            query += f" WHERE status IN ({placeholders})"
+            conditions.append(f"status IN ({placeholders})")
             params.extend(status.value for status in statuses)
+        if since_days is not None:
+            conditions.append("COALESCE(finished_at, created_at) >= datetime('now', ?)")
+            params.append(f"-{since_days} day")
+        if conditions:
+            query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY COALESCE(finished_at, created_at) DESC, id DESC LIMIT ?"
         params.append(limit)
         with self._lock, self._connect() as connection:

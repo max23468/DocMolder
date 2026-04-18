@@ -843,6 +843,10 @@ def _build_admin_report(
     failed_actions: list[AdminActionStat],
     recent_failed_jobs: list[JobRecord],
     recent_completed_jobs: list[JobRecord],
+    *,
+    activity_window_label: str = "ultimi 7 giorni",
+    completed_jobs_heading: str = "Ultimi job completati",
+    failed_jobs_heading: str = "Ultimi job falliti",
 ) -> str:
     timestamp = datetime.now(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y alle %H:%M")
     total_finished_jobs = stats.jobs_succeeded + stats.jobs_failed
@@ -893,13 +897,13 @@ def _build_admin_report(
         f"- Ruota pagine: {stats.pdf_rotate_total}\n"
         f"- Watermark: {stats.pdf_watermark_total}\n"
         f"- Correggi orientamento: {stats.auto_orient_total}\n\n"
-        "Errori più frequenti ultimi 7 giorni:\n"
+        f"Errori più frequenti {activity_window_label}:\n"
         f"{failed_actions_block}\n\n"
-        "Utenti più attivi ultimi 7 giorni:\n"
+        f"Utenti più attivi {activity_window_label}:\n"
         f"{top_users_block}\n\n"
-        "Ultimi job completati:\n"
+        f"{completed_jobs_heading}:\n"
         f"{completed_jobs_block}\n\n"
-        "Ultimi job falliti:\n"
+        f"{failed_jobs_heading}:\n"
         f"{failed_jobs_block}"
     )
 
@@ -1369,6 +1373,7 @@ async def _maybe_send_periodic_admin_reports(application: Application, deps: Bot
         ),
         since_days=7,
         title="Riepilogo admin settimanale DocMolder",
+        require_new_users_or_completed_actions=True,
     )
 
 
@@ -1381,13 +1386,18 @@ async def _maybe_send_admin_report_for_period(
     should_send: bool,
     since_days: int,
     title: str,
+    require_new_users_or_completed_actions: bool = False,
 ) -> None:
     if not should_send:
         return
     meta_key = f"admin_report_{period}_last_sent"
     if deps.session_store.get_meta(meta_key) == report_date:
         return
-    if not _period_has_useful_admin_data(deps, since_days=since_days):
+    if not _period_has_useful_admin_data(
+        deps,
+        since_days=since_days,
+        require_new_users_or_completed_actions=require_new_users_or_completed_actions,
+    ):
         return
     report_text = _build_periodic_admin_report(deps, since_days=since_days, title=title)
     for admin_user_id in deps.settings.admin_user_ids:
@@ -1395,11 +1405,19 @@ async def _maybe_send_admin_report_for_period(
     deps.session_store.set_meta(meta_key, report_date)
 
 
-def _period_has_useful_admin_data(deps: BotDependencies, *, since_days: int) -> bool:
+def _period_has_useful_admin_data(
+    deps: BotDependencies,
+    *,
+    since_days: int,
+    require_new_users_or_completed_actions: bool = False,
+) -> bool:
     stats = deps.session_store.build_admin_stats()
+    known_users_total = stats.known_users_last_24h if since_days <= 1 else stats.known_users_last_7d
     completed_actions_total = (
         stats.completed_actions_last_24h if since_days <= 1 else stats.completed_actions_last_7d
     )
+    if require_new_users_or_completed_actions:
+        return known_users_total > 0 or completed_actions_total > 0
     if completed_actions_total > 0:
         return True
     if deps.session_store.list_failed_actions(limit=1, since_days=since_days):
@@ -1411,9 +1429,35 @@ def _build_periodic_admin_report(deps: BotDependencies, *, since_days: int, titl
     stats = deps.session_store.build_admin_stats()
     top_users = deps.session_store.list_top_users(limit=5, since_days=since_days)
     failed_actions = deps.session_store.list_failed_actions(limit=5, since_days=since_days)
-    recent_failed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
-    recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
-    return f"{title}\n\n{_build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs)}"
+    recent_failed_jobs = deps.session_store.list_recent_jobs(
+        limit=5,
+        statuses=(JobStatus.FAILED,),
+        since_days=since_days,
+    )
+    recent_completed_jobs = deps.session_store.list_recent_jobs(
+        limit=5,
+        statuses=(JobStatus.SUCCEEDED,),
+        since_days=since_days,
+    )
+    if since_days <= 1:
+        activity_window_label = "ultime 24 ore"
+        completed_jobs_heading = "Job completati nelle ultime 24 ore"
+        failed_jobs_heading = "Job falliti nelle ultime 24 ore"
+    else:
+        activity_window_label = "della settimana"
+        completed_jobs_heading = "Job completati della settimana"
+        failed_jobs_heading = "Job falliti della settimana"
+    report_body = _build_admin_report(
+        stats,
+        top_users,
+        failed_actions,
+        recent_failed_jobs,
+        recent_completed_jobs,
+        activity_window_label=activity_window_label,
+        completed_jobs_heading=completed_jobs_heading,
+        failed_jobs_heading=failed_jobs_heading,
+    )
+    return f"{title}\n\n{report_body}"
 
 
 async def _process_job(application: Application, job_id: int) -> None:
