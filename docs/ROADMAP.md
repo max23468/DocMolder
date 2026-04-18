@@ -21,10 +21,7 @@ Completata.
 
 ## Fase 2: Affidabilità Operativa Avanzata
 
-- [ ] introdurre alert admin per errori ripetuti o tassi di fallimento anomali
-- [ ] migliorare backup e ripristino del database SQLite
-- [ ] introdurre backup automatico del database SQLite con una strategia semplice e verificabile
-- [ ] rafforzare test end-to-end o pseudo end-to-end sui flussi Telegram principali
+Completata.
 
 ## Fase 3: Comprensione Linguaggio Naturale
 

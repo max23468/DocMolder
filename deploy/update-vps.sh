@@ -20,6 +20,13 @@ sudo -u "${APP_USER}" git reset --hard "${TARGET_REF}"
 echo "[install]"
 sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}"
 
+echo "[systemd]"
+sudo cp "${APP_DIR}/deploy/docmolder.service" /etc/systemd/system/docmolder.service
+sudo cp "${APP_DIR}/deploy/docmolder-db-backup.service" /etc/systemd/system/docmolder-db-backup.service
+sudo cp "${APP_DIR}/deploy/docmolder-db-backup.timer" /etc/systemd/system/docmolder-db-backup.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now docmolder-db-backup.timer
+
 echo "[restart]"
 sudo systemctl restart "${SERVICE_NAME}"
 

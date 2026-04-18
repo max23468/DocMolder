@@ -242,6 +242,39 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
 
         self.assertEqual([job.id for job in jobs], [recent_job.id])
 
+    def test_list_failed_actions_can_filter_by_recent_minutes(self) -> None:
+        old_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_failed(old_job.id, "Vecchio")
+
+        recent_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_failed(recent_job.id, "Recente")
+
+        old_timestamp = (datetime.now(timezone.utc) - timedelta(minutes=90)).strftime("%Y-%m-%d %H:%M:%S")
+        with self.store._connect() as connection:
+            connection.execute(
+                "UPDATE jobs SET created_at = ?, finished_at = ? WHERE id = ?",
+                (old_timestamp, old_timestamp, old_job.id),
+            )
+            connection.commit()
+
+        failed_actions = self.store.list_failed_actions(limit=5, since_minutes=30)
+
+        self.assertEqual(len(failed_actions), 1)
+        self.assertEqual(failed_actions[0].action, "pdf_compress")
+        self.assertEqual(failed_actions[0].total, 1)
+
     def test_create_job_persists_rerun_origin(self) -> None:
         source_job = self.store.create_job(
             user_id=10,

@@ -29,12 +29,16 @@ from docmolder.bot import (
     _build_periodic_admin_report,
     _build_processing_started_message,
     _maybe_notify_admins_about_new_user,
+    _maybe_send_admin_anomaly_alerts,
     _build_text_request_queued_message,
     _build_session_file_limit_message,
     _build_upload_rate_limit_message,
+    _detect_admin_anomaly_alerts,
     _redact_sensitive_text,
     handle_action_callback,
+    handle_document,
     handle_history_callback,
+    handle_photo,
     handle_rotate_callback,
     _maybe_send_admin_report_for_period,
     _process_job,
@@ -1349,6 +1353,199 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
         self.assertIsNone(self.store.get(7))
         self.assertIsNone(self.store.get_user_preference(7, "compression_preset"))
+
+    def test_detect_admin_anomaly_alerts_reports_failure_rate_and_repeated_action(self) -> None:
+        self.deps.settings.admin_alert_window_minutes = 30
+        self.deps.settings.admin_alert_min_finished_jobs = 4
+        self.deps.settings.admin_alert_failure_rate_percent = 50
+        self.deps.settings.admin_alert_repeated_failures_threshold = 3
+
+        for index in range(4):
+            job = self.store.create_job(
+                user_id=7,
+                chat_id=99,
+                reply_to_message_id=900 + index,
+                action="pdf_compress",
+                payload_json='{"files":[]}',
+            )
+            self.store.mark_job_failed(job.id, "Errore di test")
+
+        success_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=999,
+            action="images_to_pdf",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_succeeded(success_job.id, "Ok")
+
+        alerts = _detect_admin_anomaly_alerts(self.deps)
+
+        self.assertEqual(len(alerts), 2)
+        self.assertEqual(alerts[0]["key"], "failure-rate")
+        self.assertIn("tasso di fallimento anomalo", alerts[0]["text"])
+        self.assertIn("Comprimi PDF: 4", alerts[0]["text"])
+        self.assertEqual(alerts[1]["key"], "repeated-failures:pdf_compress")
+        self.assertIn("errori ripetuti su Comprimi PDF", alerts[1]["text"])
+
+    async def test_maybe_send_admin_anomaly_alerts_respects_cooldown(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+        self.deps.settings.admin_alert_window_minutes = 30
+        self.deps.settings.admin_alert_min_finished_jobs = 3
+        self.deps.settings.admin_alert_failure_rate_percent = 60
+        self.deps.settings.admin_alert_repeated_failures_threshold = 3
+        self.deps.settings.admin_alert_cooldown_minutes = 120
+
+        for index in range(3):
+            job = self.store.create_job(
+                user_id=7,
+                chat_id=99,
+                reply_to_message_id=1000 + index,
+                action="pdf_compress",
+                payload_json='{"files":[]}',
+            )
+            self.store.mark_job_failed(job.id, "Errore di test")
+
+        await _maybe_send_admin_anomaly_alerts(self.application, self.deps)
+        first_send_count = self.bot.send_message.await_count
+        self.assertGreaterEqual(first_send_count, 1)
+
+        await _maybe_send_admin_anomaly_alerts(self.application, self.deps)
+        self.assertEqual(self.bot.send_message.await_count, first_send_count)
+
+    async def test_pseudo_e2e_photo_to_pdf_followup_flow(self) -> None:
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+        user = SimpleNamespace(id=7, username=None, first_name="Test", last_name=None)
+
+        with patch("docmolder.bot._schedule_image_session_notification", return_value=None):
+            first_photo_message = SimpleNamespace(
+                chat_id=99,
+                message_id=1100,
+                photo=[SimpleNamespace(file_id="img-1", file_size=1000)],
+                reply_text=AsyncMock(),
+                document=None,
+            )
+            await handle_photo(
+                SimpleNamespace(effective_user=user, effective_message=first_photo_message),
+                context,
+            )
+
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(len(saved_session.files), 1)
+        self.assertEqual(saved_session.files[0].telegram_file_id, "img-1")
+
+        layout_message = SimpleNamespace(
+            text="PDF da immagini",
+            chat_id=99,
+            message_id=1101,
+            reply_text=AsyncMock(),
+        )
+        await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=layout_message), context)
+        self.assertEqual(self.store.get(7).pending_action, "images_pdf_layout:images_to_pdf")
+
+        a4_message = SimpleNamespace(
+            text="Si, impagina in A4",
+            chat_id=99,
+            message_id=1102,
+            reply_text=AsyncMock(),
+        )
+        await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=a4_message), context)
+        self.assertEqual(self.store.get(7).pending_action, "images_pdf_margin:images_to_pdf")
+
+        margin_message = SimpleNamespace(
+            text="bordi stretti",
+            chat_id=99,
+            message_id=1103,
+            reply_text=AsyncMock(),
+        )
+        await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=margin_message), context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"image_pdf_use_a4": true', queued_job.payload_json)
+        self.assertIn('"image_pdf_margin_px": 48', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
+
+        async def fake_run_job_payload(_application, _job, job_dir: Path) -> ProcessingResult:
+            output_path = job_dir / "docmolder_pdf.pdf"
+            output_path.write_bytes(b"%PDF-1.4 test")
+            return ProcessingResult(
+                output_path=output_path,
+                output_name=output_path.name,
+                message="PDF creato.",
+            )
+
+        with (
+            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
+            patch(
+                "docmolder.bot._send_result",
+                new=AsyncMock(
+                    return_value=SimpleNamespace(
+                        document=SimpleNamespace(
+                            file_id="result-pdf-id",
+                            file_name="docmolder_pdf.pdf",
+                            mime_type="application/pdf",
+                        )
+                    )
+                ),
+            ),
+        ):
+            await _process_job(self.application, queued_job.id)
+
+        result_session = self.store.get(7)
+        self.assertIsNotNone(result_session)
+        self.assertEqual(result_session.files[0].telegram_file_id, "result-pdf-id")
+
+        followup_message = SimpleNamespace(
+            text="Scala di grigi",
+            chat_id=99,
+            message_id=1104,
+            reply_text=AsyncMock(),
+        )
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=77))) as enqueue_job:
+            await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=followup_message), context)
+
+        enqueue_job.assert_awaited_once()
+        self.assertEqual(enqueue_job.await_args.kwargs["action"], SupportedAction.PDF_GRAYSCALE)
+
+    async def test_pseudo_e2e_document_upload_to_compress_flow(self) -> None:
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+        user = SimpleNamespace(id=7, username=None, first_name="Test", last_name=None)
+        document_message = SimpleNamespace(
+            chat_id=99,
+            message_id=1200,
+            document=SimpleNamespace(
+                file_id="pdf-telegram-id",
+                file_name="documento.pdf",
+                mime_type="application/pdf",
+                file_size=1024,
+            ),
+            reply_text=AsyncMock(),
+        )
+
+        await handle_document(
+            SimpleNamespace(effective_user=user, effective_message=document_message),
+            context,
+        )
+
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(saved_session.files[0].telegram_file_id, "pdf-telegram-id")
+        document_message.reply_text.assert_awaited_once()
+        self.assertIn("File ricevuto", document_message.reply_text.await_args.args[0])
+
+        compress_message = SimpleNamespace(
+            text="Comprimi questo pdf",
+            chat_id=99,
+            message_id=1201,
+            reply_text=AsyncMock(),
+        )
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=88))) as enqueue_job:
+            await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=compress_message), context)
+
+        enqueue_job.assert_awaited_once()
+        self.assertEqual(enqueue_job.await_args.kwargs["action"], SupportedAction.PDF_COMPRESS)
+        self.assertEqual(enqueue_job.await_args.kwargs["compression_preset"], CompressionPreset.MEDIUM)
 
 
 class SensitiveLoggingTest(unittest.TestCase):

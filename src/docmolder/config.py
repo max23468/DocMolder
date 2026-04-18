@@ -23,8 +23,18 @@ class Settings(BaseSettings):
     admin_daily_report_hour: int = Field(default=8, alias="DOCMOLDER_ADMIN_DAILY_REPORT_HOUR")
     admin_weekly_report_day: int = Field(default=0, alias="DOCMOLDER_ADMIN_WEEKLY_REPORT_DAY")
     admin_weekly_report_hour: int = Field(default=8, alias="DOCMOLDER_ADMIN_WEEKLY_REPORT_HOUR")
+    admin_alert_window_minutes: int = Field(default=30, alias="DOCMOLDER_ADMIN_ALERT_WINDOW_MINUTES")
+    admin_alert_min_finished_jobs: int = Field(default=4, alias="DOCMOLDER_ADMIN_ALERT_MIN_FINISHED_JOBS")
+    admin_alert_failure_rate_percent: int = Field(default=60, alias="DOCMOLDER_ADMIN_ALERT_FAILURE_RATE_PERCENT")
+    admin_alert_repeated_failures_threshold: int = Field(
+        default=3,
+        alias="DOCMOLDER_ADMIN_ALERT_REPEATED_FAILURES_THRESHOLD",
+    )
+    admin_alert_cooldown_minutes: int = Field(default=60, alias="DOCMOLDER_ADMIN_ALERT_COOLDOWN_MINUTES")
     runtime_dir: Path = Field(default=Path("./data/runtime"), alias="DOCMOLDER_RUNTIME_DIR")
     database_path: Path = Field(default=Path("./data/runtime/docmolder.db"), alias="DOCMOLDER_DATABASE_PATH")
+    sqlite_backup_dir: Path = Field(default=Path("./data/runtime/backups"), alias="DOCMOLDER_SQLITE_BACKUP_DIR")
+    sqlite_backup_retention_days: int = Field(default=7, alias="DOCMOLDER_SQLITE_BACKUP_RETENTION_DAYS")
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -57,6 +67,7 @@ class Settings(BaseSettings):
         (self.runtime_dir / "sessions").mkdir(parents=True, exist_ok=True)
         (self.runtime_dir / "jobs").mkdir(parents=True, exist_ok=True)
         self.database_path.parent.mkdir(parents=True, exist_ok=True)
+        self.sqlite_backup_dir.mkdir(parents=True, exist_ok=True)
 
 
 def load_settings() -> Settings:

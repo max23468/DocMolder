@@ -15,6 +15,7 @@ Ultimo aggiornamento del contesto:
 - `src/docmolder/bot.py`: handler Telegram, orchestrazione flussi utente.
 - `src/docmolder/processing.py`: pipeline documentale.
 - `src/docmolder/session_store.py`: persistenza sessioni/job su SQLite.
+- `src/docmolder/sqlite_backup.py`: backup e restore verificati del database SQLite.
 - `src/docmolder/services.py`: regole azioni supportate e naming output.
 
 ## Dove trovare le informazioni
@@ -43,3 +44,6 @@ Ultimo aggiornamento del contesto:
 - il risultato di un PDF puo diventare subito il punto di partenza per una nuova operazione tramite pulsanti contestuali sul file restituito
 - il bot conserva in modo leggero alcune ultime scelte frequenti per proporle come scorciatoie, ma le cancella con `/reset`
 - lo storico distingue ora anche i job rilanciati come entita separate, mantenendo il riferimento al job di origine
+- la Fase 2 ha introdotto alert admin anti-spam per failure rate anomali o errori ripetuti nelle ultime finestre operative
+- la VPS ha ora backup SQLite giornaliero con timer systemd, script manuali di backup/restore e retention corta verificabile
+- la copertura pseudo end-to-end include ora anche flussi piu realistici di upload Telegram, wizard immagini->PDF e follow-up sul PDF risultato

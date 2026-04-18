@@ -1,0 +1,8 @@
+[Unit]
+Description=DocMolder SQLite backup
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/docmolder/app/deploy/backup-db.sh

@@ -7,6 +7,7 @@ APP_ROOT="/opt/docmolder"
 APP_DIR="${APP_ROOT}/app"
 VENV_DIR="${APP_ROOT}/venv"
 DATA_DIR="${APP_ROOT}/data/runtime"
+BACKUP_DIR="${DATA_DIR}/backups"
 ENV_DIR="/etc/docmolder"
 
 sudo apt update
@@ -39,18 +40,22 @@ if [ ! -f "${ENV_DIR}/docmolder.env" ]; then
   sudo cp "${APP_DIR}/.env.example" "${ENV_DIR}/docmolder.env"
   sudo sed -i "s#^DOCMOLDER_RUNTIME_DIR=.*#DOCMOLDER_RUNTIME_DIR=${DATA_DIR}#" "${ENV_DIR}/docmolder.env"
   sudo sed -i "s#^DOCMOLDER_DATABASE_PATH=.*#DOCMOLDER_DATABASE_PATH=${DATA_DIR}/docmolder.db#" "${ENV_DIR}/docmolder.env"
+  sudo sed -i "s#^DOCMOLDER_SQLITE_BACKUP_DIR=.*#DOCMOLDER_SQLITE_BACKUP_DIR=${BACKUP_DIR}#" "${ENV_DIR}/docmolder.env"
   sudo chown root:root "${ENV_DIR}/docmolder.env"
   sudo chmod 600 "${ENV_DIR}/docmolder.env"
   echo "Creato ${ENV_DIR}/docmolder.env. Modifica il file prima di avviare il servizio."
 fi
 
 sudo cp "${APP_DIR}/deploy/docmolder.service" /etc/systemd/system/docmolder.service
+sudo cp "${APP_DIR}/deploy/docmolder-db-backup.service" /etc/systemd/system/docmolder-db-backup.service
+sudo cp "${APP_DIR}/deploy/docmolder-db-backup.timer" /etc/systemd/system/docmolder-db-backup.timer
 sudo systemctl daemon-reload
 
 echo "Installazione completata."
 echo "Prossimi passi:"
 echo "1. Modifica ${ENV_DIR}/docmolder.env"
 echo "2. Esegui: sudo systemctl enable --now docmolder"
-echo "3. Controlla: sudo systemctl status docmolder"
-echo "4. Log: sudo journalctl -u docmolder -f"
-echo "5. Per gli update futuri usa: sudo ${APP_DIR}/deploy/update-vps.sh"
+echo "3. Esegui: sudo systemctl enable --now docmolder-db-backup.timer"
+echo "4. Controlla: sudo systemctl status docmolder"
+echo "5. Log: sudo journalctl -u docmolder -f"
+echo "6. Per gli update futuri usa: sudo ${APP_DIR}/deploy/update-vps.sh"

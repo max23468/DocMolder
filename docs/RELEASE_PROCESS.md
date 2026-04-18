@@ -79,8 +79,9 @@ In breve:
 
 1. verificare che la release da deployare esista su GitHub con tag coerente
 2. aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
-3. controllare stato servizio, log recenti e revisione live
-4. eseguire almeno uno smoke test coerente con il tipo di modifica:
+3. controllare stato servizio, timer backup SQLite, log recenti e revisione live
+4. verificare che i backup SQLite siano attivi o lanciare almeno un backup manuale se hai toccato persistenza o runbook
+5. eseguire almeno uno smoke test coerente con il tipo di modifica:
    - Livello 1 per fix tecnici
    - Livello 1 + 2 per cambi funzionali
    - Livello 1 + 2 + una verifica UI per cambi UX sensibili

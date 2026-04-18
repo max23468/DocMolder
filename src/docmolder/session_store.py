@@ -81,7 +81,12 @@ class SessionStore(Protocol):
 
     def list_top_users(self, limit: int = 5, since_days: int = 7) -> list[AdminUserStat]: ...
 
-    def list_failed_actions(self, limit: int = 5, since_days: int = 7) -> list[AdminActionStat]: ...
+    def list_failed_actions(
+        self,
+        limit: int = 5,
+        since_days: int = 7,
+        since_minutes: int | None = None,
+    ) -> list[AdminActionStat]: ...
 
     def list_user_jobs(self, user_id: int, limit: int = 5) -> list[JobRecord]: ...
 
@@ -90,6 +95,7 @@ class SessionStore(Protocol):
         limit: int = 5,
         statuses: tuple[JobStatus, ...] | None = None,
         since_days: int | None = None,
+        since_minutes: int | None = None,
     ) -> list[JobRecord]: ...
 
 
@@ -316,13 +322,27 @@ class InMemorySessionStore:
             for user_id, completed_actions in ranked
         ]
 
-    def list_failed_actions(self, limit: int = 5, since_days: int = 7) -> list[AdminActionStat]:
-        del since_days
+    def list_failed_actions(
+        self,
+        limit: int = 5,
+        since_days: int = 7,
+        since_minutes: int | None = None,
+    ) -> list[AdminActionStat]:
+        from datetime import datetime, timedelta, timezone
+
         with self._lock:
             counts: dict[str, int] = {}
             for job in self._jobs.values():
                 if job.status != JobStatus.FAILED:
                     continue
+                if since_minutes is not None:
+                    threshold = datetime.now(timezone.utc) - timedelta(minutes=since_minutes)
+                    if (job.finished_at or job.created_at) < threshold:
+                        continue
+                elif since_days is not None:
+                    threshold = datetime.now(timezone.utc) - timedelta(days=since_days)
+                    if (job.finished_at or job.created_at) < threshold:
+                        continue
                 counts[job.action] = counts.get(job.action, 0) + 1
             ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
         return [AdminActionStat(action=action, total=total) for action, total in ranked]
@@ -344,6 +364,7 @@ class InMemorySessionStore:
         limit: int = 5,
         statuses: tuple[JobStatus, ...] | None = None,
         since_days: int | None = None,
+        since_minutes: int | None = None,
     ) -> list[JobRecord]:
         from datetime import datetime, timedelta, timezone
 
@@ -352,7 +373,10 @@ class InMemorySessionStore:
             if statuses is not None:
                 allowed = set(statuses)
                 jobs = [job for job in jobs if job.status in allowed]
-            if since_days is not None:
+            if since_minutes is not None:
+                threshold = datetime.now(timezone.utc) - timedelta(minutes=since_minutes)
+                jobs = [job for job in jobs if (job.finished_at or job.created_at) >= threshold]
+            elif since_days is not None:
                 threshold = datetime.now(timezone.utc) - timedelta(days=since_days)
                 jobs = [job for job in jobs if (job.finished_at or job.created_at) >= threshold]
             jobs.sort(
@@ -752,18 +776,28 @@ class SQLiteSessionStore:
             )
         return top_users
 
-    def list_failed_actions(self, limit: int = 5, since_days: int = 7) -> list[AdminActionStat]:
+    def list_failed_actions(
+        self,
+        limit: int = 5,
+        since_days: int = 7,
+        since_minutes: int | None = None,
+    ) -> list[AdminActionStat]:
+        since_condition, since_params = _build_since_window_condition(
+            column="COALESCE(finished_at, created_at)",
+            since_days=since_days,
+            since_minutes=since_minutes,
+        )
         with self._lock, self._connect() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT action, COUNT(*) AS total
                 FROM jobs
-                WHERE status = ? AND COALESCE(finished_at, created_at) >= datetime('now', ?)
+                WHERE status = ?{" AND " + since_condition if since_condition else ""}
                 GROUP BY action
                 ORDER BY total DESC, action ASC
                 LIMIT ?
                 """,
-                (JobStatus.FAILED.value, f"-{since_days} day", limit),
+                (JobStatus.FAILED.value, *since_params, limit),
             ).fetchall()
         return [AdminActionStat(action=row["action"], total=int(row["total"])) for row in rows]
 
@@ -786,6 +820,7 @@ class SQLiteSessionStore:
         limit: int = 5,
         statuses: tuple[JobStatus, ...] | None = None,
         since_days: int | None = None,
+        since_minutes: int | None = None,
     ) -> list[JobRecord]:
         query = """
             SELECT *
@@ -797,9 +832,14 @@ class SQLiteSessionStore:
             placeholders = ", ".join("?" for _ in statuses)
             conditions.append(f"status IN ({placeholders})")
             params.extend(status.value for status in statuses)
-        if since_days is not None:
-            conditions.append("COALESCE(finished_at, created_at) >= datetime('now', ?)")
-            params.append(f"-{since_days} day")
+        since_condition, since_params = _build_since_window_condition(
+            column="COALESCE(finished_at, created_at)",
+            since_days=since_days,
+            since_minutes=since_minutes,
+        )
+        if since_condition:
+            conditions.append(since_condition)
+            params.extend(since_params)
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
         query += " ORDER BY COALESCE(finished_at, created_at) DESC, id DESC LIMIT ?"
@@ -959,3 +999,16 @@ def _safe_average(values) -> int:
     if not collected:
         return 0
     return sum(collected) // len(collected)
+
+
+def _build_since_window_condition(
+    *,
+    column: str,
+    since_days: int | None,
+    since_minutes: int | None,
+) -> tuple[str, list[str]]:
+    if since_minutes is not None:
+        return f"{column} >= datetime('now', ?)", [f"-{since_minutes} minute"]
+    if since_days is not None:
+        return f"{column} >= datetime('now', ?)", [f"-{since_days} day"]
+    return "", []

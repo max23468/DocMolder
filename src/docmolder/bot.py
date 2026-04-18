@@ -6,7 +6,7 @@ import logging
 import re
 import unicodedata
 from collections import deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import perf_counter
 from typing import NotRequired, Required, TypedDict
@@ -111,6 +111,12 @@ class StructuredTextRequest(TypedDict, total=False):
     rotate_degrees: NotRequired[int]
     page_selection: NotRequired[str]
     watermark_text: NotRequired[str]
+
+
+class AdminAlertPayload(TypedDict):
+    key: str
+    signature: str
+    text: str
 
 
 class BotDependencies:
@@ -1962,6 +1968,7 @@ async def _admin_report_worker(application: Application) -> None:
         try:
             await asyncio.sleep(300)
             await _maybe_send_periodic_admin_reports(application, deps)
+            await _maybe_send_admin_anomaly_alerts(application, deps)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -2084,6 +2091,159 @@ def _build_periodic_admin_report(deps: BotDependencies, *, since_days: int, titl
         failed_jobs_heading=failed_jobs_heading,
     )
     return f"{title}\n\n{report_body}"
+
+
+async def _maybe_send_admin_anomaly_alerts(application: Application, deps: BotDependencies) -> None:
+    if not deps.settings.admin_user_ids:
+        return
+
+    now = datetime.now(timezone.utc)
+    for alert in _detect_admin_anomaly_alerts(deps):
+        if not _should_send_admin_alert(deps, alert["key"], alert["signature"], now):
+            continue
+        for admin_user_id in deps.settings.admin_user_ids:
+            try:
+                await application.bot.send_message(chat_id=admin_user_id, text=alert["text"])
+            except TelegramError:
+                logger.exception("Impossibile inviare l'allerta admin %s a %s", alert["key"], admin_user_id)
+        deps.session_store.set_meta(_admin_alert_meta_key(alert["key"], "last_signature"), alert["signature"])
+        deps.session_store.set_meta(_admin_alert_meta_key(alert["key"], "last_sent_at"), now.isoformat())
+
+
+def _detect_admin_anomaly_alerts(deps: BotDependencies) -> list[AdminAlertPayload]:
+    settings = deps.settings
+    window_minutes = max(5, settings.admin_alert_window_minutes)
+    finished_jobs = deps.session_store.list_recent_jobs(
+        limit=100,
+        statuses=(JobStatus.SUCCEEDED, JobStatus.FAILED),
+        since_minutes=window_minutes,
+    )
+    failed_jobs = [job for job in finished_jobs if job.status == JobStatus.FAILED]
+    alerts: list[AdminAlertPayload] = []
+
+    if finished_jobs and failed_jobs:
+        failure_rate_percent = round((len(failed_jobs) / len(finished_jobs)) * 100)
+        if (
+            len(finished_jobs) >= settings.admin_alert_min_finished_jobs
+            and failure_rate_percent >= settings.admin_alert_failure_rate_percent
+        ):
+            latest_failed_job_id = max(job.id for job in failed_jobs)
+            alerts.append(
+                {
+                    "key": "failure-rate",
+                    "signature": f"{latest_failed_job_id}:{len(failed_jobs)}/{len(finished_jobs)}",
+                    "text": _build_failure_rate_alert_text(
+                        finished_jobs=finished_jobs,
+                        failed_jobs=failed_jobs,
+                        window_minutes=window_minutes,
+                        threshold_percent=settings.admin_alert_failure_rate_percent,
+                    ),
+                }
+            )
+
+    repeated_threshold = max(2, settings.admin_alert_repeated_failures_threshold)
+    if failed_jobs:
+        failed_action_counts = deps.session_store.list_failed_actions(
+            limit=5,
+            since_minutes=window_minutes,
+        )
+        for action_stat in failed_action_counts:
+            if action_stat.total < repeated_threshold:
+                continue
+            action_failed_jobs = [job for job in failed_jobs if job.action == action_stat.action][:5]
+            latest_failed_job_id = max(job.id for job in action_failed_jobs)
+            alerts.append(
+                {
+                    "key": f"repeated-failures:{action_stat.action}",
+                    "signature": f"{latest_failed_job_id}:{action_stat.total}",
+                    "text": _build_repeated_failures_alert_text(
+                        action_stat=action_stat,
+                        failed_jobs=action_failed_jobs,
+                        window_minutes=window_minutes,
+                        threshold_count=repeated_threshold,
+                    ),
+                }
+            )
+
+    return alerts
+
+
+def _should_send_admin_alert(
+    deps: BotDependencies,
+    key: str,
+    signature: str,
+    now: datetime,
+) -> bool:
+    last_signature = deps.session_store.get_meta(_admin_alert_meta_key(key, "last_signature"))
+    if last_signature == signature:
+        return False
+
+    cooldown_minutes = max(1, deps.settings.admin_alert_cooldown_minutes)
+    last_sent_raw = deps.session_store.get_meta(_admin_alert_meta_key(key, "last_sent_at"))
+    last_sent_at = _parse_meta_datetime(last_sent_raw)
+    if last_sent_at is None:
+        return True
+    return now - last_sent_at >= timedelta(minutes=cooldown_minutes)
+
+
+def _build_failure_rate_alert_text(
+    *,
+    finished_jobs: list[JobRecord],
+    failed_jobs: list[JobRecord],
+    window_minutes: int,
+    threshold_percent: int,
+) -> str:
+    failure_rate_percent = round((len(failed_jobs) / len(finished_jobs)) * 100)
+    action_counts: dict[str, int] = {}
+    for job in failed_jobs:
+        action_counts[job.action] = action_counts.get(job.action, 0) + 1
+    top_actions = "\n".join(
+        f"- {_action_label(action)}: {total}"
+        for action, total in sorted(action_counts.items(), key=lambda item: (-item[1], item[0]))[:3]
+    )
+    recent_block = "\n".join(_format_job_line(job) for job in failed_jobs[:3])
+    return (
+        "Allerta admin DocMolder\n"
+        f"Segnale: tasso di fallimento anomalo negli ultimi {window_minutes} minuti.\n"
+        f"- Job conclusi: {len(finished_jobs)}\n"
+        f"- Job falliti: {len(failed_jobs)} ({failure_rate_percent}%)\n"
+        f"- Soglia configurata: {threshold_percent}%\n\n"
+        "Azioni coinvolte:\n"
+        f"{top_actions}\n\n"
+        "Ultimi job falliti:\n"
+        f"{recent_block}"
+    )
+
+
+def _build_repeated_failures_alert_text(
+    *,
+    action_stat: AdminActionStat,
+    failed_jobs: list[JobRecord],
+    window_minutes: int,
+    threshold_count: int,
+) -> str:
+    recent_block = "\n".join(_format_job_line(job) for job in failed_jobs)
+    return (
+        "Allerta admin DocMolder\n"
+        f"Segnale: errori ripetuti su {_action_label(action_stat.action)} negli ultimi {window_minutes} minuti.\n"
+        f"- Job falliti per questa azione: {action_stat.total}\n"
+        f"- Soglia configurata: {threshold_count}\n\n"
+        "Ultimi job falliti per questa azione:\n"
+        f"{recent_block}"
+    )
+
+
+def _admin_alert_meta_key(key: str, suffix: str) -> str:
+    return f"admin_alert:{key}:{suffix}"
+
+
+def _parse_meta_datetime(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
 
 
 async def _process_job(application: Application, job_id: int) -> None:
