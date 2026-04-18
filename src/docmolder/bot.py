@@ -9,10 +9,12 @@ from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
 from time import perf_counter
+from typing import NotRequired, Required, TypedDict
 from zoneinfo import ZoneInfo
 
-from telegram import Document, InlineKeyboardMarkup, PhotoSize, Update, User
+from telegram import Document, InlineKeyboardMarkup, Message, PhotoSize, Update, User
 from telegram.constants import ParseMode
+from telegram.error import TelegramError
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -26,6 +28,7 @@ from docmolder.config import Settings
 from docmolder.keyboards import (
     build_actions_keyboard,
     build_compression_keyboard,
+    build_history_keyboard,
     build_images_pdf_layout_keyboard,
     build_images_pdf_margin_keyboard,
     build_main_menu_keyboard,
@@ -38,19 +41,34 @@ from docmolder.job_flow import (
     run_job_payload as run_job_payload_flow,
 )
 from docmolder.messages import (
+    ADMIN_ONLY_MESSAGE,
     FILE_TOO_LARGE_MESSAGE,
     GENERIC_ERROR_MESSAGE,
     HELP_MESSAGE,
     JOB_QUEUE_LIMIT_MESSAGE,
+    MIXED_SESSION_MESSAGE,
     SESSION_EMPTY_MESSAGE,
     UNAUTHORIZED_MESSAGE,
     UPLOAD_RATE_LIMIT_MESSAGE,
+    WELCOME_MESSAGE,
     build_pending_action_prompt,
     build_pending_action_queued_message,
     build_processing_started_message,
     build_text_request_queued_message,
 )
-from docmolder.models import AdminActionStat, AdminStats, AdminUserStat, CompressionPreset, FileKind, JobPayload, JobRecord, JobStatus, SupportedAction, UserSession
+from docmolder.models import (
+    AdminActionStat,
+    AdminStats,
+    AdminUserStat,
+    CompressionPreset,
+    FileKind,
+    JobPayload,
+    JobRecord,
+    JobStatus,
+    PendingActionValue,
+    SupportedAction,
+    UserSession,
+)
 from docmolder.processing import (
     A4_MARGIN_NARROW_PX,
     A4_MARGIN_NONE_PX,
@@ -81,6 +99,18 @@ _build_text_request_queued_message = build_text_request_queued_message
 
 _PENDING_IMAGES_PDF_LAYOUT_PREFIX = "images_pdf_layout"
 _PENDING_IMAGES_PDF_MARGIN_PREFIX = "images_pdf_margin"
+
+
+class PendingActionEnqueueKwargs(TypedDict, total=False):
+    page_selection: str
+    watermark_text: str
+
+
+class StructuredTextRequest(TypedDict, total=False):
+    action: Required[SupportedAction]
+    rotate_degrees: NotRequired[int]
+    page_selection: NotRequired[str]
+    watermark_text: NotRequired[str]
 
 
 class BotDependencies:
@@ -307,52 +337,221 @@ def _is_image_pdf_action(action: SupportedAction) -> bool:
     }
 
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from docmolder.handlers import start_command as delegated_handler
+async def _prepare_message_handler(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    *,
+    require_admin: bool = False,
+) -> tuple[BotDependencies, User, Message] | None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
 
-    await delegated_handler(update, context)
+    user = update.effective_user
+    message = update.effective_message
+    if user is None or message is None:
+        return None
+
+    is_allowed = _is_admin(user.id, deps.settings) if require_admin else _is_authorized(user.id, deps.settings)
+    if not is_allowed:
+        await message.reply_text(ADMIN_ONLY_MESSAGE if require_admin else UNAUTHORIZED_MESSAGE)
+        return None
+
+    await _maybe_notify_admins_about_new_user(user, context)
+    return deps, user, message
+
+
+def _validate_session_for_upload(session: UserSession, kind: FileKind, max_session_files: int) -> str | None:
+    if len(session.files) >= max_session_files:
+        return _build_session_file_limit_message(max_session_files)
+    if session.files and any(item.kind != kind for item in session.files):
+        return MIXED_SESSION_MESSAGE
+    return None
+
+
+def _save_uploaded_file(session: UserSession, session_file, deps: BotDependencies) -> None:
+    session.files.append(session_file)
+    session.pending_action = None
+    session.touch()
+    deps.session_store.save(session)
+
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context)
+    if prepared is None:
+        return
+    _deps, _user, message = prepared
+
+    await message.reply_text(
+        WELCOME_MESSAGE,
+        reply_markup=build_main_menu_keyboard(),
+    )
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from docmolder.handlers import help_command as delegated_handler
+    prepared = await _prepare_message_handler(update, context)
+    if prepared is None:
+        return
+    _deps, _user, message = prepared
 
-    await delegated_handler(update, context)
+    await message.reply_text(
+        HELP_MESSAGE,
+        reply_markup=build_main_menu_keyboard(),
+    )
 
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from docmolder.handlers import history_command as delegated_handler
+    prepared = await _prepare_message_handler(update, context)
+    if prepared is None:
+        return
+    deps, user, message = prepared
 
-    await delegated_handler(update, context)
+    jobs = deps.session_store.list_user_jobs(user.id, limit=5)
+    if not jobs:
+        await message.reply_text(
+            "Non hai ancora uno storico lavori. Inviami immagini o PDF e terrò traccia degli ultimi job qui.",
+            reply_markup=build_main_menu_keyboard(),
+        )
+        return
+
+    await message.reply_text(
+        _build_user_history_summary(jobs),
+        reply_markup=build_history_keyboard([job.id for job in jobs]),
+    )
 
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from docmolder.handlers import admin_command as delegated_handler
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, _user, message = prepared
 
-    await delegated_handler(update, context)
+    stats = deps.session_store.build_admin_stats()
+    top_users = deps.session_store.list_top_users(limit=5, since_days=7)
+    failed_actions = deps.session_store.list_failed_actions(limit=5, since_days=7)
+    recent_failed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
+    recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
+    await message.reply_text(
+        _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs)
+    )
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from docmolder.handlers import reset_command as delegated_handler
+    prepared = await _prepare_message_handler(update, context)
+    if prepared is None:
+        return
+    deps, user, message = prepared
 
-    await delegated_handler(update, context)
+    _cancel_pending_image_notification(user.id, deps)
+    deps.session_store.delete(user.id)
+    deps.session_store.clear_user_preferences(user.id)
+    await message.reply_text(
+        "Sessione azzerata. Ho dimenticato anche le ultime scelte rapide salvate. Puoi inviarmi nuovi file quando vuoi.",
+        reply_markup=build_main_menu_keyboard(),
+    )
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from docmolder.handlers import status_command as delegated_handler
+    prepared = await _prepare_message_handler(update, context)
+    if prepared is None:
+        return
+    deps, user, message = prepared
 
-    await delegated_handler(update, context)
+    session = deps.session_store.get(user.id)
+    if session is None or not session.files:
+        await message.reply_text(
+            SESSION_EMPTY_MESSAGE,
+            reply_markup=build_main_menu_keyboard(),
+        )
+        return
+
+    extra_note = f"\nSto aspettando il tuo input per {_action_label(session.pending_action)}." if session.pending_action else ""
+    await message.reply_text(
+        f"{build_session_recap(session)}{extra_note}",
+        reply_markup=_filter_keyboard_for_session(session),
+    )
 
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from docmolder.handlers import handle_document as delegated_handler
+    prepared = await _prepare_message_handler(update, context)
+    if prepared is None:
+        return
+    deps, user, message = prepared
 
-    await delegated_handler(update, context)
+    document = message.document
+    if document is None:
+        return
+
+    kind = _infer_document_kind(document)
+    if kind is None:
+        await message.reply_text("Per ora supporto solo PDF e immagini.")
+        return
+
+    if not _consume_upload_slot(user.id, deps):
+        await message.reply_text(
+            _build_upload_rate_limit_message(
+                deps.settings.upload_burst_limit,
+                deps.settings.upload_burst_window_seconds,
+            )
+        )
+        return
+
+    if _exceeds_file_size_limit(document.file_size, deps.settings.max_file_size_mb):
+        await message.reply_text(_build_file_too_large_message(deps.settings.max_file_size_mb))
+        return
+
+    session = _get_or_create_session(user.id, deps)
+    validation_error = _validate_session_for_upload(session, kind, deps.settings.max_session_files)
+    if validation_error is not None:
+        await message.reply_text(validation_error)
+        return
+
+    _save_uploaded_file(session, build_session_file(document.file_id, document.file_name, kind), deps)
+
+    if kind == FileKind.IMAGE:
+        _schedule_image_session_notification(chat_id=message.chat_id, user_id=user.id, context=context)
+        return
+
+    _cancel_pending_image_notification(user.id, deps)
+    await message.reply_text(
+        f"File ricevuto.\n{build_session_recap(session)}",
+        reply_markup=_filter_keyboard_for_session(session),
+    )
 
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    from docmolder.handlers import handle_photo as delegated_handler
+    prepared = await _prepare_message_handler(update, context)
+    if prepared is None:
+        return
+    deps, user, message = prepared
 
-    await delegated_handler(update, context)
+    photos = message.photo
+    if not photos:
+        return
+
+    if not _consume_upload_slot(user.id, deps):
+        await message.reply_text(
+            _build_upload_rate_limit_message(
+                deps.settings.upload_burst_limit,
+                deps.settings.upload_burst_window_seconds,
+            )
+        )
+        return
+
+    best_photo = _pick_best_photo(photos)
+    if _exceeds_file_size_limit(best_photo.file_size, deps.settings.max_file_size_mb):
+        await message.reply_text(_build_file_too_large_message(deps.settings.max_file_size_mb))
+        return
+
+    session = _get_or_create_session(user.id, deps)
+    validation_error = _validate_session_for_upload(session, FileKind.IMAGE, deps.settings.max_session_files)
+    if validation_error is not None:
+        await message.reply_text(validation_error)
+        return
+
+    generated_name = f"foto_{len(session.files) + 1}.jpg"
+    _save_uploaded_file(session, build_session_file(best_photo.file_id, generated_name, FileKind.IMAGE), deps)
+
+    _schedule_image_session_notification(chat_id=message.chat_id, user_id=user.id, context=context)
 
 
 async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -895,7 +1094,7 @@ async def _maybe_notify_admins_about_new_user(user: User | None, context: Contex
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=True,
             )
-        except Exception:
+        except TelegramError:
             logger.exception("Impossibile inviare la notifica nuovo utente all'admin %s", admin_user_id)
 
 
@@ -1021,7 +1220,7 @@ def _format_percent(value: int, total: int) -> str:
     return f"{(value / total) * 100:.0f}%"
 
 
-def _action_label(action: str) -> str:
+def _action_label(action: PendingActionValue) -> str:
     return get_action_label(action)
 
 
@@ -1164,12 +1363,9 @@ def _build_user_history_job_detail(job: JobRecord) -> str:
         detail_lines.append(f"Compressione: {payload.compression_preset.value}")
     if payload.page_selection:
         detail_lines.append(f"Selezione pagine: {payload.page_selection}")
-    if payload.image_pdf_use_a4 is not None and job.action.startswith("images_to_pdf"):
+    if job.action.startswith("images_to_pdf"):
         detail_lines.append("Impaginazione: A4" if payload.image_pdf_use_a4 else "Impaginazione: formato originale")
-    if payload.auto_rotate_pdf is not None:
-        detail_lines.append(
-            "Rotazione automatica PDF: attiva" if payload.auto_rotate_pdf else "Rotazione automatica PDF: disattiva"
-        )
+    detail_lines.append("Rotazione automatica PDF: attiva" if payload.auto_rotate_pdf else "Rotazione automatica PDF: disattiva")
     if payload.rotate_degrees is not None:
         detail_lines.append(f"Rotazione manuale: {payload.rotate_degrees} gradi")
     if payload.watermark_text:
@@ -1360,7 +1556,7 @@ async def _handle_pending_session_input(
         return True
 
     try:
-        enqueue_kwargs: dict[str, object] = {}
+        enqueue_kwargs: PendingActionEnqueueKwargs = {}
         if pending_action in {
             SupportedAction.PDF_EXTRACT_PAGES,
             SupportedAction.PDF_REORDER_PAGES,
@@ -1401,15 +1597,15 @@ async def _handle_pending_session_input(
     return True
 
 
-def _build_images_pdf_layout_pending_action(action: SupportedAction) -> str:
+def _build_images_pdf_layout_pending_action(action: SupportedAction) -> PendingActionValue:
     return f"{_PENDING_IMAGES_PDF_LAYOUT_PREFIX}:{action.value}"
 
 
-def _build_images_pdf_margin_pending_action(action: SupportedAction) -> str:
+def _build_images_pdf_margin_pending_action(action: SupportedAction) -> PendingActionValue:
     return f"{_PENDING_IMAGES_PDF_MARGIN_PREFIX}:{action.value}"
 
 
-def _extract_pending_images_pdf_action(pending_action: str, prefix: str) -> SupportedAction | None:
+def _extract_pending_images_pdf_action(pending_action: PendingActionValue, prefix: str) -> SupportedAction | None:
     if not pending_action.startswith(f"{prefix}:"):
         return None
     raw_action = pending_action.split(":", 1)[1]
@@ -1620,7 +1816,7 @@ def _infer_text_requested_action(
     return None
 
 
-def _infer_structured_text_request(session: UserSession, text: str) -> dict[str, object] | None:
+def _infer_structured_text_request(session: UserSession, text: str) -> StructuredTextRequest | None:
     normalized = _normalize_free_text(text)
     supported = set(infer_supported_actions(session))
 

@@ -6,11 +6,14 @@ from docmolder.models import SupportedAction
 from docmolder.services import get_action_label
 
 
+def _build_action_button_label(action: SupportedAction) -> str:
+    return "Aggiungi watermark" if action == SupportedAction.PDF_WATERMARK else get_action_label(action)
+
+
 def build_actions_keyboard(actions: list[SupportedAction]) -> InlineKeyboardMarkup | None:
     rows: list[list[InlineKeyboardButton]] = []
     for action in actions:
-        label = "Aggiungi watermark" if action == SupportedAction.PDF_WATERMARK else get_action_label(action)
-        rows.append([InlineKeyboardButton(label, callback_data=f"action:{action.value}")])
+        rows.append([InlineKeyboardButton(_build_action_button_label(action), callback_data=f"action:{action.value}")])
     if not rows:
         return None
     return InlineKeyboardMarkup(rows)
@@ -52,8 +55,7 @@ def build_result_pdf_keyboard(
 ) -> InlineKeyboardMarkup | None:
     rows: list[list[InlineKeyboardButton]] = []
     for action in quick_actions or []:
-        label = "Aggiungi watermark" if action == SupportedAction.PDF_WATERMARK else get_action_label(action)
-        rows.append([InlineKeyboardButton(label, callback_data=f"result:{action.value}")])
+        rows.append([InlineKeyboardButton(_build_action_button_label(action), callback_data=f"result:{action.value}")])
     if undo_rotation_job_id is not None:
         rows.append(
             [

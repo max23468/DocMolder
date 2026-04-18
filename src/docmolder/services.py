@@ -120,10 +120,6 @@ def get_action_label(action: SupportedAction | str) -> str:
     return ACTION_LABELS.get(resolved, resolved.value)
 
 
-def describe_session(session: UserSession) -> str:
-    return build_session_recap(session)
-
-
 def build_session_recap(session: UserSession) -> str:
     images = sum(1 for item in session.files if item.kind == FileKind.IMAGE)
     pdfs = sum(1 for item in session.files if item.kind == FileKind.PDF)

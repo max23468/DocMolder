@@ -10,6 +10,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+from telegram.error import TelegramError
+
 from docmolder.bot import (
     BotDependencies,
     SensitiveLogFilter,
@@ -26,6 +28,7 @@ from docmolder.bot import (
     _normalize_page_selection_text,
     _build_periodic_admin_report,
     _build_processing_started_message,
+    _maybe_notify_admins_about_new_user,
     _build_text_request_queued_message,
     _build_session_file_limit_message,
     _build_upload_rate_limit_message,
@@ -391,6 +394,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Storico ultimi job", summary)
         self.assertIn(f"Job #{job.id}", summary)
         self.assertIn("Dettaglio Job", detail)
+        self.assertIn("Impaginazione: A4", detail)
+        self.assertIn("Rotazione automatica PDF: attiva", detail)
         self.assertIn("Strategia finale: lossless", detail)
         self.assertIn("Ripeto il job", rerun_message)
 
@@ -497,6 +502,25 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(report.startswith("Riepilogo admin giornaliero DocMolder"))
         self.assertIn("Errori più frequenti ultime 24 ore", report)
         self.assertIn("Job completati nelle ultime 24 ore", report)
+
+    async def test_maybe_notify_admins_about_new_user_swallows_telegram_errors_only(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+        user = SimpleNamespace(id=7, username="mario", first_name="Mario", last_name="Rossi", full_name="Mario Rossi")
+        self.bot.send_message.side_effect = TelegramError("admin unavailable")
+
+        await _maybe_notify_admins_about_new_user(user, context)
+
+        self.bot.send_message.assert_awaited_once()
+
+    async def test_maybe_notify_admins_about_new_user_does_not_hide_programming_errors(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+        user = SimpleNamespace(id=7, username="mario", first_name="Mario", last_name="Rossi", full_name="Mario Rossi")
+        self.bot.send_message.side_effect = RuntimeError("unexpected bug")
+
+        with self.assertRaises(RuntimeError):
+            await _maybe_notify_admins_about_new_user(user, context)
 
     async def test_result_callback_enqueues_grayscale_job_from_sent_pdf(self) -> None:
         reply_text = AsyncMock()

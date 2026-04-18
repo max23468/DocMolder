@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 import json
+from typing import Literal, TypeAlias
+from typing import TypedDict
 
 
 class SessionStatus(StrEnum):
@@ -25,6 +27,34 @@ class SupportedAction(StrEnum):
     PDF_ROTATE = "pdf_rotate"
     PDF_WATERMARK = "pdf_watermark"
     AUTO_ORIENT = "auto_orient"
+
+
+SupportedActionValue: TypeAlias = Literal[
+    "images_to_pdf",
+    "images_to_pdf_crop",
+    "images_to_pdf_grayscale",
+    "images_to_pdf_crop_grayscale",
+    "pdf_grayscale",
+    "pdf_compress",
+    "pdf_merge",
+    "pdf_extract_pages",
+    "pdf_reorder_pages",
+    "pdf_delete_pages",
+    "pdf_rotate",
+    "pdf_watermark",
+    "auto_orient",
+]
+
+PendingActionValue: TypeAlias = SupportedActionValue | Literal[
+    "images_pdf_layout:images_to_pdf",
+    "images_pdf_layout:images_to_pdf_crop",
+    "images_pdf_layout:images_to_pdf_grayscale",
+    "images_pdf_layout:images_to_pdf_crop_grayscale",
+    "images_pdf_margin:images_to_pdf",
+    "images_pdf_margin:images_to_pdf_crop",
+    "images_pdf_margin:images_to_pdf_grayscale",
+    "images_pdf_margin:images_to_pdf_crop_grayscale",
+]
 
 
 class CompressionPreset(StrEnum):
@@ -58,7 +88,7 @@ class UserSession:
     user_id: int
     files: list[SessionFile] = field(default_factory=list)
     status: SessionStatus = SessionStatus.COLLECTING
-    pending_action: str | None = None
+    pending_action: PendingActionValue | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -75,7 +105,7 @@ class JobRecord:
     user_id: int
     chat_id: int
     reply_to_message_id: int | None
-    action: str
+    action: SupportedActionValue
     payload_json: str
     status: JobStatus
     created_at: datetime
@@ -97,6 +127,23 @@ class JobPayloadFile:
     kind: FileKind
 
 
+class JobPayloadFileData(TypedDict):
+    telegram_file_id: str
+    file_name: str
+    kind: str
+
+
+class JobPayloadData(TypedDict, total=False):
+    files: list[JobPayloadFileData]
+    compression_preset: str | None
+    rotate_degrees: int | None
+    page_selection: str | None
+    watermark_text: str | None
+    auto_rotate_pdf: bool
+    image_pdf_use_a4: bool
+    image_pdf_margin_px: int | None
+
+
 @dataclass(slots=True)
 class JobPayload:
     files: list[JobPayloadFile]
@@ -111,10 +158,12 @@ class JobPayload:
     @classmethod
     def from_json(cls, payload_json: str) -> "JobPayload":
         raw_payload = json.loads(payload_json)
+        if not isinstance(raw_payload, dict):
+            raise TypeError("Il payload del job deve essere un oggetto JSON.")
         return cls.from_dict(raw_payload)
 
     @classmethod
-    def from_dict(cls, raw_payload: dict[str, object]) -> "JobPayload":
+    def from_dict(cls, raw_payload: JobPayloadData) -> "JobPayload":
         raw_files = raw_payload.get("files", [])
         files = [
             JobPayloadFile(
@@ -170,7 +219,7 @@ class JobPayload:
             image_pdf_margin_px=image_pdf_margin_px,
         )
 
-    def to_dict(self) -> dict[str, object]:
+    def to_dict(self) -> JobPayloadData:
         return {
             "files": [
                 {
@@ -202,7 +251,7 @@ class AdminUserStat:
 
 @dataclass(slots=True)
 class AdminActionStat:
-    action: str
+    action: SupportedActionValue
     total: int
 
 

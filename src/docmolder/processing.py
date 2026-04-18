@@ -96,35 +96,19 @@ class DocumentProcessor:
         image_pdf_use_a4: bool = True,
         image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
     ) -> ProcessingResult:
-        if action == SupportedAction.IMAGES_TO_PDF:
+        image_pdf_options = {
+            SupportedAction.IMAGES_TO_PDF: (False, False),
+            SupportedAction.IMAGES_TO_PDF_CROP: (True, False),
+            SupportedAction.IMAGES_TO_PDF_GRAYSCALE: (False, True),
+            SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: (True, True),
+        }
+        if action in image_pdf_options:
+            auto_crop, grayscale_output = image_pdf_options[action]
             return self.images_to_pdf(
                 input_paths,
                 output_stem,
-                use_a4_layout=image_pdf_use_a4,
-                a4_margin_px=image_pdf_margin_px,
-            )
-        if action == SupportedAction.IMAGES_TO_PDF_CROP:
-            return self.images_to_pdf(
-                input_paths,
-                output_stem,
-                auto_crop=True,
-                use_a4_layout=image_pdf_use_a4,
-                a4_margin_px=image_pdf_margin_px,
-            )
-        if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:
-            return self.images_to_pdf(
-                input_paths,
-                output_stem,
-                grayscale_output=True,
-                use_a4_layout=image_pdf_use_a4,
-                a4_margin_px=image_pdf_margin_px,
-            )
-        if action == SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE:
-            return self.images_to_pdf(
-                input_paths,
-                output_stem,
-                auto_crop=True,
-                grayscale_output=True,
+                auto_crop=auto_crop,
+                grayscale_output=grayscale_output,
                 use_a4_layout=image_pdf_use_a4,
                 a4_margin_px=image_pdf_margin_px,
             )
@@ -482,11 +466,7 @@ class DocumentProcessor:
         output_path = pdf_path.with_name(f"{pdf_path.stem}{suffix}{pdf_path.suffix}")
         rotated_pages = self._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
         if rotated_pages == 0:
-            try:
-                output_path.unlink(missing_ok=True)
-            except TypeError:
-                if output_path.exists():
-                    output_path.unlink()
+            output_path.unlink(missing_ok=True)
             return pdf_path, 0
         return output_path, rotated_pages
 

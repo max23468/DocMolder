@@ -14,8 +14,11 @@ from docmolder.models import (
     JobStatus,
     SessionFile,
     SessionStatus,
+    SupportedActionValue,
     UserSession,
 )
+
+SQLiteParameter = str | int | float | bytes | None
 
 
 class SessionStore(Protocol):
@@ -29,7 +32,7 @@ class SessionStore(Protocol):
 
     def register_user(self, user_id: int, username: str | None, first_name: str | None, last_name: str | None) -> bool: ...
 
-    def record_completed_action(self, user_id: int, action: str) -> None: ...
+    def record_completed_action(self, user_id: int, action: SupportedActionValue) -> None: ...
 
     def get_meta(self, key: str) -> str | None: ...
 
@@ -48,7 +51,7 @@ class SessionStore(Protocol):
         user_id: int,
         chat_id: int,
         reply_to_message_id: int | None,
-        action: str,
+        action: SupportedActionValue,
         payload_json: str,
         rerun_of_job_id: int | None = None,
     ) -> JobRecord: ...
@@ -95,7 +98,7 @@ class InMemorySessionStore:
         self._lock = Lock()
         self._sessions: dict[int, UserSession] = {}
         self._known_user_ids: set[int] = set()
-        self._completed_actions: list[tuple[int, str]] = []
+        self._completed_actions: list[tuple[int, SupportedActionValue]] = []
         self._jobs: dict[int, JobRecord] = {}
         self._meta: dict[str, str] = {}
         self._next_job_id = 1
@@ -129,7 +132,7 @@ class InMemorySessionStore:
             self._known_user_ids.add(user_id)
             return True
 
-    def record_completed_action(self, user_id: int, action: str) -> None:
+    def record_completed_action(self, user_id: int, action: SupportedActionValue) -> None:
         with self._lock:
             self._completed_actions.append((user_id, action))
 
@@ -200,7 +203,7 @@ class InMemorySessionStore:
         user_id: int,
         chat_id: int,
         reply_to_message_id: int | None,
-        action: str,
+        action: SupportedActionValue,
         payload_json: str,
         rerun_of_job_id: int | None = None,
     ) -> JobRecord:
@@ -497,7 +500,7 @@ class SQLiteSessionStore:
             connection.commit()
             return cursor.rowcount > 0
 
-    def record_completed_action(self, user_id: int, action: str) -> None:
+    def record_completed_action(self, user_id: int, action: SupportedActionValue) -> None:
         with self._lock, self._connect() as connection:
             connection.execute(
                 """
@@ -581,7 +584,7 @@ class SQLiteSessionStore:
         user_id: int,
         chat_id: int,
         reply_to_message_id: int | None,
-        action: str,
+        action: SupportedActionValue,
         payload_json: str,
         rerun_of_job_id: int | None = None,
     ) -> JobRecord:
@@ -788,7 +791,7 @@ class SQLiteSessionStore:
             SELECT *
             FROM jobs
         """
-        params: list[object] = []
+        params: list[SQLiteParameter] = []
         conditions: list[str] = []
         if statuses:
             placeholders = ", ".join("?" for _ in statuses)
