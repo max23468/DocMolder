@@ -127,7 +127,7 @@ sudo /opt/docmolder/app/deploy/update-vps.sh
 
 Documenti utili:
 
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md)
+- [`CHANGELOG.md`](CHANGELOG.md)
 - [`docs/CONTEXT.md`](docs/CONTEXT.md)
 - [`docs/DECISIONS.md`](docs/DECISIONS.md)
 - [`docs/INDEX.md`](docs/INDEX.md)
@@ -135,6 +135,7 @@ Documenti utili:
 - [`docs/VPS_RUNBOOK.md`](docs/VPS_RUNBOOK.md)
 - [`docs/PDF_PIPELINE.md`](docs/PDF_PIPELINE.md)
 - [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
+- [`docs/VERSIONING.md`](docs/VERSIONING.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - [`docs/GITHUB_ALIGNMENT.md`](docs/GITHUB_ALIGNMENT.md)
 
@@ -160,7 +161,7 @@ Documenti utili:
 ## Prossimi passi suggeriti
 
 La roadmap corrente del progetto è in [`docs/ROADMAP.md`](docs/ROADMAP.md).
-Le modifiche rilevanti vengono annotate anche in [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
+Le modifiche rilevanti vengono annotate in [`CHANGELOG.md`](CHANGELOG.md), mentre policy e bump versioni sono descritte in [`docs/VERSIONING.md`](docs/VERSIONING.md).
 
 In sintesi, le priorità attuali sono:
 

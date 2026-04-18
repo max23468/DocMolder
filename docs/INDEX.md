@@ -11,6 +11,7 @@ Indice unico della documentazione operativa.
 
 - [VPS_RUNBOOK.md](./VPS_RUNBOOK.md): setup Oracle VPS + operations day-2.
 - [RELEASE_PROCESS.md](./RELEASE_PROCESS.md): checklist di rilascio e deploy.
+- [VERSIONING.md](./VERSIONING.md): policy ufficiale per versioni, changelog e release.
 - [SMOKE_TESTS.md](./SMOKE_TESTS.md): strategia post-deploy per smoke test rapidi via Bot API e verifica UI mirata.
 - [GITHUB_ALIGNMENT.md](./GITHUB_ALIGNMENT.md): setup GitHub e best practice per maintainer singolo.
 
@@ -19,7 +20,7 @@ Indice unico della documentazione operativa.
 - [PDF_PIPELINE.md](./PDF_PIPELINE.md): strategia pipeline PDF e fallback.
 - [DECISIONS.md](./DECISIONS.md): decisioni tecniche persistenti.
 - [ROADMAP.md](./ROADMAP.md): prossimi blocchi evolutivi.
-- [CHANGELOG.md](./CHANGELOG.md): modifiche rilevanti gia rilasciate.
+- [../CHANGELOG.md](../CHANGELOG.md): changelog versionato delle release.
 
 ## Contesto persistente
 
