@@ -2,20 +2,49 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+`DocMolder` non ha attualmente una matrice di versioni rilasciate e supportate a lungo termine.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+Per ora consideriamo supportata solo:
+
+| Versione | Supporto security |
+| --- | --- |
+| `main` su GitHub | Si |
+| deploy di produzione corrente derivato da `main` | Si |
+| branch, fork o snapshot storici | No |
+
+Se in futuro introdurremo release versionate, aggiorneremo questa sezione con una policy di supporto esplicita.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Se trovi una vulnerabilita, non aprire una issue pubblica con dettagli sensibili.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Usa invece uno di questi canali:
+
+- GitHub Security Advisories / private vulnerability reporting, se abilitato sul repository
+- email diretta al maintainer del progetto
+
+Nel report includi, se possibile:
+
+- descrizione del problema
+- impatto atteso
+- passaggi per riprodurlo
+- eventuale proof of concept
+- versione, commit o contesto del deploy coinvolto
+
+## Response Expectations
+
+Obiettivo operativo, senza SLA formale:
+
+- presa in carico iniziale appena ragionevolmente possibile
+- conferma di riproduzione o triage iniziale quando il problema e verificabile
+- fix o mitigazione coordinata prima della divulgazione pubblica, quando appropriato
+
+## Scope Notes
+
+Per questo progetto sono particolarmente sensibili:
+
+- token Telegram
+- segreti e variabili ambiente di deploy
+- file utente temporanei
+- pipeline PDF e dipendenze native collegate
+- configurazione VPS e workflow di aggiornamento
