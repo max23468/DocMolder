@@ -60,3 +60,4 @@ Una modifica è “done” se:
 - Non cambiare naming/API pubbliche senza necessità.
 - Non modificare file non correlati “già che ci sei”.
 - In caso di ambiguità, preferisci la soluzione più semplice e reversibile.
+- Nella roadmap, gli item completati vanno rimossi dalla checklist; non usare checkbox segnate come completate per elementi già fatti.
