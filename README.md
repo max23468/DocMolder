@@ -117,7 +117,13 @@ Per la guida completa di setup e test locali, vedi [`docs/LOCAL_DEV.md`](docs/LO
 
 Per setup e gestione operativa su Oracle VPS con Ubuntu, vedi [`docs/VPS_RUNBOOK.md`](docs/VPS_RUNBOOK.md).
 
-Per usare Codex su `chatgpt.com` come postazione di deploy senza dipendere dal Mac, vedi [`docs/CODEX_CLOUD_DEPLOY.md`](docs/CODEX_CLOUD_DEPLOY.md).
+Per usare Codex su `chatgpt.com` come postazione di lavoro e deploy senza dipendere dal Mac, vedi [`docs/CODEX_CLOUD_DEPLOY.md`](docs/CODEX_CLOUD_DEPLOY.md).
+
+Il flusso consigliato da remoto e:
+
+- Codex o GitHub preparano il codice fino a `main`
+- GitHub Actions esegue il deploy verso la VPS
+- la VPS applica il deploy standard con `deploy/update-vps.sh`
 
 Per gli aggiornamenti successivi sulla VPS, il flusso standard e:
 

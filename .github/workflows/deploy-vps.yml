@@ -1,0 +1,112 @@
+name: Deploy VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: Git ref or SHA to deploy on the VPS
+        required: false
+        default: origin/main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-vps-${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Oracle VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOCMOLDER_VPS_HOST: ${{ secrets.DOCMOLDER_VPS_HOST }}
+      DOCMOLDER_VPS_USER: ${{ secrets.DOCMOLDER_VPS_USER }}
+      DOCMOLDER_VPS_PORT: ${{ secrets.DOCMOLDER_VPS_PORT }}
+      DOCMOLDER_VPS_DEPLOY_CMD: ${{ secrets.DOCMOLDER_VPS_DEPLOY_CMD }}
+      DOCMOLDER_VPS_SSH_KNOWN_HOSTS: ${{ secrets.DOCMOLDER_VPS_SSH_KNOWN_HOSTS }}
+      TARGET_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || github.sha }}
+
+    steps:
+      - name: Validate deploy secrets
+        env:
+          DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64: ${{ secrets.DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for var in DOCMOLDER_VPS_HOST DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing required secret: ${var}"
+              missing=1
+            fi
+          done
+
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Set deploy defaults
+        run: |
+          set -euo pipefail
+
+          echo "DOCMOLDER_VPS_USER=${DOCMOLDER_VPS_USER:-opc}" >> "${GITHUB_ENV}"
+          echo "DOCMOLDER_VPS_PORT=${DOCMOLDER_VPS_PORT:-22}" >> "${GITHUB_ENV}"
+          echo "DOCMOLDER_VPS_DEPLOY_CMD=${DOCMOLDER_VPS_DEPLOY_CMD:-sudo /opt/docmolder/app/deploy/update-vps.sh}" >> "${GITHUB_ENV}"
+
+      - name: Prepare SSH key
+        env:
+          DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64: ${{ secrets.DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${HOME}/.ssh"
+          printf '%s' "${DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64}" | base64 --decode > "${HOME}/.ssh/docmolder_vps"
+          chmod 600 "${HOME}/.ssh/docmolder_vps"
+
+      - name: Prepare known_hosts
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${HOME}/.ssh"
+          touch "${HOME}/.ssh/known_hosts"
+          chmod 644 "${HOME}/.ssh/known_hosts"
+
+          if [ -n "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+            echo "SSH_STRICT=yes" >> "${GITHUB_ENV}"
+          else
+            echo "SSH_STRICT=accept-new" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Deploy revision on VPS
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/docmolder_vps" \
+            -p "${DOCMOLDER_VPS_PORT}" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o StrictHostKeyChecking="${SSH_STRICT}" \
+            "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
+            "${DOCMOLDER_VPS_DEPLOY_CMD} ${TARGET_REF}"
+
+      - name: Verify service status on VPS
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/docmolder_vps" \
+            -p "${DOCMOLDER_VPS_PORT}" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o StrictHostKeyChecking="${SSH_STRICT}" \
+            "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
+            "sudo systemctl status docmolder --no-pager && sudo systemctl status docmolder-db-backup.timer --no-pager"
