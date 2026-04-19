@@ -33,7 +33,7 @@ jobs:
 
     steps:
       - name: Checkout target revision
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ env.TARGET_REF }}
 
@@ -136,3 +136,24 @@ jobs:
             -o StrictHostKeyChecking="${SSH_STRICT}" \
             "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
             "sudo systemctl status docmolder --no-pager && sudo systemctl status docmolder-db-backup.timer --no-pager"
+
+      - name: Smoke test Telegram Bot API on VPS
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/docmolder_vps" \
+            -p "${DOCMOLDER_VPS_PORT}" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o StrictHostKeyChecking="${SSH_STRICT}" \
+            "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
+            "set -euo pipefail
+            token=\$(sudo grep '^DOCMOLDER_TELEGRAM_TOKEN=' /etc/docmolder/docmolder.env | cut -d= -f2-)
+            if [ -z \"\${token}\" ] || [ \"\${token}\" = \"changeme\" ]; then
+              echo 'DOCMOLDER_TELEGRAM_TOKEN is missing on the VPS.' >&2
+              exit 1
+            fi
+
+            /opt/docmolder/venv/bin/python -c 'import json, sys, urllib.request; token=sys.argv[1]; payload=json.load(urllib.request.urlopen(f\"https://api.telegram.org/bot{token}/getMe\", timeout=20)); assert payload.get(\"ok\") is True, payload; username=payload.get(\"result\", {}).get(\"username\"); assert username, payload; print(f\"Bot API smoke OK: @{username}\")' \"\${token}\""

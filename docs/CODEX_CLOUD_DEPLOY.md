@@ -76,5 +76,6 @@ Il workflow GitHub esegue:
 - installazione o aggiornamento locale con `deploy/install-vps.sh`
 - controllo `systemctl status docmolder --no-pager`
 - controllo `systemctl status docmolder-db-backup.timer --no-pager`
+- smoke test applicativo con `getMe` verso Telegram Bot API eseguito dalla VPS
 
 Per smoke test applicativi, continua a seguire [docs/SMOKE_TESTS.md](./SMOKE_TESTS.md).
