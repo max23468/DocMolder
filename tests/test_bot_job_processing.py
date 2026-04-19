@@ -414,6 +414,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             should_send=True,
             since_days=1,
             title="Riepilogo admin giornaliero DocMolder",
+            require_new_users_or_completed_actions=True,
         )
 
         self.bot.send_message.assert_awaited()
@@ -428,6 +429,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             should_send=True,
             since_days=1,
             title="Riepilogo admin giornaliero DocMolder",
+            require_new_users_or_completed_actions=True,
         )
         self.bot.send_message.assert_not_awaited()
 
@@ -442,12 +444,13 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             should_send=True,
             since_days=1,
             title="Riepilogo admin giornaliero DocMolder",
+            require_new_users_or_completed_actions=True,
         )
 
         self.bot.send_message.assert_not_awaited()
         self.assertIsNone(self.store.get_meta("admin_report_daily_last_sent"))
 
-    async def test_maybe_send_admin_report_for_period_sends_when_failures_exist(self) -> None:
+    async def test_maybe_send_admin_report_for_period_daily_skips_without_new_users_or_operations(self) -> None:
         self.deps.settings.admin_user_ids = [999]
         failed_job = self.store.create_job(
             user_id=7,
@@ -466,10 +469,11 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             should_send=True,
             since_days=1,
             title="Riepilogo admin giornaliero DocMolder",
+            require_new_users_or_completed_actions=True,
         )
 
-        self.bot.send_message.assert_awaited()
-        self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-04-06")
+        self.bot.send_message.assert_not_awaited()
+        self.assertIsNone(self.store.get_meta("admin_report_daily_last_sent"))
 
     async def test_maybe_send_admin_report_for_period_weekly_skips_without_new_users_or_operations(self) -> None:
         self.deps.settings.admin_user_ids = [999]
