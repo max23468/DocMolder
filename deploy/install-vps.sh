@@ -10,21 +10,22 @@ DATA_DIR="${APP_ROOT}/data/runtime"
 BACKUP_DIR="${DATA_DIR}/backups"
 ENV_DIR="/etc/docmolder"
 ENV_FILE="${ENV_DIR}/docmolder.env"
+PYTHON_BIN=""
 
 install_packages() {
   if command -v apt >/dev/null 2>&1; then
     sudo apt update
-    sudo apt install -y python3 python3-venv python3-pip git ghostscript
+    sudo apt install -y python3.11 python3.11-venv python3-pip git ghostscript || sudo apt install -y python3 python3-venv python3-pip git ghostscript
     return
   fi
 
   if command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y python3 python3-pip git ghostscript
+    sudo dnf install -y python3.11 python3.11-pip git ghostscript || sudo dnf install -y python3 python3-pip git ghostscript
     return
   fi
 
   if command -v yum >/dev/null 2>&1; then
-    sudo yum install -y python3 python3-pip git ghostscript
+    sudo yum install -y python3.11 python3.11-pip git ghostscript || sudo yum install -y python3 python3-pip git ghostscript
     return
   fi
 
@@ -32,7 +33,33 @@ install_packages() {
   exit 1
 }
 
+choose_python() {
+  for candidate in python3.13 python3.12 python3.11 python3; do
+    if command -v "${candidate}" >/dev/null 2>&1; then
+      PYTHON_BIN="$(command -v "${candidate}")"
+      break
+    fi
+  done
+
+  if [ -z "${PYTHON_BIN}" ]; then
+    echo "No supported Python interpreter found." >&2
+    exit 1
+  fi
+
+  local version
+  version="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  case "${version}" in
+    3.11|3.12|3.13)
+      ;;
+    *)
+      echo "Unsupported Python version ${version}; DocMolder requires >=3.11." >&2
+      exit 1
+      ;;
+  esac
+}
+
 install_packages
+choose_python
 
 if ! getent group "${APP_GROUP}" >/dev/null 2>&1; then
   sudo groupadd --system "${APP_GROUP}"
@@ -46,7 +73,7 @@ sudo mkdir -p "${APP_ROOT}" "${ENV_DIR}" "${DATA_DIR}" "${BACKUP_DIR}"
 sudo chown -R "${APP_USER}:${APP_GROUP}" "${APP_ROOT}"
 
 if [ ! -d "${VENV_DIR}" ]; then
-  sudo -u "${APP_USER}" python3 -m venv "${VENV_DIR}"
+  sudo -u "${APP_USER}" "${PYTHON_BIN}" -m venv "${VENV_DIR}"
 fi
 
 sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --upgrade pip
