@@ -833,6 +833,33 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn('"watermark_text": "BOZZA"', queued_job.payload_json)
         self.assertIsNone(self.store.get(7))
 
+    async def test_pending_rotate_text_enqueues_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_rotate",
+            )
+        )
+        message = SimpleNamespace(
+            text="giralo a destra",
+            chat_id=99,
+            message_id=7021,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"rotate_degrees": 90', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
+        message.reply_text.assert_awaited_once()
+
     async def test_rotate_callback_enqueues_manual_rotation_job(self) -> None:
         self.store.save(
             UserSession(
@@ -1131,6 +1158,56 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         message.reply_text.assert_awaited_once()
         self.assertIsNone(self.store.get(7))
 
+    async def test_text_request_accepts_light_typo_for_compression(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Comprmi questo pdf",
+            chat_id=99,
+            message_id=7891,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"compression_preset": "medium"', queued_job.payload_json)
+        message.reply_text.assert_awaited_once()
+
+    async def test_text_request_can_set_strong_compression_preset(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Comprimi questo pdf in modo forte",
+            chat_id=99,
+            message_id=7892,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"compression_preset": "strong"', queued_job.payload_json)
+        message.reply_text.assert_awaited_once()
+
     async def test_text_request_can_extract_pages_naturally(self) -> None:
         self.store.save(
             UserSession(
@@ -1155,6 +1232,58 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         queued_job = next(iter(self.store._jobs.values()))
         self.assertIn('"page_selection": "2-3"', queued_job.payload_json)
         message.reply_text.assert_awaited_once()
+
+    async def test_text_request_can_delete_pages_with_conjunctions(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Togli le pagine 2 e 4",
+            chat_id=99,
+            message_id=9001,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"page_selection": "2,4"', queued_job.payload_json)
+        self.assertEqual(queued_job.action, "pdf_delete_pages")
+        message.reply_text.assert_awaited_once()
+
+    async def test_text_request_without_page_action_asks_for_clarification(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Pagine 2-4",
+            chat_id=99,
+            message_id=9002,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        message.reply_text.assert_awaited_once()
+        self.assertIn("estrai pagine", message.reply_text.await_args.args[0])
+        self.assertIn("elimina pagine", message.reply_text.await_args.args[0])
 
     async def test_text_request_can_rotate_naturally(self) -> None:
         self.store.save(
@@ -1181,6 +1310,33 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn('"rotate_degrees": 90', queued_job.payload_json)
         message.reply_text.assert_awaited_once()
 
+    async def test_text_request_can_prompt_for_missing_rotation_degrees(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Ruota questo pdf",
+            chat_id=99,
+            message_id=9011,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(saved_session.pending_action, "pdf_rotate")
+        message.reply_text.assert_awaited_once()
+        self.assertIn("90", message.reply_text.await_args.args[0])
+
     async def test_text_request_can_add_watermark_naturally(self) -> None:
         self.store.save(
             UserSession(
@@ -1205,6 +1361,56 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         queued_job = next(iter(self.store._jobs.values()))
         self.assertIn('"watermark_text": "BOZZA"', queued_job.payload_json)
         message.reply_text.assert_awaited_once()
+
+    async def test_text_request_can_add_filigrana_with_quotes(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text='Metti una filigrana "RISERVATO"',
+            chat_id=99,
+            message_id=9021,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertIn('"watermark_text": "RISERVATO"', queued_job.payload_json)
+        message.reply_text.assert_awaited_once()
+
+    async def test_text_request_with_multiple_pdf_actions_asks_for_clarification(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Comprimi questo pdf in bianco e nero",
+            chat_id=99,
+            message_id=9022,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        message.reply_text.assert_awaited_once()
+        self.assertIn("una cosa per volta", message.reply_text.await_args.args[0].lower())
 
     async def test_menu_text_storico_lavori_delegates_to_history(self) -> None:
         message = SimpleNamespace(

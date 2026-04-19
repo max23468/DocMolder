@@ -174,7 +174,8 @@ Le modifiche rilevanti vengono annotate in [`CHANGELOG.md`](CHANGELOG.md), mentr
 
 In sintesi, le priorità attuali sono:
 
-- la roadmap corrente non ha item aperti: le prossime priorita verranno aggiunte quando decideremo il prossimo blocco di evoluzione del prodotto
+- Fase 4: estensioni PDF mirate, a partire da split PDF in piu file e valutazione export ZIP per output multipli
+- Fase 5: riferimenti contestuali piu robusti e test conversazionali multi-step ancora piu realistici
 
 ## Monitoraggio admin
 

@@ -25,13 +25,7 @@ Completata.
 
 ## Fase 3: Comprensione Linguaggio Naturale
 
-- [ ] migliorare il parser degli intenti per capire meglio formulazioni meno rigide e più naturali
-- [ ] estrarre dal testo parametri utili come pagine, gradi di rotazione, watermark e livello di compressione
-- [ ] ampliare sinonimi e varianti colloquiali per azioni e trasformazioni frequenti
-- [ ] introdurre tolleranza leggera agli errori di battitura nelle richieste testuali più comuni
-- [ ] gestire meglio frasi miste con azione e contesto, ad esempio richieste riferite esplicitamente a PDF, immagini o pagine
-- [ ] aggiungere disambiguazione guidata quando una richiesta testuale può voler dire più cose diverse
-- [ ] sfruttare meglio il contesto immediato della conversazione per interpretare il messaggio successivo
+Completata.
 
 ## Fase 4: Estensioni PDF Mirate
 

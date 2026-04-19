@@ -43,7 +43,15 @@ Il changelog segue un flusso orientato a GitHub:
 
 ## [Unreleased]
 
-Nessuna modifica ancora rilasciata dopo la baseline `0.1.0`.
+### Features
+
+- parser testuale piu robusto per richieste naturali su PDF e immagini, con sinonimi aggiuntivi e tolleranza leggera ai refusi comuni
+- estrazione diretta da testo di selezione pagine, gradi di rotazione, watermark e livello di compressione
+- chiarimenti guidati e passaggi a input pending quando la richiesta e ambigua o incompleta
+
+### Docs
+
+- roadmap, contesto e README riallineati al completamento della Fase 3
 
 ## [0.1.0] - 2026-04-18
 

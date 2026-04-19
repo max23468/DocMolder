@@ -92,6 +92,11 @@ ADMIN_ONLY_MESSAGE = "Questo comando è disponibile solo per l'admin del bot."
 
 
 def build_pending_action_prompt(action: SupportedAction) -> str:
+    if action == SupportedAction.PDF_ROTATE:
+        return (
+            "Scrivimi di quanto vuoi ruotare il PDF: `90`, `180` oppure `270` gradi.\n"
+            "Vanno bene anche frasi naturali come `ruotalo di 90 gradi`, `giralo a destra` o `mezzo giro`."
+        )
     if action == SupportedAction.PDF_EXTRACT_PAGES:
         return (
             "Scrivimi quali pagine vuoi estrarre, ad esempio `1,3,5-7`.\n"

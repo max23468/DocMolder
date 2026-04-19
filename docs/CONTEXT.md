@@ -47,3 +47,5 @@ Ultimo aggiornamento del contesto:
 - la Fase 2 ha introdotto alert admin anti-spam per failure rate anomali o errori ripetuti nelle ultime finestre operative
 - la VPS ha ora backup SQLite giornaliero con timer systemd, script manuali di backup/restore e retention corta verificabile
 - la copertura pseudo end-to-end include ora anche flussi piu realistici di upload Telegram, wizard immagini->PDF e follow-up sul PDF risultato
+- la comprensione testuale e ora piu tollerante su richieste naturali, sinonimi e piccoli refusi, con estrazione diretta di pagine, rotazioni, watermark e livello di compressione
+- quando un comando testuale e ambiguo o incompleto, il bot prova a chiarire l'azione o chiede il dettaglio mancante invece di fermarsi su una lettura fragile

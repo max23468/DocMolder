@@ -6,10 +6,11 @@ import logging
 import re
 import unicodedata
 from collections import deque
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import perf_counter
-from typing import NotRequired, Required, TypedDict
+from typing import Literal, TypedDict
 from zoneinfo import ZoneInfo
 
 from telegram import Document, InlineKeyboardMarkup, Message, PhotoSize, Update, User
@@ -106,11 +107,15 @@ class PendingActionEnqueueKwargs(TypedDict, total=False):
     watermark_text: str
 
 
-class StructuredTextRequest(TypedDict, total=False):
-    action: Required[SupportedAction]
-    rotate_degrees: NotRequired[int]
-    page_selection: NotRequired[str]
-    watermark_text: NotRequired[str]
+@dataclass(slots=True)
+class TextRequestResolution:
+    kind: Literal["enqueue", "pending", "clarify"]
+    action: SupportedAction | None = None
+    compression_preset: CompressionPreset | None = None
+    rotate_degrees: int | None = None
+    page_selection: str | None = None
+    watermark_text: str | None = None
+    message: str | None = None
 
 
 class AdminAlertPayload(TypedDict):
@@ -1002,40 +1007,23 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             if handled:
                 return
 
-        structured_request = _infer_structured_text_request(session, text)
-        if structured_request is not None:
-            action = structured_request["action"]
-            if not _has_capacity_for_new_job(user.id, deps):
-                await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+        text_request = _resolve_text_request(session, text)
+        if text_request is not None:
+            if text_request.kind == "clarify":
+                await message.reply_text(text_request.message or "Dimmi meglio quale operazione vuoi eseguire.")
                 return
 
-            job = await _enqueue_job(
-                context=context,
-                user_id=user.id,
-                chat_id=message.chat_id,
-                reply_to_message_id=message.message_id,
-                action=action,
-                session=session,
-                rotate_degrees=structured_request.get("rotate_degrees"),
-                page_selection=structured_request.get("page_selection"),
-                watermark_text=structured_request.get("watermark_text"),
-            )
-            deps.session_store.delete(user.id)
-            if structured_request.get("page_selection") or structured_request.get("watermark_text"):
-                raw_value = structured_request.get("page_selection") or structured_request.get("watermark_text") or ""
-                await message.reply_text(_build_pending_action_queued_message(action, job.id, str(raw_value)))
-            elif structured_request.get("rotate_degrees") is not None:
-                await message.reply_text(
-                    f"Rotazione manuale presa in carico di {structured_request['rotate_degrees']} gradi. "
-                    f"Job #{job.id} in coda.\nTi invio il PDF appena è pronto."
-                )
-            else:
-                await message.reply_text(_build_text_request_queued_message(action, job.id, None))
-            return
+            if text_request.kind == "pending" and text_request.action is not None:
+                session.pending_action = text_request.action.value
+                session.touch()
+                deps.session_store.save(session)
+                await message.reply_text(text_request.message or _build_pending_action_prompt(text_request.action))
+                return
 
-        inferred_request = _infer_text_requested_action(session, text)
-        if inferred_request is not None:
-            action, compression_preset = inferred_request
+            action = text_request.action
+            if action is None:
+                await message.reply_text("Non ho capito abbastanza bene la richiesta. Prova a riformularla in modo piu diretto.")
+                return
             if not _has_capacity_for_new_job(user.id, deps):
                 await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
                 return
@@ -1057,10 +1045,24 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 reply_to_message_id=message.message_id,
                 action=action,
                 session=session,
-                compression_preset=compression_preset,
+                compression_preset=text_request.compression_preset,
+                rotate_degrees=text_request.rotate_degrees,
+                page_selection=text_request.page_selection,
+                watermark_text=text_request.watermark_text,
             )
             deps.session_store.delete(user.id)
-            await message.reply_text(_build_text_request_queued_message(action, job.id, compression_preset))
+            if text_request.page_selection or text_request.watermark_text:
+                raw_value = text_request.page_selection or text_request.watermark_text or ""
+                await message.reply_text(_build_pending_action_queued_message(action, job.id, str(raw_value)))
+            elif text_request.rotate_degrees is not None:
+                await message.reply_text(
+                    f"Rotazione manuale presa in carico di {text_request.rotate_degrees} gradi. "
+                    f"Job #{job.id} in coda.\nTi invio il PDF appena e pronto."
+                )
+            else:
+                await message.reply_text(
+                    _build_text_request_queued_message(action, job.id, text_request.compression_preset)
+                )
             return
 
     quick_action_guidance = _build_quick_action_guidance(session, text)
@@ -1571,6 +1573,30 @@ async def _handle_pending_session_input(
             normalized_page_selection = _normalize_page_selection_text(text)
             _validate_page_input_text(normalized_page_selection)
             enqueue_kwargs["page_selection"] = normalized_page_selection
+        elif pending_action == SupportedAction.PDF_ROTATE:
+            rotate_degrees = _extract_rotation_degrees(_normalize_keyword_text(text))
+            if rotate_degrees is None:
+                await update.effective_message.reply_text(
+                    "Non ho capito di quanto vuoi ruotare il PDF.\n"
+                    "Scrivimi `90`, `180` oppure `270` gradi, oppure frasi come `giralo a destra`."
+                )
+                return True
+
+            job = await _enqueue_job(
+                context=context,
+                user_id=user_id,
+                chat_id=chat_id,
+                reply_to_message_id=reply_to_message_id,
+                action=pending_action,
+                session=session,
+                rotate_degrees=rotate_degrees,
+            )
+            deps.session_store.delete(user_id)
+            await update.effective_message.reply_text(
+                f"Rotazione manuale presa in carico di {rotate_degrees} gradi. "
+                f"Job #{job.id} in coda.\nTi invio il PDF appena e pronto."
+            )
+            return True
         elif pending_action == SupportedAction.PDF_WATERMARK:
             watermark_text = text.strip()
             if not watermark_text:
@@ -1786,97 +1812,316 @@ def _contains_any(text: str, fragments: tuple[str, ...]) -> bool:
     return any(fragment in text for fragment in fragments)
 
 
-def _infer_text_requested_action(
-    session: UserSession,
-    text: str,
-) -> tuple[SupportedAction, CompressionPreset | None] | None:
+def _normalize_keyword_text(text: str) -> str:
     normalized = _normalize_free_text(text)
-    supported = set(infer_supported_actions(session))
+    collapsed = re.sub(r"[^a-z0-9]+", " ", normalized)
+    return re.sub(r"\s+", " ", collapsed).strip()
 
-    wants_grayscale = _contains_any(
-        normalized,
-        ("scala di grigi", "bianco e nero", "bianco nero", "grayscale", "grigio"),
-    )
-    wants_pdf = _contains_any(normalized, ("pdf", "documento"))
-    wants_crop = _contains_any(normalized, ("ritaglia", "ritaglio", "bordi", "margini", "scannerizzato", "scansionato"))
-    wants_merge = _contains_any(normalized, ("unisci", "accorpa", "merge"))
-    wants_compress = _contains_any(normalized, ("comprimi", "compressione", "alleggerisci", "riduci"))
-    wants_orient = _contains_any(normalized, ("orientamento", "raddrizza", "raddrizzare"))
 
-    if SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE in supported and wants_crop and wants_grayscale:
-        return SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE, None
-    if SupportedAction.IMAGES_TO_PDF_CROP in supported and wants_crop and wants_pdf:
-        return SupportedAction.IMAGES_TO_PDF_CROP, None
-    if SupportedAction.PDF_MERGE in supported and wants_merge:
-        return SupportedAction.PDF_MERGE, None
-    if SupportedAction.PDF_COMPRESS in supported and wants_compress:
-        return SupportedAction.PDF_COMPRESS, CompressionPreset.MEDIUM
-    if SupportedAction.PDF_GRAYSCALE in supported and wants_grayscale:
-        return SupportedAction.PDF_GRAYSCALE, None
-    if SupportedAction.AUTO_ORIENT in supported and wants_orient:
-        return SupportedAction.AUTO_ORIENT, None
-    if SupportedAction.IMAGES_TO_PDF_GRAYSCALE in supported and wants_grayscale:
-        return SupportedAction.IMAGES_TO_PDF_GRAYSCALE, None
-    if SupportedAction.IMAGES_TO_PDF in supported and wants_pdf:
-        return SupportedAction.IMAGES_TO_PDF, None
+def _tokenize_keyword_text(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", text)
+
+
+def _edit_distance_with_limit(left: str, right: str, limit: int) -> int:
+    if left == right:
+        return 0
+    if abs(len(left) - len(right)) > limit:
+        return limit + 1
+    previous_row = list(range(len(right) + 1))
+    for index, left_char in enumerate(left, start=1):
+        current_row = [index]
+        row_min = current_row[0]
+        for right_index, right_char in enumerate(right, start=1):
+            substitution_cost = 0 if left_char == right_char else 1
+            value = min(
+                previous_row[right_index] + 1,
+                current_row[right_index - 1] + 1,
+                previous_row[right_index - 1] + substitution_cost,
+            )
+            current_row.append(value)
+            row_min = min(row_min, value)
+        if row_min > limit:
+            return limit + 1
+        previous_row = current_row
+    return previous_row[-1]
+
+
+def _matches_token_with_typo(token: str, variant: str) -> bool:
+    if token == variant:
+        return True
+    if min(len(token), len(variant)) < 4:
+        return False
+    limit = 1 if max(len(token), len(variant)) <= 7 else 2
+    return _edit_distance_with_limit(token, variant, limit) <= limit
+
+
+def _matches_keyword_group(text: str, tokens: list[str], variants: tuple[str, ...]) -> bool:
+    padded_text = f" {text} "
+    for variant in variants:
+        normalized_variant = _normalize_keyword_text(variant)
+        if not normalized_variant:
+            continue
+        if " " in normalized_variant:
+            if f" {normalized_variant} " in padded_text:
+                return True
+            continue
+        if any(_matches_token_with_typo(token, normalized_variant) for token in tokens):
+            return True
+    return False
+
+
+def _extract_compression_preset(text: str, tokens: list[str]) -> CompressionPreset | None:
+    if _matches_keyword_group(text, tokens, ("forte", "fortissima", "massima", "spinta", "strong")):
+        return CompressionPreset.STRONG
+    if _matches_keyword_group(text, tokens, ("leggera", "leggera", "light", "soft", "minima")):
+        return CompressionPreset.LIGHT
+    if _matches_keyword_group(text, tokens, ("media", "medio", "normale", "standard", "moderata", "medium")):
+        return CompressionPreset.MEDIUM
     return None
 
 
-def _infer_structured_text_request(session: UserSession, text: str) -> StructuredTextRequest | None:
-    normalized = _normalize_free_text(text)
+def _build_page_action_clarification(page_selection: str | None) -> str:
+    selection_suffix = f" ({page_selection})" if page_selection else ""
+    return (
+        "Ho capito che stai parlando di pagine, ma non mi e ancora chiaro cosa vuoi fare"
+        f"{selection_suffix}.\n"
+        "Posso fare una cosa per volta: `estrai pagine`, `elimina pagine` oppure `riordina pagine`."
+    )
+
+
+def _build_multi_action_clarification(actions: tuple[str, str]) -> str:
+    return (
+        "In questa frase vedo piu operazioni insieme.\n"
+        f"Posso eseguire una cosa per volta: `{actions[0]}` oppure `{actions[1]}`.\n"
+        "Dimmi quale vuoi fare adesso e la prendo subito in carico."
+    )
+
+
+def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolution | None:
+    normalized_text = _normalize_free_text(text)
+    keyword_text = _normalize_keyword_text(text)
+    tokens = _tokenize_keyword_text(keyword_text)
     supported = set(infer_supported_actions(session))
+    session_kinds = {item.kind for item in session.files}
 
-    if SupportedAction.PDF_ROTATE in supported and _contains_any(normalized, ("ruota", "rotazione")):
-        degrees = _extract_rotation_degrees(normalized)
-        if degrees is not None:
-            return {"action": SupportedAction.PDF_ROTATE, "rotate_degrees": degrees}
+    mentions_grayscale = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("scala di grigi", "bianco e nero", "bianco nero", "grayscale", "grigio", "monocromatico"),
+    )
+    mentions_pdf = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("pdf", "documento", "file"),
+    )
+    mentions_crop = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        (
+            "ritaglia",
+            "ritaglio",
+            "bordi",
+            "margini",
+            "scannerizza",
+            "scansiona",
+            "scannerizzato",
+            "scansionato",
+            "scansione",
+            "foglio",
+        ),
+    )
+    mentions_merge = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("unisci", "accorpa", "merge", "combina", "raggruppa"),
+    )
+    mentions_compress = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("comprimi", "compressione", "alleggerisci", "riduci", "ottimizza", "peso"),
+    )
+    mentions_auto_orient = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("orientamento", "raddrizza", "raddrizzare", "addrizza", "dritto"),
+    )
+    mentions_rotate = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("ruota", "rotazione", "gira", "girare", "capovolgi"),
+    )
+    mentions_extract = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("estrai", "estrazione", "prendi", "tieni", "mantieni", "conserva"),
+    )
+    mentions_delete = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("elimina", "rimuovi", "cancella", "togli", "scarta"),
+    )
+    mentions_reorder = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("riordina", "riordinare", "ordina", "sequenza", "ordine"),
+    )
+    mentions_watermark = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("watermark", "filigrana", "timbro"),
+    )
+    mentions_pdf_creation = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("crea pdf", "fai pdf", "genera pdf", "converti in pdf", "trasforma in pdf", "in pdf"),
+    )
+    page_selection = _extract_page_selection_from_text(normalized_text, allow_keywordless_sequence=True)
+    rotate_degrees = _extract_rotation_degrees(keyword_text)
+    watermark_text = _extract_watermark_text(text)
+    compression_preset = _extract_compression_preset(keyword_text, tokens) or CompressionPreset.MEDIUM
 
-    if SupportedAction.PDF_EXTRACT_PAGES in supported and _contains_any(normalized, ("estrai", "estrazione")):
-        page_selection = _extract_page_selection_from_text(normalized)
-        if page_selection:
-            return {"action": SupportedAction.PDF_EXTRACT_PAGES, "page_selection": page_selection}
+    if SupportedAction.PDF_ROTATE in supported and mentions_rotate:
+        if rotate_degrees is not None:
+            return TextRequestResolution(
+                kind="enqueue",
+                action=SupportedAction.PDF_ROTATE,
+                rotate_degrees=rotate_degrees,
+            )
+        return TextRequestResolution(
+            kind="pending",
+            action=SupportedAction.PDF_ROTATE,
+            message=_build_pending_action_prompt(SupportedAction.PDF_ROTATE),
+        )
 
-    if SupportedAction.PDF_DELETE_PAGES in supported and _contains_any(normalized, ("elimina", "rimuovi", "cancella")):
-        page_selection = _extract_page_selection_from_text(normalized)
-        if page_selection:
-            return {"action": SupportedAction.PDF_DELETE_PAGES, "page_selection": page_selection}
-
-    if SupportedAction.PDF_REORDER_PAGES in supported and _contains_any(normalized, ("riordina", "riordinare", "ordina")):
-        page_selection = _extract_page_selection_from_text(normalized, allow_keywordless_sequence=True)
-        if page_selection:
-            return {"action": SupportedAction.PDF_REORDER_PAGES, "page_selection": page_selection}
-
-    if SupportedAction.PDF_WATERMARK in supported and "watermark" in normalized:
-        watermark_text = _extract_watermark_text(text)
+    if SupportedAction.PDF_WATERMARK in supported and mentions_watermark:
         if watermark_text:
-            return {"action": SupportedAction.PDF_WATERMARK, "watermark_text": watermark_text}
+            return TextRequestResolution(
+                kind="enqueue",
+                action=SupportedAction.PDF_WATERMARK,
+                watermark_text=watermark_text,
+            )
+        return TextRequestResolution(
+            kind="pending",
+            action=SupportedAction.PDF_WATERMARK,
+            message=_build_pending_action_prompt(SupportedAction.PDF_WATERMARK),
+        )
+
+    page_action_matches: list[SupportedAction] = []
+    if SupportedAction.PDF_EXTRACT_PAGES in supported and mentions_extract:
+        page_action_matches.append(SupportedAction.PDF_EXTRACT_PAGES)
+    if SupportedAction.PDF_DELETE_PAGES in supported and mentions_delete:
+        page_action_matches.append(SupportedAction.PDF_DELETE_PAGES)
+    if SupportedAction.PDF_REORDER_PAGES in supported and mentions_reorder:
+        page_action_matches.append(SupportedAction.PDF_REORDER_PAGES)
+
+    if len(page_action_matches) > 1:
+        return TextRequestResolution(kind="clarify", message=_build_page_action_clarification(page_selection))
+
+    if len(page_action_matches) == 1:
+        selected_page_action = page_action_matches[0]
+        if page_selection:
+            return TextRequestResolution(
+                kind="enqueue",
+                action=selected_page_action,
+                page_selection=page_selection,
+            )
+        return TextRequestResolution(
+            kind="pending",
+            action=selected_page_action,
+            message=_build_pending_action_prompt(selected_page_action),
+        )
+
+    if page_selection and session_kinds == {FileKind.PDF}:
+        return TextRequestResolution(kind="clarify", message=_build_page_action_clarification(page_selection))
+
+    if SupportedAction.PDF_MERGE in supported and mentions_merge:
+        return TextRequestResolution(kind="enqueue", action=SupportedAction.PDF_MERGE)
+
+    if SupportedAction.PDF_COMPRESS in supported and SupportedAction.PDF_GRAYSCALE in supported:
+        if mentions_compress and mentions_grayscale:
+            return TextRequestResolution(
+                kind="clarify",
+                message=_build_multi_action_clarification(("comprimi il PDF", "converti il PDF in scala di grigi")),
+            )
+
+    if SupportedAction.PDF_COMPRESS in supported and mentions_compress:
+        return TextRequestResolution(
+            kind="enqueue",
+            action=SupportedAction.PDF_COMPRESS,
+            compression_preset=compression_preset,
+        )
+
+    if SupportedAction.PDF_GRAYSCALE in supported and mentions_grayscale:
+        return TextRequestResolution(kind="enqueue", action=SupportedAction.PDF_GRAYSCALE)
+
+    if SupportedAction.AUTO_ORIENT in supported and mentions_auto_orient and not mentions_rotate:
+        return TextRequestResolution(kind="enqueue", action=SupportedAction.AUTO_ORIENT)
+
+    if session_kinds == {FileKind.IMAGE}:
+        if SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE in supported and mentions_crop and mentions_grayscale:
+            return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE)
+        if SupportedAction.IMAGES_TO_PDF_CROP in supported and mentions_crop and (mentions_pdf or mentions_grayscale or mentions_pdf_creation):
+            return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF_CROP)
+        if SupportedAction.IMAGES_TO_PDF_GRAYSCALE in supported and mentions_grayscale:
+            return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF_GRAYSCALE)
+        if SupportedAction.IMAGES_TO_PDF in supported and (mentions_pdf or mentions_pdf_creation):
+            return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF)
 
     return None
 
 
 def _extract_rotation_degrees(text: str) -> int | None:
-    for degrees in (90, 180, 270):
-        if str(degrees) in text:
+    for pattern, degrees in (
+        (r"\b90\b", 90),
+        (r"\b180\b", 180),
+        (r"\b270\b", 270),
+        (r"\bnovanta\b", 90),
+        (r"\bcentottanta\b", 180),
+        (r"\bduecentosettanta\b", 270),
+        (r"\bmezzo giro\b", 180),
+    ):
+        if re.search(pattern, text):
             return degrees
+    if "destra" in text:
+        return 90
+    if "sinistra" in text:
+        return 270
     return None
 
 
 def _extract_page_selection_from_text(text: str, *, allow_keywordless_sequence: bool = False) -> str | None:
-    match = re.search(r"(?:pagina|pagine)\s+([0-9,\-\s]+)", text)
+    cleaned_text = re.sub(r"\b(?:e|ed|poi)\b", ",", text)
+    match = re.search(r"(?:pagina|pagine)\s+([0-9,\-\s,]+)", cleaned_text)
+    if match:
+        return _normalize_page_selection_text(match.group(1))
+    match = re.search(
+        r"(?:estrai|estrazione|prendi|tieni|mantieni|conserva|elimina|rimuovi|cancella|togli|riordina|ordina)\s+([0-9,\-\s,]+)",
+        cleaned_text,
+    )
     if match:
         return _normalize_page_selection_text(match.group(1))
     if allow_keywordless_sequence:
-        match = re.search(r"([0-9][0-9,\-\s]+)$", text.strip())
+        match = re.search(r"([0-9][0-9,\-\s,]+)$", cleaned_text.strip())
         if match:
             return _normalize_page_selection_text(match.group(1))
     return None
 
 
 def _extract_watermark_text(text: str) -> str | None:
-    match = re.search(r"watermark(?:\s+testuale)?[:\s]+(.+)$", text, flags=re.IGNORECASE)
+    quoted_match = re.search(r"[\"'“”](.+?)[\"'“”]", text)
+    if quoted_match is not None:
+        watermark_text = quoted_match.group(1).strip()
+        if watermark_text:
+            return watermark_text
+    match = re.search(
+        r"(?:watermark|filigrana|timbro)(?:\s+testuale)?(?:\s+(?:con|testo|scritta))?[:\s]+(.+)$",
+        text,
+        flags=re.IGNORECASE,
+    )
     if match is None:
         return None
     watermark_text = match.group(1).strip().strip("\"'“”")
+    watermark_text = re.sub(r"^(?:testo|scritta)\s+", "", watermark_text, flags=re.IGNORECASE)
     return watermark_text or None
 
 
