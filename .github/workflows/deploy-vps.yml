@@ -9,7 +9,7 @@ on:
       target_ref:
         description: Git ref or SHA to deploy on the VPS
         required: false
-        default: origin/main
+        default: main
 
 permissions:
   contents: read
@@ -32,6 +32,11 @@ jobs:
       TARGET_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || github.sha }}
 
     steps:
+      - name: Checkout target revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_REF }}
+
       - name: Validate deploy secrets
         env:
           DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64: ${{ secrets.DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 }}
@@ -83,7 +88,28 @@ jobs:
             echo "SSH_STRICT=accept-new" >> "${GITHUB_ENV}"
           fi
 
-      - name: Deploy revision on VPS
+      - name: Sync repository to VPS
+        run: |
+          set -euo pipefail
+
+          tar \
+            --exclude=.git \
+            --exclude=.venv \
+            --exclude=.mypy_cache \
+            --exclude=.pytest_cache \
+            --exclude=__pycache__ \
+            -czf - . \
+          | ssh \
+              -i "${HOME}/.ssh/docmolder_vps" \
+              -p "${DOCMOLDER_VPS_PORT}" \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=30 \
+              -o StrictHostKeyChecking="${SSH_STRICT}" \
+              "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
+              "sudo mkdir -p /opt/docmolder/app && sudo rm -rf /opt/docmolder/app/* /opt/docmolder/app/.[!.]* /opt/docmolder/app/..?* && sudo tar -xzf - -C /opt/docmolder/app"
+
+      - name: Install and restart on VPS
         run: |
           set -euo pipefail
 
@@ -95,7 +121,7 @@ jobs:
             -o ServerAliveInterval=30 \
             -o StrictHostKeyChecking="${SSH_STRICT}" \
             "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
-            "${DOCMOLDER_VPS_DEPLOY_CMD} ${TARGET_REF}"
+            "bash /opt/docmolder/app/deploy/install-vps.sh"
 
       - name: Verify service status on VPS
         run: |

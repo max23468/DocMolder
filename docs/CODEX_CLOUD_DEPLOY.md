@@ -9,8 +9,8 @@ Il deploy SSH diretto dal runtime Codex cloud verso la VPS non e affidabile, per
 Il percorso consigliato quindi e:
 
 1. Codex cloud prepara e pubblica il codice su GitHub.
-2. GitHub Actions esegue il deploy verso la VPS.
-3. La VPS applica il flusso standard con `sudo /opt/docmolder/app/deploy/update-vps.sh`.
+2. GitHub Actions sincronizza il repository sulla VPS via SSH.
+3. La VPS applica installazione o aggiornamento locale senza fare `git pull`.
 4. GitHub Actions verifica stato servizio e timer backup.
 
 ## Flusso consigliato da mobile
@@ -45,7 +45,7 @@ Note operative:
 - `DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64` deve contenere la chiave privata SSH in Base64
 - `DOCMOLDER_VPS_USER` puo restare `opc`
 - `DOCMOLDER_VPS_PORT` puo restare `22`
-- `DOCMOLDER_VPS_DEPLOY_CMD` puo restare `sudo /opt/docmolder/app/deploy/update-vps.sh`
+- `DOCMOLDER_VPS_DEPLOY_CMD` puo restare valorizzato, ma il workflow GitHub attuale non dipende piu da `git pull` sulla VPS
 - `DOCMOLDER_VPS_SSH_KNOWN_HOSTS` e fortemente consigliato per mantenere il controllo stretto della host key
 
 ## Come produrre i secret
@@ -72,7 +72,8 @@ Su `chatgpt.com`, pero, il percorso da considerare ufficiale e quello via GitHub
 
 Il workflow GitHub esegue:
 
-- deploy standard `update-vps.sh`
+- sincronizzazione del repository verso `/opt/docmolder/app`
+- installazione o aggiornamento locale con `deploy/install-vps.sh`
 - controllo `systemctl status docmolder --no-pager`
 - controllo `systemctl status docmolder-db-backup.timer --no-pager`
 
