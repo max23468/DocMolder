@@ -1994,6 +1994,7 @@ async def _maybe_send_periodic_admin_reports(application: Application, deps: Bot
         should_send=now.hour >= deps.settings.admin_daily_report_hour,
         since_days=1,
         title="Riepilogo admin giornaliero DocMolder",
+        require_new_users_or_completed_actions=True,
     )
     await _maybe_send_admin_report_for_period(
         application,
