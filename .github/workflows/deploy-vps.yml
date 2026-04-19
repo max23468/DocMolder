@@ -27,7 +27,6 @@ jobs:
       DOCMOLDER_VPS_HOST: ${{ secrets.DOCMOLDER_VPS_HOST }}
       DOCMOLDER_VPS_USER: ${{ secrets.DOCMOLDER_VPS_USER }}
       DOCMOLDER_VPS_PORT: ${{ secrets.DOCMOLDER_VPS_PORT }}
-      DOCMOLDER_VPS_DEPLOY_CMD: ${{ secrets.DOCMOLDER_VPS_DEPLOY_CMD }}
       DOCMOLDER_VPS_SSH_KNOWN_HOSTS: ${{ secrets.DOCMOLDER_VPS_SSH_KNOWN_HOSTS }}
       TARGET_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || github.sha }}
 
@@ -61,7 +60,6 @@ jobs:
 
           echo "DOCMOLDER_VPS_USER=${DOCMOLDER_VPS_USER:-opc}" >> "${GITHUB_ENV}"
           echo "DOCMOLDER_VPS_PORT=${DOCMOLDER_VPS_PORT:-22}" >> "${GITHUB_ENV}"
-          echo "DOCMOLDER_VPS_DEPLOY_CMD=${DOCMOLDER_VPS_DEPLOY_CMD:-sudo /opt/docmolder/app/deploy/update-vps.sh}" >> "${GITHUB_ENV}"
 
       - name: Prepare SSH key
         env:
@@ -91,6 +89,8 @@ jobs:
       - name: Sync repository to VPS
         run: |
           set -euo pipefail
+
+          export COPYFILE_DISABLE=1
 
           tar \
             --exclude=.git \

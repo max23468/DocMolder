@@ -35,7 +35,6 @@ Configura questi secret nel repository GitHub:
 - `DOCMOLDER_VPS_HOST`
 - `DOCMOLDER_VPS_USER`
 - `DOCMOLDER_VPS_PORT`
-- `DOCMOLDER_VPS_DEPLOY_CMD`
 - `DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64`
 - `DOCMOLDER_VPS_SSH_KNOWN_HOSTS`
 
@@ -45,7 +44,6 @@ Note operative:
 - `DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64` deve contenere la chiave privata SSH in Base64
 - `DOCMOLDER_VPS_USER` puo restare `opc`
 - `DOCMOLDER_VPS_PORT` puo restare `22`
-- `DOCMOLDER_VPS_DEPLOY_CMD` puo restare valorizzato, ma il workflow GitHub attuale non dipende piu da `git pull` sulla VPS
 - `DOCMOLDER_VPS_SSH_KNOWN_HOSTS` e fortemente consigliato per mantenere il controllo stretto della host key
 
 ## Come produrre i secret
