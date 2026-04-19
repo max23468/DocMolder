@@ -1,15 +1,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     telegram_token: str = Field(alias="DOCMOLDER_TELEGRAM_TOKEN")
-    allowed_user_ids: list[int] = Field(default_factory=list, alias="DOCMOLDER_ALLOWED_USER_IDS")
-    admin_user_ids: list[int] = Field(default_factory=list, alias="DOCMOLDER_ADMIN_USER_IDS")
+    allowed_user_ids: Annotated[list[int], NoDecode] = Field(default_factory=list, alias="DOCMOLDER_ALLOWED_USER_IDS")
+    admin_user_ids: Annotated[list[int], NoDecode] = Field(default_factory=list, alias="DOCMOLDER_ADMIN_USER_IDS")
     default_language: str = Field(default="it", alias="DOCMOLDER_DEFAULT_LANGUAGE")
     session_ttl_minutes: int = Field(default=30, alias="DOCMOLDER_SESSION_TTL_MINUTES")
     max_session_files: int = Field(default=20, alias="DOCMOLDER_MAX_SESSION_FILES")
