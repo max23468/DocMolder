@@ -58,6 +58,23 @@ choose_python() {
   esac
 }
 
+venv_python_supported() {
+  if [ ! -x "${VENV_DIR}/bin/python" ]; then
+    return 1
+  fi
+
+  local version
+  version="$("${VENV_DIR}/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  case "${version}" in
+    3.11|3.12|3.13)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 install_packages
 choose_python
 
@@ -71,6 +88,10 @@ fi
 
 sudo mkdir -p "${APP_ROOT}" "${ENV_DIR}" "${DATA_DIR}" "${BACKUP_DIR}"
 sudo chown -R "${APP_USER}:${APP_GROUP}" "${APP_ROOT}"
+
+if [ -d "${VENV_DIR}" ] && ! venv_python_supported; then
+  sudo rm -rf "${VENV_DIR}"
+fi
 
 if [ ! -d "${VENV_DIR}" ]; then
   sudo -u "${APP_USER}" "${PYTHON_BIN}" -m venv "${VENV_DIR}"
