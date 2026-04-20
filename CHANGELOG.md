@@ -8,6 +8,27 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.3.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.2.0...docmolder-v0.3.0) (2026-04-20)
+
+### Features
+
+- parser testuale piu robusto per richieste naturali su PDF e immagini, con sinonimi aggiuntivi e tolleranza leggera ai refusi comuni
+- estrazione diretta da testo di selezione pagine, gradi di rotazione, watermark e livello di compressione
+- chiarimenti guidati e passaggi a input pending quando la richiesta e ambigua o incompleta
+- brand system DocMolder con asset dedicati e sincronizzazione di nome, descrizione, comandi e menu del profilo Telegram
+
+### Fixes
+
+- affinata la chiarezza del logo e la qualita di export degli asset brand
+- corretto l'avatar Telegram con varianti a fondo pieno per evitare aloni chiari dovuti alla trasparenza
+- riallineata l'operativita VPS per deploy e gestione delle variabili ambiente del bot
+
+### Docs
+
+- roadmap, contesto, README e linee guida brand riallineati al completamento della Fase 3
+
+## [Unreleased]
+
 ## [0.2.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.1.0...docmolder-v0.2.0) (2026-04-18)
 
 
@@ -40,19 +61,6 @@ Il changelog segue un flusso orientato a GitHub:
 * consolidate runbooks and remove unused tmp assets ([5ca2dca](https://github.com/max23468/DocMolder/commit/5ca2dca942dfd9b14dd067e390b98beaa992e069))
 * definisce perimetro prodotto e nuova roadmap ([2409de1](https://github.com/max23468/DocMolder/commit/2409de11c4f9169f6c820e0644e390d066b4c1d6))
 * rifinisce la roadmap finale ([846f870](https://github.com/max23468/DocMolder/commit/846f870305a020351334eb4cf19ac72e5712868d))
-
-## [Unreleased]
-
-### Features
-
-- parser testuale piu robusto per richieste naturali su PDF e immagini, con sinonimi aggiuntivi e tolleranza leggera ai refusi comuni
-- estrazione diretta da testo di selezione pagine, gradi di rotazione, watermark e livello di compressione
-- chiarimenti guidati e passaggi a input pending quando la richiesta e ambigua o incompleta
-- brand system DocMolder con asset dedicati e sincronizzazione di nome, descrizione, comandi e menu del profilo Telegram
-
-### Docs
-
-- roadmap, contesto, README e linee guida brand riallineati al completamento della Fase 3
 
 ## [0.1.0] - 2026-04-18
 
