@@ -10,25 +10,6 @@ Il changelog segue un flusso orientato a GitHub:
 
 ## [Unreleased]
 
-## [0.4.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.3.0...docmolder-v0.4.0) (2026-04-20)
-
-### Features
-
-- console admin Telegram estesa con `/queue`, `/health`, `/metrics`, `/job`, `/retry`, `/pause`, `/resume` e dashboard inline con scorciatoie operative
-- self-service utente con `/last`, `/access` e deep link `/start <payload>` per help, storico, stato, accesso e rilanci rapidi
-- selettori job condivisi tra comandi admin e deep link (`latest`, `failed`, `running`, `queued`, `succeeded`)
-- metriche Telegram persistite in `app_meta` per comandi, callback, upload e retry Bot API
-
-### Fixes
-
-- resilienza Bot API migliorata con retry su `429`, timeout ed errori di rete per i flussi Telegram più sensibili
-- hardening dei callback con validazioni più strette, anti-replay leggero lato admin e messaggi uniformi per callback invalide o scadute
-- ridotto il rumore operativo con throttling e digest su notifiche admin e alert ripetuti
-
-### Docs
-
-- aggiunta la guida [`docs/TELEGRAM_OPERATIONS.md`](docs/TELEGRAM_OPERATIONS.md) e riallineati README e indice documentazione alle nuove capacità operative Telegram
-
 ## [0.3.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.2.0...docmolder-v0.3.0) (2026-04-20)
 
 ### Features
