@@ -8,6 +8,23 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.4.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.3.0...docmolder-v0.4.0) (2026-04-20)
+
+
+### Features
+
+* **telegram:** improve bot operations and bump version to 0.4.0 ([#16](https://github.com/max23468/DocMolder/issues/16)) ([e98b068](https://github.com/max23468/DocMolder/commit/e98b06875d58dfdb93d237b74716f3b0250ba866))
+
+
+### Fixes
+
+* **release:** realign release-please to tagged version ([#17](https://github.com/max23468/DocMolder/issues/17)) ([78a9491](https://github.com/max23468/DocMolder/commit/78a9491dd54a01cfb4078754a1ba61254c37bc04))
+
+
+### Docs
+
+* **release:** require squash PRs for main ([1428e4f](https://github.com/max23468/DocMolder/commit/1428e4f8cfca204abe7e20ebd7bc1bc03566302a))
+
 ## [Unreleased]
 
 ## [0.3.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.2.0...docmolder-v0.3.0) (2026-04-20)
