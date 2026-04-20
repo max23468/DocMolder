@@ -18,6 +18,15 @@ La fonte di verita della release e composta da:
 
 `pyproject.toml` e `src/docmolder/__init__.py` sono file derivati e vengono aggiornati automaticamente dal flusso di release.
 
+I seguenti file sono quindi **riservati alla Release PR** generata da `release-please`:
+
+- `CHANGELOG.md`
+- `.release-please-manifest.json`
+- `pyproject.toml`
+- `src/docmolder/__init__.py`
+
+Le PR ordinarie non devono modificarli.
+
 ## Regola operativa
 
 Il branch `main` deve ricevere modifiche tramite PR con **squash merge**.
@@ -29,6 +38,7 @@ Policy del progetto:
 - il titolo della PR e parte del processo di versioning, non solo descrizione editoriale
 - ogni commit che entra su `main` deve provenire da una PR squashata
 - il workflow `Main Commit Policy` e un guardrail di verifica, non un'alternativa al flusso PR
+- il workflow `Release Policy` blocca le PR normali che provano a fare bump versione o changelog manuali
 
 Il titolo della PR squashata diventa il commit che `release-please` usera per:
 
@@ -107,6 +117,17 @@ Usa `chore:` o `ci:` per:
 5. al merge della Release PR GitHub crea tag e Release
 
 Non usare `main` per commit manuali o push diretti. Se una modifica e urgente, si apre comunque una PR piccola e la si squash-mergea appena la CI e verde.
+
+## Regola pratica per gli agenti e per il maintainer
+
+Per evitare i disallineamenti visti nei tentativi precedenti:
+
+- non fare mai bump manuali "gia dentro" una feature PR;
+- non aggiornare il changelog di release dentro una feature PR;
+- non riallineare a mano manifest o version file salvo manutenzione eccezionale del flusso release;
+- se serve una release, si mergea la PR funzionale e si lascia lavorare `release-please`.
+
+Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR e da considerare sbagliata e va corretta prima del merge.
 
 ## Baseline attuale
 

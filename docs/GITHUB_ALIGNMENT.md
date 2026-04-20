@@ -23,12 +23,14 @@ Configura da **Settings**:
 1. **General → Pull Requests**
    - abilita "Automatically delete head branches".
 2. **Branches → Branch protection (main)**
-   - richiedi almeno 1 status check (`CI / Python ...`).
+   - se disponibile sul piano/account, richiedi almeno 1 status check (`CI / Python ...`).
    - opzionale ma utile anche da solo: "Require branches to be up to date before merging".
 3. **Actions → General**
    - consenti solo actions verificate (GitHub + verified creators) per ridurre rischio supply-chain.
 4. **Security → Code security and analysis**
    - abilita secret scanning e Dependabot alerts.
+
+Se branch protection non e disponibile, considera questi workflow come guardrail operativi e non come enforcement assoluto: aiutano a intercettare errori, ma non sostituiscono la disciplina del flusso PR.
 
 ## 3) Flusso operativo consigliato (solo maintainer)
 
@@ -51,6 +53,13 @@ Vantaggi principali:
 
 Questa non e una preferenza soft: per DocMolder il flusso ufficiale e solo PR squashate verso `main`.
 
+Regola aggiuntiva fondamentale:
+
+- le PR ordinarie non devono toccare `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py`;
+- quei file vengono aggiornati solo dalla Release PR automatica;
+- se compaiono in una PR normale, la PR va corretta prima del merge;
+- per il dettaglio operativo della policy, fai sempre riferimento a [VERSIONING.md](./VERSIONING.md).
+
 ## 4) Convenzioni leggere ad alto rendimento
 
 - Label minime: `bug`, `enhancement`, `chore`, `docs`, `infra`.
@@ -58,7 +67,6 @@ Questa non e una preferenza soft: per DocMolder il flusso ufficiale e solo PR sq
 - Usa Issues anche personali come backlog, evitando TODO sparsi nel codice.
 - Mantieni `CHANGELOG.md` come changelog ufficiale di release.
 - Usa `docs:` solo per documentazione davvero rilasciabile; per housekeeping documentale preferisci `chore:`.
-- Mantieni attivo il controllo sul titolo PR per evitare release ambigue.
 
 ## 5) Integrazioni opzionali (quando servono)
 

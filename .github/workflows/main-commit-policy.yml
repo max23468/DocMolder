@@ -34,9 +34,11 @@ jobs:
           zero = "0" * 40
 
           conventional = re.compile(
-              r"^(feat|fix|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: [^ ].+$"
+              r"^(feat|fix|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: [^ ].+ \(#\d+\)$"
           )
-          release_commit = re.compile(r"^chore\(main\): release docmolder \d+\.\d+\.\d+$")
+          release_commit = re.compile(
+              r"^chore\(main\): release docmolder \d+\.\d+\.\d+ \(#\d+\)$"
+          )
 
           rev_range = after if before == zero else f"{before}..{after}"
           output = subprocess.check_output(
@@ -63,6 +65,7 @@ jobs:
           for sha, subject in invalid:
               print(f"- {sha[:7]} {subject}")
           print("")
-          print("Use Conventional Commits on main so release-please can derive the next version correctly.")
+          print("Use squash-merged PR commits on main so release-please can derive the next version correctly.")
+          print("Expected format on main: conventional title plus PR suffix, for example feat(bot): add retry flow (#123).")
           sys.exit(1)
           PY

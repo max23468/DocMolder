@@ -1,0 +1,143 @@
+name: Release Policy
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-policy-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pull-request-guard:
+    name: Guard release-owned files in PRs
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate PR does not edit release-owned files
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body || '' }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          base_ref = os.environ["BASE_REF"]
+          pr_title = os.environ["PR_TITLE"].strip()
+          pr_body = os.environ["PR_BODY"]
+          pr_author = os.environ["PR_AUTHOR"].strip()
+          head_ref = os.environ["HEAD_REF"].strip()
+          protected_files = {
+              ".release-please-manifest.json",
+              "CHANGELOG.md",
+              "pyproject.toml",
+              "src/docmolder/__init__.py",
+          }
+
+          subprocess.check_call(["git", "fetch", "origin", base_ref, "--depth=1"])
+          changed = subprocess.check_output(
+              ["git", "diff", "--name-only", f"origin/{base_ref}...HEAD"],
+              text=True,
+          ).splitlines()
+
+          touched = [path for path in changed if path in protected_files]
+
+          if not touched:
+              print("PR does not modify release-owned files.")
+              raise SystemExit(0)
+
+          release_title = re.compile(r"^chore\(main\): release docmolder \d+\.\d+\.\d+$")
+          looks_like_release_pr = (
+              bool(release_title.match(pr_title))
+              or "This PR was generated with [Release Please]" in pr_body
+              or head_ref.startswith("release-please--")
+              or pr_author == "github-actions[bot]"
+          )
+
+          if looks_like_release_pr:
+              print("Release PR detected; release-owned files are allowed.")
+              raise SystemExit(0)
+
+          print("This PR edits files reserved for release-please:")
+          for path in touched:
+              print(f"- {path}")
+          print("")
+          print("Normal PRs must not update version, manifest, or release changelog files manually.")
+          print("Merge the functional PR first, then let release-please open or update the Release PR.")
+          sys.exit(1)
+          PY
+
+  main-push-guard:
+    name: Flag suspicious pushes to main
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate pushed commits look like squash PR or release commits
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          before = os.environ["BEFORE_SHA"]
+          after = os.environ["AFTER_SHA"]
+          zero = "0" * 40
+
+          squash_pr_commit = re.compile(
+              r"^(feat|fix|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: .+ \(#\d+\)$"
+          )
+          release_commit = re.compile(r"^chore\(main\): release docmolder \d+\.\d+\.\d+ \(#\d+\)$")
+
+          rev_range = after if before == zero else f"{before}..{after}"
+          output = subprocess.check_output(
+              ["git", "log", "--format=%H%x09%s", rev_range],
+              text=True,
+          ).strip()
+
+          if not output:
+              print("No commits to validate.")
+              raise SystemExit(0)
+
+          invalid = []
+          for line in output.splitlines():
+              sha, subject = line.split("\t", 1)
+              if squash_pr_commit.match(subject) or release_commit.match(subject):
+                  continue
+              invalid.append((sha, subject))
+
+          if not invalid:
+              print("All commits pushed to main look like squash PR or release commits.")
+              raise SystemExit(0)
+
+          print("Found commits on main that do not look like squash-merged PRs or release commits:")
+          for sha, subject in invalid:
+              print(f"- {sha[:7]} {subject}")
+          print("")
+          print("Without branch protection this is only a guardrail, but the official flow remains: branch + PR + squash merge + release-please.")
+          sys.exit(1)
+          PY
