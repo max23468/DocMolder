@@ -50,7 +50,9 @@ Il marchio combina:
 
 ### Asset in repository
 
-- sorgente master del marchio: [assets/brand/docmolder-mark-master.png](../assets/brand/docmolder-mark-master.png)
+- sorgente master del marchio: [assets/brand/docmolder-mark-master.svg](../assets/brand/docmolder-mark-master.svg)
+- export raster del marchio: [assets/brand/docmolder-mark-master.png](../assets/brand/docmolder-mark-master.png)
+- wordmark SVG definitivo: [assets/brand/docmolder-wordmark.svg](../assets/brand/docmolder-wordmark.svg)
 - logo orizzontale definitivo: [assets/brand/docmolder-logo-horizontal.png](../assets/brand/docmolder-logo-horizontal.png)
 - variante quadrata: [assets/brand/docmolder-logo-square.png](../assets/brand/docmolder-logo-square.png)
 - variante iOS rounded: [assets/brand/docmolder-logo-ios-rounded.png](../assets/brand/docmolder-logo-ios-rounded.png)
@@ -75,6 +77,40 @@ Il marchio combina:
 - diretto ma non freddo
 - competente ma non rigido
 - utile prima di tutto
+
+## Uso del logo
+
+### Sistema
+
+- `marchio`: simbolo circolare con documento e badge corallo, per avatar, icone e contesti compatti
+- `wordmark`: scritta `DocMolder`, per header, materiali editoriali e casi in cui il nome deve pesare di piu
+- `logo orizzontale`: marchio + nome + tagline, per share card, presentazioni e materiali promozionali
+
+### Clear space
+
+- attorno al `marchio`, lascia almeno uno spazio libero pari alla larghezza del badge corallo
+- attorno al `wordmark`, lascia almeno uno spazio libero pari all'altezza della lettera `D`
+- non appoggiare il logo a bordi, avatar crop o altri elementi UI senza questa area di rispetto
+
+### Dimensioni minime
+
+- `marchio digitale`: non sotto `32x32 px`
+- `marchio Telegram/avatar`: preferibile da `256x256 px` in su
+- `wordmark`: non sotto `120 px` di larghezza
+- `logo orizzontale`: non sotto `220 px` di larghezza
+
+### Sfondi
+
+- su sfondi chiari, usa il `wordmark` ink oppure il `marchio` completo
+- su sfondi scuri, preferisci il `marchio` completo o il `logo orizzontale` gia esportato
+- evita sfondi troppo vicini al `coral` o al `teal` se riducono contrasto e leggibilita
+
+### Da evitare
+
+- non deformare il marchio in orizzontale o verticale
+- non cambiare i colori del badge, della barra teal o del fondo slate
+- non ricostruire il logo da pezzi separati in tool esterni
+- non usare vecchie proposte o varianti non piu presenti in repository
 
 ### Pattern di microcopy
 

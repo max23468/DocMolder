@@ -9,6 +9,7 @@ from docmolder.branding import BRAND_COLORS, BRAND_NAME, BRAND_TAGLINE
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_MARK = PROJECT_ROOT / "assets" / "brand" / "docmolder-mark-master.png"
+SOURCE_MARK_SVG = PROJECT_ROOT / "assets" / "brand" / "docmolder-mark-master.svg"
 
 
 def _load_font(size: int, *, bold: bool = False, family: str = "avenir") -> ImageFont.FreeTypeFont | ImageFont.ImageFont:

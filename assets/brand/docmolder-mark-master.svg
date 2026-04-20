@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2048 2048" role="img" aria-labelledby="title desc">
+  <title id="title">DocMolder master mark</title>
+  <desc id="desc">Circular DocMolder mark with document sheet, teal accent bar, and coral action badge.</desc>
+  <circle cx="1024" cy="1024" r="861" fill="#35536B" />
+  <rect x="532" y="450" width="942" height="1147" rx="205" fill="#F4EEDD" />
+  <path d="M1269 450H1474V655Z" fill="#CBEAEC" />
+  <rect x="634" y="655" width="82" height="676" rx="41" fill="#28ADB0" />
+  <line x1="880" y1="778" x2="1228" y2="778" stroke="#35536B" stroke-width="36" stroke-linecap="square" />
+  <line x1="880" y1="1024" x2="1228" y2="1024" stroke="#35536B" stroke-width="36" stroke-linecap="square" />
+  <line x1="880" y1="1269" x2="1105" y2="1269" stroke="#35536B" stroke-width="36" stroke-linecap="square" />
+  <rect x="1126" y="1167" width="266" height="266" rx="61" fill="#FF7A59" stroke="#35536B" stroke-width="16" />
+  <path d="M1189 1271H1280V1231L1322 1300L1280 1369V1329H1189Z" fill="#F4EEDD" />
+</svg>

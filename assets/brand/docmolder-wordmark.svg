@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 320" role="img" aria-labelledby="title desc">
+  <title id="title">DocMolder wordmark</title>
+  <desc id="desc">DocMolder wordmark in Avenir Next bold, using the brand ink color.</desc>
+  <rect width="1400" height="320" fill="none" />
+  <text
+    x="40"
+    y="220"
+    fill="#132836"
+    font-family="'Avenir Next', Avenir, 'Helvetica Neue', sans-serif"
+    font-size="220"
+    font-weight="700"
+    letter-spacing="-6"
+  >DocMolder</text>
+</svg>
