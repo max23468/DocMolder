@@ -30,7 +30,7 @@ Preferenze:
 - PR con titolo in formato Conventional Commits
 - squash merge su `main`
 - evitare merge commit o rebase merge per le PR normali, cosi il titolo della PR resta la singola fonte di verita per la release
-- il workflow `Main Commit Policy` controlla anche i commit realmente pushati su `main`, cosi un push diretto non convenzionale viene segnalato subito
+- il workflow `Main Commit Policy` verifica i commit entrati su `main`, ma non sostituisce la regola: `main` riceve modifiche solo da PR squashate
 
 Formato atteso:
 
@@ -56,8 +56,6 @@ Il flusso ufficiale e:
 4. revisione finale della Release PR con versione e changelog generati
 5. merge della Release PR
 6. creazione automatica di tag Git e GitHub Release
-
-Se per urgenza viene fatto un push diretto su `main`, il commit deve comunque essere in formato Conventional Commits e va pianificato subito il riallineamento della release, senza accumulare piu modifiche rilasciabili non versionate.
 
 Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 

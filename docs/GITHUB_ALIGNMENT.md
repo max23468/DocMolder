@@ -40,7 +40,7 @@ Anche da solo conviene mantenere un mini-flusso PR:
 4. squash merge solo a CI verde
 5. lasciare a `Release Please` la Release PR e il changelog finale
 
-Regola pratica: considera `main` come branch senza push diretti anche se il piano GitHub attuale non permette di imporlo via branch protection sulla repository privata.
+Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre con branch dedicato + PR + squash merge.
 
 Vantaggi principali:
 
@@ -48,6 +48,8 @@ Vantaggi principali:
 - rollback più semplice;
 - minor rischio di rompere deploy con commit diretti su `main`;
 - versioni e GitHub Releases allineate senza doppia manutenzione manuale.
+
+Questa non e una preferenza soft: per DocMolder il flusso ufficiale e solo PR squashate verso `main`.
 
 ## 4) Convenzioni leggere ad alto rendimento
 

@@ -27,15 +27,14 @@ Policy del progetto:
 - niente push diretti su `main`
 - ogni modifica destinata a release passa da PR
 - il titolo della PR e parte del processo di versioning, non solo descrizione editoriale
-- ogni push su `main` viene anche validato dal workflow `Main Commit Policy`, che controlla i subject dei commit entrati davvero sul branch
+- ogni commit che entra su `main` deve provenire da una PR squashata
+- il workflow `Main Commit Policy` e un guardrail di verifica, non un'alternativa al flusso PR
 
 Il titolo della PR squashata diventa il commit che `release-please` usera per:
 
 - decidere se aprire una Release PR
 - determinare il bump di versione
 - generare il changelog della release
-
-Se serve un intervento eccezionale diretto su `main`, anche il commit pushato deve rispettare il formato Conventional Commits. In caso contrario il workflow di policy fallisce e segnala subito che il flusso release non e piu affidabile.
 
 Formato richiesto:
 
@@ -106,6 +105,8 @@ Usa `chore:` o `ci:` per:
    - aggiornamento di `CHANGELOG.md`
    - bump dei file versione
 5. al merge della Release PR GitHub crea tag e Release
+
+Non usare `main` per commit manuali o push diretti. Se una modifica e urgente, si apre comunque una PR piccola e la si squash-mergea appena la CI e verde.
 
 ## Baseline attuale
 
