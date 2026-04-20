@@ -4,6 +4,7 @@ import asyncio
 import html
 import logging
 import re
+import shutil
 import unicodedata
 from collections import deque
 from dataclasses import dataclass
@@ -16,7 +17,7 @@ from zoneinfo import ZoneInfo
 from telegram import Document, InlineKeyboardMarkup, Message, PhotoSize, Update, User
 from telegram import MenuButtonCommands
 from telegram.constants import ParseMode
-from telegram.error import TelegramError
+from telegram.error import BadRequest, NetworkError, RetryAfter, TelegramError, TimedOut
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -36,6 +37,7 @@ from docmolder.branding import (
 )
 from docmolder.keyboards import (
     build_actions_keyboard,
+    build_admin_dashboard_keyboard,
     build_compression_keyboard,
     build_history_keyboard,
     build_images_pdf_layout_keyboard,
@@ -56,6 +58,7 @@ from docmolder.messages import (
     HELP_MESSAGE,
     JOB_QUEUE_LIMIT_MESSAGE,
     MIXED_SESSION_MESSAGE,
+    SERVICE_UNAVAILABLE_MESSAGE,
     SESSION_EMPTY_MESSAGE,
     UNAUTHORIZED_MESSAGE,
     UPLOAD_RATE_LIMIT_MESSAGE,
@@ -108,6 +111,13 @@ _build_text_request_queued_message = build_text_request_queued_message
 
 _PENDING_IMAGES_PDF_LAYOUT_PREFIX = "images_pdf_layout"
 _PENDING_IMAGES_PDF_MARGIN_PREFIX = "images_pdf_margin"
+_SERVICE_MODE_META_KEY = "service_mode"
+_SERVICE_MODE_NORMAL = "normal"
+_SERVICE_MODE_MAINTENANCE = "maintenance"
+_TELEGRAM_RETRY_ATTEMPTS = 3
+_TELEGRAM_METRIC_PREFIX = "telegram_metric:"
+_ADMIN_CALLBACK_REPLAY_WINDOW_SECONDS = 5
+_NEW_USER_NOTIFICATION_COOLDOWN_SECONDS = 120
 
 
 class PendingActionEnqueueKwargs(TypedDict, total=False):
@@ -203,6 +213,139 @@ def _is_admin(user_id: int | None, settings: Settings) -> bool:
 
 def _get_dependencies(context: ContextTypes.DEFAULT_TYPE) -> BotDependencies:
     return context.application.bot_data["deps"]
+
+
+def _get_service_mode(deps: BotDependencies) -> str:
+    service_mode = deps.session_store.get_meta(_SERVICE_MODE_META_KEY)
+    if service_mode in {_SERVICE_MODE_NORMAL, _SERVICE_MODE_MAINTENANCE}:
+        return service_mode
+    return _SERVICE_MODE_NORMAL
+
+
+def _set_service_mode(deps: BotDependencies, service_mode: str) -> None:
+    deps.session_store.set_meta(_SERVICE_MODE_META_KEY, service_mode)
+
+
+def _is_service_paused(deps: BotDependencies) -> bool:
+    return _get_service_mode(deps) == _SERVICE_MODE_MAINTENANCE
+
+
+def _build_service_status_label(deps: BotDependencies) -> str:
+    return "manutenzione" if _is_service_paused(deps) else "attivo"
+
+
+def _build_service_unavailable_message() -> str:
+    return SERVICE_UNAVAILABLE_MESSAGE
+
+
+def _increment_meta_counter(deps: BotDependencies, key: str, amount: int = 1) -> None:
+    current_value = deps.session_store.get_meta(key)
+    try:
+        parsed_value = int(current_value) if current_value is not None else 0
+    except ValueError:
+        parsed_value = 0
+    deps.session_store.set_meta(key, str(parsed_value + amount))
+
+
+def _get_meta_counter(deps: BotDependencies, key: str) -> int:
+    current_value = deps.session_store.get_meta(key)
+    try:
+        return int(current_value) if current_value is not None else 0
+    except ValueError:
+        return 0
+
+
+def _record_command_metric(deps: BotDependencies, command_name: str) -> None:
+    _increment_meta_counter(deps, f"{_TELEGRAM_METRIC_PREFIX}command:{command_name}")
+
+
+def _record_callback_metric(deps: BotDependencies, callback_name: str) -> None:
+    _increment_meta_counter(deps, f"{_TELEGRAM_METRIC_PREFIX}callback:{callback_name}")
+
+
+def _record_upload_metric(deps: BotDependencies, upload_kind: str) -> None:
+    _increment_meta_counter(deps, f"{_TELEGRAM_METRIC_PREFIX}upload:{upload_kind}")
+
+
+def _callback_replay_meta_key(user_id: int, callback_data: str, message_id: int | None) -> str:
+    return f"callback_replay:{user_id}:{message_id or 0}:{callback_data}"
+
+
+def _is_replayed_callback(deps: BotDependencies, *, user_id: int, callback_data: str, message_id: int | None) -> bool:
+    meta_key = _callback_replay_meta_key(user_id, callback_data, message_id)
+    last_seen_raw = deps.session_store.get_meta(meta_key)
+    now = datetime.now(timezone.utc)
+    last_seen = _parse_meta_datetime(last_seen_raw)
+    deps.session_store.set_meta(meta_key, now.isoformat())
+    if last_seen is None:
+        return False
+    return (now - last_seen).total_seconds() < _ADMIN_CALLBACK_REPLAY_WINDOW_SECONDS
+
+
+def _invalid_callback_message() -> str:
+    return "Richiesta non valida o scaduta. Riprova dal messaggio più recente."
+
+
+def _new_user_admin_meta_key(admin_user_id: int, suffix: str) -> str:
+    return f"new_user_notice:{admin_user_id}:{suffix}"
+
+
+async def _telegram_api_call(label: str, call, *args, **kwargs):
+    deps = kwargs.pop("_deps", None)
+    for attempt in range(1, _TELEGRAM_RETRY_ATTEMPTS + 1):
+        try:
+            return await call(*args, **kwargs)
+        except RetryAfter as exc:
+            if attempt >= _TELEGRAM_RETRY_ATTEMPTS:
+                raise
+            retry_after = max(1, int(getattr(exc, "retry_after", 1)))
+            logger.warning("Telegram rate limit su %s, ritento tra %ss", label, retry_after)
+            if isinstance(deps, BotDependencies):
+                _increment_meta_counter(deps, f"{_TELEGRAM_METRIC_PREFIX}retry_after:{label}")
+            await asyncio.sleep(retry_after)
+        except (TimedOut, NetworkError) as exc:
+            if attempt >= _TELEGRAM_RETRY_ATTEMPTS:
+                raise
+            wait_seconds = attempt
+            logger.warning("Errore temporaneo Telegram su %s (%s), ritento tra %ss", label, type(exc).__name__, wait_seconds)
+            if isinstance(deps, BotDependencies):
+                _increment_meta_counter(deps, f"{_TELEGRAM_METRIC_PREFIX}network_retry:{label}")
+            await asyncio.sleep(wait_seconds)
+
+
+async def _safe_answer_callback(query) -> None:
+    try:
+        await _telegram_api_call("answerCallbackQuery", query.answer)
+    except TelegramError:
+        logger.debug("Impossibile rispondere alla callback Telegram.", exc_info=True)
+
+
+async def _safe_send_message(
+    bot,
+    *,
+    chat_id: int,
+    text: str,
+    reply_to_message_id: int | None = None,
+    deps: BotDependencies | None = None,
+    **kwargs,
+):
+    return await _telegram_api_call(
+        "sendMessage",
+        bot.send_message,
+        chat_id=chat_id,
+        text=text,
+        reply_to_message_id=reply_to_message_id,
+        _deps=deps,
+        **kwargs,
+    )
+
+
+def _runtime_disk_snapshot(path: Path) -> tuple[int, int, int] | None:
+    try:
+        usage = shutil.disk_usage(path)
+    except OSError:
+        return None
+    return usage.total, usage.used, usage.free
 
 
 async def _enqueue_job(
@@ -396,6 +539,10 @@ async def _prepare_message_handler(
         await message.reply_text(ADMIN_ONLY_MESSAGE if require_admin else UNAUTHORIZED_MESSAGE)
         return None
 
+    if not require_admin and _is_service_paused(deps) and not _is_admin(user.id, deps.settings):
+        await message.reply_text(_build_service_unavailable_message())
+        return None
+
     await _maybe_notify_admins_about_new_user(user, context)
     return deps, user, message
 
@@ -419,7 +566,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     prepared = await _prepare_message_handler(update, context)
     if prepared is None:
         return
-    _deps, _user, message = prepared
+    deps, user, message = prepared
+    _record_command_metric(deps, "start")
+
+    deep_link_payload = (context.args[0].strip() if getattr(context, "args", None) else "").lower()
+    if deep_link_payload:
+        handled = await _handle_start_payload(deep_link_payload, deps, user.id, message, context)
+        if handled:
+            return
 
     await message.reply_text(
         WELCOME_MESSAGE,
@@ -431,7 +585,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     prepared = await _prepare_message_handler(update, context)
     if prepared is None:
         return
-    _deps, _user, message = prepared
+    deps, _user, message = prepared
+    _record_command_metric(deps, "help")
 
     await message.reply_text(
         HELP_MESSAGE,
@@ -444,6 +599,7 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if prepared is None:
         return
     deps, user, message = prepared
+    _record_command_metric(deps, "history")
 
     jobs = deps.session_store.list_user_jobs(user.id, limit=5)
     if not jobs:
@@ -459,11 +615,49 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
+async def last_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context)
+    if prepared is None:
+        return
+    deps, user, message = prepared
+    _record_command_metric(deps, "last")
+
+    jobs = deps.session_store.list_user_jobs(user.id, limit=1)
+    if not jobs:
+        await message.reply_text(
+            "Non ho ancora un job da rilanciare per te. Inviami immagini o PDF e poi potrò ripetere l'ultimo flusso.",
+            reply_markup=build_main_menu_keyboard(),
+        )
+        return
+
+    if not _has_capacity_for_new_job(user.id, deps):
+        await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+        return
+
+    source_job = jobs[0]
+    rerun_job = await _enqueue_job_from_existing_payload(
+        context=context,
+        source_job=source_job,
+        reply_to_message_id=message.message_id,
+    )
+    await message.reply_text(_build_history_rerun_message(source_job, rerun_job.id))
+
+
+async def access_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context)
+    if prepared is None:
+        return
+    deps, user, message = prepared
+    _record_command_metric(deps, "access")
+    await message.reply_text(_build_access_status_message(deps, user.id), reply_markup=build_main_menu_keyboard())
+
+
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prepared = await _prepare_message_handler(update, context, require_admin=True)
     if prepared is None:
         return
     deps, _user, message = prepared
+    _record_command_metric(deps, "admin")
 
     stats = deps.session_store.build_admin_stats()
     top_users = deps.session_store.list_top_users(limit=5, since_days=7)
@@ -471,8 +665,206 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     recent_failed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
     recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
     await message.reply_text(
-        _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs)
+        _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs),
+        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
     )
+
+
+async def queue_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, _user, message = prepared
+    _record_command_metric(deps, "queue")
+    await message.reply_text(
+        _build_admin_queue_report(deps),
+        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+    )
+
+
+async def health_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, _user, message = prepared
+    _record_command_metric(deps, "health")
+    await message.reply_text(
+        _build_admin_health_report(deps),
+        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+    )
+
+
+async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, _user, message = prepared
+    _record_command_metric(deps, "pause")
+    _set_service_mode(deps, _SERVICE_MODE_MAINTENANCE)
+    await message.reply_text(
+        "Servizio messo in modalità manutenzione. I nuovi comandi utente vengono bloccati finché non riattivi il servizio.",
+        reply_markup=build_admin_dashboard_keyboard(service_paused=True),
+    )
+
+
+async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, _user, message = prepared
+    _record_command_metric(deps, "resume")
+    _set_service_mode(deps, _SERVICE_MODE_NORMAL)
+    await message.reply_text(
+        "Servizio riattivato. Il bot accetta di nuovo richieste utente normali.",
+        reply_markup=build_admin_dashboard_keyboard(service_paused=False),
+    )
+
+
+async def metrics_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, _user, message = prepared
+    _record_command_metric(deps, "metrics")
+    await message.reply_text(
+        _build_telegram_metrics_report(deps),
+        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+    )
+
+
+async def job_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, _user, message = prepared
+    _record_command_metric(deps, "job")
+    raw_selector = context.args[0].strip().lower() if getattr(context, "args", None) else ""
+    job = _resolve_job_selector(deps, raw_selector)
+    if job is None:
+        await message.reply_text(
+            "Usa `/job <id>`, `/job latest`, `/job failed`, `/job running`, `/job queued` oppure `/job succeeded`.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+    await message.reply_text(_build_user_history_job_detail(job))
+
+
+async def retry_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, _user, message = prepared
+    _record_command_metric(deps, "retry")
+    raw_args = [str(arg).strip().lower() for arg in getattr(context, "args", []) if str(arg).strip()]
+    if not raw_args:
+        await message.reply_text(
+            "Usa `/retry <id>` oppure `/retry latest|failed|running|queued|succeeded` per rilanciare un job esistente.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+    selector = raw_args[0]
+    disable_auto_rotate = "--no-auto-rotate" in raw_args[1:] or "no-auto-rotate" in raw_args[1:]
+    source_job = _resolve_job_selector(deps, selector)
+    if source_job is None:
+        await message.reply_text(
+            "Non trovo il job richiesto da rilanciare. Puoi usare un id oppure `latest`, `failed`, `running`, `queued`, `succeeded`.",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+    if not _has_capacity_for_new_job(source_job.user_id, deps):
+        await message.reply_text(
+            f"L'utente {source_job.user_id} ha già raggiunto il limite di job attivi. Riprova più tardi."
+        )
+        return
+
+    rerun_job = await _enqueue_job_from_existing_payload(
+        context=context,
+        source_job=source_job,
+        reply_to_message_id=message.message_id,
+        auto_rotate_pdf=False if disable_auto_rotate else None,
+    )
+    if disable_auto_rotate:
+        await message.reply_text(_build_rerun_without_rotation_message(source_job, rerun_job.id))
+        return
+    await message.reply_text(_build_history_rerun_message(source_job, rerun_job.id))
+
+
+async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    query = update.callback_query
+    await _safe_answer_callback(query)
+
+    user = query.from_user
+    if not _is_admin(user.id if user else None, deps.settings):
+        await query.edit_message_text(ADMIN_ONLY_MESSAGE)
+        return
+    if user is None:
+        await query.edit_message_text(_invalid_callback_message())
+        return
+    if _is_replayed_callback(
+        deps,
+        user_id=user.id,
+        callback_data=query.data or "",
+        message_id=getattr(query.message, "message_id", None),
+    ):
+        await query.edit_message_text("Azione già ricevuta poco fa. Usa Aggiorna se vuoi vedere lo stato più recente.")
+        return
+
+    action = (query.data or "").removeprefix("admin:")
+    _record_callback_metric(deps, f"admin:{action or 'overview'}")
+    if action == "pause":
+        _set_service_mode(deps, _SERVICE_MODE_MAINTENANCE)
+        body = (
+            "Console admin DocMolder\n"
+            "Servizio impostato in modalità manutenzione.\n\n"
+            f"{_build_admin_queue_report(deps)}"
+        )
+    elif action == "resume":
+        _set_service_mode(deps, _SERVICE_MODE_NORMAL)
+        body = (
+            "Console admin DocMolder\n"
+            "Servizio riattivato.\n\n"
+            f"{_build_admin_queue_report(deps)}"
+        )
+    elif action == "queue":
+        body = _build_admin_queue_report(deps)
+    elif action == "health":
+        body = _build_admin_health_report(deps)
+    elif action == "metrics":
+        body = _build_telegram_metrics_report(deps)
+    elif action == "failed":
+        failed_job = _resolve_job_selector(deps, "failed")
+        body = _build_user_history_job_detail(failed_job) if failed_job is not None else "Non vedo job falliti recenti."
+    elif action == "running":
+        running_job = _resolve_job_selector(deps, "running")
+        body = _build_user_history_job_detail(running_job) if running_job is not None else "Non vedo job in esecuzione."
+    elif action == "queued":
+        queued_job = _resolve_job_selector(deps, "queued")
+        body = _build_user_history_job_detail(queued_job) if queued_job is not None else "Non vedo job in coda."
+    elif action == "succeeded":
+        succeeded_job = _resolve_job_selector(deps, "succeeded")
+        body = _build_user_history_job_detail(succeeded_job) if succeeded_job is not None else "Non vedo job riusciti recenti."
+    elif action == "latest":
+        latest_job = _resolve_job_selector(deps, "latest")
+        body = _build_user_history_job_detail(latest_job) if latest_job is not None else "Non vedo job recenti."
+    else:
+        stats = deps.session_store.build_admin_stats()
+        top_users = deps.session_store.list_top_users(limit=5, since_days=7)
+        failed_actions = deps.session_store.list_failed_actions(limit=5, since_days=7)
+        recent_failed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
+        recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
+        body = _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs)
+
+    try:
+        await query.edit_message_text(
+            body,
+            reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+        )
+    except BadRequest as exc:
+        if "message is not modified" in str(exc).lower():
+            return
+        raise
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -480,6 +872,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     if prepared is None:
         return
     deps, user, message = prepared
+    _record_command_metric(deps, "reset")
 
     _cancel_pending_image_notification(user.id, deps)
     deps.session_store.delete(user.id)
@@ -495,6 +888,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if prepared is None:
         return
     deps, user, message = prepared
+    _record_command_metric(deps, "status")
 
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
@@ -516,6 +910,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if prepared is None:
         return
     deps, user, message = prepared
+    _record_upload_metric(deps, "document")
 
     document = message.document
     if document is None:
@@ -563,6 +958,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if prepared is None:
         return
     deps, user, message = prepared
+    _record_upload_metric(deps, "photo")
 
     photos = message.photo
     if not photos:
@@ -598,11 +994,14 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
     query = update.callback_query
-    await query.answer()
+    await _safe_answer_callback(query)
 
     user = query.from_user
     if not _is_authorized(user.id if user else None, deps.settings):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.edit_message_text(_build_service_unavailable_message())
         return
     await _maybe_notify_admins_about_new_user(user, context)
 
@@ -613,6 +1012,12 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     action = (query.data or "").removeprefix("action:")
+    _record_callback_metric(deps, f"action:{action}")
+    try:
+        resolved_action = SupportedAction(action)
+    except ValueError:
+        await query.edit_message_text(_invalid_callback_message())
+        return
     if action == SupportedAction.PDF_COMPRESS.value:
         await query.edit_message_text(
             _build_compression_prompt(user.id, deps),
@@ -639,7 +1044,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         await query.edit_message_text(_build_pending_action_prompt(SupportedAction(action)))
         return
 
-    if _is_image_pdf_action(SupportedAction(action)):
+    if _is_image_pdf_action(resolved_action):
         await query.edit_message_text(
             _build_image_pdf_layout_prompt(user.id, deps),
             reply_markup=build_images_pdf_layout_keyboard(action),
@@ -650,13 +1055,12 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
 
-    supported_action = SupportedAction(action)
     job = await _enqueue_job(
         context=context,
         user_id=user.id,
         chat_id=query.message.chat_id,
         reply_to_message_id=query.message.message_id,
-        action=supported_action,
+        action=resolved_action,
         session=session,
     )
     deps.session_store.delete(user.id)
@@ -669,11 +1073,15 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
     query = update.callback_query
-    await query.answer()
+    await _safe_answer_callback(query)
     preset = (query.data or "").removeprefix("compress:")
+    _record_callback_metric(deps, f"compress:{preset}")
     user = query.from_user
     if not _is_authorized(user.id if user else None, deps.settings):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.edit_message_text(_build_service_unavailable_message())
         return
     await _maybe_notify_admins_about_new_user(user, context)
     _cancel_pending_image_notification(user.id, deps)
@@ -685,6 +1093,11 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
     if not _has_capacity_for_new_job(user.id, deps):
         await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
+    try:
+        compression_preset = CompressionPreset(preset)
+    except ValueError:
+        await query.edit_message_text(_invalid_callback_message())
+        return
 
     job = await _enqueue_job(
         context=context,
@@ -693,7 +1106,7 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
         reply_to_message_id=query.message.message_id,
         action=SupportedAction.PDF_COMPRESS,
         session=session,
-        compression_preset=CompressionPreset(preset),
+        compression_preset=compression_preset,
     )
     deps.session_store.set_user_preference(user.id, "compression_preset", preset)
     deps.session_store.delete(user.id)
@@ -706,11 +1119,14 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
     query = update.callback_query
-    await query.answer()
+    await _safe_answer_callback(query)
 
     user = query.from_user
     if not _is_authorized(user.id if user else None, deps.settings):
         await query.message.reply_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.message.reply_text(_build_service_unavailable_message())
         return
     await _maybe_notify_admins_about_new_user(user, context)
 
@@ -723,6 +1139,7 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         return
 
     action = (query.data or "").removeprefix("result:")
+    _record_callback_metric(deps, f"result:{action.split(':', 1)[0]}")
     if action.startswith("undo_rotate:"):
         if not _has_capacity_for_new_job(user.id, deps):
             await query.message.reply_text(
@@ -730,7 +1147,14 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
                 reply_to_message_id=query.message.message_id,
             )
             return
-        source_job_id = int(action.removeprefix("undo_rotate:"))
+        try:
+            source_job_id = int(action.removeprefix("undo_rotate:"))
+        except ValueError:
+            await query.message.reply_text(
+                _invalid_callback_message(),
+                reply_to_message_id=query.message.message_id,
+            )
+            return
         source_job = deps.session_store.get_job(source_job_id)
         if source_job is None or source_job.user_id != user.id:
             await query.message.reply_text(
@@ -820,11 +1244,17 @@ async def handle_history_callback(update: Update, context: ContextTypes.DEFAULT_
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
     query = update.callback_query
-    await query.answer()
+    await _safe_answer_callback(query)
 
     user = query.from_user
     if not _is_authorized(user.id if user else None, deps.settings):
         await query.message.reply_text(UNAUTHORIZED_MESSAGE, reply_to_message_id=query.message.message_id)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.message.reply_text(
+            _build_service_unavailable_message(),
+            reply_to_message_id=query.message.message_id,
+        )
         return
     await _maybe_notify_admins_about_new_user(user, context)
 
@@ -834,6 +1264,7 @@ async def handle_history_callback(update: Update, context: ContextTypes.DEFAULT_
     except (TypeError, ValueError):
         await query.message.reply_text("Richiesta non valida.", reply_to_message_id=query.message.message_id)
         return
+    _record_callback_metric(deps, f"history:{action}")
 
     job = deps.session_store.get_job(job_id)
     if job is None or job.user_id != user.id:
@@ -875,11 +1306,14 @@ async def handle_rotate_callback(update: Update, context: ContextTypes.DEFAULT_T
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
     query = update.callback_query
-    await query.answer()
+    await _safe_answer_callback(query)
 
     user = query.from_user
     if not _is_authorized(user.id if user else None, deps.settings):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.edit_message_text(_build_service_unavailable_message())
         return
     await _maybe_notify_admins_about_new_user(user, context)
 
@@ -889,6 +1323,7 @@ async def handle_rotate_callback(update: Update, context: ContextTypes.DEFAULT_T
         return
 
     degrees = int((query.data or "").removeprefix("rotate:"))
+    _record_callback_metric(deps, f"rotate:{degrees}")
     if not _has_capacity_for_new_job(user.id, deps):
         await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
@@ -912,11 +1347,14 @@ async def handle_images_pdf_layout_callback(update: Update, context: ContextType
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
     query = update.callback_query
-    await query.answer()
+    await _safe_answer_callback(query)
 
     user = query.from_user
     if not _is_authorized(user.id if user else None, deps.settings):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.edit_message_text(_build_service_unavailable_message())
         return
     await _maybe_notify_admins_about_new_user(user, context)
 
@@ -925,8 +1363,13 @@ async def handle_images_pdf_layout_callback(update: Update, context: ContextType
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
         return
 
-    _, layout_choice, action_name = (query.data or "").split(":", 2)
-    action = SupportedAction(action_name)
+    try:
+        _, layout_choice, action_name = (query.data or "").split(":", 2)
+        action = SupportedAction(action_name)
+    except (TypeError, ValueError):
+        await query.edit_message_text(_invalid_callback_message())
+        return
+    _record_callback_metric(deps, f"images_pdf_layout:{layout_choice}")
     if not _is_image_pdf_action(action):
         await query.edit_message_text("Questa opzione non è supportata per il PDF richiesto.")
         return
@@ -957,11 +1400,14 @@ async def handle_images_pdf_margin_callback(update: Update, context: ContextType
     deps = _get_dependencies(context)
     _purge_expired_sessions(deps)
     query = update.callback_query
-    await query.answer()
+    await _safe_answer_callback(query)
 
     user = query.from_user
     if not _is_authorized(user.id if user else None, deps.settings):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.edit_message_text(_build_service_unavailable_message())
         return
     await _maybe_notify_admins_about_new_user(user, context)
 
@@ -970,8 +1416,13 @@ async def handle_images_pdf_margin_callback(update: Update, context: ContextType
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
         return
 
-    _, margin_choice, action_name = (query.data or "").split(":", 2)
-    action = SupportedAction(action_name)
+    try:
+        _, margin_choice, action_name = (query.data or "").split(":", 2)
+        action = SupportedAction(action_name)
+    except (TypeError, ValueError):
+        await query.edit_message_text(_invalid_callback_message())
+        return
+    _record_callback_metric(deps, f"images_pdf_margin:{margin_choice}")
     margin_map = {
         "wide": A4_MARGIN_WIDE_PX,
         "narrow": A4_MARGIN_NARROW_PX,
@@ -1004,6 +1455,9 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     message = update.effective_message
     if not _is_authorized(user.id if user else None, deps.settings):
         await message.reply_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await message.reply_text(_build_service_unavailable_message())
         return
     await _maybe_notify_admins_about_new_user(user, context)
 
@@ -1126,23 +1580,45 @@ async def _maybe_notify_admins_about_new_user(user: User | None, context: Contex
 
     notification_text = _build_new_user_notification(user)
     for admin_user_id in deps.settings.admin_user_ids:
+        last_sent_at = _parse_meta_datetime(deps.session_store.get_meta(_new_user_admin_meta_key(admin_user_id, "last_sent_at")))
+        pending_count_key = _new_user_admin_meta_key(admin_user_id, "pending_count")
+        now = datetime.now(timezone.utc)
+        if last_sent_at is not None and (now - last_sent_at).total_seconds() < _NEW_USER_NOTIFICATION_COOLDOWN_SECONDS:
+            _increment_meta_counter(deps, pending_count_key)
+            continue
+
+        pending_count = _get_meta_counter(deps, pending_count_key)
+        admin_notification_text = notification_text
+        if pending_count > 0:
+            admin_notification_text = (
+                f"{notification_text}\n\n"
+                f"Nel frattempo altri {pending_count} utenti nuovi hanno già aperto il bot."
+            )
         try:
-            await context.bot.send_message(
+            await _safe_send_message(
+                context.bot,
                 chat_id=admin_user_id,
-                text=notification_text,
+                text=admin_notification_text,
+                deps=deps,
                 parse_mode=ParseMode.HTML,
                 disable_web_page_preview=True,
             )
+            deps.session_store.set_meta(_new_user_admin_meta_key(admin_user_id, "last_sent_at"), now.isoformat())
+            deps.session_store.set_meta(pending_count_key, "0")
         except TelegramError:
             logger.exception("Impossibile inviare la notifica nuovo utente all'admin %s", admin_user_id)
 
 
 def _build_new_user_notification(user: User) -> str:
     timestamp = datetime.now(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y alle %H:%M:%S")
-    full_name = html.escape(user.full_name or "Sconosciuto")
-    username = f"@{html.escape(user.username)}" if user.username else "non disponibile"
+    full_name_value = getattr(user, "full_name", None) or " ".join(
+        part for part in [getattr(user, "first_name", None), getattr(user, "last_name", None)] if part
+    )
+    full_name = html.escape(full_name_value or "Sconosciuto")
+    username_value = getattr(user, "username", None)
+    username = f"@{html.escape(username_value)}" if username_value else "non disponibile"
     profile_link = f'<a href="tg://user?id={user.id}">Apri profilo Telegram</a>'
-    public_link = f' | <a href="https://t.me/{html.escape(user.username)}">Apri username</a>' if user.username else ""
+    public_link = f' | <a href="https://t.me/{html.escape(username_value)}">Apri username</a>' if username_value else ""
 
     return (
         "Nuovo utente al primo accesso su <b>DocMolder</b>.\n"
@@ -1225,6 +1701,246 @@ def _build_admin_report(
     )
 
 
+def _build_admin_queue_report(deps: BotDependencies) -> str:
+    stats = deps.session_store.build_admin_stats()
+    queued_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.QUEUED,))
+    running_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.RUNNING,))
+    recent_failed_jobs = deps.session_store.list_recent_jobs(limit=3, statuses=(JobStatus.FAILED,))
+    recent_failed_actions = deps.session_store.list_failed_actions(limit=3, since_minutes=max(5, deps.settings.admin_alert_window_minutes))
+    queue_backlog = deps.job_queue.qsize()
+    queued_block = "\n".join(_format_job_line(job) for job in queued_jobs) or "- Nessun job in coda persistente"
+    running_block = "\n".join(_format_job_line(job) for job in running_jobs) or "- Nessun job in esecuzione"
+    failed_block = "\n".join(_format_job_line(job) for job in recent_failed_jobs) or "- Nessun job fallito recente"
+    failed_actions_block = "\n".join(
+        f"- {_action_label(entry.action)}: {entry.total}"
+        for entry in recent_failed_actions
+    ) or "- Nessun pattern di errore recente"
+    return (
+        "Coda operativa DocMolder\n"
+        f"- Service mode: {_build_service_status_label(deps)}\n"
+        f"- Coda in memoria: {queue_backlog}\n"
+        f"- Job queued persistiti: {stats.jobs_queued}\n"
+        f"- Job running persistiti: {stats.jobs_running}\n"
+        f"- Sessioni attive: {stats.active_sessions}\n\n"
+        "Ultimi job in coda:\n"
+        f"{queued_block}\n\n"
+        "Job in lavorazione:\n"
+        f"{running_block}\n\n"
+        "Ultimi job falliti:\n"
+        f"{failed_block}\n\n"
+        "Errori ricorrenti recenti:\n"
+        f"{failed_actions_block}"
+    )
+
+
+def _build_admin_health_report(deps: BotDependencies) -> str:
+    settings = deps.settings
+    runtime_dir = settings.runtime_dir
+    database_path = settings.database_path
+    backup_dir = getattr(settings, "sqlite_backup_dir", runtime_dir / "backups")
+    runtime_status = "ok" if runtime_dir.exists() else "mancante"
+    db_status = "ok" if database_path.exists() else "mancante"
+    backup_status = "ok" if backup_dir.exists() else "mancante"
+    db_size = _format_bytes(database_path.stat().st_size) if database_path.exists() else "0 B"
+    backup_count = len(list(backup_dir.glob("*"))) if backup_dir.exists() else 0
+    disk_snapshot = _runtime_disk_snapshot(runtime_dir)
+    disk_block = (
+        f"- Disco totale: {_format_bytes(disk_snapshot[0])}\n"
+        f"- Disco usato: {_format_bytes(disk_snapshot[1])}\n"
+        f"- Disco libero: {_format_bytes(disk_snapshot[2])}"
+        if disk_snapshot is not None
+        else "- Disco: non disponibile"
+    )
+    worker_status = "attivo" if deps.job_worker_task is not None and not deps.job_worker_task.done() else "fermato"
+    cleanup_status = "attivo" if deps.cleanup_task is not None and not deps.cleanup_task.done() else "fermato"
+    admin_status = "attivo" if deps.admin_report_task is not None and not deps.admin_report_task.done() else "fermato"
+    return (
+        "Health operativo DocMolder\n"
+        f"- Service mode: {_build_service_status_label(deps)}\n"
+        f"- Runtime dir: {runtime_dir} ({runtime_status})\n"
+        f"- Database SQLite: {database_path} ({db_status}, {db_size})\n"
+        f"- Backup dir: {backup_dir} ({backup_status}, {backup_count} file)\n"
+        f"- Worker job: {worker_status}\n"
+        f"- Cleanup schedulato: {cleanup_status}\n"
+        f"- Report admin schedulati: {admin_status}\n"
+        f"- Coda in memoria: {deps.job_queue.qsize()}\n"
+        f"{disk_block}"
+    )
+
+
+def _build_access_status_message(deps: BotDependencies, user_id: int) -> str:
+    session = deps.session_store.get(user_id)
+    active_jobs = deps.session_store.count_active_jobs_for_user(user_id)
+    recent_jobs = deps.session_store.list_user_jobs(user_id, limit=1)
+    last_job = recent_jobs[0] if recent_jobs else None
+    lines = [
+        "Stato accesso DocMolder",
+        f"- Service mode: {_build_service_status_label(deps)}",
+        f"- Accesso account: {'consentito' if _is_authorized(user_id, deps.settings) else 'non consentito'}",
+        f"- Job attivi: {active_jobs}/{deps.settings.max_active_jobs_per_user}",
+        f"- Sessione corrente: {'attiva' if session is not None and session.files else 'vuota'}",
+    ]
+    if session is not None and session.files:
+        lines.append(f"- File in sessione: {len(session.files)}")
+        if session.pending_action:
+            lines.append(f"- Input atteso: {_action_label(session.pending_action)}")
+    if last_job is not None:
+        lines.append(
+            f"- Ultimo job: #{last_job.id} {_action_label(last_job.action)} ({_format_job_status(last_job.status).lower()})"
+        )
+    else:
+        lines.append("- Ultimo job: nessuno")
+    lines.append("- Self-service rapido: usa /last per rilanciare l'ultimo job e /history per vedere i dettagli recenti.")
+    return "\n".join(lines)
+
+
+def _resolve_job_selector(deps: BotDependencies, selector: str) -> JobRecord | None:
+    normalized = selector.strip().lower()
+    if not normalized:
+        return None
+    if normalized == "latest":
+        recent_jobs = deps.session_store.list_recent_jobs(limit=1)
+        return recent_jobs[0] if recent_jobs else None
+    if normalized == "failed":
+        failed_jobs = deps.session_store.list_recent_jobs(limit=1, statuses=(JobStatus.FAILED,))
+        return failed_jobs[0] if failed_jobs else None
+    if normalized == "running":
+        running_jobs = deps.session_store.list_recent_jobs(limit=1, statuses=(JobStatus.RUNNING,))
+        return running_jobs[0] if running_jobs else None
+    if normalized == "queued":
+        queued_jobs = deps.session_store.list_recent_jobs(limit=1, statuses=(JobStatus.QUEUED,))
+        return queued_jobs[0] if queued_jobs else None
+    if normalized == "succeeded":
+        succeeded_jobs = deps.session_store.list_recent_jobs(limit=1, statuses=(JobStatus.SUCCEEDED,))
+        return succeeded_jobs[0] if succeeded_jobs else None
+    try:
+        job_id = int(normalized)
+    except ValueError:
+        return None
+    return deps.session_store.get_job(job_id)
+
+
+def _extract_metric_entries(raw_meta: dict[str, str], prefix: str) -> list[tuple[str, int]]:
+    entries: list[tuple[str, int]] = []
+    for key, raw_value in raw_meta.items():
+        if not key.startswith(prefix):
+            continue
+        try:
+            value = int(raw_value)
+        except ValueError:
+            continue
+        entries.append((key.removeprefix(prefix), value))
+    entries.sort(key=lambda item: (-item[1], item[0]))
+    return entries
+
+
+def _format_upload_metric_name(name: str) -> str:
+    return {
+        "photo": "foto",
+        "document": "documenti",
+    }.get(name, name)
+
+
+def _build_telegram_metrics_report(deps: BotDependencies) -> str:
+    raw_meta = deps.session_store.list_meta(_TELEGRAM_METRIC_PREFIX)
+    command_entries = _extract_metric_entries(raw_meta, f"{_TELEGRAM_METRIC_PREFIX}command:")
+    callback_entries = _extract_metric_entries(raw_meta, f"{_TELEGRAM_METRIC_PREFIX}callback:")
+    upload_entries = _extract_metric_entries(raw_meta, f"{_TELEGRAM_METRIC_PREFIX}upload:")
+    command_block = "\n".join(f"- /{name}: {count}" for name, count in command_entries) or "- Nessun comando registrato ancora"
+    callback_block = "\n".join(f"- {name}: {count}" for name, count in callback_entries[:8]) or "- Nessuna callback rilevata ancora"
+    upload_block = "\n".join(
+        f"- {_format_upload_metric_name(name)}: {count}" for name, count in upload_entries
+    ) or "- Nessun upload registrato ancora"
+    return (
+        "Metriche Telegram DocMolder\n"
+        "Comandi:\n"
+        f"{command_block}\n\n"
+        "Upload:\n"
+        f"{upload_block}\n\n"
+        "Retry Telegram:\n"
+        f"- sendMessage rate limit: {_get_meta_counter(deps, f'{_TELEGRAM_METRIC_PREFIX}retry_after:sendMessage')}\n"
+        f"- sendDocument rate limit: {_get_meta_counter(deps, f'{_TELEGRAM_METRIC_PREFIX}retry_after:sendDocument')}\n"
+        f"- sendMessage network retry: {_get_meta_counter(deps, f'{_TELEGRAM_METRIC_PREFIX}network_retry:sendMessage')}\n"
+        f"- sendDocument network retry: {_get_meta_counter(deps, f'{_TELEGRAM_METRIC_PREFIX}network_retry:sendDocument')}\n\n"
+        "Callback osservate (top):\n"
+        f"{callback_block}"
+    )
+
+
+async def _handle_start_payload(
+    payload: str,
+    deps: BotDependencies,
+    user_id: int,
+    message: Message,
+    context: ContextTypes.DEFAULT_TYPE,
+) -> bool:
+    if payload == "help":
+        await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
+        return True
+    if payload == "history":
+        jobs = deps.session_store.list_user_jobs(user_id, limit=5)
+        if not jobs:
+            await message.reply_text(
+                "Non hai ancora uno storico lavori. Inviami immagini o PDF e terrò traccia degli ultimi job qui.",
+                reply_markup=build_main_menu_keyboard(),
+            )
+        else:
+            await message.reply_text(
+                _build_user_history_summary(jobs),
+                reply_markup=build_history_keyboard([job.id for job in jobs]),
+            )
+        return True
+    if payload == "status":
+        session = deps.session_store.get(user_id)
+        if session is None or not session.files:
+            await message.reply_text(SESSION_EMPTY_MESSAGE, reply_markup=build_main_menu_keyboard())
+        else:
+            await message.reply_text(
+                build_session_recap(session),
+                reply_markup=_filter_keyboard_for_session(session),
+            )
+        return True
+    if payload == "access":
+        await message.reply_text(_build_access_status_message(deps, user_id), reply_markup=build_main_menu_keyboard())
+        return True
+    if payload == "last":
+        recent_jobs = deps.session_store.list_user_jobs(user_id, limit=1)
+        if not recent_jobs:
+            await message.reply_text(
+                "Non ho ancora un job da rilanciare per te. Inviami immagini o PDF e poi potrò ripetere l'ultimo flusso.",
+                reply_markup=build_main_menu_keyboard(),
+            )
+            return True
+        if not _has_capacity_for_new_job(user_id, deps):
+            await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+            return True
+        source_job = recent_jobs[0]
+        rerun_job = await _enqueue_job_from_existing_payload(
+            context=context,
+            source_job=source_job,
+            reply_to_message_id=message.message_id,
+        )
+        await message.reply_text(_build_history_rerun_message(source_job, rerun_job.id))
+        return True
+    if payload.startswith("retry_"):
+        selector = payload.removeprefix("retry_")
+        source_job = _resolve_job_selector(deps, selector)
+        if source_job is None or source_job.user_id != user_id:
+            await message.reply_text("Non riesco a trovare quel job da rilanciare.")
+            return True
+        if not _has_capacity_for_new_job(user_id, deps):
+            await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+            return True
+        rerun_job = await _enqueue_job_from_existing_payload(
+            context=context,
+            source_job=source_job,
+            reply_to_message_id=message.message_id,
+        )
+        await message.reply_text(_build_history_rerun_message(source_job, rerun_job.id))
+        return True
+    return False
+
+
 def _format_job_line(job: JobRecord) -> str:
     action_label = _action_label(job.action)
     reference_time = job.finished_at or job.created_at
@@ -1285,9 +2001,19 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("history", history_command))
+    application.add_handler(CommandHandler("last", last_command))
+    application.add_handler(CommandHandler("access", access_command))
     application.add_handler(CommandHandler("admin", admin_command))
+    application.add_handler(CommandHandler("queue", queue_command))
+    application.add_handler(CommandHandler("health", health_command))
+    application.add_handler(CommandHandler("pause", pause_command))
+    application.add_handler(CommandHandler("resume", resume_command))
+    application.add_handler(CommandHandler("metrics", metrics_command))
+    application.add_handler(CommandHandler("job", job_command))
+    application.add_handler(CommandHandler("retry", retry_command))
     application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^admin:"))
     application.add_handler(CallbackQueryHandler(handle_history_callback, pattern=r"^history:"))
     application.add_handler(CallbackQueryHandler(handle_rotate_callback, pattern=r"^rotate:"))
     application.add_handler(CallbackQueryHandler(handle_result_action_callback, pattern=r"^result:"))
@@ -1529,10 +2255,14 @@ def _build_result_delivery_message(result: ProcessingResult, source_action: Supp
 
     followup_actions = infer_result_followup_actions(source_action)
     if not followup_actions:
-        return result.message
+        return f"{result.message}\n\nPuoi anche usare /last per ripetere il flusso o /access per vedere stato e sessione."
 
     quick_labels = ", ".join(get_action_label(action) for action in followup_actions[:3])
-    return f"{result.message}\n\nSe vuoi, puoi continuare su questo PDF con: {quick_labels}."
+    return (
+        f"{result.message}\n\n"
+        f"Se vuoi, puoi continuare su questo PDF con: {quick_labels}.\n"
+        "Self-service rapido: /last per ripetere l'ultimo job, /access per vedere stato e sessione."
+    )
 
 
 def _build_result_followup_keyboard(
@@ -2311,7 +3041,7 @@ async def _maybe_send_admin_report_for_period(
         return
     report_text = _build_periodic_admin_report(deps, since_days=since_days, title=title)
     for admin_user_id in deps.settings.admin_user_ids:
-        await application.bot.send_message(chat_id=admin_user_id, text=report_text)
+        await _safe_send_message(application.bot, chat_id=admin_user_id, text=report_text, deps=deps)
     deps.session_store.set_meta(meta_key, report_date)
 
 
@@ -2377,14 +3107,17 @@ async def _maybe_send_admin_anomaly_alerts(application: Application, deps: BotDe
     now = datetime.now(timezone.utc)
     for alert in _detect_admin_anomaly_alerts(deps):
         if not _should_send_admin_alert(deps, alert["key"], alert["signature"], now):
+            _increment_meta_counter(deps, _admin_alert_meta_key(alert["key"], "suppressed_count"))
             continue
+        alert_text = _append_admin_alert_digest(deps, alert["key"], alert["text"])
         for admin_user_id in deps.settings.admin_user_ids:
             try:
-                await application.bot.send_message(chat_id=admin_user_id, text=alert["text"])
+                await _safe_send_message(application.bot, chat_id=admin_user_id, text=alert_text, deps=deps)
             except TelegramError:
                 logger.exception("Impossibile inviare l'allerta admin %s a %s", alert["key"], admin_user_id)
         deps.session_store.set_meta(_admin_alert_meta_key(alert["key"], "last_signature"), alert["signature"])
         deps.session_store.set_meta(_admin_alert_meta_key(alert["key"], "last_sent_at"), now.isoformat())
+        deps.session_store.set_meta(_admin_alert_meta_key(alert["key"], "suppressed_count"), "0")
 
 
 def _detect_admin_anomaly_alerts(deps: BotDependencies) -> list[AdminAlertPayload]:
@@ -2514,6 +3247,13 @@ def _admin_alert_meta_key(key: str, suffix: str) -> str:
     return f"admin_alert:{key}:{suffix}"
 
 
+def _append_admin_alert_digest(deps: BotDependencies, key: str, text: str) -> str:
+    suppressed_count = _get_meta_counter(deps, _admin_alert_meta_key(key, "suppressed_count"))
+    if suppressed_count <= 0:
+        return text
+    return f"{text}\n\nNel frattempo ho soppresso {suppressed_count} alert simili per evitare spam."
+
+
 def _parse_meta_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -2534,10 +3274,12 @@ async def _process_job(application: Application, job_id: int) -> None:
     if job is None:
         return
 
-    await application.bot.send_message(
+    await _safe_send_message(
+        application.bot,
         chat_id=job.chat_id,
         text=_build_processing_started_message(SupportedAction(job.action), job.id),
         reply_to_message_id=job.reply_to_message_id,
+        deps=deps,
     )
 
     job_dir = deps.processor.create_job_dir(job.user_id)
@@ -2547,19 +3289,23 @@ async def _process_job(application: Application, job_id: int) -> None:
             result = await _run_job_payload(application, job, job_dir)
         except ProcessingUserError as exc:
             deps.session_store.mark_job_failed(job.id, str(exc))
-            await application.bot.send_message(
+            await _safe_send_message(
+                application.bot,
                 chat_id=job.chat_id,
                 text=f"Job #{job.id} non riuscito.\n{exc}",
                 reply_to_message_id=job.reply_to_message_id,
+                deps=deps,
             )
             return
         except Exception:
             logger.exception("Errore durante il job %s", job.id)
             deps.session_store.mark_job_failed(job.id, GENERIC_ERROR_MESSAGE)
-            await application.bot.send_message(
+            await _safe_send_message(
+                application.bot,
                 chat_id=job.chat_id,
                 text=f"Job #{job.id} non riuscito.\n{GENERIC_ERROR_MESSAGE}",
                 reply_to_message_id=job.reply_to_message_id,
+                deps=deps,
             )
             return
 
@@ -2581,6 +3327,7 @@ async def _process_job(application: Application, job_id: int) -> None:
             job.chat_id,
             job.reply_to_message_id,
             result,
+            deps=deps,
             source_action=SupportedAction(job.action),
             source_job_id=job.id,
         )
@@ -2669,11 +3416,15 @@ async def _send_result(
     reply_to_message_id: int | None,
     result: ProcessingResult,
     *,
+    deps: BotDependencies | None = None,
     source_action: SupportedAction | None = None,
     source_job_id: int | None = None,
     ):
     with result.output_path.open("rb") as payload:
-        return await bot.send_document(
+        return await _telegram_api_call(
+            "sendDocument",
+            bot.send_document,
+            _deps=deps,
             chat_id=chat_id,
             document=payload,
             filename=result.output_name,

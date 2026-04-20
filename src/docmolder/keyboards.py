@@ -93,6 +93,36 @@ def build_rotate_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def build_admin_dashboard_keyboard(*, service_paused: bool) -> InlineKeyboardMarkup:
+    service_button = "Riprendi servizio" if service_paused else "Pausa servizio"
+    service_action = "resume" if service_paused else "pause"
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Panoramica", callback_data="admin:overview"),
+                InlineKeyboardButton("Coda", callback_data="admin:queue"),
+            ],
+            [
+                InlineKeyboardButton("Health", callback_data="admin:health"),
+                InlineKeyboardButton(service_button, callback_data=f"admin:{service_action}"),
+            ],
+            [
+                InlineKeyboardButton("Metriche", callback_data="admin:metrics"),
+                InlineKeyboardButton("Aggiorna", callback_data="admin:refresh"),
+            ],
+            [
+                InlineKeyboardButton("Ultimo fallito", callback_data="admin:failed"),
+                InlineKeyboardButton("In esecuzione", callback_data="admin:running"),
+            ],
+            [
+                InlineKeyboardButton("Ultimo queued", callback_data="admin:queued"),
+                InlineKeyboardButton("Ultimo riuscito", callback_data="admin:succeeded"),
+            ],
+            [InlineKeyboardButton("Ultimo job", callback_data="admin:latest")],
+        ]
+    )
+
+
 def build_main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [[KeyboardButton(left), KeyboardButton(right)] for left, right in MAIN_MENU_ROWS],

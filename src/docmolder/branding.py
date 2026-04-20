@@ -29,6 +29,8 @@ TELEGRAM_COMMANDS: tuple[tuple[str, str], ...] = (
     ("start", "Apri DocMolder e vedi le azioni principali"),
     ("help", "Guida rapida e flussi consigliati"),
     ("history", "Rivedi gli ultimi lavori"),
+    ("last", "Rilancia l'ultimo job personale"),
+    ("access", "Controlla accesso, sessione e coda personale"),
     ("status", "Controlla la sessione corrente"),
     ("reset", "Azzera sessione e scorciatoie"),
 )
