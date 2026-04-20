@@ -46,6 +46,8 @@ HELP_MESSAGE = (
     "/start\n"
     "/help\n"
     "/history\n"
+    "/last\n"
+    "/access\n"
     "/status\n"
     "/reset  (azzera sessione e ultime scelte rapide)"
 )
@@ -88,6 +90,11 @@ GENERIC_ERROR_MESSAGE = (
 )
 
 ADMIN_ONLY_MESSAGE = "Questo comando è disponibile solo per l'admin del bot."
+
+SERVICE_UNAVAILABLE_MESSAGE = (
+    "DocMolder è in modalità manutenzione in questo momento. "
+    "Riprova tra poco. Gli admin possono continuare a usare i comandi di controllo."
+)
 
 
 def build_pending_action_prompt(action: SupportedAction) -> str:

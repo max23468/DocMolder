@@ -45,6 +45,10 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 - Storico ultimi job con dettaglio essenziale e possibilità di rilanciare un'elaborazione
+- Self-service rapido con `/last` e `/access`
+- Deep link Telegram per scorciatoie contestuali e rilancio rapido di job
+- Console admin Telegram con queue, health, metrics, pause/resume e scorciatoie inline
+- Metriche Telegram leggere e alert admin meno rumorosi
 - Nomi output più leggibili, derivati dal file sorgente e dall'azione eseguita
 
 ## Flusso utente
@@ -84,6 +88,9 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - correzione automatica dell'orientamento PDF nei flussi compatibili
 - correzione orientamento immagini
 - storico lavori utente con recupero rapido del job via rilancio
+- self-service utente con `/last` e `/access`
+- console admin Telegram live con `/queue`, `/health`, `/metrics`, `/job`, `/retry`, `/pause`, `/resume`
+- metriche e retry Bot API per i flussi Telegram più sensibili
 
 ## Nota sul motore PDF attuale
 
@@ -146,6 +153,7 @@ Documenti utili:
 - [`docs/VPS_RUNBOOK.md`](docs/VPS_RUNBOOK.md)
 - [`docs/CODEX_CLOUD_DEPLOY.md`](docs/CODEX_CLOUD_DEPLOY.md)
 - [`docs/PDF_PIPELINE.md`](docs/PDF_PIPELINE.md)
+- [`docs/TELEGRAM_OPERATIONS.md`](docs/TELEGRAM_OPERATIONS.md)
 - [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
 - [`docs/VERSIONING.md`](docs/VERSIONING.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
@@ -185,7 +193,15 @@ In sintesi, le priorità attuali sono:
 Se configuri `DOCMOLDER_ADMIN_USER_IDS`, l'admin può usare anche:
 
 - `/admin` per vedere un riepilogo rapido di utenti, nuovi accessi, operazioni completate, stato coda, utenti più attivi e ultimi job riusciti o falliti
+- `/queue` per vedere backlog, job queued/running e ultimi falliti
+- `/health` per controllare runtime, SQLite, backup e worker
+- `/metrics` per vedere le metriche Telegram aggregate
+- `/job <selector>` per aprire rapidamente il dettaglio di un job
+- `/retry <selector>` per rilanciare un job esistente
+- `/pause` e `/resume` per mettere il bot in manutenzione o riattivarlo
 
 Comandi utente utili:
 
 - `/history` per vedere gli ultimi job personali, aprirne i dettagli essenziali o rilanciarli
+- `/last` per rilanciare l'ultimo job personale
+- `/access` per controllare accesso, sessione e coda personale

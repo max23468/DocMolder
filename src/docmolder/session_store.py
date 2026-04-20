@@ -38,6 +38,8 @@ class SessionStore(Protocol):
 
     def set_meta(self, key: str, value: str) -> None: ...
 
+    def list_meta(self, prefix: str) -> dict[str, str]: ...
+
     def get_user_preference(self, user_id: int, key: str) -> str | None: ...
 
     def set_user_preference(self, user_id: int, key: str, value: str) -> None: ...
@@ -149,6 +151,10 @@ class InMemorySessionStore:
     def set_meta(self, key: str, value: str) -> None:
         with self._lock:
             self._meta[key] = value
+
+    def list_meta(self, prefix: str) -> dict[str, str]:
+        with self._lock:
+            return {key: value for key, value in self._meta.items() if key.startswith(prefix)}
 
     def get_user_preference(self, user_id: int, key: str) -> str | None:
         with self._lock:
@@ -553,6 +559,14 @@ class SQLiteSessionStore:
                 (key, value),
             )
             connection.commit()
+
+    def list_meta(self, prefix: str) -> dict[str, str]:
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                "SELECT key, value FROM app_meta WHERE key LIKE ?",
+                (f"{prefix}%",),
+            ).fetchall()
+        return {str(row["key"]): str(row["value"]) for row in rows}
 
     def get_user_preference(self, user_id: int, key: str) -> str | None:
         return self.get_meta(f"user_pref:{user_id}:{key}")

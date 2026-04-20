@@ -11,11 +11,21 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from telegram.error import TelegramError
+from telegram.error import NetworkError, RetryAfter
 
 from docmolder.bot import (
     BotDependencies,
     SensitiveLogFilter,
     SESSION_EMPTY_MESSAGE,
+    _build_access_status_message,
+    _build_admin_health_report,
+    _build_admin_queue_report,
+    _build_service_unavailable_message,
+    _build_telegram_metrics_report,
+    _extract_metric_entries,
+    _invalid_callback_message,
+    _resolve_job_selector,
+    _telegram_api_call,
     _sync_telegram_branding,
     _build_admin_report,
     _build_compression_prompt,
@@ -36,18 +46,30 @@ from docmolder.bot import (
     _build_upload_rate_limit_message,
     _detect_admin_anomaly_alerts,
     _redact_sensitive_text,
+    handle_admin_callback,
     handle_action_callback,
+    handle_compression_callback,
     handle_document,
     handle_history_callback,
     handle_photo,
     handle_rotate_callback,
     _maybe_send_admin_report_for_period,
     _process_job,
+    access_command,
     history_command,
     handle_images_pdf_layout_callback,
     handle_images_pdf_margin_callback,
     handle_menu_text,
     handle_result_action_callback,
+    health_command,
+    job_command,
+    metrics_command,
+    pause_command,
+    queue_command,
+    retry_command,
+    resume_command,
+    last_command,
+    start_command,
 )
 from docmolder.config import Settings
 from docmolder.branding import TELEGRAM_NAME, build_telegram_commands
@@ -117,9 +139,11 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             _reply_to_message_id,
             result: ProcessingResult,
             *,
+            deps=None,
             source_action: SupportedAction | None = None,
             source_job_id: int | None = None,
         ) -> None:
+            self.assertIsNotNone(deps)
             self.assertEqual(source_job_id, job.id)
             self.assertEqual(source_action, SupportedAction.IMAGES_TO_PDF)
             self.assertTrue(result.output_path.exists())
@@ -300,6 +324,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("continuare su questo PDF", message)
         self.assertIn("Comprimi PDF", message)
+        self.assertIn("/last", message)
+        self.assertIn("/access", message)
 
     def test_build_compression_prompt_mentions_saved_preference(self) -> None:
         self.store.set_user_preference(7, "compression_preset", "medium")
@@ -548,6 +574,561 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(RuntimeError):
             await _maybe_notify_admins_about_new_user(user, context)
+
+    async def test_pause_and_resume_commands_toggle_service_mode(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await pause_command(update, context)
+        self.assertEqual(self.store.get_meta("service_mode"), "maintenance")
+
+        await resume_command(update, context)
+        self.assertEqual(self.store.get_meta("service_mode"), "normal")
+        self.assertEqual(message.reply_text.await_count, 2)
+
+    async def test_maintenance_mode_blocks_regular_user_text_requests(self) -> None:
+        self.store.set_meta("service_mode", "maintenance")
+        message = SimpleNamespace(text="ciao", reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=55, username=None, first_name="Mario", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        message.reply_text.assert_awaited_once_with(_build_service_unavailable_message())
+
+    async def test_admin_callback_pause_updates_dashboard(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        query = SimpleNamespace(
+            data="admin:pause",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            message=SimpleNamespace(message_id=54),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_admin_callback(update, context)
+
+        self.assertEqual(self.store.get_meta("service_mode"), "maintenance")
+        query.edit_message_text.assert_awaited_once()
+        self.assertIn("modalità manutenzione", query.edit_message_text.await_args.args[0])
+
+    async def test_admin_callback_replay_is_blocked(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        query = SimpleNamespace(
+            data="admin:pause",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            message=SimpleNamespace(message_id=55),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_admin_callback(update, context)
+        await handle_admin_callback(update, context)
+
+        self.assertIn("Azione già ricevuta", query.edit_message_text.await_args_list[-1].args[0])
+
+    async def test_queue_and_health_commands_return_live_reports(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        queued_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_running(queued_job.id)
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await queue_command(update, context)
+        await health_command(update, context)
+
+        self.assertIn("Coda operativa", message.reply_text.await_args_list[0].args[0])
+        self.assertIn("Health operativo", message.reply_text.await_args_list[1].args[0])
+
+    async def test_telegram_api_call_retries_rate_limit_and_network_errors(self) -> None:
+        mocked_call = AsyncMock(side_effect=[RetryAfter(1), NetworkError("temp"), "ok"])
+        with patch("docmolder.bot.asyncio.sleep", new=AsyncMock()) as sleep_mock:
+            result = await _telegram_api_call("sendMessage", mocked_call)
+
+        self.assertEqual(result, "ok")
+        self.assertEqual(mocked_call.await_count, 3)
+        self.assertEqual(sleep_mock.await_count, 2)
+
+    def test_admin_reports_include_new_operational_sections(self) -> None:
+        queue_report = _build_admin_queue_report(self.deps)
+        health_report = _build_admin_health_report(self.deps)
+        access_report = _build_access_status_message(self.deps, 7)
+        metrics_report = _build_telegram_metrics_report(self.deps)
+
+        self.assertIn("Service mode", queue_report)
+        self.assertIn("Coda in memoria", queue_report)
+        self.assertIn("Ultimi job falliti", queue_report)
+        self.assertIn("Errori ricorrenti recenti", queue_report)
+        self.assertIn("Database SQLite", health_report)
+        self.assertIn("file)", health_report)
+        self.assertIn("Worker job", health_report)
+        self.assertIn("Stato accesso DocMolder", access_report)
+        self.assertIn("/last", access_report)
+        self.assertIn("Metriche Telegram", metrics_report)
+
+    async def test_access_command_returns_access_summary(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_watermark",
+            )
+        )
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await access_command(update, context)
+
+        self.assertIn("Accesso account: consentito", message.reply_text.await_args.args[0])
+        self.assertIn("Input atteso: Watermark testuale", message.reply_text.await_args.args[0])
+        self.assertIn("/last", message.reply_text.await_args.args[0])
+
+    async def test_last_command_reruns_last_personal_job(self) -> None:
+        source_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":null}',
+        )
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=500)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await last_command(update, context)
+
+        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+
+    async def test_metrics_command_returns_telegram_metrics_report(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        self.store.set_meta("telegram_metric:command:start", "4")
+        self.store.set_meta("telegram_metric:upload:photo", "2")
+        self.store.set_meta("telegram_metric:callback:history:rerun", "3")
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await metrics_command(update, context)
+
+        self.assertIn("Metriche Telegram", message.reply_text.await_args.args[0])
+        self.assertIn("/start: 4", message.reply_text.await_args.args[0])
+        self.assertIn("foto: 2", message.reply_text.await_args.args[0])
+        self.assertIn("history:rerun: 3", message.reply_text.await_args.args[0])
+
+    async def test_job_command_shows_job_detail_for_admin(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        job = self.store.create_job(
+            user_id=11,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":"medium"}',
+        )
+        self.store.mark_job_succeeded(job.id, "Completato")
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=400)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=[str(job.id)])
+
+        await job_command(update, context)
+
+        self.assertIn("Dettaglio Job", message.reply_text.await_args.args[0])
+        self.assertIn("Compressione: medium", message.reply_text.await_args.args[0])
+
+    async def test_job_command_accepts_failed_selector(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        job = self.store.create_job(
+            user_id=11,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":"medium"}',
+        )
+        self.store.mark_job_failed(job.id, "Errore di test")
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=402)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=["failed"])
+
+        await job_command(update, context)
+
+        self.assertIn(f"Dettaglio Job #{job.id}", message.reply_text.await_args.args[0])
+
+    async def test_job_command_accepts_succeeded_selector(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        job = self.store.create_job(
+            user_id=11,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":null}',
+        )
+        self.store.mark_job_succeeded(job.id, "Completato")
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=404)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=["succeeded"])
+
+        await job_command(update, context)
+
+        self.assertIn(f"Dettaglio Job #{job.id}", message.reply_text.await_args.args[0])
+
+    async def test_retry_command_requeues_existing_job_for_admin(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        source_job = self.store.create_job(
+            user_id=11,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":null}',
+        )
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=401)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=[str(source_job.id)])
+
+        await retry_command(update, context)
+
+        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertEqual(queued_jobs[0].rerun_of_job_id, source_job.id)
+        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+
+    async def test_retry_command_can_disable_auto_rotation(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        source_job = self.store.create_job(
+            user_id=11,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":"medium","auto_rotate_pdf":true}',
+        )
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=403)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=[str(source_job.id), "--no-auto-rotate"])
+
+        await retry_command(update, context)
+
+        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertIn('"auto_rotate_pdf": false', queued_jobs[0].payload_json)
+        self.assertIn("senza rotazione automatica", message.reply_text.await_args.args[0])
+
+    def test_resolve_job_selector_supports_latest_failed_and_running(self) -> None:
+        latest_job = self.store.create_job(
+            user_id=1,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        failed_job = self.store.create_job(
+            user_id=1,
+            chat_id=99,
+            reply_to_message_id=124,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_failed(failed_job.id, "boom")
+        running_job = self.store.create_job(
+            user_id=1,
+            chat_id=99,
+            reply_to_message_id=125,
+            action="pdf_merge",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_running(running_job.id)
+        succeeded_job = self.store.create_job(
+            user_id=1,
+            chat_id=99,
+            reply_to_message_id=126,
+            action="pdf_delete_pages",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_succeeded(succeeded_job.id, "ok")
+
+        self.assertEqual(_resolve_job_selector(self.deps, "latest").id, succeeded_job.id)
+        self.assertEqual(_resolve_job_selector(self.deps, "failed").id, failed_job.id)
+        self.assertEqual(_resolve_job_selector(self.deps, "running").id, running_job.id)
+        self.assertEqual(_resolve_job_selector(self.deps, "queued").id, latest_job.id)
+        self.assertEqual(_resolve_job_selector(self.deps, "succeeded").id, succeeded_job.id)
+        self.assertEqual(_resolve_job_selector(self.deps, str(latest_job.id)).id, latest_job.id)
+
+    def test_extract_metric_entries_sorts_by_count_desc(self) -> None:
+        entries = _extract_metric_entries(
+            {
+                "telegram_metric:callback:b": "2",
+                "telegram_metric:callback:a": "5",
+                "telegram_metric:callback:c": "1",
+            },
+            "telegram_metric:callback:",
+        )
+
+        self.assertEqual(entries, [("a", 5), ("b", 2), ("c", 1)])
+
+    async def test_admin_callback_failed_shows_latest_failed_job(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        failed_job = self.store.create_job(
+            user_id=11,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_failed(failed_job.id, "Errore di test")
+        query = SimpleNamespace(
+            data="admin:failed",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            message=SimpleNamespace(message_id=90),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_admin_callback(update, context)
+
+        self.assertIn(f"Dettaglio Job #{failed_job.id}", query.edit_message_text.await_args.args[0])
+
+    async def test_admin_callback_succeeded_shows_latest_succeeded_job(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        succeeded_job = self.store.create_job(
+            user_id=11,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_succeeded(succeeded_job.id, "ok")
+        query = SimpleNamespace(
+            data="admin:succeeded",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            message=SimpleNamespace(message_id=91),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_admin_callback(update, context)
+
+        self.assertIn(f"Dettaglio Job #{succeeded_job.id}", query.edit_message_text.await_args.args[0])
+
+    async def test_admin_callback_latest_shows_latest_job(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        latest_job = self.store.create_job(
+            user_id=11,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_delete_pages",
+            payload_json='{"files":[]}',
+        )
+        query = SimpleNamespace(
+            data="admin:latest",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            message=SimpleNamespace(message_id=92),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_admin_callback(update, context)
+
+        self.assertIn(f"Dettaglio Job #{latest_job.id}", query.edit_message_text.await_args.args[0])
+
+    async def test_start_deep_link_retry_reruns_own_job(self) -> None:
+        source_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":null}',
+        )
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=777)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=[f"retry_{source_job.id}"])
+
+        await start_command(update, context)
+
+        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+
+    async def test_start_deep_link_retry_latest_reruns_latest_job(self) -> None:
+        source_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=780)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=["retry_latest"])
+
+        await start_command(update, context)
+
+        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+
+    async def test_retry_command_help_mentions_supported_selectors(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=405)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=[])
+
+        await retry_command(update, context)
+
+        self.assertIn("latest|failed|running|queued|succeeded", message.reply_text.await_args.args[0])
+
+    async def test_start_deep_link_access_shows_access_status(self) -> None:
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=778)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=["access"])
+
+        await start_command(update, context)
+
+        self.assertIn("Stato accesso DocMolder", message.reply_text.await_args.args[0])
+
+    async def test_start_deep_link_last_reruns_latest_job(self) -> None:
+        source_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_merge",
+            payload_json='{"files":[]}',
+        )
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=779)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=["last"])
+
+        await start_command(update, context)
+
+        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+
+    async def test_invalid_action_callback_returns_expired_message(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        query = SimpleNamespace(
+            data="action:not-real",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=700),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_action_callback(update, context)
+
+        query.edit_message_text.assert_awaited_once_with(_invalid_callback_message())
+
+    async def test_invalid_compression_callback_returns_expired_message(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        query = SimpleNamespace(
+            data="compress:ultra",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=701),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_compression_callback(update, context)
+
+        query.edit_message_text.assert_awaited_once_with(_invalid_callback_message())
+
+    async def test_new_user_notification_is_throttled_and_then_summarized(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+        user_one = SimpleNamespace(id=7, username="uno", first_name="Uno", last_name="Test", full_name="Uno Test")
+        user_two = SimpleNamespace(id=8, username="due", first_name="Due", last_name="Test", full_name="Due Test")
+        user_three = SimpleNamespace(id=9, username="tre", first_name="Tre", last_name="Test", full_name="Tre Test")
+
+        await _maybe_notify_admins_about_new_user(user_one, context)
+        await _maybe_notify_admins_about_new_user(user_two, context)
+        self.assertEqual(self.bot.send_message.await_count, 1)
+
+        old_time = "2000-01-01T00:00:00+00:00"
+        self.store.set_meta("new_user_notice:999:last_sent_at", old_time)
+        await _maybe_notify_admins_about_new_user(user_three, context)
+
+        self.assertEqual(self.bot.send_message.await_count, 2)
+        self.assertIn("altri 1 utenti nuovi", self.bot.send_message.await_args_list[-1].kwargs["text"])
 
     async def test_result_callback_enqueues_grayscale_job_from_sent_pdf(self) -> None:
         reply_text = AsyncMock()
@@ -1678,6 +2259,45 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         await _maybe_send_admin_anomaly_alerts(self.application, self.deps)
         self.assertEqual(self.bot.send_message.await_count, first_send_count)
+
+    async def test_maybe_send_admin_anomaly_alerts_appends_digest_after_suppressed_duplicates(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+        self.deps.settings.admin_alert_window_minutes = 30
+        self.deps.settings.admin_alert_min_finished_jobs = 3
+        self.deps.settings.admin_alert_failure_rate_percent = 60
+        self.deps.settings.admin_alert_repeated_failures_threshold = 3
+        self.deps.settings.admin_alert_cooldown_minutes = 120
+
+        for index in range(3):
+            job = self.store.create_job(
+                user_id=7,
+                chat_id=99,
+                reply_to_message_id=2000 + index,
+                action="pdf_compress",
+                payload_json='{"files":[]}',
+            )
+            self.store.mark_job_failed(job.id, "Errore di test")
+
+        await _maybe_send_admin_anomaly_alerts(self.application, self.deps)
+        self.bot.send_message.reset_mock()
+        await _maybe_send_admin_anomaly_alerts(self.application, self.deps)
+
+        self.store.set_meta("admin_alert:failure-rate:last_sent_at", "2000-01-01T00:00:00+00:00")
+        self.store.set_meta("admin_alert:repeated-failures:pdf_compress:last_sent_at", "2000-01-01T00:00:00+00:00")
+
+        newer_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=2999,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_failed(newer_job.id, "Errore di test")
+
+        await _maybe_send_admin_anomaly_alerts(self.application, self.deps)
+
+        sent_texts = [call.kwargs["text"] for call in self.bot.send_message.await_args_list]
+        self.assertTrue(any("soppresso" in text for text in sent_texts))
 
     async def test_pseudo_e2e_photo_to_pdf_followup_flow(self) -> None:
         context = SimpleNamespace(application=self.application, bot=self.bot)

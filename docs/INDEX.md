@@ -20,6 +20,7 @@ Indice unico della documentazione operativa.
 
 - [BRAND.md](./BRAND.md): identita del prodotto, asset e linee guida di tono/UI.
 - [PDF_PIPELINE.md](./PDF_PIPELINE.md): strategia pipeline PDF e fallback.
+- [TELEGRAM_OPERATIONS.md](./TELEGRAM_OPERATIONS.md): comandi, deep link, console admin, metriche e hardening del bot Telegram.
 - [DECISIONS.md](./DECISIONS.md): decisioni tecniche persistenti.
 - [ROADMAP.md](./ROADMAP.md): prossimi blocchi evolutivi.
 - [../CHANGELOG.md](../CHANGELOG.md): changelog versionato delle release.
