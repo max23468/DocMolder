@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
+from docmolder.branding import MAIN_MENU_PLACEHOLDER, MAIN_MENU_ROWS
 from docmolder.models import SupportedAction
 from docmolder.services import get_action_label
 
@@ -94,12 +95,7 @@ def build_rotate_keyboard() -> InlineKeyboardMarkup:
 
 def build_main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        [
-            [KeyboardButton("Cosa posso fare"), KeyboardButton("Crea PDF da immagini")],
-            [KeyboardButton("Comprimi PDF"), KeyboardButton("Unisci PDF")],
-            [KeyboardButton("Foto in A4"), KeyboardButton("Scansiona e comprimi")],
-            [KeyboardButton("Storico lavori"), KeyboardButton("Mostra sessione")],
-        ],
+        [[KeyboardButton(left), KeyboardButton(right)] for left, right in MAIN_MENU_ROWS],
         resize_keyboard=True,
-        input_field_placeholder="Invia immagini o PDF, oppure scegli un'azione o un template rapido",
+        input_field_placeholder=MAIN_MENU_PLACEHOLDER,
     )

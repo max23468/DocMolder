@@ -1,30 +1,29 @@
 from __future__ import annotations
 
+from docmolder.branding import BRAND_NAME, BRAND_TAGLINE
 from docmolder.models import CompressionPreset, SupportedAction
 
 WELCOME_MESSAGE = (
-    "Ciao, sono DocMolder.\n\n"
-    "Posso aiutarti a lavorare su immagini e PDF direttamente qui su Telegram.\n\n"
-    "Cosa puoi fare:\n"
-    "- creare un PDF da una o più immagini\n"
-    "- comprimere un PDF\n"
-    "- convertire un PDF in scala di grigi\n"
-    "- unire più PDF\n"
-    "- estrarre, riordinare, eliminare o ruotare pagine di un PDF\n"
-    "- aggiungere un watermark testuale a un PDF\n"
-    "- correggere automaticamente l'orientamento dei PDF durante l'elaborazione, quando serve\n"
-    "- correggere l'orientamento delle immagini\n\n"
-    "Per iniziare, inviami immagini o PDF.\n"
-    "Se vuoi, puoi anche usare il menu qui sotto, consultare /history per gli ultimi job "
-    "oppure usare template rapidi come `Foto in A4` e `Scansiona e comprimi`."
+    f"Ciao, sono {BRAND_NAME}.\n\n"
+    f"{BRAND_TAGLINE}\n\n"
+    "Lavoro bene quando mi mandi PDF, foto o scansioni direttamente qui su Telegram.\n\n"
+    "Ti aiuto a:\n"
+    "- creare PDF ordinati da immagini\n"
+    "- comprimere, unire e convertire PDF\n"
+    "- estrarre, riordinare, eliminare o ruotare pagine\n"
+    "- aggiungere watermark testuali\n"
+    "- correggere l'orientamento di PDF e immagini quando serve\n\n"
+    "Per partire, inviami immagini o PDF.\n"
+    "Se preferisci, usa il menu rapido qui sotto oppure i template `Foto in A4` e `Scansiona e comprimi`."
 )
 
 HELP_MESSAGE = (
-    "Ecco come usare DocMolder.\n\n"
+    f"Ecco come usare {BRAND_NAME}.\n\n"
     "1. Inviami immagini oppure PDF.\n"
     "2. Ti proporrò solo le azioni compatibili con i file ricevuti.\n"
     "3. Se crei un PDF da immagini, ti chiederò anche se vuoi impaginarlo in A4 e con quali bordi.\n"
     "4. Ti restituirò il file finale qui in chat.\n\n"
+    "DocMolder e pensato per essere semplice: una richiesta chiara per volta, pochi tocchi e un risultato pronto.\n\n"
     "Esempi:\n"
     "- più immagini -> un PDF unico\n"
     "- immagini scannerizzate -> ritaglio bordi e PDF\n"
@@ -53,7 +52,7 @@ HELP_MESSAGE = (
 
 UNAUTHORIZED_MESSAGE = (
     "Questo account non puo usare il bot in questo momento. "
-    "Riprova piu tardi oppure contatta l'amministratore di DocMolder."
+    f"Riprova piu tardi oppure contatta l'amministratore di {BRAND_NAME}."
 )
 
 SESSION_EMPTY_MESSAGE = (

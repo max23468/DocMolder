@@ -16,6 +16,7 @@ from docmolder.bot import (
     BotDependencies,
     SensitiveLogFilter,
     SESSION_EMPTY_MESSAGE,
+    _sync_telegram_branding,
     _build_admin_report,
     _build_compression_prompt,
     _build_file_too_large_message,
@@ -49,6 +50,7 @@ from docmolder.bot import (
     handle_result_action_callback,
 )
 from docmolder.config import Settings
+from docmolder.branding import TELEGRAM_NAME, build_telegram_commands
 from docmolder.processing import DocumentProcessor
 from docmolder.processing import ProcessingResult
 from docmolder.processing import ProcessingUserError
@@ -77,6 +79,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             max_active_jobs_per_user=2,
             cleanup_interval_minutes=30,
             stale_job_retention_hours=6,
+            telegram_brand_sync_enabled=True,
             runtime_dir=self.runtime_dir,
             database_path=self.runtime_dir / "docmolder.db",
         )
@@ -167,8 +170,24 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         keyboard = build_main_menu_keyboard()
 
         labels = [button.text for row in keyboard.keyboard for button in row]
+        self.assertIn("Guida rapida", labels)
+        self.assertIn("Crea PDF", labels)
         self.assertIn("Foto in A4", labels)
         self.assertIn("Scansiona e comprimi", labels)
+
+    async def test_sync_telegram_branding_updates_profile_metadata(self) -> None:
+        self.bot.set_my_name = AsyncMock()
+        self.bot.set_my_description = AsyncMock()
+        self.bot.set_my_short_description = AsyncMock()
+        self.bot.set_my_commands = AsyncMock()
+        self.bot.set_chat_menu_button = AsyncMock()
+
+        await _sync_telegram_branding(self.application, self.settings)
+
+        self.bot.set_my_name.assert_any_await(TELEGRAM_NAME)
+        self.bot.set_my_name.assert_any_await(TELEGRAM_NAME, language_code="it")
+        self.bot.set_my_commands.assert_any_await(build_telegram_commands())
+        self.bot.set_chat_menu_button.assert_awaited_once()
 
     async def test_process_job_announces_fallback_risk_for_pdf_grayscale(self) -> None:
         job = self.store.create_job(
@@ -1430,6 +1449,24 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         history_mock.assert_awaited_once()
 
+    async def test_menu_text_guida_rapida_delegates_to_help(self) -> None:
+        message = SimpleNamespace(
+            text="Guida rapida",
+            chat_id=99,
+            message_id=7901,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        message.reply_text.assert_awaited_once()
+        self.assertIn("Ecco come usare", message.reply_text.await_args.args[0])
+
     async def test_quick_action_button_guides_user_when_session_is_empty(self) -> None:
         message = SimpleNamespace(
             text="Comprimi PDF",
@@ -1521,6 +1558,25 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             text="Mostra sessione",
             chat_id=99,
             message_id=802,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        message.reply_text.assert_awaited_once()
+        self.assertEqual(message.reply_text.await_args.args[0], SESSION_EMPTY_MESSAGE)
+        self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
+
+    async def test_new_status_button_works_and_refreshes_keyboard(self) -> None:
+        message = SimpleNamespace(
+            text="Sessione attiva",
+            chat_id=99,
+            message_id=8021,
             reply_text=AsyncMock(),
         )
         update = SimpleNamespace(

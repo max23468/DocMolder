@@ -1,0 +1,138 @@
+name: Update VPS Env
+
+on:
+  workflow_dispatch:
+    inputs:
+      admin_user_ids:
+        description: Valore per DOCMOLDER_ADMIN_USER_IDS
+        required: false
+        default: ""
+      allowed_user_ids:
+        description: Valore per DOCMOLDER_ALLOWED_USER_IDS
+        required: false
+        default: ""
+      default_language:
+        description: Valore per DOCMOLDER_DEFAULT_LANGUAGE
+        required: false
+        default: "it"
+      telegram_brand_sync_enabled:
+        description: Valore per DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+
+jobs:
+  update-env:
+    name: Update env on Oracle VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOCMOLDER_VPS_HOST: ${{ secrets.DOCMOLDER_VPS_HOST }}
+      DOCMOLDER_VPS_USER: ${{ secrets.DOCMOLDER_VPS_USER }}
+      DOCMOLDER_VPS_PORT: ${{ secrets.DOCMOLDER_VPS_PORT }}
+      DOCMOLDER_VPS_SSH_KNOWN_HOSTS: ${{ secrets.DOCMOLDER_VPS_SSH_KNOWN_HOSTS }}
+      DOCMOLDER_ADMIN_USER_IDS: ${{ inputs.admin_user_ids }}
+      DOCMOLDER_ALLOWED_USER_IDS: ${{ inputs.allowed_user_ids }}
+      DOCMOLDER_DEFAULT_LANGUAGE: ${{ inputs.default_language }}
+      DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED: ${{ inputs.telegram_brand_sync_enabled }}
+
+    steps:
+      - name: Validate SSH secrets
+        env:
+          DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64: ${{ secrets.DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for var in DOCMOLDER_VPS_HOST DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing required secret: ${var}"
+              missing=1
+            fi
+          done
+
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Set deploy defaults
+        run: |
+          set -euo pipefail
+
+          echo "DOCMOLDER_VPS_USER=${DOCMOLDER_VPS_USER:-opc}" >> "${GITHUB_ENV}"
+          echo "DOCMOLDER_VPS_PORT=${DOCMOLDER_VPS_PORT:-22}" >> "${GITHUB_ENV}"
+
+      - name: Prepare SSH key
+        env:
+          DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64: ${{ secrets.DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${HOME}/.ssh"
+          printf '%s' "${DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64}" | base64 --decode > "${HOME}/.ssh/docmolder_vps"
+          chmod 600 "${HOME}/.ssh/docmolder_vps"
+
+      - name: Prepare known_hosts
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${HOME}/.ssh"
+          touch "${HOME}/.ssh/known_hosts"
+          chmod 644 "${HOME}/.ssh/known_hosts"
+
+          if [ -n "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+            echo "SSH_STRICT=yes" >> "${GITHUB_ENV}"
+          else
+            echo "SSH_STRICT=accept-new" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Update env file and restart service
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/docmolder_vps" \
+            -p "${DOCMOLDER_VPS_PORT}" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o StrictHostKeyChecking="${SSH_STRICT}" \
+            "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
+            "sudo DOCMOLDER_ADMIN_USER_IDS='${DOCMOLDER_ADMIN_USER_IDS}' \
+              DOCMOLDER_ALLOWED_USER_IDS='${DOCMOLDER_ALLOWED_USER_IDS}' \
+              DOCMOLDER_DEFAULT_LANGUAGE='${DOCMOLDER_DEFAULT_LANGUAGE}' \
+              DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED='${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}' \
+              bash -s" <<'REMOTE'
+          set -euo pipefail
+
+          ENV_FILE="/etc/docmolder/docmolder.env"
+
+          if [ ! -f "${ENV_FILE}" ]; then
+            echo "Missing ${ENV_FILE} on VPS." >&2
+            exit 1
+          fi
+
+          upsert_env() {
+            key="$1"
+            value="$2"
+            if grep -q "^${key}=" "${ENV_FILE}"; then
+              sed -i "s#^${key}=.*#${key}=${value}#" "${ENV_FILE}"
+            else
+              printf '%s=%s\n' "${key}" "${value}" >> "${ENV_FILE}"
+            fi
+          }
+
+          upsert_env "DOCMOLDER_ADMIN_USER_IDS" "${DOCMOLDER_ADMIN_USER_IDS}"
+          upsert_env "DOCMOLDER_ALLOWED_USER_IDS" "${DOCMOLDER_ALLOWED_USER_IDS}"
+          upsert_env "DOCMOLDER_DEFAULT_LANGUAGE" "${DOCMOLDER_DEFAULT_LANGUAGE}"
+          upsert_env "DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED" "${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}"
+
+          chown root:root "${ENV_FILE}"
+          chmod 600 "${ENV_FILE}"
+
+          systemctl restart docmolder
+          systemctl status docmolder --no-pager
+          REMOTE

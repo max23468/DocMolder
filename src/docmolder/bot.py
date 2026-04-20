@@ -14,6 +14,7 @@ from typing import Literal, TypedDict
 from zoneinfo import ZoneInfo
 
 from telegram import Document, InlineKeyboardMarkup, Message, PhotoSize, Update, User
+from telegram import MenuButtonCommands
 from telegram.constants import ParseMode
 from telegram.error import TelegramError
 from telegram.ext import (
@@ -26,6 +27,13 @@ from telegram.ext import (
 )
 
 from docmolder.config import Settings
+from docmolder.branding import (
+    LEGACY_MENU_LABELS,
+    TELEGRAM_DESCRIPTION,
+    TELEGRAM_NAME,
+    TELEGRAM_SHORT_DESCRIPTION,
+    build_telegram_commands,
+)
 from docmolder.keyboards import (
     build_actions_keyboard,
     build_compression_keyboard,
@@ -264,6 +272,7 @@ async def _run_job_payload(
 async def _post_init(application: Application) -> None:
     deps: BotDependencies = application.bot_data["deps"]
     _run_cleanup_cycle(deps)
+    await _sync_telegram_branding(application, deps.settings)
     requeued_jobs = deps.session_store.requeue_incomplete_jobs()
     for job in requeued_jobs:
         await deps.job_queue.put(job.id)
@@ -329,6 +338,26 @@ def _consume_upload_slot(user_id: int, deps: BotDependencies) -> bool:
 
     history.append(now)
     return True
+
+
+async def _sync_telegram_branding(application: Application, settings: Settings) -> None:
+    if not settings.telegram_brand_sync_enabled:
+        return
+
+    bot = application.bot
+    language_codes = tuple(dict.fromkeys(("", settings.default_language.strip())))
+    commands = build_telegram_commands()
+
+    try:
+        for language_code in language_codes:
+            kwargs = {"language_code": language_code} if language_code else {}
+            await bot.set_my_name(TELEGRAM_NAME, **kwargs)
+            await bot.set_my_description(TELEGRAM_DESCRIPTION, **kwargs)
+            await bot.set_my_short_description(TELEGRAM_SHORT_DESCRIPTION, **kwargs)
+            await bot.set_my_commands(commands, **kwargs)
+        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+    except TelegramError:
+        logger.warning("Non sono riuscito a sincronizzare il branding Telegram del bot.", exc_info=True)
 
 
 def _has_capacity_for_new_job(user_id: int, deps: BotDependencies) -> bool:
@@ -979,16 +1008,18 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     await _maybe_notify_admins_about_new_user(user, context)
 
     text = (message.text or "").strip()
-    if text == "Mostra sessione":
+    menu_text = LEGACY_MENU_LABELS.get(text, text)
+
+    if menu_text == "Sessione attiva" or text == "Mostra sessione":
         await status_command(update, context)
         return
-    if text == "Storico lavori":
+    if menu_text == "Storico lavori":
         await history_command(update, context)
         return
-    if text == "Azzera sessione":
+    if menu_text == "Azzera sessione":
         await reset_command(update, context)
         return
-    if text == "Cosa posso fare":
+    if menu_text == "Guida rapida" or text == "Cosa posso fare":
         await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
         return
 
@@ -1065,13 +1096,13 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 )
             return
 
-    quick_action_guidance = _build_quick_action_guidance(session, text)
+    quick_action_guidance = _build_quick_action_guidance(session, menu_text)
     if quick_action_guidance is not None:
         await message.reply_text(quick_action_guidance, reply_markup=build_main_menu_keyboard())
         return
 
     await message.reply_text(
-        "Per iniziare, inviami immagini o PDF. Se vuoi una guida rapida, usa /help.",
+        "Per iniziare, inviami immagini o PDF. Se vuoi una guida rapida, usa /help oppure il menu qui sotto.",
         reply_markup=build_main_menu_keyboard(),
     )
 
@@ -2135,7 +2166,7 @@ def _build_rerun_without_rotation_message(source_job: JobRecord, job_id: int) ->
 def _build_quick_action_guidance(session: UserSession | None, text: str) -> str | None:
     normalized = _normalize_free_text(text)
 
-    if text == "Crea PDF da immagini":
+    if text in {"Crea PDF", "Crea PDF da immagini"}:
         if session is None or not session.files:
             return "Inviami una o piu immagini e creerò un PDF unico. Se vuoi, puoi mandarne diverse nella stessa sessione."
         if {item.kind for item in session.files} == {FileKind.PDF}:

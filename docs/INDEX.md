@@ -18,6 +18,7 @@ Indice unico della documentazione operativa.
 
 ## Prodotto e decisioni
 
+- [BRAND.md](./BRAND.md): identita del prodotto, asset e linee guida di tono/UI.
 - [PDF_PIPELINE.md](./PDF_PIPELINE.md): strategia pipeline PDF e fallback.
 - [DECISIONS.md](./DECISIONS.md): decisioni tecniche persistenti.
 - [ROADMAP.md](./ROADMAP.md): prossimi blocchi evolutivi.

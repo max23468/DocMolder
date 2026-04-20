@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     database_path: Path = Field(default=Path("./data/runtime/docmolder.db"), alias="DOCMOLDER_DATABASE_PATH")
     sqlite_backup_dir: Path = Field(default=Path("./data/runtime/backups"), alias="DOCMOLDER_SQLITE_BACKUP_DIR")
     sqlite_backup_retention_days: int = Field(default=7, alias="DOCMOLDER_SQLITE_BACKUP_RETENTION_DAYS")
+    telegram_brand_sync_enabled: bool = Field(default=True, alias="DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED")
 
     model_config = SettingsConfigDict(
         env_file=".env",

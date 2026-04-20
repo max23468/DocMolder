@@ -33,6 +33,7 @@ class RateLimitHelpersTest(unittest.TestCase):
             max_active_jobs_per_user=2,
             cleanup_interval_minutes=30,
             stale_job_retention_hours=6,
+            telegram_brand_sync_enabled=True,
             runtime_dir=runtime_dir,
             database_path=runtime_dir / "docmolder.db",
         )

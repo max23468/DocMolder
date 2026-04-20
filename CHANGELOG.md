@@ -48,10 +48,11 @@ Il changelog segue un flusso orientato a GitHub:
 - parser testuale piu robusto per richieste naturali su PDF e immagini, con sinonimi aggiuntivi e tolleranza leggera ai refusi comuni
 - estrazione diretta da testo di selezione pagine, gradi di rotazione, watermark e livello di compressione
 - chiarimenti guidati e passaggi a input pending quando la richiesta e ambigua o incompleta
+- brand system DocMolder con asset dedicati e sincronizzazione di nome, descrizione, comandi e menu del profilo Telegram
 
 ### Docs
 
-- roadmap, contesto e README riallineati al completamento della Fase 3
+- roadmap, contesto, README e linee guida brand riallineati al completamento della Fase 3
 
 ## [0.1.0] - 2026-04-18
 
