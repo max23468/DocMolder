@@ -1,19 +1,18 @@
 <svg width="1180" height="320" viewBox="0 0 1180 320" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect width="1180" height="320" rx="44" fill="#11212D"/>
   <g transform="translate(36 32)">
-    <rect width="256" height="256" rx="64" fill="#F6F2E8"/>
-    <path d="M184 0H256V72L184 0Z" fill="#C9F1F0"/>
-    <path d="M76 98H162" stroke="#19A7A8" stroke-width="16" stroke-linecap="round"/>
-    <path d="M76 138H180" stroke="#274053" stroke-width="16" stroke-linecap="round"/>
-    <path d="M76 178H148" stroke="#274053" stroke-width="16" stroke-linecap="round"/>
-    <circle cx="198" cy="198" r="34" fill="#FF7A59"/>
-    <path d="M182 198H210" stroke="#F6F2E8" stroke-width="10" stroke-linecap="round"/>
-    <path d="M210 198L198 186" stroke="#F6F2E8" stroke-width="10" stroke-linecap="round"/>
-    <path d="M210 198L198 210" stroke="#F6F2E8" stroke-width="10" stroke-linecap="round"/>
+    <rect width="256" height="256" rx="64" fill="#274053"/>
+    <rect x="28" y="18" width="174" height="208" rx="28" fill="#F6F2E8"/>
+    <path d="M154 18H202V66L154 18Z" fill="#C9F1F0"/>
+    <rect x="44" y="58" width="18" height="124" rx="9" fill="#19A7A8"/>
+    <path d="M78 82H154" stroke="#274053" stroke-width="12" stroke-linecap="round"/>
+    <path d="M78 118H154" stroke="#274053" stroke-width="12" stroke-linecap="round"/>
+    <path d="M78 154H136" stroke="#274053" stroke-width="12" stroke-linecap="round"/>
+    <rect x="150" y="146" width="76" height="76" rx="20" fill="#FF7A59" stroke="#274053" stroke-width="8"/>
+    <path d="M170 184H202" stroke="#F6F2E8" stroke-width="10" stroke-linecap="round"/>
+    <path d="M192 172L202 184L192 196" stroke="#F6F2E8" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <path d="M380 125H428C463.346 125 492 153.654 492 189C492 224.346 463.346 253 428 253H380V125ZM424 213C437.255 213 448 202.255 448 189C448 175.745 437.255 165 424 165H421V213H424Z" fill="#F6F2E8"/>
-  <path d="M522 125H570C605.346 125 634 153.654 634 189C634 224.346 605.346 253 570 253H522V125ZM566 213C579.255 213 590 202.255 590 189C590 175.745 579.255 165 566 165H563V213H566Z" fill="#F6F2E8"/>
-  <path d="M677 125L716 191L755 125H803V253H760V188L731 235H701L672 188V253H629V125H677Z" fill="#F6F2E8"/>
-  <path d="M915 125V164H852V174H908V211H852V253H808V125H915Z" fill="#F6F2E8"/>
-  <path d="M941 125H985L1040 199V125H1084V253H1040L985 179V253H941V125Z" fill="#F6F2E8"/>
+  <text x="344" y="146" fill="#F6F2E8" font-size="86" font-weight="700" font-family="Avenir Next, Segoe UI, Helvetica Neue, Arial, sans-serif" letter-spacing="-2">DocMolder</text>
+  <text x="346" y="208" fill="#C9F1F0" font-size="30" font-weight="600" font-family="Avenir Next, Segoe UI, Helvetica Neue, Arial, sans-serif" letter-spacing="0.5">PDF e scansioni pronti, in pochi tocchi.</text>
+  <text x="346" y="250" fill="#19A7A8" font-size="24" font-weight="600" font-family="Avenir Next, Segoe UI, Helvetica Neue, Arial, sans-serif" letter-spacing="1.2">UTILITY DOCUMENTALE SMART SU TELEGRAM</text>
 </svg>
