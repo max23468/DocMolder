@@ -9,11 +9,11 @@ BRAND_TAGLINE = "PDF e scansioni pronti, in pochi tocchi."
 BRAND_VOICE = "utility professionale, smart e amichevole"
 
 BRAND_COLORS: dict[str, str] = {
-    "ink": "#11212D",
-    "slate": "#274053",
-    "teal": "#19A7A8",
-    "mist": "#C9F1F0",
-    "paper": "#F6F2E8",
+    "ink": "#132836",
+    "slate": "#35536B",
+    "teal": "#28ADB0",
+    "mist": "#CBEAEC",
+    "paper": "#F4EEDD",
     "coral": "#FF7A59",
 }
 

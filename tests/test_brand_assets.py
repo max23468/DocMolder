@@ -18,9 +18,13 @@ class BrandAssetsTest(unittest.TestCase):
             generated = render_brand_assets(output_dir)
 
             expected_names = {
+                "docmolder-logo-square.png",
+                "docmolder-logo-ios-rounded.png",
+                "docmolder-logo-telegram-circle.png",
                 "docmolder-telegram-profile.png",
                 "docmolder-telegram-profile.jpg",
                 "docmolder-app-icon.png",
+                "docmolder-logo-horizontal.png",
                 "docmolder-share-card.png",
             }
             self.assertEqual({path.name for path in generated}, expected_names)

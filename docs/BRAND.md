@@ -31,25 +31,30 @@ Messaggio chiave:
 
 ### Idea del logo
 
+La direzione definitiva usa un documento astratto, chiaro e leggibile anche in piccolo.
+
 Il marchio combina:
 
-- un foglio/documento con angoli morbidi, per dare affidabilita e accessibilita
-- una piega in alto, per richiamare il documento in modo immediato
-- un accento circolare con freccia, per suggerire trasformazione, passaggio rapido e output pronto
+- un foglio con angoli morbidi e piega in alto, per comunicare subito il dominio documentale
+- una barra teal verticale, come tratto distintivo e segnale di precisione
+- un badge corallo con freccia, per suggerire trasformazione rapida e output pronto
 
 ### Palette
 
-- `Ink` `#11212D`: fondo principale, serio e tecnico
-- `Slate` `#274053`: testo e struttura secondaria
-- `Teal` `#19A7A8`: azione primaria, precisione, stato positivo
-- `Mist` `#C9F1F0`: superfici leggere, supporto e respiro
-- `Paper` `#F6F2E8`: superfici documento
+- `Ink` `#132836`: fondo principale, serio e tecnico
+- `Slate` `#35536B`: testo e struttura secondaria
+- `Teal` `#28ADB0`: azione primaria, precisione, stato positivo
+- `Mist` `#CBEAEC`: superfici leggere, supporto e respiro
+- `Paper` `#F4EEDD`: superfici documento
 - `Coral` `#FF7A59`: accento, callout, freccia di trasformazione
 
 ### Asset in repository
 
-- logo orizzontale: [assets/brand/docmolder-logo.svg](../assets/brand/docmolder-logo.svg)
-- marchio quadrato: [assets/brand/docmolder-mark.svg](../assets/brand/docmolder-mark.svg)
+- sorgente master del marchio: [assets/brand/docmolder-mark-master.png](../assets/brand/docmolder-mark-master.png)
+- logo orizzontale definitivo: [assets/brand/docmolder-logo-horizontal.png](../assets/brand/docmolder-logo-horizontal.png)
+- variante quadrata: [assets/brand/docmolder-logo-square.png](../assets/brand/docmolder-logo-square.png)
+- variante iOS rounded: [assets/brand/docmolder-logo-ios-rounded.png](../assets/brand/docmolder-logo-ios-rounded.png)
+- variante Telegram circle: [assets/brand/docmolder-logo-telegram-circle.png](../assets/brand/docmolder-logo-telegram-circle.png)
 - icone: [assets/brand/icons/pdf.svg](../assets/brand/icons/pdf.svg), [assets/brand/icons/merge.svg](../assets/brand/icons/merge.svg), [assets/brand/icons/compress.svg](../assets/brand/icons/compress.svg), [assets/brand/icons/watermark.svg](../assets/brand/icons/watermark.svg), [assets/brand/icons/scan.svg](../assets/brand/icons/scan.svg)
 - avatar Telegram generato: [assets/brand/docmolder-telegram-profile.png](../assets/brand/docmolder-telegram-profile.png)
 - avatar JPG per Bot API: [assets/brand/docmolder-telegram-profile.jpg](../assets/brand/docmolder-telegram-profile.jpg)
