@@ -1,0 +1,68 @@
+name: Main Commit Policy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  conventional-main-commits:
+    name: Validate commits pushed to main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate commit subjects
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          import sys
+
+          before = os.environ["BEFORE_SHA"]
+          after = os.environ["AFTER_SHA"]
+          zero = "0" * 40
+
+          conventional = re.compile(
+              r"^(feat|fix|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: [^ ].+$"
+          )
+          release_commit = re.compile(r"^chore\(main\): release docmolder \d+\.\d+\.\d+$")
+
+          rev_range = after if before == zero else f"{before}..{after}"
+          output = subprocess.check_output(
+              ["git", "log", "--format=%H%x09%s", rev_range],
+              text=True,
+          ).strip()
+
+          if not output:
+              print("No commits to validate.")
+              raise SystemExit(0)
+
+          invalid = []
+          for line in output.splitlines():
+              sha, subject = line.split("\t", 1)
+              if conventional.match(subject) or release_commit.match(subject):
+                  continue
+              invalid.append((sha, subject))
+
+          if not invalid:
+              print("All commits pushed to main use the expected release-friendly format.")
+              raise SystemExit(0)
+
+          print("Found commits on main that do not follow the required format:")
+          for sha, subject in invalid:
+              print(f"- {sha[:7]} {subject}")
+          print("")
+          print("Use Conventional Commits on main so release-please can derive the next version correctly.")
+          sys.exit(1)
+          PY

@@ -27,12 +27,15 @@ Policy del progetto:
 - niente push diretti su `main`
 - ogni modifica destinata a release passa da PR
 - il titolo della PR e parte del processo di versioning, non solo descrizione editoriale
+- ogni push su `main` viene anche validato dal workflow `Main Commit Policy`, che controlla i subject dei commit entrati davvero sul branch
 
 Il titolo della PR squashata diventa il commit che `release-please` usera per:
 
 - decidere se aprire una Release PR
 - determinare il bump di versione
 - generare il changelog della release
+
+Se serve un intervento eccezionale diretto su `main`, anche il commit pushato deve rispettare il formato Conventional Commits. In caso contrario il workflow di policy fallisce e segnala subito che il flusso release non e piu affidabile.
 
 Formato richiesto:
 
