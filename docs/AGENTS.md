@@ -47,6 +47,10 @@ Se un check non è eseguibile nell’ambiente corrente, dichiaralo esplicitament
   - soluzione adottata,
   - impatti/rischi,
   - test effettuati.
+- Per il versioning, la repository e `release-please`-first:
+  - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
+  - il bump versione e il changelog di release spettano solo alla Release PR generata dal workflow automatico;
+  - se una modifica ordinaria tocca quei file, fermati e riallinea la PR al flusso ufficiale prima del merge.
 
 ## 8) Definizione di Done
 Una modifica è “done” se:

@@ -183,6 +183,8 @@ Documenti utili:
 La roadmap corrente del progetto è in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 Le modifiche rilevanti vengono annotate in [`CHANGELOG.md`](CHANGELOG.md), mentre policy e bump versioni sono descritte in [`docs/VERSIONING.md`](docs/VERSIONING.md).
 
+Per il versioning ordinario, il repository e `release-please`-first: le feature PR e le fix PR non devono aggiornare manualmente versione o changelog di release. Quei file vengono gestiti dalla Release PR automatica.
+
 In sintesi, le priorità attuali sono:
 
 - Fase 4: estensioni PDF mirate, a partire da split PDF in piu file e valutazione export ZIP per output multipli

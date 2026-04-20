@@ -19,18 +19,18 @@ Verifica almeno:
 - documentazione aggiornata se cambia il flusso utente o operativo
 - se cambia il catalogo azioni o la struttura dei job, aggiorna anche contesto, testing e decisioni tecniche correlate
 - roadmap aggiornata solo se cambia il piano futuro
-- nessun aggiornamento manuale del changelog di release, salvo bootstrap o correzioni eccezionali
+- nessun aggiornamento manuale di `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py`, salvo Release PR o correzioni eccezionali del flusso
 
 ## PR e merge
 
-Preferenze:
+Regole operative essenziali:
 
 - branch focalizzati su una singola modifica logica
 - nessun push diretto su `main`
 - PR con titolo in formato Conventional Commits
 - squash merge su `main`
-- evitare merge commit o rebase merge per le PR normali, cosi il titolo della PR resta la singola fonte di verita per la release
-- il workflow `Main Commit Policy` verifica i commit entrati su `main`, ma non sostituisce la regola: `main` riceve modifiche solo da PR squashate
+- niente bump manuali di versione o changelog nelle PR normali
+- i dettagli della policy vivono in [VERSIONING.md](./VERSIONING.md)
 
 Formato atteso:
 
@@ -38,13 +38,13 @@ Formato atteso:
 <type>(optional-scope)!: breve descrizione
 ```
 
-Esempi:
+Esempi di titolo:
 
 - `feat(history): improve result follow-up actions`
 - `fix(pdf): preserve clearer error for protected files`
 - `docs(release): explain release bootstrap`
 
-La policy completa di bump versione e in [VERSIONING.md](./VERSIONING.md).
+I workflow GitHub fanno da guardrail, ma la fonte primaria della policy resta [VERSIONING.md](./VERSIONING.md).
 
 ## Release
 
@@ -60,6 +60,7 @@ Il flusso ufficiale e:
 Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 
 Non usare piu il vecchio flusso di aggiornamento manuale del changelog per ogni modifica ordinaria.
+Non fare bump versione manuali nelle PR normali.
 
 ## Verifica locale
 
