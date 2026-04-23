@@ -8,6 +8,16 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.6.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.6.0...docmolder-v0.6.1) (2026-04-23)
+
+
+### Correzioni
+
+* **deploy:** isolate wrapper command overrides ([#39](https://github.com/max23468/DocMolder/issues/39)) ([3470cf0](https://github.com/max23468/DocMolder/commit/3470cf07f92b7b9f930f0c9937bfbcf67f0c5932))
+* **deploy:** load VPS env without sourcing commands ([#43](https://github.com/max23468/DocMolder/issues/43)) ([d105cfc](https://github.com/max23468/DocMolder/commit/d105cfcb315124690af04f4e5349d96dc5d4c7fe))
+* **deploy:** run VPS healthcheck directly ([#42](https://github.com/max23468/DocMolder/issues/42)) ([0f00ef2](https://github.com/max23468/DocMolder/commit/0f00ef29f7630bb9dc2e3dc4800b78e46a35b358))
+* **deploy:** use fixed wrapper binaries ([#41](https://github.com/max23468/DocMolder/issues/41)) ([36b8d2a](https://github.com/max23468/DocMolder/commit/36b8d2acad568e7c2156d71877a44200747ed2d0))
+
 ## [0.6.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.5.4...docmolder-v0.6.0) (2026-04-23)
 
 
