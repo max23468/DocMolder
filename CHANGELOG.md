@@ -8,6 +8,19 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.6.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.5.4...docmolder-v0.6.0) (2026-04-23)
+
+
+### Funzionalità
+
+* **ops:** add operational governance and access controls ([#36](https://github.com/max23468/DocMolder/issues/36)) ([2622ccc](https://github.com/max23468/DocMolder/commit/2622ccc108be74b5f6c8ae61351f0bdf78fc1a29))
+
+
+### Documentazione
+
+* add GitHub failed run guard ([830e20d](https://github.com/max23468/DocMolder/commit/830e20d5a92de77ea5886818003ef0eb92049f74))
+* clarify GitHub upload flow ([#38](https://github.com/max23468/DocMolder/issues/38)) ([f9392b0](https://github.com/max23468/DocMolder/commit/f9392b0d91a5990bc596c6d1b6f33d29120930f3))
+
 ## [0.5.4](https://github.com/max23468/DocMolder/compare/docmolder-v0.5.3...docmolder-v0.5.4) (2026-04-23)
 
 
