@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "deploy/**"
+      - "pyproject.toml"
+      - "requirements*.txt"
+      - "src/**"
+      - "uv.lock"
   workflow_dispatch:
     inputs:
       target_ref:
@@ -16,7 +22,7 @@ permissions:
 
 concurrency:
   group: deploy-vps-${{ github.event_name == 'workflow_dispatch' && inputs.target_ref || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -188,3 +194,16 @@ jobs:
             fi
 
             /opt/docmolder/venv/bin/python -c 'import json, sys, urllib.request; token=sys.argv[1]; payload=json.load(urllib.request.urlopen(f\"https://api.telegram.org/bot{token}/getMe\", timeout=20)); assert payload.get(\"ok\") is True, payload; username=payload.get(\"result\", {}).get(\"username\"); assert username, payload; print(f\"Bot API smoke OK: @{username}\")' \"\${token}\""
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          {
+            echo "## Deploy VPS"
+            echo ""
+            echo "- Target ref: \`${TARGET_REF}\`"
+            echo "- Workflow conclusion: \`${{ job.status }}\`"
+            echo "- VPS host configured: \`${DOCMOLDER_VPS_HOST:+yes}\`"
+            echo ""
+            echo "Rollback, se serve: esegui il workflow \`Rollback VPS\` con un tag o SHA precedente."
+          } >> "${GITHUB_STEP_SUMMARY}"
