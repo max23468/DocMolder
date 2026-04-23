@@ -29,8 +29,7 @@ Completata.
 
 ## Fase 4: Estensioni PDF Mirate
 
-- [ ] aggiungere split PDF in più file
-- [ ] valutare export ZIP per output multipli
+Completata.
 
 ## Fase 5: Evoluzione Esperienza Utente
 

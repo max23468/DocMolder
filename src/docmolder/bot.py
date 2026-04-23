@@ -45,6 +45,7 @@ from docmolder.keyboards import (
     build_main_menu_keyboard,
     build_rotate_keyboard,
     build_result_pdf_keyboard,
+    build_split_output_keyboard,
 )
 from docmolder.job_flow import (
     enqueue_job as enqueue_job_flow,
@@ -123,6 +124,7 @@ _NEW_USER_NOTIFICATION_COOLDOWN_SECONDS = 120
 class PendingActionEnqueueKwargs(TypedDict, total=False):
     page_selection: str
     watermark_text: str
+    split_output_zip: bool
 
 
 @dataclass(slots=True)
@@ -133,6 +135,7 @@ class TextRequestResolution:
     rotate_degrees: int | None = None
     page_selection: str | None = None
     watermark_text: str | None = None
+    split_output_zip: bool | None = None
     message: str | None = None
 
 
@@ -362,6 +365,7 @@ async def _enqueue_job(
     auto_rotate_pdf: bool = True,
     image_pdf_use_a4: bool = True,
     image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
+    split_output_zip: bool = True,
 ) -> JobRecord:
     deps = _get_dependencies(context)
     return await enqueue_job_flow(
@@ -378,6 +382,7 @@ async def _enqueue_job(
         auto_rotate_pdf=auto_rotate_pdf,
         image_pdf_use_a4=image_pdf_use_a4,
         image_pdf_margin_px=image_pdf_margin_px,
+        split_output_zip=split_output_zip,
     )
 
 
@@ -1032,6 +1037,16 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
 
+    if action == SupportedAction.PDF_SPLIT.value:
+        session.pending_action = action
+        session.touch()
+        deps.session_store.save(session)
+        await query.edit_message_text(
+            _build_pending_action_prompt(SupportedAction.PDF_SPLIT),
+            reply_markup=build_split_output_keyboard(),
+        )
+        return
+
     if action in {
         SupportedAction.PDF_EXTRACT_PAGES.value,
         SupportedAction.PDF_REORDER_PAGES.value,
@@ -1112,6 +1127,56 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
     deps.session_store.delete(user.id)
     await query.edit_message_text(
         f"Compressione presa in carico. Job #{job.id} in coda.\nTi invio il PDF appena è pronto."
+    )
+
+
+async def handle_split_output_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    query = update.callback_query
+    await _safe_answer_callback(query)
+    output_choice = (query.data or "").removeprefix("split_output:")
+    _record_callback_metric(deps, f"split_output:{output_choice}")
+    user = query.from_user
+    if not _is_authorized(user.id if user else None, deps.settings):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.edit_message_text(_build_service_unavailable_message())
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+    _cancel_pending_image_notification(user.id, deps)
+    session = deps.session_store.get(user.id)
+    if session is None or not session.files:
+        await query.edit_message_text(SESSION_EMPTY_MESSAGE)
+        return
+
+    if not _has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+        return
+
+    if output_choice == "zip":
+        split_output_zip = True
+        choice_label = "zip"
+    elif output_choice == "files":
+        split_output_zip = False
+        choice_label = "pdf separati"
+    else:
+        await query.edit_message_text(_invalid_callback_message())
+        return
+
+    job = await _enqueue_job(
+        context=context,
+        user_id=user.id,
+        chat_id=query.message.chat_id,
+        reply_to_message_id=query.message.message_id,
+        action=SupportedAction.PDF_SPLIT,
+        session=session,
+        split_output_zip=split_output_zip,
+    )
+    deps.session_store.delete(user.id)
+    await query.edit_message_text(
+        _build_pending_action_queued_message(SupportedAction.PDF_SPLIT, job.id, choice_label)
     )
 
 
@@ -1207,6 +1272,17 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
             "Di quanti gradi vuoi ruotare tutte le pagine del PDF?\nScelta rapida: tocca uno dei pulsanti qui sotto.",
             reply_to_message_id=query.message.message_id,
             reply_markup=build_rotate_keyboard(),
+        )
+        return
+
+    if selected_action == SupportedAction.PDF_SPLIT:
+        session.pending_action = selected_action.value
+        session.touch()
+        deps.session_store.save(session)
+        await query.message.reply_text(
+            _build_pending_action_prompt(selected_action),
+            reply_to_message_id=query.message.message_id,
+            reply_markup=build_split_output_keyboard(),
         )
         return
 
@@ -1502,7 +1578,13 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 session.pending_action = text_request.action.value
                 session.touch()
                 deps.session_store.save(session)
-                await message.reply_text(text_request.message or _build_pending_action_prompt(text_request.action))
+                if text_request.action == SupportedAction.PDF_SPLIT:
+                    await message.reply_text(
+                        text_request.message or _build_pending_action_prompt(text_request.action),
+                        reply_markup=build_split_output_keyboard(),
+                    )
+                else:
+                    await message.reply_text(text_request.message or _build_pending_action_prompt(text_request.action))
                 return
 
             action = text_request.action
@@ -1534,9 +1616,18 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 rotate_degrees=text_request.rotate_degrees,
                 page_selection=text_request.page_selection,
                 watermark_text=text_request.watermark_text,
+                split_output_zip=text_request.split_output_zip if text_request.split_output_zip is not None else True,
             )
             deps.session_store.delete(user.id)
-            if text_request.page_selection or text_request.watermark_text:
+            if action == SupportedAction.PDF_SPLIT:
+                await message.reply_text(
+                    _build_pending_action_queued_message(
+                        action,
+                        job.id,
+                        "zip" if text_request.split_output_zip else "pdf separati",
+                    )
+                )
+            elif text_request.page_selection or text_request.watermark_text:
                 raw_value = text_request.page_selection or text_request.watermark_text or ""
                 await message.reply_text(_build_pending_action_queued_message(action, job.id, str(raw_value)))
             elif text_request.rotate_degrees is not None:
@@ -1684,6 +1775,7 @@ def _build_admin_report(
         f"- Comprimi PDF: {stats.pdf_compress_total}\n"
         f"- Scala di grigi: {stats.pdf_grayscale_total}\n"
         f"- Unisci PDF: {stats.pdf_merge_total}\n"
+        f"- Dividi PDF: {stats.pdf_split_total}\n"
         f"- Estrai pagine: {stats.pdf_extract_pages_total}\n"
         f"- Riordina pagine: {stats.pdf_reorder_pages_total}\n"
         f"- Elimina pagine: {stats.pdf_delete_pages_total}\n"
@@ -2018,6 +2110,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CallbackQueryHandler(handle_rotate_callback, pattern=r"^rotate:"))
     application.add_handler(CallbackQueryHandler(handle_result_action_callback, pattern=r"^result:"))
     application.add_handler(CallbackQueryHandler(handle_compression_callback, pattern=r"^compress:"))
+    application.add_handler(CallbackQueryHandler(handle_split_output_callback, pattern=r"^split_output:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_margin_callback, pattern=r"^images_pdf_margin:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_layout_callback, pattern=r"^images_pdf_layout:"))
     application.add_handler(CallbackQueryHandler(handle_action_callback, pattern=r"^action:"))
@@ -2130,6 +2223,8 @@ def _build_user_history_job_detail(job: JobRecord) -> str:
         detail_lines.append(f"Selezione pagine: {payload.page_selection}")
     if job.action.startswith("images_to_pdf"):
         detail_lines.append("Impaginazione: A4" if payload.image_pdf_use_a4 else "Impaginazione: formato originale")
+    if job.action == SupportedAction.PDF_SPLIT.value:
+        detail_lines.append("Output divisione: ZIP unico" if payload.split_output_zip else "Output divisione: PDF separati")
     detail_lines.append("Rotazione automatica PDF: attiva" if payload.auto_rotate_pdf else "Rotazione automatica PDF: disattiva")
     if payload.rotate_degrees is not None:
         detail_lines.append(f"Rotazione manuale: {payload.rotate_degrees} gradi")
@@ -2151,6 +2246,10 @@ def _build_user_history_job_detail(job: JobRecord) -> str:
 
 def _build_history_rerun_message(source_job: JobRecord, job_id: int) -> str:
     payload = JobPayload.from_json(source_job.payload_json)
+    if source_job.action == SupportedAction.PDF_SPLIT.value:
+        raw_value = "zip" if payload.split_output_zip else "pdf separati"
+        base_message = _build_pending_action_queued_message(SupportedAction.PDF_SPLIT, job_id, raw_value)
+        return f"Ripeto il job #{source_job.id} dal tuo storico.\n{base_message}"
     base_message = _build_text_request_queued_message(
         SupportedAction(source_job.action),
         job_id,
@@ -2250,6 +2349,8 @@ def _build_image_pdf_layout_prompt(user_id: int, deps: BotDependencies) -> str:
 
 
 def _build_result_delivery_message(result: ProcessingResult, source_action: SupportedAction | None) -> str:
+    if result.additional_outputs:
+        return result.message
     if not result.output_name.lower().endswith(".pdf"):
         return result.message
 
@@ -2270,6 +2371,8 @@ def _build_result_followup_keyboard(
     source_action: SupportedAction | None,
     source_job_id: int | None,
 ) -> InlineKeyboardMarkup | None:
+    if result.additional_outputs:
+        return None
     if not result.output_name.lower().endswith(".pdf"):
         return None
     return build_result_pdf_keyboard(
@@ -2366,6 +2469,16 @@ async def _handle_pending_session_input(
                 )
                 return True
             enqueue_kwargs["watermark_text"] = watermark_text
+        elif pending_action == SupportedAction.PDF_SPLIT:
+            keyword_text = _normalize_keyword_text(text)
+            split_output_zip = _infer_split_output_zip(keyword_text, _tokenize_keyword_text(keyword_text))
+            if split_output_zip is None:
+                await update.effective_message.reply_text(
+                    _build_pending_action_prompt(pending_action),
+                    reply_markup=build_split_output_keyboard(),
+                )
+                return True
+            enqueue_kwargs["split_output_zip"] = split_output_zip
         else:
             return False
 
@@ -2385,7 +2498,13 @@ async def _handle_pending_session_input(
         return True
 
     deps.session_store.delete(user_id)
-    raw_value = enqueue_kwargs.get("page_selection") or enqueue_kwargs.get("watermark_text") or text
+    raw_value = (
+        "zip"
+        if enqueue_kwargs.get("split_output_zip") is True
+        else "pdf separati"
+        if enqueue_kwargs.get("split_output_zip") is False
+        else enqueue_kwargs.get("page_selection") or enqueue_kwargs.get("watermark_text") or text
+    )
     await update.effective_message.reply_text(_build_pending_action_queued_message(pending_action, job.id, str(raw_value)))
     return True
 
@@ -2641,6 +2760,22 @@ def _extract_compression_preset(text: str, tokens: list[str]) -> CompressionPres
     return None
 
 
+def _infer_split_output_zip(text: str, tokens: list[str]) -> bool | None:
+    padded_text = f" {text} "
+    if any(fragment in padded_text for fragment in (" senza zip ", " no zip ", " non zip ")):
+        return False
+    if any(
+        fragment in padded_text
+        for fragment in (" pdf separati ", " file separati ", " singoli file ", " pagine separate ", " uno per pagina ")
+    ):
+        return False
+    if "zip" in tokens or "archivio" in tokens:
+        return True
+    if any(token in {"separati", "separate", "singoli"} for token in tokens):
+        return False
+    return None
+
+
 def _build_page_action_clarification(page_selection: str | None) -> str:
     selection_suffix = f" ({page_selection})" if page_selection else ""
     return (
@@ -2696,6 +2831,11 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
         tokens,
         ("unisci", "accorpa", "merge", "combina", "raggruppa"),
     )
+    mentions_split = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        ("dividi", "dividere", "separa", "separare", "split", "splitta", "spezza"),
+    )
     mentions_compress = _matches_keyword_group(
         keyword_text,
         tokens,
@@ -2740,6 +2880,7 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
     rotate_degrees = _extract_rotation_degrees(keyword_text)
     watermark_text = _extract_watermark_text(text)
     compression_preset = _extract_compression_preset(keyword_text, tokens) or CompressionPreset.MEDIUM
+    split_output_zip = _infer_split_output_zip(keyword_text, tokens)
 
     if SupportedAction.PDF_ROTATE in supported and mentions_rotate:
         if rotate_degrees is not None:
@@ -2797,6 +2938,19 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
 
     if SupportedAction.PDF_MERGE in supported and mentions_merge:
         return TextRequestResolution(kind="enqueue", action=SupportedAction.PDF_MERGE)
+
+    if SupportedAction.PDF_SPLIT in supported and mentions_split:
+        if split_output_zip is None:
+            return TextRequestResolution(
+                kind="pending",
+                action=SupportedAction.PDF_SPLIT,
+                message=_build_pending_action_prompt(SupportedAction.PDF_SPLIT),
+            )
+        return TextRequestResolution(
+            kind="enqueue",
+            action=SupportedAction.PDF_SPLIT,
+            split_output_zip=split_output_zip,
+        )
 
     if SupportedAction.PDF_COMPRESS in supported and SupportedAction.PDF_GRAYSCALE in supported:
         if mentions_compress and mentions_grayscale:
@@ -3311,7 +3465,7 @@ async def _process_job(application: Application, job_id: int) -> None:
 
         input_dir = job_dir / "input"
         input_bytes = _sum_file_sizes(input_dir.iterdir()) if input_dir.exists() else 0
-        output_bytes = result.output_path.stat().st_size if result.output_path.exists() else 0
+        output_bytes = _sum_processing_result_sizes(result)
         duration_ms = int((perf_counter() - started_monotonic) * 1000)
         deps.session_store.mark_job_succeeded_with_metrics(
             job.id,
@@ -3331,7 +3485,7 @@ async def _process_job(application: Application, job_id: int) -> None:
             source_action=SupportedAction(job.action),
             source_job_id=job.id,
         )
-        if result_message is not None and getattr(result_message, "document", None) is not None:
+        if not result.additional_outputs and result_message is not None and getattr(result_message, "document", None) is not None:
             result_document = result_message.document
             result_file_id = getattr(result_document, "file_id", None)
             result_file_name = getattr(result_document, "file_name", None)
@@ -3420,8 +3574,9 @@ async def _send_result(
     source_action: SupportedAction | None = None,
     source_job_id: int | None = None,
     ):
+    first_message = None
     with result.output_path.open("rb") as payload:
-        return await _telegram_api_call(
+        first_message = await _telegram_api_call(
             "sendDocument",
             bot.send_document,
             _deps=deps,
@@ -3432,6 +3587,18 @@ async def _send_result(
             reply_to_message_id=reply_to_message_id,
             reply_markup=_build_result_followup_keyboard(result, source_action, source_job_id),
         )
+    for output in result.additional_outputs:
+        with output.path.open("rb") as payload:
+            await _telegram_api_call(
+                "sendDocument",
+                bot.send_document,
+                _deps=deps,
+                chat_id=chat_id,
+                document=payload,
+                filename=output.name,
+                reply_to_message_id=reply_to_message_id,
+            )
+    return first_message
 
 
 def _sum_file_sizes(paths) -> int:
@@ -3442,3 +3609,8 @@ def _sum_file_sizes(paths) -> int:
         except OSError:
             continue
     return total
+
+
+def _sum_processing_result_sizes(result: ProcessingResult) -> int:
+    paths = [result.output_path, *(output.path for output in result.additional_outputs)]
+    return _sum_file_sizes(paths)

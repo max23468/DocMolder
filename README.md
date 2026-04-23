@@ -36,6 +36,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Conversione PDF in scala di grigi
 - Compressione PDF solo su richiesta
 - Unione PDF
+- Divisione PDF in un file per pagina, con scelta tra ZIP unico e PDF separati
 - Estrazione pagine da un PDF
 - Riordino pagine di un PDF
 - Eliminazione pagine da un PDF
@@ -78,6 +79,7 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - creazione PDF da immagini
 - scelta guidata A4 / formato originale per i PDF creati da immagini
 - unione PDF
+- divisione PDF in un file per pagina, con scelta tra ZIP unico e PDF separati
 - estrazione pagine PDF
 - riordino pagine PDF
 - eliminazione pagine PDF
@@ -187,8 +189,8 @@ Per il versioning ordinario, il repository e `release-please`-first: le feature 
 
 In sintesi, le priorità attuali sono:
 
-- Fase 4: estensioni PDF mirate, a partire da split PDF in piu file e valutazione export ZIP per output multipli
 - Fase 5: riferimenti contestuali piu robusti e test conversazionali multi-step ancora piu realistici
+- Fase 6: scansione documento da foto con rilevamento foglio, correzione prospettica e post-processing dedicato
 
 ## Monitoraggio admin
 

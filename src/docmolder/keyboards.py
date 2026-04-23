@@ -30,6 +30,15 @@ def build_compression_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def build_split_output_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("ZIP unico", callback_data="split_output:zip")],
+            [InlineKeyboardButton("PDF separati", callback_data="split_output:files")],
+        ]
+    )
+
+
 def build_images_pdf_layout_keyboard(action: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [

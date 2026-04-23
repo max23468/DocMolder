@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from io import BytesIO
 import tempfile
 import unittest
 from pathlib import Path
 import sys
 from unittest.mock import patch
 import subprocess
+import zipfile
 
 from PIL import Image, ImageDraw
 from pypdf import PdfReader, PdfWriter
@@ -128,6 +130,65 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         reader = PdfReader(str(result.output_path))
         self.assertEqual(len(reader.pages), 2)
         self.assertIn("1, 3", result.message)
+
+    def test_split_pdf_pages_creates_zip_with_one_pdf_per_page(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_split" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = input_dir / "source_split.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=300)
+        writer.add_blank_page(width=220, height=300)
+        writer.add_blank_page(width=240, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        result = self.processor.split_pdf_pages(pdf_path, "split_pages")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.output_name, "split_pages.zip")
+        self.assertIn("3 file", result.message)
+        with zipfile.ZipFile(result.output_path) as archive:
+            names = archive.namelist()
+            self.assertEqual(
+                names,
+                [
+                    "split_pages_pagina_01.pdf",
+                    "split_pages_pagina_02.pdf",
+                    "split_pages_pagina_03.pdf",
+                ],
+            )
+            for name in names:
+                with archive.open(name) as pdf_handle:
+                    reader = PdfReader(BytesIO(pdf_handle.read()))
+                    self.assertEqual(len(reader.pages), 1)
+
+    def test_split_pdf_pages_rejects_single_page_pdf(self) -> None:
+        pdf_path = self.runtime_dir / "single_page.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        with self.assertRaises(ProcessingUserError):
+            self.processor.split_pdf_pages(pdf_path, "single_split")
+
+    def test_split_pdf_pages_can_return_separate_outputs(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_split_files" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = input_dir / "source_split_files.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=300)
+        writer.add_blank_page(width=220, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        result = self.processor.split_pdf_pages(pdf_path, "split_files", output_as_zip=False)
+
+        self.assertEqual(result.output_name, "split_files_pagina_01.pdf")
+        self.assertEqual([output.name for output in result.additional_outputs], ["split_files_pagina_02.pdf"])
+        self.assertTrue(result.output_path.exists())
+        self.assertTrue(result.additional_outputs[0].path.exists())
+        self.assertIn("PDF separati", result.message)
 
     def test_reorder_pdf_pages_requires_full_unique_order(self) -> None:
         pdf_path = self.runtime_dir / "source_reorder.pdf"

@@ -6,7 +6,7 @@ import shutil
 import subprocess
 import uuid
 import zipfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
@@ -28,12 +28,19 @@ A4_MARGIN_NONE_PX = 0
 
 
 @dataclass(slots=True)
+class ProcessingOutput:
+    path: Path
+    name: str
+
+
+@dataclass(slots=True)
 class ProcessingResult:
     output_path: Path
     output_name: str
     message: str
     auto_rotation_applied: bool = False
     processing_mode: str | None = None
+    additional_outputs: list[ProcessingOutput] = field(default_factory=list)
 
 
 class ProcessingUserError(Exception):
@@ -95,6 +102,7 @@ class DocumentProcessor:
         auto_rotate_pdf: bool = True,
         image_pdf_use_a4: bool = True,
         image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
+        split_output_zip: bool = True,
     ) -> ProcessingResult:
         image_pdf_options = {
             SupportedAction.IMAGES_TO_PDF: (False, False),
@@ -114,6 +122,8 @@ class DocumentProcessor:
             )
         if action == SupportedAction.PDF_MERGE:
             return self.merge_pdfs(input_paths, output_stem, auto_rotate_pdf=auto_rotate_pdf)
+        if action == SupportedAction.PDF_SPLIT:
+            return self.split_pdf_pages(input_paths[0], output_stem, output_as_zip=split_output_zip)
         if action == SupportedAction.PDF_EXTRACT_PAGES:
             if page_selection is None:
                 raise ValueError("Selezione pagine mancante.")
@@ -225,6 +235,50 @@ class DocumentProcessor:
             output_name=output_path.name,
             message=message,
             auto_rotation_applied=rotated_pages > 0,
+            processing_mode="native",
+        )
+
+    def split_pdf_pages(self, pdf_path: Path, output_stem: str, *, output_as_zip: bool = True) -> ProcessingResult:
+        reader = self._build_pdf_reader(pdf_path)
+        total_pages = len(reader.pages)
+        if total_pages < 2:
+            raise ProcessingUserError("Questo PDF ha una sola pagina: non ci sono pagine da dividere in più file.")
+
+        pages_dir = pdf_path.parent / f"{output_stem}_pages"
+        pages_dir.mkdir(parents=True, exist_ok=True)
+        page_paths: list[Path] = []
+        page_digits = max(2, len(str(total_pages)))
+
+        for index, page in enumerate(reader.pages, start=1):
+            page_writer = PdfWriter()
+            page_writer.add_page(page)
+            page_path = pages_dir / f"{output_stem}_pagina_{index:0{page_digits}d}.pdf"
+            with page_path.open("wb") as handle:
+                page_writer.write(handle)
+            page_paths.append(page_path)
+
+        if not output_as_zip:
+            first_path, *additional_paths = page_paths
+            return ProcessingResult(
+                output_path=first_path,
+                output_name=first_path.name,
+                message=f"PDF pronto. Ho diviso il documento in {total_pages} file e te li invio come PDF separati.",
+                processing_mode="native",
+                additional_outputs=[
+                    ProcessingOutput(path=page_path, name=page_path.name)
+                    for page_path in additional_paths
+                ],
+            )
+
+        archive_path = pdf_path.parent.parent / f"{output_stem}.zip"
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for page_path in page_paths:
+                archive.write(page_path, arcname=page_path.name)
+
+        return ProcessingResult(
+            output_path=archive_path,
+            output_name=archive_path.name,
+            message=f"PDF pronto. Ho diviso il documento in {total_pages} file, uno per pagina, raccolti in un archivio ZIP.",
             processing_mode="native",
         )
 

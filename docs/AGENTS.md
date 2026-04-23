@@ -63,6 +63,7 @@ Prima del commit, esegui i check rilevanti alla modifica:
 - smoke Telegram: `make smoke-ui`, solo quando serve e quando l'ambiente locale lo permette.
 
 Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente con motivo e rischio residuo.
+Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: citale solo se sono richieste esplicitamente, se servono per PR/release/audit, se falliscono, se non sono eseguibili o se lasciano un rischio residuo utile da conoscere.
 
 ## 8) Documentazione e roadmap
 
@@ -81,6 +82,7 @@ Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente 
 - Prima di aprire o mergiare una PR, fai una review interna del diff e correggi automaticamente solo problemi chiari, locali e non ambigui.
 - Non lasciare commenti bot su GitHub per la review salvo richiesta esplicita dell'utente; riporta eventuali rilievi in chat.
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi e test effettuati.
+- Se apri una PR come draft per far partire i check, monitora i check della PR e rimuovi automaticamente lo stato draft appena i check richiesti sono verdi, salvo richiesta esplicita contraria o dubbi residui da risolvere prima della review.
 - Per il versioning, la repository è `release-please`-first:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
   - il bump versione e il changelog di release spettano solo alla Release PR generata dal workflow automatico;

@@ -3,7 +3,7 @@
 Questo file e un handoff rapido: descrive il minimo contesto utile e punta alla documentazione specialistica.
 
 Ultimo aggiornamento del contesto:
-- data di riferimento: `2026-04-18`
+- data di riferimento: `2026-04-23`
 
 ## Cos'e DocMolder
 
@@ -49,3 +49,4 @@ Ultimo aggiornamento del contesto:
 - la copertura pseudo end-to-end include ora anche flussi piu realistici di upload Telegram, wizard immagini->PDF e follow-up sul PDF risultato
 - la comprensione testuale e ora piu tollerante su richieste naturali, sinonimi e piccoli refusi, con estrazione diretta di pagine, rotazioni, watermark e livello di compressione
 - quando un comando testuale e ambiguo o incompleto, il bot prova a chiarire l'azione o chiede il dettaglio mancante invece di fermarsi su una lettura fragile
+- la Fase 4 ha aggiunto lo split PDF in un file per pagina, con scelta tra archivio ZIP e PDF separati
