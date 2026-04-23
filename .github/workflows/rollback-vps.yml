@@ -1,0 +1,130 @@
+name: Rollback VPS
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: Git tag, branch or SHA to redeploy
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rollback-vps
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Roll back Oracle VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DOCMOLDER_VPS_HOST: ${{ secrets.DOCMOLDER_VPS_HOST }}
+      DOCMOLDER_VPS_USER: ${{ secrets.DOCMOLDER_VPS_USER }}
+      DOCMOLDER_VPS_PORT: ${{ secrets.DOCMOLDER_VPS_PORT }}
+      DOCMOLDER_VPS_SSH_KNOWN_HOSTS: ${{ secrets.DOCMOLDER_VPS_SSH_KNOWN_HOSTS }}
+      TARGET_REF: ${{ inputs.target_ref }}
+
+    steps:
+      - name: Checkout target revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_REF }}
+
+      - name: Validate deploy secrets
+        env:
+          DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64: ${{ secrets.DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for var in DOCMOLDER_VPS_HOST DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing required secret: ${var}"
+              missing=1
+            fi
+          done
+
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Set deploy defaults
+        run: |
+          set -euo pipefail
+          echo "DOCMOLDER_VPS_USER=${DOCMOLDER_VPS_USER:-opc}" >> "${GITHUB_ENV}"
+          echo "DOCMOLDER_VPS_PORT=${DOCMOLDER_VPS_PORT:-22}" >> "${GITHUB_ENV}"
+
+      - name: Prepare SSH key
+        env:
+          DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64: ${{ secrets.DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.ssh"
+          printf '%s' "${DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64}" | base64 --decode > "${HOME}/.ssh/docmolder_vps"
+          chmod 600 "${HOME}/.ssh/docmolder_vps"
+
+      - name: Prepare known hosts
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.ssh"
+          touch "${HOME}/.ssh/known_hosts"
+          chmod 644 "${HOME}/.ssh/known_hosts"
+
+          if [ -n "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+            echo "SSH_STRICT=yes" >> "${GITHUB_ENV}"
+          else
+            echo "SSH_STRICT=accept-new" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Sync target revision to VPS
+        run: |
+          set -euo pipefail
+          export COPYFILE_DISABLE=1
+
+          tar \
+            --exclude=.git \
+            --exclude=.venv \
+            --exclude=.mypy_cache \
+            --exclude=.pytest_cache \
+            --exclude=__pycache__ \
+            -czf - . \
+          | ssh \
+              -i "${HOME}/.ssh/docmolder_vps" \
+              -p "${DOCMOLDER_VPS_PORT}" \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=30 \
+              -o StrictHostKeyChecking="${SSH_STRICT}" \
+              "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
+              "sudo mkdir -p /opt/docmolder/app && sudo rm -rf /opt/docmolder/app/* /opt/docmolder/app/.[!.]* /opt/docmolder/app/..?* && sudo tar -xzf - -C /opt/docmolder/app"
+
+      - name: Install, restart and smoke check
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/docmolder_vps" \
+            -p "${DOCMOLDER_VPS_PORT}" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o StrictHostKeyChecking="${SSH_STRICT}" \
+            "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
+            "sudo env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin bash -lc 'set -euo pipefail
+            bash /opt/docmolder/app/deploy/install-vps.sh
+            source /opt/docmolder/app/deploy/env-load.sh
+            load_docmolder_env_file /etc/docmolder/docmolder.env
+            /opt/docmolder/venv/bin/python -m docmolder.healthcheck --check-service-active --service-name \"\${DOCMOLDER_SERVICE_NAME:-docmolder}\"'"
+
+      - name: Rollback summary
+        if: always()
+        run: |
+          {
+            echo "## Rollback VPS"
+            echo ""
+            echo "- Target ref: \`${TARGET_REF}\`"
+            echo "- Workflow conclusion: \`${{ job.status }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

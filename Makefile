@@ -2,7 +2,7 @@ VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: setup run test compile ci build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps
+.PHONY: setup run test compile ci build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish cleanup-branches
 
 setup:
 	python3 -m venv $(VENV)
@@ -37,3 +37,12 @@ cloud-prepare-ssh:
 
 deploy-vps:
 	bash scripts/deploy_vps_from_codex.sh $(TARGET_REF)
+
+classify-changes:
+	$(PYTHON) scripts/classify_changes.py --working-tree
+
+preflight-publish:
+	bash scripts/preflight_publish.sh
+
+cleanup-branches:
+	bash scripts/cleanup_merged_branches.sh

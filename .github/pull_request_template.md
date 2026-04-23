@@ -16,6 +16,19 @@
 ## Release policy
 <!-- Salvo Release PR automatica, non modificare CHANGELOG.md, .release-please-manifest.json, il campo version di pyproject.toml o src/docmolder/__init__.py -->
 
+## Classificazione cambio
+- [ ] Docs/istruzioni only
+- [ ] Test/CI only
+- [ ] Codice runtime o packaging
+- [ ] Operativo/deploy-relevant
+- [ ] File release-owned toccati solo da Release PR
+
+## Deploy VPS
+- [ ] Deploy VPS automatico atteso al merge su `main`
+- [ ] Deploy VPS non necessario
+- [ ] Serve solo `VPS Check` manuale, senza deploy
+- [ ] Serve `Rollback VPS` o deploy manuale mirato
+
 ## Impatti e rischi
 - [ ] Nessun impatto operativo rilevante
 - [ ] Impatto su configurazione/deploy (descrivere)

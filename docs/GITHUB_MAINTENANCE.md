@@ -10,9 +10,28 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - Release file guard: `.github/workflows/release-policy.yml`
 - Main commit guard: `.github/workflows/main-commit-policy.yml`
 - Deploy VPS: `.github/workflows/deploy-vps.yml`
+- VPS Check: `.github/workflows/vps-check.yml`
+- Rollback VPS: `.github/workflows/rollback-vps.yml`
 - Dependabot: `.github/dependabot.yml`
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
 - Ownership: `.github/CODEOWNERS`
+
+`Deploy VPS` non parte per ogni push su `main`: il trigger automatico usa una allowlist di path deploy-relevant (`src/**`, `deploy/**`, packaging e lock/requirements). Per cambi solo docs, test, release note, istruzioni agent, template o workflow GitHub, usare `workflow_dispatch` solo se serve davvero aggiornare la VPS.
+
+## Pubblicazione più fluida
+
+Strumenti locali:
+
+- `scripts/classify_changes.py`: classifica il diff in docs/test/CI/code/ops/deploy e segnala file riservati a `release-please`.
+- `scripts/preflight_publish.sh` o `make preflight-publish`: blocca branch sbagliati e version bump/changelog manuali prima del push.
+- `scripts/current_failed_runs.py`: mostra solo run failed del branch e SHA correnti, evitando di inseguire failure vecchie o non correlate.
+- `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
+- `scripts/publish_change.sh "<titolo conventional>"`: preflight, commit se serve, push, PR draft, check, ready e auto-merge.
+- `scripts/cleanup_merged_branches.sh` o `make cleanup-branches`: elimina branch locali `codex/*` già mergiati.
+
+La CI usa lo stesso classificatore: per cambi senza impatto runtime mantiene i check richiesti ma salta install, test Python e package build pesanti.
+
+`Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente.
 
 ## Configurazione consigliata nella UI GitHub
 

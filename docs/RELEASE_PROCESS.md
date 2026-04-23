@@ -16,6 +16,7 @@ Verifica almeno:
 
 - codice coerente con il comportamento voluto
 - test rilevanti verdi
+- classificazione del diff con `scripts/classify_changes.py` o `make preflight-publish`
 - documentazione aggiornata se cambia il flusso utente o operativo
 - se cambia il catalogo azioni o la struttura dei job, aggiorna anche contesto, testing e decisioni tecniche correlate
 - roadmap aggiornata solo se cambia il piano futuro
@@ -30,6 +31,8 @@ Regole operative essenziali:
 - PR con titolo in formato Conventional Commits
 - squash merge su `main`
 - niente bump manuali di versione o changelog nelle PR normali
+- per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile
+- prima di inseguire una run failed, controllare solo branch e SHA correnti con `scripts/current_failed_runs.py`
 - i dettagli della policy vivono in [VERSIONING.md](./VERSIONING.md)
 
 Formato atteso:
@@ -62,6 +65,8 @@ Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 Non usare piu il vecchio flusso di aggiornamento manuale del changelog per ogni modifica ordinaria.
 Non fare bump versione manuali nelle PR normali.
 
+`Release Please` non parte automaticamente per cambi solo `.github/**`, `docs/**`, `scripts/**`, `tests/**`, `README.md` o `AGENTS.md`. Resta eseguibile manualmente con `workflow_dispatch` se una manutenzione interna deve comunque produrre release.
+
 ## Verifica locale
 
 Per cambi rilevanti:
@@ -81,11 +86,13 @@ Il flusso GitHub/Codex per lavorare senza Mac locale e in [docs/CODEX_CLOUD_DEPL
 In breve:
 
 1. verificare che la release da deployare esista su GitHub con tag coerente
-2. per deploy standard da remoto, portare il codice su `main` e lasciare che GitHub Actions esegua il workflow `Deploy VPS`
-3. in alternativa, per interventi manuali sulla macchina, aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
-4. controllare stato servizio, timer backup SQLite, log recenti e revisione live
-5. verificare che i backup SQLite siano attivi o lanciare almeno un backup manuale se hai toccato persistenza o runbook
-6. eseguire almeno uno smoke test coerente con il tipo di modifica:
+2. per deploy standard da remoto, portare su `main` una modifica deploy-relevant e lasciare che GitHub Actions esegua il workflow `Deploy VPS`
+3. per controlli senza deploy, usare il workflow `VPS Check`
+4. per ripristino esplicito, usare `Rollback VPS` con tag o SHA precedente
+5. in alternativa, per interventi manuali sulla macchina, aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
+6. controllare stato servizio, timer backup SQLite, log recenti e revisione live
+7. verificare che i backup SQLite siano attivi o lanciare almeno un backup manuale se hai toccato persistenza o runbook
+8. eseguire almeno uno smoke test coerente con il tipo di modifica:
    - Livello 1 per fix tecnici
    - Livello 1 + 2 per cambi funzionali
    - Livello 1 + 2 + una verifica UI per cambi UX sensibili

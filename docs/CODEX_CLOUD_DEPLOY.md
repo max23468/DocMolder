@@ -19,12 +19,16 @@ Per deploy ordinari:
 
 1. fai lavorare Codex sul branch desiderato
 2. porta la modifica su `main`
-3. il workflow GitHub `Deploy VPS` parte automaticamente al push su `main`
+3. il workflow GitHub `Deploy VPS` parte automaticamente solo se il push tocca file rilevanti per la VPS
 
 Per deploy manuali o di una revisione specifica:
 
 - usa il workflow `Deploy VPS` in GitHub Actions con `workflow_dispatch`
 - passa `target_ref` se vuoi deployare un commit o ref specifico
+- usa `VPS Check` se vuoi solo verificare stato servizio, timer, disco e healthcheck senza copiare file
+- usa `Rollback VPS` con un tag o SHA precedente se devi ripristinare una revisione già nota
+
+Il deploy automatico su `main` e limitato a codice applicativo, packaging e asset operativi applicati alla macchina (`src/**`, `deploy/**`, `pyproject.toml`, lock/requirements). Cambi solo documentali, test, changelog, issue template, istruzioni agent o workflow GitHub non attivano deploy; se serve comunque aggiornare la VPS dopo uno di quei cambi, usa `workflow_dispatch`.
 
 Questo flusso non richiede accesso dal runtime Codex cloud alla rete privata della VPS: il ponte lo fa GitHub Actions.
 
@@ -75,5 +79,6 @@ Il workflow GitHub esegue:
 - controllo `systemctl status docmolder --no-pager`
 - controllo `systemctl status docmolder-db-backup.timer --no-pager`
 - smoke test applicativo con `getMe` verso Telegram Bot API eseguito dalla VPS
+- riepilogo finale nel job summary con target ref, stato e hint di rollback
 
 Per smoke test applicativi, continua a seguire [docs/SMOKE_TESTS.md](./SMOKE_TESTS.md).
