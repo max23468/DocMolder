@@ -78,6 +78,8 @@ Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente 
 - Il flusso ufficiale è branch dedicato, PR verso `main`, CI verde e squash merge.
 - Il titolo PR deve seguire Conventional Commits perché guida `release-please`.
 - Quando fai squash merge, non sovrascrivere il subject rimuovendo il suffisso `(#PR)`: i guardrail su `main` richiedono commit nel formato `docs: esempio (#123)`.
+- Prima di aprire o mergiare una PR, fai una review interna del diff e correggi automaticamente solo problemi chiari, locali e non ambigui.
+- Non lasciare commenti bot su GitHub per la review salvo richiesta esplicita dell'utente; riporta eventuali rilievi in chat.
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi e test effettuati.
 - Per il versioning, la repository è `release-please`-first:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
