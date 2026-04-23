@@ -13,6 +13,7 @@ ACTION_LABELS: dict[SupportedAction, str] = {
     SupportedAction.PDF_COMPRESS: "Comprimi PDF",
     SupportedAction.PDF_GRAYSCALE: "Scala di grigi",
     SupportedAction.PDF_MERGE: "Unisci PDF",
+    SupportedAction.PDF_SPLIT: "Dividi PDF",
     SupportedAction.PDF_EXTRACT_PAGES: "Estrai pagine",
     SupportedAction.PDF_REORDER_PAGES: "Riordina pagine",
     SupportedAction.PDF_DELETE_PAGES: "Elimina pagine",
@@ -29,6 +30,7 @@ OUTPUT_SUFFIX_BY_ACTION: dict[SupportedAction, str] = {
     SupportedAction.PDF_GRAYSCALE: "grayscale",
     SupportedAction.PDF_COMPRESS: "compressed",
     SupportedAction.PDF_MERGE: "merged",
+    SupportedAction.PDF_SPLIT: "split_pages",
     SupportedAction.PDF_EXTRACT_PAGES: "extracted_pages",
     SupportedAction.PDF_REORDER_PAGES: "reordered_pages",
     SupportedAction.PDF_DELETE_PAGES: "deleted_pages",
@@ -48,6 +50,7 @@ IMAGE_ONLY_ACTIONS: tuple[SupportedAction, ...] = (
 SINGLE_PDF_ACTIONS: tuple[SupportedAction, ...] = (
     SupportedAction.PDF_GRAYSCALE,
     SupportedAction.PDF_COMPRESS,
+    SupportedAction.PDF_SPLIT,
     SupportedAction.PDF_EXTRACT_PAGES,
     SupportedAction.PDF_REORDER_PAGES,
     SupportedAction.PDF_DELETE_PAGES,
@@ -58,6 +61,7 @@ SINGLE_PDF_ACTIONS: tuple[SupportedAction, ...] = (
 RESULT_FOLLOWUP_ACTIONS: tuple[SupportedAction, ...] = (
     SupportedAction.PDF_COMPRESS,
     SupportedAction.PDF_GRAYSCALE,
+    SupportedAction.PDF_SPLIT,
     SupportedAction.PDF_EXTRACT_PAGES,
     SupportedAction.PDF_REORDER_PAGES,
     SupportedAction.PDF_DELETE_PAGES,
@@ -77,6 +81,7 @@ EXPOSED_ACTION_ORDER: tuple[SupportedAction, ...] = (
     SupportedAction.PDF_GRAYSCALE,
     SupportedAction.PDF_COMPRESS,
     SupportedAction.PDF_MERGE,
+    SupportedAction.PDF_SPLIT,
     SupportedAction.PDF_EXTRACT_PAGES,
     SupportedAction.PDF_REORDER_PAGES,
     SupportedAction.PDF_DELETE_PAGES,
@@ -169,6 +174,7 @@ def infer_recommended_actions(session: UserSession) -> list[SupportedAction]:
             SupportedAction.PDF_COMPRESS,
             SupportedAction.PDF_GRAYSCALE,
             SupportedAction.PDF_EXTRACT_PAGES,
+            SupportedAction.PDF_SPLIT,
         ]
 
     return [action for action in ordered_candidates if action in supported]

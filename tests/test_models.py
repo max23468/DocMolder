@@ -28,6 +28,7 @@ class JobPayloadModelTest(unittest.TestCase):
             auto_rotate_pdf=False,
             image_pdf_use_a4=False,
             image_pdf_margin_px=0,
+            split_output_zip=False,
         )
 
         loaded = JobPayload.from_json(payload.to_json())
@@ -43,6 +44,7 @@ class JobPayloadModelTest(unittest.TestCase):
         self.assertFalse(loaded.auto_rotate_pdf)
         self.assertFalse(loaded.image_pdf_use_a4)
         self.assertEqual(loaded.image_pdf_margin_px, 0)
+        self.assertFalse(loaded.split_output_zip)
 
 
 if __name__ == "__main__":

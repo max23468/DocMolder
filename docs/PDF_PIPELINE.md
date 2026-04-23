@@ -65,6 +65,7 @@ Per l'unione:
 
 Per un singolo PDF il bot supporta anche:
 
+- divisione del PDF in un file per pagina, con scelta tra archivio ZIP e PDF separati
 - estrazione pagine
 - riordino completo delle pagine
 - eliminazione pagine
@@ -74,6 +75,7 @@ Per un singolo PDF il bot supporta anche:
 Questi flussi:
 
 - restano nativi, senza passare da rasterizzazione
+- quando producono piu output, possono raccoglierli in un unico ZIP oppure inviarli come file separati se l'utente lo preferisce
 - chiedono in chat solo il minimo input necessario, per esempio `1,3,5-7` oppure un testo semplice
 - validano in modo esplicito selezioni pagina, ordine completo o gradi ammessi
 

@@ -21,6 +21,7 @@ class SupportedAction(StrEnum):
     PDF_GRAYSCALE = "pdf_grayscale"
     PDF_COMPRESS = "pdf_compress"
     PDF_MERGE = "pdf_merge"
+    PDF_SPLIT = "pdf_split"
     PDF_EXTRACT_PAGES = "pdf_extract_pages"
     PDF_REORDER_PAGES = "pdf_reorder_pages"
     PDF_DELETE_PAGES = "pdf_delete_pages"
@@ -37,6 +38,7 @@ SupportedActionValue: TypeAlias = Literal[
     "pdf_grayscale",
     "pdf_compress",
     "pdf_merge",
+    "pdf_split",
     "pdf_extract_pages",
     "pdf_reorder_pages",
     "pdf_delete_pages",
@@ -142,6 +144,7 @@ class JobPayloadData(TypedDict, total=False):
     auto_rotate_pdf: bool
     image_pdf_use_a4: bool
     image_pdf_margin_px: int | None
+    split_output_zip: bool
 
 
 @dataclass(slots=True)
@@ -154,6 +157,7 @@ class JobPayload:
     auto_rotate_pdf: bool = True
     image_pdf_use_a4: bool = True
     image_pdf_margin_px: int | None = None
+    split_output_zip: bool = True
 
     @classmethod
     def from_json(cls, payload_json: str) -> "JobPayload":
@@ -186,6 +190,7 @@ class JobPayload:
             image_pdf_margin_px=(
                 int(raw_payload["image_pdf_margin_px"]) if raw_payload.get("image_pdf_margin_px") is not None else None
             ),
+            split_output_zip=bool(raw_payload.get("split_output_zip", True)),
         )
 
     @classmethod
@@ -200,6 +205,7 @@ class JobPayload:
         auto_rotate_pdf: bool = True,
         image_pdf_use_a4: bool = True,
         image_pdf_margin_px: int | None = None,
+        split_output_zip: bool = True,
     ) -> "JobPayload":
         return cls(
             files=[
@@ -217,6 +223,7 @@ class JobPayload:
             auto_rotate_pdf=auto_rotate_pdf,
             image_pdf_use_a4=image_pdf_use_a4,
             image_pdf_margin_px=image_pdf_margin_px,
+            split_output_zip=split_output_zip,
         )
 
     def to_dict(self) -> JobPayloadData:
@@ -236,6 +243,7 @@ class JobPayload:
             "auto_rotate_pdf": self.auto_rotate_pdf,
             "image_pdf_use_a4": self.image_pdf_use_a4,
             "image_pdf_margin_px": self.image_pdf_margin_px,
+            "split_output_zip": self.split_output_zip,
         }
 
     def to_json(self) -> str:
@@ -268,6 +276,7 @@ class AdminStats:
     pdf_compress_total: int
     pdf_grayscale_total: int
     pdf_merge_total: int
+    pdf_split_total: int
     pdf_extract_pages_total: int
     pdf_reorder_pages_total: int
     pdf_delete_pages_total: int

@@ -52,6 +52,7 @@ class ServiceHelpersTest(unittest.TestCase):
             [
                 SupportedAction.PDF_GRAYSCALE,
                 SupportedAction.PDF_COMPRESS,
+                SupportedAction.PDF_SPLIT,
                 SupportedAction.PDF_EXTRACT_PAGES,
                 SupportedAction.PDF_REORDER_PAGES,
                 SupportedAction.PDF_DELETE_PAGES,

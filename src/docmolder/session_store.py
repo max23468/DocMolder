@@ -184,6 +184,7 @@ class InMemorySessionStore:
                 pdf_compress_total=sum(1 for _, action in self._completed_actions if action == "pdf_compress"),
                 pdf_grayscale_total=sum(1 for _, action in self._completed_actions if action == "pdf_grayscale"),
                 pdf_merge_total=sum(1 for _, action in self._completed_actions if action == "pdf_merge"),
+                pdf_split_total=sum(1 for _, action in self._completed_actions if action == "pdf_split"),
                 pdf_extract_pages_total=sum(
                     1 for _, action in self._completed_actions if action == "pdf_extract_pages"
                 ),
@@ -598,6 +599,7 @@ class SQLiteSessionStore:
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_compress') AS pdf_compress_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_grayscale') AS pdf_grayscale_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_merge') AS pdf_merge_total,
+                    (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_split') AS pdf_split_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_extract_pages') AS pdf_extract_pages_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_reorder_pages') AS pdf_reorder_pages_total,
                     (SELECT COUNT(*) FROM usage_events WHERE action = 'pdf_delete_pages') AS pdf_delete_pages_total,

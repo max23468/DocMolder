@@ -9,7 +9,7 @@ WELCOME_MESSAGE = (
     "Lavoro bene quando mi mandi PDF, foto o scansioni direttamente qui su Telegram.\n\n"
     "Ti aiuto a:\n"
     "- creare PDF ordinati da immagini\n"
-    "- comprimere, unire e convertire PDF\n"
+    "- comprimere, unire, dividere e convertire PDF\n"
     "- estrarre, riordinare, eliminare o ruotare pagine\n"
     "- aggiungere watermark testuali\n"
     "- correggere l'orientamento di PDF e immagini quando serve\n\n"
@@ -29,6 +29,7 @@ HELP_MESSAGE = (
     "- immagini scannerizzate -> ritaglio bordi e PDF\n"
     "- immagini -> PDF con formato originale oppure A4 con bordi a scelta\n"
     "- un PDF -> comprimi o scala di grigi\n"
+    "- un PDF -> dividi in un file per pagina\n"
     "- un PDF -> estrai pagine, riordinale, eliminale, ruotale o aggiungi un watermark\n"
     "- più PDF -> unisci\n\n"
     "Puoi anche scrivermi richieste semplici come:\n"
@@ -37,6 +38,7 @@ HELP_MESSAGE = (
     "- converti in bianco e nero\n"
     "- unisci questi pdf\n"
     "- comprimi questo pdf\n"
+    "- dividi questo pdf\n"
     "- estrai pagine 2-4\n"
     "- ruota questo pdf di 90 gradi\n"
     "- aggiungi watermark BOZZA\n"
@@ -98,6 +100,11 @@ SERVICE_UNAVAILABLE_MESSAGE = (
 
 
 def build_pending_action_prompt(action: SupportedAction) -> str:
+    if action == SupportedAction.PDF_SPLIT:
+        return (
+            "Come vuoi ricevere le pagine divise?\n"
+            "Puoi scegliere uno `ZIP` unico oppure `PDF separati`. Per documenti con tante pagine lo ZIP è più ordinato."
+        )
     if action == SupportedAction.PDF_ROTATE:
         return (
             "Scrivimi di quanto vuoi ruotare il PDF: `90`, `180` oppure `270` gradi.\n"
@@ -131,6 +138,16 @@ def build_pending_action_prompt(action: SupportedAction) -> str:
 
 def build_pending_action_queued_message(action: SupportedAction, job_id: int, raw_value: str) -> str:
     cleaned_value = raw_value.strip()
+    if action == SupportedAction.PDF_SPLIT:
+        if cleaned_value.lower() in {"zip", "archivio", "zip unico"}:
+            return (
+                f"Divisione PDF presa in carico con ZIP unico. Job #{job_id} in coda.\n"
+                "Ti invio lo ZIP appena è pronto."
+            )
+        return (
+            f"Divisione PDF presa in carico con PDF separati. Job #{job_id} in coda.\n"
+            "Ti invio i file appena sono pronti."
+        )
     if action == SupportedAction.PDF_EXTRACT_PAGES:
         return f"Estrazione pagine presa in carico ({cleaned_value}). Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
     if action == SupportedAction.PDF_REORDER_PAGES:
@@ -165,6 +182,11 @@ def build_text_request_queued_message(
         )
     if action == SupportedAction.PDF_MERGE:
         return f"Unione PDF presa in carico. Job #{job_id} in coda.\nTi invio il file appena è pronto."
+    if action == SupportedAction.PDF_SPLIT:
+        return (
+            f"Divisione PDF presa in carico. Job #{job_id} in coda.\n"
+            "Ti invio uno ZIP con un PDF per ogni pagina appena è pronto."
+        )
     if action == SupportedAction.PDF_EXTRACT_PAGES:
         return f"Estrazione pagine presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
     if action == SupportedAction.PDF_REORDER_PAGES:

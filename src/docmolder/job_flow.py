@@ -34,6 +34,7 @@ async def enqueue_job(
     auto_rotate_pdf: bool = True,
     image_pdf_use_a4: bool = True,
     image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
+    split_output_zip: bool = True,
 ) -> JobRecord:
     if action not in infer_supported_actions(session):
         raise ProcessingUserError("L'azione scelta non è più disponibile per la sessione corrente.")
@@ -47,6 +48,7 @@ async def enqueue_job(
         auto_rotate_pdf=auto_rotate_pdf,
         image_pdf_use_a4=image_pdf_use_a4,
         image_pdf_margin_px=image_pdf_margin_px,
+        split_output_zip=split_output_zip,
     )
     job = deps.session_store.create_job(
         user_id=user_id,
@@ -118,4 +120,5 @@ async def run_job_payload(
         payload.auto_rotate_pdf,
         payload.image_pdf_use_a4,
         payload.image_pdf_margin_px if payload.image_pdf_margin_px is not None else A4_MARGIN_NARROW_PX,
+        payload.split_output_zip,
     )

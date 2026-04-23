@@ -61,6 +61,7 @@ from docmolder.bot import (
     handle_images_pdf_margin_callback,
     handle_menu_text,
     handle_result_action_callback,
+    handle_split_output_callback,
     health_command,
     job_command,
     metrics_command,
@@ -74,6 +75,7 @@ from docmolder.bot import (
 from docmolder.config import Settings
 from docmolder.branding import TELEGRAM_NAME, build_telegram_commands
 from docmolder.processing import DocumentProcessor
+from docmolder.processing import ProcessingOutput
 from docmolder.processing import ProcessingResult
 from docmolder.processing import ProcessingUserError
 from docmolder.models import CompressionPreset, FileKind, JobStatus, SupportedAction, UserSession
@@ -189,6 +191,43 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         saved_session = self.store.get(7)
         self.assertIsNotNone(saved_session)
         self.assertEqual(saved_session.files[0].telegram_file_id, "result-file-id")
+
+    async def test_process_job_sums_multiple_result_outputs_without_result_session(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_split",
+            payload_json='{"files":[],"split_output_zip":false}',
+        )
+
+        async def fake_run_job_payload(_application, _job, job_dir: Path) -> ProcessingResult:
+            first_path = job_dir / "page_01.pdf"
+            second_path = job_dir / "page_02.pdf"
+            first_path.write_bytes(b"x" * 500)
+            second_path.write_bytes(b"y" * 700)
+            return ProcessingResult(
+                output_path=first_path,
+                output_name=first_path.name,
+                message="ok",
+                processing_mode="native",
+                additional_outputs=[ProcessingOutput(path=second_path, name=second_path.name)],
+            )
+
+        sent_message = SimpleNamespace(
+            document=SimpleNamespace(file_id="first-page-id", file_name="page_01.pdf", mime_type="application/pdf")
+        )
+
+        with (
+            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot._send_result", new=AsyncMock(return_value=sent_message)),
+        ):
+            await _process_job(self.application, job.id)
+
+        stored_job = self.store.get_job(job.id)
+        self.assertIsNotNone(stored_job)
+        self.assertEqual(stored_job.output_bytes, 1200)
+        self.assertIsNone(self.store.get(7))
 
     def test_main_menu_keyboard_exposes_quick_templates(self) -> None:
         keyboard = build_main_menu_keyboard()
@@ -373,6 +412,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
                 pdf_compress_total=1,
                 pdf_grayscale_total=1,
                 pdf_merge_total=0,
+                pdf_split_total=0,
                 pdf_extract_pages_total=0,
                 pdf_reorder_pages_total=0,
                 pdf_delete_pages_total=0,
@@ -402,6 +442,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("100%", report)
         self.assertIn("Errori più frequenti", report)
         self.assertIn("Comprimi PDF: 2", report)
+        self.assertIn("Dividi PDF: 0", report)
 
     def test_build_limit_messages_include_current_values(self) -> None:
         self.assertIn("20 MB", _build_file_too_large_message(20))
@@ -1207,6 +1248,33 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         reply_text.assert_awaited_once()
         self.assertIn("watermark", reply_text.await_args.args[0].lower())
 
+    async def test_result_callback_can_prompt_for_split_output_without_reupload(self) -> None:
+        reply_text = AsyncMock()
+        message = SimpleNamespace(
+            chat_id=99,
+            message_id=324,
+            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            reply_text=reply_text,
+        )
+        query = SimpleNamespace(
+            data="result:pdf_split",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=message,
+            answer=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_result_action_callback(update, context)
+
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(saved_session.pending_action, SupportedAction.PDF_SPLIT.value)
+        self.assertEqual(saved_session.files[0].telegram_file_id, "telegram-pdf-id")
+        reply_text.assert_awaited_once()
+        self.assertIn("ZIP", reply_text.await_args.args[0])
+        self.assertIsNotNone(reply_text.await_args.kwargs["reply_markup"])
+
     async def test_result_callback_requeues_same_job_without_auto_rotation(self) -> None:
         source_job = self.store.create_job(
             user_id=7,
@@ -1354,6 +1422,55 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.store.get(7).pending_action, "pdf_extract_pages")
         self.assertIn("1,3,5-7", query.edit_message_text.await_args.args[0])
 
+    async def test_action_callback_split_prompts_for_output_choice(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        query = SimpleNamespace(
+            data="action:pdf_split",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=700),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_action_callback(update, context)
+
+        self.assertEqual(self.store.get(7).pending_action, "pdf_split")
+        self.assertIn("ZIP", query.edit_message_text.await_args.args[0])
+        self.assertIsNotNone(query.edit_message_text.await_args.kwargs["reply_markup"])
+
+    async def test_split_output_callback_enqueues_separate_pdf_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_split",
+            )
+        )
+        query = SimpleNamespace(
+            data="split_output:files",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=701),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_split_output_callback(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertEqual(queued_job.action, "pdf_split")
+        self.assertIn('"split_output_zip": false', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
+        self.assertIn("PDF separati", query.edit_message_text.await_args.args[0])
+
     async def test_pending_extract_pages_text_enqueues_job(self) -> None:
         self.store.save(
             UserSession(
@@ -1378,6 +1495,34 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         queued_job = next(iter(self.store._jobs.values()))
         self.assertIn('"page_selection": "1,3-4"', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
+        message.reply_text.assert_awaited_once()
+
+    async def test_pending_split_text_enqueues_zip_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_split",
+            )
+        )
+        message = SimpleNamespace(
+            text="zip",
+            chat_id=99,
+            message_id=702,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertEqual(queued_job.action, "pdf_split")
+        self.assertIn('"split_output_zip": true', queued_job.payload_json)
         self.assertIsNone(self.store.get(7))
         message.reply_text.assert_awaited_once()
 
@@ -1806,6 +1951,61 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         queued_job = next(iter(self.store._jobs.values()))
         self.assertIn('"compression_preset": "strong"', queued_job.payload_json)
+        message.reply_text.assert_awaited_once()
+
+    async def test_text_request_for_split_pdf_prompts_for_output_choice(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Dividi questo pdf",
+            chat_id=99,
+            message_id=899,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(saved_session.pending_action, "pdf_split")
+        message.reply_text.assert_awaited_once()
+        self.assertIn("ZIP", message.reply_text.await_args.args[0])
+        self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
+
+    async def test_text_request_can_split_pdf_without_zip(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Dividi questo pdf senza zip",
+            chat_id=99,
+            message_id=8991,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertEqual(queued_job.action, "pdf_split")
+        self.assertIn('"split_output_zip": false', queued_job.payload_json)
         message.reply_text.assert_awaited_once()
 
     async def test_text_request_can_extract_pages_naturally(self) -> None:
