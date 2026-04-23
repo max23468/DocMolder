@@ -6,9 +6,8 @@ current_branch="$(git branch --show-current)"
 
 git fetch --prune origin
 
-git branch --merged "${BASE_BRANCH}" \
-  | sed 's/^..//' \
-  | grep '^codex/' \
+git branch --merged "${BASE_BRANCH}" --format='%(refname:short)' \
+  | awk '/^codex\// {print}' \
   | while read -r branch; do
       if [ "${branch}" = "${current_branch}" ]; then
         continue
