@@ -2,7 +2,7 @@ VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: setup run test compile ci build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish cleanup-branches
+.PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish cleanup-branches
 
 setup:
 	python3 -m venv $(VENV)
@@ -19,6 +19,15 @@ compile:
 
 ci:
 	bash scripts/ci_verify.sh
+
+ci-static:
+	bash scripts/ci_static_verify.sh
+
+ci-quality:
+	bash scripts/ci_quality.sh
+
+ci-test:
+	bash scripts/ci_test.sh --coverage
 
 build:
 	$(PYTHON) -m build

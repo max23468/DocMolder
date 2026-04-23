@@ -16,7 +16,6 @@ permissions:
 
 jobs:
   analyze:
-    if: ${{ !github.event.repository.private }}
     name: CodeQL Analyze
     runs-on: ubuntu-latest
     strategy:
@@ -28,21 +27,58 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect code changes
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ "${EVENT_NAME}" = "schedule" ] || [ "${EVENT_NAME}" = "workflow_dispatch" ]; then
+            echo "code_changed=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            git fetch origin "${BASE_REF}" --depth=1
+            diff_range="origin/${BASE_REF}...HEAD"
+          elif [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+            echo "code_changed=true" >> "${GITHUB_OUTPUT}"
+            exit 0
+          else
+            diff_range="${BEFORE_SHA}...HEAD"
+          fi
+          if git diff --name-only "${diff_range}" | grep -E '^(src/|pyproject\.toml|requirements.*\.txt|uv\.lock)$'; then
+            echo "code_changed=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "code_changed=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Initialize CodeQL
+        if: ${{ !github.event.repository.private && steps.changes.outputs.code_changed == 'true' }}
         uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
 
       - name: Setup Python
+        if: ${{ !github.event.repository.private && steps.changes.outputs.code_changed == 'true' }}
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
       - name: Install package
+        if: ${{ !github.event.repository.private && steps.changes.outputs.code_changed == 'true' }}
         run: |
           python -m pip install --upgrade pip
           pip install -e .
 
       - name: Perform CodeQL analysis
+        if: ${{ !github.event.repository.private && steps.changes.outputs.code_changed == 'true' }}
         uses: github/codeql-action/analyze@v4
+
+      - name: Skip CodeQL analysis
+        if: ${{ github.event.repository.private || steps.changes.outputs.code_changed != 'true' }}
+        run: echo "CodeQL analysis not required for this change."
