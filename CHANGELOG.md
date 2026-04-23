@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.5.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.5.0...docmolder-v0.5.1) (2026-04-23)
+
+
+### Fixes
+
+* handle split output edge cases ([#27](https://github.com/max23468/DocMolder/issues/27)) ([b9a66e0](https://github.com/max23468/DocMolder/commit/b9a66e0e5428a15bc2c3a25ff11b4f862dfbea02))
+
 ## [0.5.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.4.1...docmolder-v0.5.0) (2026-04-23)
 
 
