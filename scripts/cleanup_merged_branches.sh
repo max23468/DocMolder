@@ -15,3 +15,12 @@ git branch --merged "${BASE_BRANCH}" \
       fi
       git branch -d "${branch}"
     done
+
+git for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads/codex \
+  | awk '$2 == "[gone]" {print $1}' \
+  | while read -r branch; do
+      if [ "${branch}" = "${current_branch}" ]; then
+        continue
+      fi
+      git branch -D "${branch}"
+    done
