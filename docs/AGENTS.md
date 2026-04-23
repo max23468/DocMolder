@@ -21,6 +21,7 @@ Il file `AGENTS.md` nella root è solo un puntatore: in caso di dubbio prevale q
 - Preferire robustezza, leggibilità e semplicità operativa.
 - Evitare side-effect non richiesti rispetto alla task dell'utente.
 - Tenere DocMolder nel suo perimetro: utility documentale Telegram-first, semplice, guidata e affidabile.
+- DocMolder non è un gestionale documentale completo, non è uno storage permanente di file utente, non è un editor collaborativo e non deve diventare una dashboard web-first senza una decisione esplicita.
 
 ## 3) Prima di intervenire
 
@@ -28,6 +29,7 @@ Il file `AGENTS.md` nella root è solo un puntatore: in caso di dubbio prevale q
 - Comprendi il flusso toccato prima di editare: handler Telegram, pipeline documentale, session store, servizi, config o deploy.
 - Non revertire modifiche già presenti se non richiesto esplicitamente.
 - Se la richiesta è ambigua, fermati e fai domande mirate all'utente prima di scegliere approccio, scope o comportamento.
+- Procedi con un'assunzione dichiarata solo per dettagli marginali che non cambiano il risultato sostanziale.
 
 ## 4) Stile e qualità del codice
 
@@ -37,6 +39,7 @@ Il file `AGENTS.md` nella root è solo un puntatore: in caso di dubbio prevale q
 - Non aggiungere commenti ridondanti; commenta solo decisioni non ovvie.
 - Non inserire `try/except` attorno agli import.
 - Non introdurre nuove dipendenze senza avvisare prima l'utente e spiegare motivazione, impatto e alternative.
+- I file `.DS_Store` non fanno parte della repository: ignorali sempre e rimuovi quelli creati localmente quando li incontri.
 
 ## 5) Logging, errori e UX operativa
 
@@ -52,11 +55,14 @@ Il file `AGENTS.md` nella root è solo un puntatore: in caso di dubbio prevale q
 - Non committare segreti, token, credenziali o file `.env` reali.
 - Rispetta i limiti operativi già presenti: dimensioni, concorrenza, retention e cleanup.
 - Non loggare contenuti dei documenti caricati dagli utenti.
+- Tratta documenti caricati, output generati e metadati di job come dati utente: conservali solo nel runtime necessario alla lavorazione, puliscili a fine flusso o secondo retention documentata, e non copiarli in fixture, log o report salvo richiesta esplicita e dati sintetici.
+- Se una modifica tocca cleanup, backup, restore, incident response o gestione file temporanei, descrivi impatto sui dati utente e verifica almeno il percorso di rimozione o recupero rilevante.
 - Per modifiche a runtime dir, backup, restore o VPS, verifica anche `docs/VPS_RUNBOOK.md`.
 
 ## 7) Testing e verifica minima
 
 Prima del commit, esegui i check rilevanti alla modifica:
+- gate completo locale: `bash scripts/ci_verify.sh`;
 - suite completa: `make test`;
 - compilazione/import: `make compile`;
 - test mirati: `.venv/bin/python -m unittest tests.<modulo>`;
@@ -77,12 +83,13 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Un commit deve essere coeso: una modifica logica principale.
 - Messaggi commit chiari, in forma imperativa, con scope quando utile.
 - Il flusso ufficiale è branch dedicato, PR verso `main`, CI verde e squash merge.
-- Il titolo PR deve seguire Conventional Commits perché guida `release-please`.
+- Il titolo PR deve seguire Conventional Commits perché guida `release-please`; scrivilo come frase da changelog, orientata al cambiamento rilasciabile e non all'attività interna.
 - Quando fai squash merge, non sovrascrivere il subject rimuovendo il suffisso `(#PR)`: i guardrail su `main` richiedono commit nel formato `docs: esempio (#123)`.
 - Quando inizi una nuova operazione GitHub o riprendi lavoro su una PR, controlla prima se ci sono commenti/review bot o thread inline rimasti aperti; se sono azionabili, implementa quanto segnalano, verifica la correzione e chiudi/elimina/risolvi il commento o thread quando possibile.
 - Prima di aprire o mergiare una PR, fai una review interna del diff e correggi automaticamente solo problemi chiari, locali e non ambigui.
 - Non lasciare commenti bot su GitHub per la review salvo richiesta esplicita dell'utente; riporta eventuali rilievi in chat.
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi e test effettuati.
+- Se una PR deve produrre una release, includi una sezione `Release note` di 1-3 frasi in linguaggio naturale; se è solo manutenzione interna, usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`). Usa `skip-changelog` solo per escludere la PR dalle release note generate da GitHub, non come sostituto del tipo PR per `release-please`.
 - Se apri una PR come draft per far partire i check, monitora i check della PR e rimuovi automaticamente lo stato draft appena i check richiesti sono verdi, salvo richiesta esplicita contraria o dubbi residui da risolvere prima della review.
 - Per il versioning, la repository è `release-please`-first:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;

@@ -1937,10 +1937,8 @@ def _resolve_user_job_selector(deps: BotDependencies, user_id: int, selector: st
     }
     if normalized in status_selectors:
         status = status_selectors[normalized]
-        for job in deps.session_store.list_user_jobs(user_id, limit=50):
-            if job.status == status:
-                return job
-        return None
+        jobs = deps.session_store.list_user_jobs(user_id, limit=1, statuses=(status,))
+        return jobs[0] if jobs else None
     job = _resolve_job_selector(deps, normalized)
     if job is None or job.user_id != user_id:
         return None

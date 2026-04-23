@@ -15,19 +15,52 @@
       "changelog-sections": [
         {
           "type": "feat",
-          "section": "Features"
+          "section": "Funzionalità"
         },
         {
           "type": "fix",
-          "section": "Fixes"
+          "section": "Correzioni"
+        },
+        {
+          "type": "ops",
+          "section": "Operatività"
+        },
+        {
+          "type": "security",
+          "section": "Sicurezza e guardrail"
         },
         {
           "type": "deps",
-          "section": "Dependencies"
+          "section": "Dipendenze"
         },
         {
           "type": "docs",
-          "section": "Docs"
+          "section": "Documentazione"
+        },
+        {
+          "type": "chore",
+          "section": "Interno",
+          "hidden": true
+        },
+        {
+          "type": "ci",
+          "section": "Interno",
+          "hidden": true
+        },
+        {
+          "type": "test",
+          "section": "Interno",
+          "hidden": true
+        },
+        {
+          "type": "refactor",
+          "section": "Interno",
+          "hidden": true
+        },
+        {
+          "type": "build",
+          "section": "Interno",
+          "hidden": true
         }
       ]
     }

@@ -90,7 +90,12 @@ class SessionStore(Protocol):
         since_minutes: int | None = None,
     ) -> list[AdminActionStat]: ...
 
-    def list_user_jobs(self, user_id: int, limit: int = 5) -> list[JobRecord]: ...
+    def list_user_jobs(
+        self,
+        user_id: int,
+        limit: int = 5,
+        statuses: tuple[JobStatus, ...] | None = None,
+    ) -> list[JobRecord]: ...
 
     def list_recent_jobs(
         self,
@@ -354,9 +359,17 @@ class InMemorySessionStore:
             ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
         return [AdminActionStat(action=action, total=total) for action, total in ranked]
 
-    def list_user_jobs(self, user_id: int, limit: int = 5) -> list[JobRecord]:
+    def list_user_jobs(
+        self,
+        user_id: int,
+        limit: int = 5,
+        statuses: tuple[JobStatus, ...] | None = None,
+    ) -> list[JobRecord]:
         with self._lock:
             jobs = [job for job in self._jobs.values() if job.user_id == user_id]
+            if statuses is not None:
+                allowed = set(statuses)
+                jobs = [job for job in jobs if job.status in allowed]
             jobs.sort(
                 key=lambda job: (
                     job.finished_at or job.created_at,
@@ -817,17 +830,29 @@ class SQLiteSessionStore:
             ).fetchall()
         return [AdminActionStat(action=row["action"], total=int(row["total"])) for row in rows]
 
-    def list_user_jobs(self, user_id: int, limit: int = 5) -> list[JobRecord]:
+    def list_user_jobs(
+        self,
+        user_id: int,
+        limit: int = 5,
+        statuses: tuple[JobStatus, ...] | None = None,
+    ) -> list[JobRecord]:
+        conditions = ["user_id = ?"]
+        params: list[SQLiteParameter] = [user_id]
+        if statuses:
+            placeholders = ", ".join("?" for _ in statuses)
+            conditions.append(f"status IN ({placeholders})")
+            params.extend(status.value for status in statuses)
+        params.append(limit)
         with self._lock, self._connect() as connection:
             rows = connection.execute(
-                """
+                f"""
                 SELECT *
                 FROM jobs
-                WHERE user_id = ?
+                WHERE {" AND ".join(conditions)}
                 ORDER BY COALESCE(finished_at, created_at) DESC, id DESC
                 LIMIT ?
                 """,
-                (user_id, limit),
+                params,
             ).fetchall()
         return [_job_from_row(row) for row in rows]
 

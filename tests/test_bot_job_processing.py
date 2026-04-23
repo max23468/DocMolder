@@ -970,6 +970,26 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(_resolve_user_job_selector(self.deps, 7, str(other_job.id)))
 
+    def test_resolve_user_job_selector_finds_status_beyond_recent_page(self) -> None:
+        failed_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_failed(failed_job.id, "boom")
+        for index in range(60):
+            self.store.create_job(
+                user_id=7,
+                chat_id=99,
+                reply_to_message_id=200 + index,
+                action="pdf_compress",
+                payload_json='{"files":[]}',
+            )
+
+        self.assertEqual(_resolve_user_job_selector(self.deps, 7, "failed").id, failed_job.id)
+
     def test_extract_metric_entries_sorts_by_count_desc(self) -> None:
         entries = _extract_metric_entries(
             {

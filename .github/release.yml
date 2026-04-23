@@ -3,20 +3,26 @@ changelog:
     labels:
       - skip-changelog
   categories:
-    - title: Features
+    - title: Funzionalità
       labels:
         - enhancement
         - feature
-    - title: Fixes
+    - title: Correzioni
       labels:
         - bug
-    - title: Docs
+    - title: Operatività
+      labels:
+        - ops
+        - infra
+    - title: Sicurezza e guardrail
+      labels:
+        - security
+    - title: Documentazione
       labels:
         - docs
-    - title: Dependencies
+    - title: Dipendenze
       labels:
         - dependencies
-    - title: Internal
+    - title: Interno
       labels:
         - chore
-        - infra

@@ -7,6 +7,7 @@ Questa guida definisce la policy ufficiale di versionamento di `DocMolder`.
 - avere una sola storia di release chiara e verificabile
 - allineare changelog, tag Git e GitHub Releases
 - rendere prevedibile il tipo di bump versione a partire dal titolo della PR
+- produrre changelog leggibili per chi usa o gestisce il bot, non solo per chi ha letto la PR
 
 ## Fonte di verita
 
@@ -56,8 +57,14 @@ Esempi validi:
 
 - `feat(bot): add history relaunch shortcuts`
 - `fix(pdf): handle encrypted files more clearly`
-- `docs(release): clarify smoke test levels`
+- `ops(release): require explicit release PR follow-through`
+- `security(release): harden release-owned file guardrails`
+- `docs(smoke): clarify post-deploy smoke levels`
 - `feat(api)!: rename admin report payload`
+
+Il titolo PR è anche la frase che finirà nel changelog: deve descrivere il cambiamento rilasciabile, non l'attività interna. Evita titoli come `fix: address review comments`; preferisci `fix(bot): keep retry_latest scoped to the current user`.
+
+Quando una PR produce una release, aggiungi nel corpo PR una sezione `Release note` con 1-3 frasi in linguaggio naturale. Deve spiegare cosa cambia per utenti, admin o manutentori, senza ripetere la lista file.
 
 ## Policy di bump versione
 
@@ -65,6 +72,8 @@ DocMolder segue Semantic Versioning con una regola pre-`1.0.0` esplicita:
 
 - `feat:` produce un **minor bump**
 - `fix:` produce un **patch bump**
+- `ops:` produce un **patch bump**
+- `security:` produce un **patch bump**
 - `deps:` produce un **patch bump**
 - `docs:` produce un **patch bump** solo quando la modifica documenta un comportamento operativo o utente gia effettivo
 - qualunque tipo con `!` o footer `BREAKING CHANGE:` produce:
@@ -95,6 +104,18 @@ Usa `fix:` per:
 - bug funzionali
 - correzioni di comportamento atteso gia esistente
 
+Usa `ops:` per:
+
+- cambi operativi percepibili da admin o maintainer
+- flussi di release, deploy, monitoraggio o manutenzione che meritano nota pubblica
+- automazioni operative che cambiano il modo corretto di gestire il progetto
+
+Usa `security:` per:
+
+- hardening di guardrail, policy, controlli o gestione accessi
+- riduzione di rischi su dati utente, segreti, workflow o infrastruttura
+- correzioni che chiudono bypass o comportamenti spoofabili
+
 Usa `docs:` per:
 
 - runbook, release process o istruzioni operative che cambiano davvero il modo corretto di usare o mantenere il progetto
@@ -104,6 +125,23 @@ Usa `chore:` o `ci:` per:
 - manutenzione interna
 - housekeeping
 - workflow e tooling che non meritano una release annotata per gli utilizzatori del progetto
+
+Usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`) per modifiche interne che non devono produrre una release autonoma, per esempio aggiornamenti alle sole istruzioni agent senza impatto sul prodotto o sull'operativita del maintainer. La label `skip-changelog` resta utile per le release note generate da GitHub, ma il flusso principale `release-please` dipende dal tipo del commit/PR.
+
+## Sezioni del changelog
+
+Il changelog generato da `release-please` raggruppa le PR rilasciabili in sezioni orientate al lettore:
+
+- `feat:` → `Funzionalità`
+- `fix:` → `Correzioni`
+- `ops:` → `Operatività`
+- `security:` → `Sicurezza e guardrail`
+- `deps:` → `Dipendenze`
+- `docs:` → `Documentazione`
+
+I tipi interni `chore:`, `ci:`, `test:`, `refactor:` e `build:` sono configurati come nascosti nel changelog release-please: usali quando vuoi mantenere il commit tracciabile senza aggiungere rumore alla release.
+
+Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi deve capire l'impatto della release. Per esempio una correzione al workflow che impedisce bypass sui file di release è `security(release)`, non un generico `fix:`.
 
 ## Flusso release
 
