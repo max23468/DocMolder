@@ -77,6 +77,7 @@ Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente 
 - Messaggi commit chiari, in forma imperativa, con scope quando utile.
 - Il flusso ufficiale è branch dedicato, PR verso `main`, CI verde e squash merge.
 - Il titolo PR deve seguire Conventional Commits perché guida `release-please`.
+- Quando fai squash merge, non sovrascrivere il subject rimuovendo il suffisso `(#PR)`: i guardrail su `main` richiedono commit nel formato `docs: esempio (#123)`.
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi e test effettuati.
 - Per il versioning, la repository è `release-please`-first:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
