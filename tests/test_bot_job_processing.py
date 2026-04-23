@@ -1471,6 +1471,29 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.store.get(7))
         self.assertIn("PDF separati", query.edit_message_text.await_args.args[0])
 
+    async def test_split_output_callback_rejects_incompatible_session(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("img-1", "foto.jpg", FileKind.IMAGE)],
+                pending_action="pdf_split",
+            )
+        )
+        query = SimpleNamespace(
+            data="split_output:zip",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=702),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_split_output_callback(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        self.assertIn("non è più compatibile", query.edit_message_text.await_args.args[0])
+
     async def test_pending_extract_pages_text_enqueues_job(self) -> None:
         self.store.save(
             UserSession(
@@ -2007,6 +2030,31 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(queued_job.action, "pdf_split")
         self.assertIn('"split_output_zip": false', queued_job.payload_json)
         message.reply_text.assert_awaited_once()
+
+    async def test_text_request_respects_negated_zip_with_article(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Dividi questo pdf senza lo zip",
+            chat_id=99,
+            message_id=8992,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertEqual(queued_job.action, "pdf_split")
+        self.assertIn('"split_output_zip": false', queued_job.payload_json)
 
     async def test_text_request_can_extract_pages_naturally(self) -> None:
         self.store.save(

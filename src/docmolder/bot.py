@@ -1150,6 +1150,12 @@ async def handle_split_output_callback(update: Update, context: ContextTypes.DEF
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
         return
+    if SupportedAction.PDF_SPLIT not in infer_supported_actions(session):
+        await query.edit_message_text(
+            "Questa scelta non è più compatibile con la sessione corrente. "
+            "Inviami un singolo PDF oppure usa /reset per ripartire."
+        )
+        return
 
     if not _has_capacity_for_new_job(user.id, deps):
         await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
@@ -1165,15 +1171,19 @@ async def handle_split_output_callback(update: Update, context: ContextTypes.DEF
         await query.edit_message_text(_invalid_callback_message())
         return
 
-    job = await _enqueue_job(
-        context=context,
-        user_id=user.id,
-        chat_id=query.message.chat_id,
-        reply_to_message_id=query.message.message_id,
-        action=SupportedAction.PDF_SPLIT,
-        session=session,
-        split_output_zip=split_output_zip,
-    )
+    try:
+        job = await _enqueue_job(
+            context=context,
+            user_id=user.id,
+            chat_id=query.message.chat_id,
+            reply_to_message_id=query.message.message_id,
+            action=SupportedAction.PDF_SPLIT,
+            session=session,
+            split_output_zip=split_output_zip,
+        )
+    except ProcessingUserError as exc:
+        await query.edit_message_text(f"{exc}\n\nInviami un singolo PDF e riprova.")
+        return
     deps.session_store.delete(user.id)
     await query.edit_message_text(
         _build_pending_action_queued_message(SupportedAction.PDF_SPLIT, job.id, choice_label)
@@ -2762,7 +2772,12 @@ def _extract_compression_preset(text: str, tokens: list[str]) -> CompressionPres
 
 def _infer_split_output_zip(text: str, tokens: list[str]) -> bool | None:
     padded_text = f" {text} "
-    if any(fragment in padded_text for fragment in (" senza zip ", " no zip ", " non zip ")):
+    negated_zip_patterns = (
+        r"\bsenza\s+(?:lo\s+|il\s+|uno\s+|un\s+)?zip\b",
+        r"\bno\s+(?:allo\s+|al\s+|lo\s+|il\s+)?zip\b",
+        r"\bnon\s+(?:in\s+|come\s+|lo\s+|il\s+)?zip\b",
+    )
+    if any(re.search(pattern, text) for pattern in negated_zip_patterns):
         return False
     if any(
         fragment in padded_text
