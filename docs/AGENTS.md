@@ -82,6 +82,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Prima di aprire o mergiare una PR, fai una review interna del diff e correggi automaticamente solo problemi chiari, locali e non ambigui.
 - Non lasciare commenti bot su GitHub per la review salvo richiesta esplicita dell'utente; riporta eventuali rilievi in chat.
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi e test effettuati.
+- Se apri una PR come draft per far partire i check, monitora i check della PR e rimuovi automaticamente lo stato draft appena i check richiesti sono verdi, salvo richiesta esplicita contraria o dubbi residui da risolvere prima della review.
 - Per il versioning, la repository è `release-please`-first:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
   - il bump versione e il changelog di release spettano solo alla Release PR generata dal workflow automatico;
