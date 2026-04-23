@@ -15,8 +15,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect dependency changes
+        id: deps
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch origin "${BASE_REF}" --depth=1
+          if git diff --name-only "origin/${BASE_REF}...HEAD" | grep -E '^(pyproject\.toml|requirements.*\.txt|uv\.lock)$'; then
+            echo "changed=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "changed=false" >> "${GITHUB_OUTPUT}"
+          fi
 
       - name: Dependency review
+        if: steps.deps.outputs.changed == 'true'
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
+
+      - name: Skip dependency review
+        if: steps.deps.outputs.changed != 'true'
+        run: echo "No dependency files changed; dependency review not required."

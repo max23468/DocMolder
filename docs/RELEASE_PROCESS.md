@@ -77,6 +77,17 @@ Per cambi rilevanti:
 
 Per cambi mirati, puoi eseguire solo le suite toccate.
 
+Per riprodurre localmente i gate GitHub separati:
+
+```bash
+make ci-static
+make ci-quality
+make ci-test
+make build
+```
+
+`make ci` resta il gate locale completo e include anche il package build. Su GitHub, invece, test, coverage e build vengono eseguiti solo quando il classificatore li considera necessari.
+
 ## Deploy
 
 La procedura operativa completa e in [docs/VPS_RUNBOOK.md](./VPS_RUNBOOK.md).

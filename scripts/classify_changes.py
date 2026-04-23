@@ -46,7 +46,20 @@ TEST_PATTERNS = (
 
 CI_PATTERNS = (
     ".github/workflows/**",
+    "Makefile",
+    "scripts/ci_*.sh",
+    "scripts/classify_changes.py",
+    "scripts/current_failed_runs.py",
+    "scripts/generate_pr_body.py",
+    "scripts/preflight_publish.sh",
+    "scripts/publish_change.sh",
     "scripts/ci_verify.sh",
+)
+
+DEPENDENCY_PATTERNS = (
+    "pyproject.toml",
+    "requirements*.txt",
+    "uv.lock",
 )
 
 RELEASE_OWNED_FILES = {
@@ -138,6 +151,7 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
     docs = [path for path in paths if matches(path, DOC_PATTERNS)]
     tests = [path for path in paths if matches(path, TEST_PATTERNS)]
     ci = [path for path in paths if matches(path, CI_PATTERNS)]
+    dependencies = [path for path in paths if matches(path, DEPENDENCY_PATTERNS)]
 
     release_owned = [path for path in paths if path in RELEASE_OWNED_FILES]
     if pyproject_version_changed(git_range, paths, staged=staged, working_tree=working_tree):
@@ -147,7 +161,12 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
     tests_only = bool(paths) and len(tests) == len(paths)
     ci_only = bool(paths) and len(ci) == len(paths)
     ops_only = bool(paths) and len(ops) == len(paths)
-    no_runtime_impact = docs_only
+    no_runtime_impact = bool(paths) and not deploy_relevant and not code and not tests
+    full_tests_required = bool(code or tests)
+    package_build_required = any(path.startswith("src/") for path in code) or bool(dependencies)
+    coverage_required = full_tests_required
+    fast_static_required = bool(paths)
+    dependency_review_required = bool(dependencies)
 
     return {
         "base": git_range.base,
@@ -166,10 +185,17 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
         "tests_files": tests,
         "ci_only": ci_only,
         "ci_files": ci,
+        "dependency_relevant": bool(dependencies),
+        "dependency_files": dependencies,
         "ops_only": ops_only,
         "release_owned": bool(release_owned),
         "release_owned_files": sorted(set(release_owned)),
         "no_runtime_impact": no_runtime_impact,
+        "full_tests_required": full_tests_required,
+        "package_build_required": package_build_required,
+        "coverage_required": coverage_required,
+        "fast_static_required": fast_static_required,
+        "dependency_review_required": dependency_review_required,
         "recommended_deploy": bool(deploy_relevant),
         "recommended_release_type": recommended_release_type(paths, deploy_relevant, code, ops, docs_only, tests_only, ci_only),
     }
@@ -192,6 +218,8 @@ def recommended_release_type(
         return "ci"
     if docs_only:
         return "chore"
+    if not code and not deploy_relevant:
+        return "ci"
     if ops and not code:
         return "ci"
     return "fix"
@@ -205,9 +233,15 @@ def print_env(report: dict[str, object]) -> None:
         "docs_only",
         "tests_only",
         "ci_only",
+        "dependency_relevant",
         "ops_only",
         "release_owned",
         "no_runtime_impact",
+        "full_tests_required",
+        "package_build_required",
+        "coverage_required",
+        "fast_static_required",
+        "dependency_review_required",
         "recommended_deploy",
     ]
     for key in bool_keys:
@@ -222,6 +256,8 @@ def print_summary(report: dict[str, object]) -> None:
     print(f"Changed files: {report['changed_count']}")
     print(f"Deploy relevant: {'yes' if report['deploy_relevant'] else 'no'}")
     print(f"Release-owned files: {'yes' if report['release_owned'] else 'no'}")
+    print(f"Full tests required: {'yes' if report['full_tests_required'] else 'no'}")
+    print(f"Package build required: {'yes' if report['package_build_required'] else 'no'}")
     print(f"Recommended type: {report['recommended_release_type']}")
     for path in report["changed_files"]:
         print(f"- {path}")

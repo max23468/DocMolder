@@ -33,6 +33,18 @@ La CI usa lo stesso classificatore: per cambi senza impatto runtime mantiene i c
 
 `Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente.
 
+## CI veloce
+
+Il workflow `CI` è diviso in gate indipendenti:
+
+- `Classify change impact`: decide se servono test completi, package build, coverage e deploy.
+- `Fast gate`: controlli statici rapidi su workflow, shell script, script Python e whitespace.
+- `Quality gate`: compile e lint una sola volta su Python 3.12, solo per cambi runtime/test.
+- `Python 3.11/3.12/3.13`: test completi solo per cambi runtime/test; coverage solo su Python 3.12.
+- `package-build`: build del pacchetto solo per cambi a `src/**`, packaging o dipendenze.
+
+`CodeQL` mantiene il check su PR/main, ma l'analisi pesante parte solo per cambi a codice o dipendenze, oltre a schedule settimanale e manuale. `Dependency Review` mantiene il check su PR, ma l'action parte solo quando la PR tocca file di dipendenze (`pyproject.toml`, lock/requirements).
+
 ## Configurazione consigliata nella UI GitHub
 
 ### Branch protection per `main`
