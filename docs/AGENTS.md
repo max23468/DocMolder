@@ -86,6 +86,8 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Per il versioning, la repository è `release-please`-first:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
   - il bump versione e il changelog di release spettano solo alla Release PR generata dal workflow automatico;
+  - dopo il merge di una PR funzionale, se `release-please` apre o aggiorna una Release PR, monitorala automaticamente, aspetta i check richiesti, rimuovi eventuale draft se presente e mergiala senza chiedere un via esplicito ulteriore;
+  - fermati prima del merge della Release PR solo se i check falliscono, se la Release PR contiene cambi inattesi rispetto a versione/changelog/manifest previsti, se emergono conflitti o se l'utente ha chiesto esplicitamente di non rilasciare;
   - se una modifica ordinaria tocca quei file, fermati e riallinea la PR al flusso ufficiale prima del merge.
 
 ## 10) Deploy e operazioni
