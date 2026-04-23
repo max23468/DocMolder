@@ -25,6 +25,7 @@ Strumenti locali:
 - `scripts/classify_changes.py`: classifica il diff in docs/test/CI/code/ops/deploy e segnala file riservati a `release-please`.
 - `scripts/preflight_publish.sh` o `make preflight-publish`: blocca branch sbagliati e version bump/changelog manuali prima del push.
 - `scripts/current_failed_runs.py`: mostra solo run failed del branch e SHA correnti, evitando di inseguire failure vecchie o non correlate.
+- `scripts/check_codex_bot_comments.py`: blocca ready/merge quando il Codex connector bot ha lasciato commenti aperti sulla PR.
 - `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
 - `scripts/publish_change.sh "<titolo conventional>"`: preflight, commit se serve, push, PR draft, check, ready e auto-merge.
 - `scripts/cleanup_merged_branches.sh` o `make cleanup-branches`: elimina branch locali `codex/*` già mergiati.

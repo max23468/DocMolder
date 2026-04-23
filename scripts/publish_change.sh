@@ -21,7 +21,7 @@ python3 scripts/current_failed_runs.py --branch "${BRANCH}" --sha "${HEAD_SHA}" 
 bash scripts/preflight_publish.sh "${BASE_REF}"
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
-  git add .github deploy docs scripts src tests pyproject.toml release-please-config.json .env.example Makefile README.md AGENTS.md 2>/dev/null || true
+  git add -A
 fi
 
 if ! git diff --cached --quiet; then
@@ -39,6 +39,8 @@ fi
 rm -f "${body_file}"
 
 PR_NUMBER="$(gh pr view --json number --jq '.number')"
+python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail
 gh pr checks "${PR_NUMBER}" --watch --interval 10
+python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail
 gh pr ready "${PR_NUMBER}"
 gh pr merge "${PR_NUMBER}" --auto --squash --delete-branch --subject "${TITLE} (#${PR_NUMBER})"
