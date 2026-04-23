@@ -79,6 +79,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Il flusso ufficiale è branch dedicato, PR verso `main`, CI verde e squash merge.
 - Il titolo PR deve seguire Conventional Commits perché guida `release-please`.
 - Quando fai squash merge, non sovrascrivere il subject rimuovendo il suffisso `(#PR)`: i guardrail su `main` richiedono commit nel formato `docs: esempio (#123)`.
+- Quando inizi una nuova operazione GitHub o riprendi lavoro su una PR, controlla prima se ci sono commenti/review bot o thread inline rimasti aperti; se sono azionabili, implementa quanto segnalano, verifica la correzione e chiudi/elimina/risolvi il commento o thread quando possibile.
 - Prima di aprire o mergiare una PR, fai una review interna del diff e correggi automaticamente solo problemi chiari, locali e non ambigui.
 - Non lasciare commenti bot su GitHub per la review salvo richiesta esplicita dell'utente; riporta eventuali rilievi in chat.
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi e test effettuati.
