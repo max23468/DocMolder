@@ -14,7 +14,7 @@ fi
 
 VENV_DIR="${DOCMOLDER_VENV_DIR:-$(cd "${APP_DIR}/.." && pwd)/venv}"
 SERVICE_NAME="${DOCMOLDER_SERVICE_NAME:-docmolder}"
-HEALTHCHECK_BIN="${DOCMOLDER_HEALTHCHECK_BIN:-${VENV_DIR}/bin/docmolder-healthcheck}"
+HEALTHCHECK_BIN="${VENV_DIR}/bin/docmolder-healthcheck"
 
 cd "${APP_DIR}"
 "${HEALTHCHECK_BIN}" \

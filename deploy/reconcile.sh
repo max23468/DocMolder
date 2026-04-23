@@ -13,7 +13,7 @@ if [ -f "${ENV_FILE}" ]; then
 fi
 
 VENV_DIR="${DOCMOLDER_VENV_DIR:-$(cd "${APP_DIR}/.." && pwd)/venv}"
-RECONCILE_BIN="${DOCMOLDER_RECONCILE_BIN:-${VENV_DIR}/bin/docmolder-reconcile}"
+RECONCILE_BIN="${VENV_DIR}/bin/docmolder-reconcile"
 
 cd "${APP_DIR}"
 exec "${RECONCILE_BIN}"
