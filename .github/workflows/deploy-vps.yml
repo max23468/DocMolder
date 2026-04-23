@@ -150,14 +150,13 @@ jobs:
               -o StrictHostKeyChecking="${SSH_STRICT}" \
               "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
               "sudo env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin bash -lc 'set -euo pipefail
-              set -a
-              source /etc/docmolder/docmolder.env
-              set +a
+              source /opt/docmolder/app/deploy/env-load.sh
+              load_docmolder_env_file /etc/docmolder/docmolder.env
               service_name=\"\${DOCMOLDER_SERVICE_NAME:-docmolder}\"
               attempts=\"\${DOCMOLDER_SMOKE_CHECK_ATTEMPTS:-12}\"
               sleep_seconds=\"\${DOCMOLDER_SMOKE_CHECK_SLEEP_SECONDS:-5}\"
               for attempt in \$(seq 1 \"\${attempts}\"); do
-                if /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name \"\${service_name}\"; then
+                if /opt/docmolder/venv/bin/python -m docmolder.healthcheck --check-service-active --service-name \"\${service_name}\"; then
                   echo \"DocMolder smoke check OK.\"
                   exit 0
                 fi
