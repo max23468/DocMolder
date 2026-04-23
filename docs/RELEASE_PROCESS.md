@@ -19,7 +19,7 @@ Verifica almeno:
 - documentazione aggiornata se cambia il flusso utente o operativo
 - se cambia il catalogo azioni o la struttura dei job, aggiorna anche contesto, testing e decisioni tecniche correlate
 - roadmap aggiornata solo se cambia il piano futuro
-- nessun aggiornamento manuale di `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py`, salvo Release PR o correzioni eccezionali del flusso
+- nessun aggiornamento manuale di `CHANGELOG.md`, `.release-please-manifest.json`, campo `version` di `pyproject.toml` o `src/docmolder/__init__.py`, salvo Release PR o correzioni eccezionali del flusso
 
 ## PR e merge
 

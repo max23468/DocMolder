@@ -117,7 +117,7 @@ def build_admin_dashboard_keyboard(*, service_paused: bool) -> InlineKeyboardMar
             ],
             [
                 InlineKeyboardButton("Metriche", callback_data="admin:metrics"),
-                InlineKeyboardButton("Aggiorna", callback_data="admin:refresh"),
+                InlineKeyboardButton("Manutenzione", callback_data="admin:maintenance"),
             ],
             [
                 InlineKeyboardButton("Ultimo fallito", callback_data="admin:failed"),
@@ -127,7 +127,21 @@ def build_admin_dashboard_keyboard(*, service_paused: bool) -> InlineKeyboardMar
                 InlineKeyboardButton("Ultimo queued", callback_data="admin:queued"),
                 InlineKeyboardButton("Ultimo riuscito", callback_data="admin:succeeded"),
             ],
-            [InlineKeyboardButton("Ultimo job", callback_data="admin:latest")],
+            [
+                InlineKeyboardButton("Ultimo job", callback_data="admin:latest"),
+                InlineKeyboardButton("Aggiorna", callback_data="admin:refresh"),
+            ],
+        ]
+    )
+
+
+def build_access_review_keyboard(user_id: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("Approva", callback_data=f"access:approve:{user_id}"),
+                InlineKeyboardButton("Rifiuta", callback_data=f"access:reject:{user_id}"),
+            ]
         ]
     )
 

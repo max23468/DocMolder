@@ -93,7 +93,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Se una PR deve produrre una release, includi una sezione `Release note` di 1-3 frasi in linguaggio naturale; se è solo manutenzione interna, usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`). Usa `skip-changelog` solo per escludere la PR dalle release note generate da GitHub, non come sostituto del tipo PR per `release-please`.
 - Se apri una PR come draft per far partire i check, monitora i check della PR e rimuovi automaticamente lo stato draft appena i check richiesti sono verdi, salvo richiesta esplicita contraria o dubbi residui da risolvere prima della review.
 - Per il versioning, la repository è `release-please`-first:
-  - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
+  - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
   - il bump versione e il changelog di release spettano solo alla Release PR generata dal workflow automatico;
   - dopo il merge di una PR funzionale, se `release-please` apre o aggiorna una Release PR, monitorala automaticamente, aspetta i check richiesti, rimuovi eventuale draft se presente e mergiala senza chiedere un via esplicito ulteriore;
   - fermati prima del merge della Release PR solo se i check falliscono, se la Release PR contiene cambi inattesi rispetto a versione/changelog/manifest previsti, se emergono conflitti o se l'utente ha chiesto esplicitamente di non rilasciare;

@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodic DocMolder runtime reconciliation
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=15min
+Persistent=true
+Unit=docmolder-reconcile.service
+
+[Install]
+WantedBy=timers.target

@@ -135,7 +135,21 @@ jobs:
             -o ServerAliveInterval=30 \
             -o StrictHostKeyChecking="${SSH_STRICT}" \
             "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
-            "sudo systemctl status docmolder --no-pager && sudo systemctl status docmolder-db-backup.timer --no-pager"
+            "sudo systemctl status docmolder --no-pager && sudo systemctl status docmolder-db-backup.timer --no-pager && sudo systemctl status docmolder-alertcheck.timer --no-pager && sudo systemctl status docmolder-reconcile.timer --no-pager"
+
+      - name: Run operational smoke check on VPS
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/docmolder_vps" \
+            -p "${DOCMOLDER_VPS_PORT}" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+              -o ServerAliveInterval=30 \
+              -o StrictHostKeyChecking="${SSH_STRICT}" \
+              "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
+              "sudo /opt/docmolder/app/deploy/smoke-check.sh"
 
       - name: Smoke test Telegram Bot API on VPS
         run: |

@@ -19,7 +19,9 @@ from docmolder.bot import (
     SESSION_EMPTY_MESSAGE,
     _build_access_status_message,
     _build_admin_health_report,
+    _build_admin_maintenance_overview,
     _build_admin_queue_report,
+    _build_policy_message,
     _build_service_unavailable_message,
     _build_telegram_metrics_report,
     _extract_metric_entries,
@@ -57,6 +59,8 @@ from docmolder.bot import (
     _maybe_send_admin_report_for_period,
     _process_job,
     access_command,
+    access_review_command,
+    handle_access_review_callback,
     history_command,
     handle_images_pdf_layout_callback,
     handle_images_pdf_margin_callback,
@@ -67,8 +71,10 @@ from docmolder.bot import (
     job_command,
     metrics_command,
     pause_command,
+    policy_command,
     queue_command,
     retry_command,
+    request_access_command,
     resume_command,
     last_command,
     start_command,
@@ -252,6 +258,19 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.bot.set_my_name.assert_any_await(TELEGRAM_NAME, language_code="it")
         self.bot.set_my_commands.assert_any_await(build_telegram_commands())
         self.bot.set_chat_menu_button.assert_awaited_once()
+
+    async def test_sync_telegram_branding_persists_rate_limit_backoff(self) -> None:
+        self.bot.set_my_name = AsyncMock(side_effect=RetryAfter(120))
+        self.bot.set_my_description = AsyncMock()
+        self.bot.set_my_short_description = AsyncMock()
+        self.bot.set_my_commands = AsyncMock()
+        self.bot.set_chat_menu_button = AsyncMock()
+
+        await _sync_telegram_branding(self.application, self.settings, self.store)
+        await _sync_telegram_branding(self.application, self.settings, self.store)
+
+        self.assertIsNotNone(self.store.get_meta("branding_sync:retry_at"))
+        self.assertEqual(self.bot.set_my_name.await_count, 1)
 
     async def test_process_job_announces_fallback_risk_for_pdf_grayscale(self) -> None:
         job = self.store.create_job(
@@ -631,6 +650,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         await resume_command(update, context)
         self.assertEqual(self.store.get_meta("service_mode"), "normal")
+        self.assertEqual(
+            [entry.outcome for entry in self.store.list_audit_log_entries(limit=2)],
+            ["normal", "maintenance"],
+        )
         self.assertEqual(message.reply_text.await_count, 2)
 
     async def test_maintenance_mode_blocks_regular_user_text_requests(self) -> None:
@@ -703,6 +726,66 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("Coda operativa", message.reply_text.await_args_list[0].args[0])
         self.assertIn("Health operativo", message.reply_text.await_args_list[1].args[0])
+
+    async def test_policy_command_is_available_without_access(self) -> None:
+        self.deps.settings.allowed_user_ids = [7]
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=55, username="mario", first_name="Mario", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await request_access_command(update, context)
+        await policy_command(update, context)
+
+        self.assertEqual(self.store.get_meta("access:55:status"), "pending")
+        self.assertIn("Policy sintetica", message.reply_text.await_args_list[-1].args[0])
+
+    async def test_access_review_command_approves_dynamic_user(self) -> None:
+        self.deps.settings.allowed_user_ids = [7]
+        self.deps.settings.admin_user_ids = [7]
+        message = SimpleNamespace(text="/approve_user 55", reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=["55"])
+
+        await access_review_command(update, context)
+
+        self.assertEqual(self.store.get_meta("access:55:status"), "approved")
+        self.assertIn("approved", message.reply_text.await_args.args[0])
+        self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "access_review")
+
+    async def test_access_review_callback_approves_pending_user(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        query = SimpleNamespace(
+            data="access:approve:55",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_access_review_callback(update, context)
+
+        self.assertEqual(self.store.get_meta("access:55:status"), "approved")
+        self.assertIn("approved", query.edit_message_text.await_args.args[0])
+
+    def test_policy_and_maintenance_overview_include_operational_data(self) -> None:
+        self.settings.sqlite_backup_dir = self.runtime_dir / "backups"
+        self.settings.sqlite_backup_dir.mkdir(parents=True, exist_ok=True)
+        self.store.set_meta("access:55:status", "pending")
+
+        policy = _build_policy_message(self.deps)
+        maintenance = _build_admin_maintenance_overview(self.deps)
+
+        self.assertIn("Policy sintetica", policy)
+        self.assertIn("file massimo", policy)
+        self.assertIn("Manutenzione operativa", maintenance)
+        self.assertIn("Richieste accesso pending", maintenance)
 
     async def test_telegram_api_call_retries_rate_limit_and_network_errors(self) -> None:
         mocked_call = AsyncMock(side_effect=[RetryAfter(1), NetworkError("temp"), "ok"])
@@ -876,6 +959,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
         self.assertEqual(len(queued_jobs), 1)
         self.assertEqual(queued_jobs[0].rerun_of_job_id, source_job.id)
+        self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "admin_retry_job")
         self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
 
     async def test_retry_command_can_disable_auto_rotation(self) -> None:

@@ -32,6 +32,14 @@ class Settings(BaseSettings):
         alias="DOCMOLDER_ADMIN_ALERT_REPEATED_FAILURES_THRESHOLD",
     )
     admin_alert_cooldown_minutes: int = Field(default=60, alias="DOCMOLDER_ADMIN_ALERT_COOLDOWN_MINUTES")
+    health_max_queued_jobs: int = Field(default=20, alias="DOCMOLDER_HEALTH_MAX_QUEUED_JOBS")
+    health_max_running_jobs: int = Field(default=5, alias="DOCMOLDER_HEALTH_MAX_RUNNING_JOBS")
+    health_max_running_job_age_seconds: int = Field(
+        default=3600,
+        alias="DOCMOLDER_HEALTH_MAX_RUNNING_JOB_AGE_SECONDS",
+    )
+    health_max_runtime_dir_bytes: int = Field(default=2_147_483_648, alias="DOCMOLDER_HEALTH_MAX_RUNTIME_DIR_BYTES")
+    health_max_backup_age_seconds: int = Field(default=172800, alias="DOCMOLDER_HEALTH_MAX_BACKUP_AGE_SECONDS")
     runtime_dir: Path = Field(default=Path("./data/runtime"), alias="DOCMOLDER_RUNTIME_DIR")
     database_path: Path = Field(default=Path("./data/runtime/docmolder.db"), alias="DOCMOLDER_DATABASE_PATH")
     sqlite_backup_dir: Path = Field(default=Path("./data/runtime/backups"), alias="DOCMOLDER_SQLITE_BACKUP_DIR")

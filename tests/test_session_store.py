@@ -297,6 +297,40 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertIsNotNone(loaded)
         self.assertEqual(loaded.rerun_of_job_id, source_job.id)
 
+    def test_audit_log_roundtrip(self) -> None:
+        entry = self.store.append_audit_log_entry(
+            "service_mode",
+            actor_user_id=7,
+            target_user_id=None,
+            outcome="maintenance",
+            detail="command:/pause",
+        )
+
+        entries = self.store.list_audit_log_entries(limit=5)
+
+        self.assertIsNotNone(entry.id)
+        self.assertEqual(entries[0].event_type, "service_mode")
+        self.assertEqual(entries[0].actor_user_id, 7)
+        self.assertEqual(entries[0].outcome, "maintenance")
+
+    def test_requeue_stale_running_jobs(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=70,
+            reply_to_message_id=None,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_running(job.id)
+        with self.store._connect() as connection:
+            connection.execute("UPDATE jobs SET started_at = datetime('now', '-2 hour') WHERE id = ?", (job.id,))
+            connection.commit()
+
+        requeued = self.store.requeue_stale_running_jobs(max_age_seconds=3600)
+
+        self.assertEqual([item.id for item in requeued], [job.id])
+        self.assertEqual(self.store.get_job(job.id).status, JobStatus.QUEUED)
+
 
 if __name__ == "__main__":
     unittest.main()

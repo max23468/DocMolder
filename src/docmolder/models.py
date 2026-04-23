@@ -264,6 +264,17 @@ class AdminActionStat:
 
 
 @dataclass(slots=True)
+class AuditLogEntry:
+    id: int | None
+    event_type: str
+    actor_user_id: int | None
+    target_user_id: int | None
+    outcome: str
+    detail: str
+    created_at: datetime
+
+
+@dataclass(slots=True)
 class AdminStats:
     known_users_total: int
     known_users_last_24h: int

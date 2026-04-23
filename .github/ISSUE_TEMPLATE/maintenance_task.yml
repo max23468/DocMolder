@@ -1,0 +1,31 @@
+name: Maintenance task
+description: Traccia una piccola attività interna o operativa.
+title: "[Task]: "
+labels:
+  - chore
+body:
+  - type: input
+    id: objective
+    attributes:
+      label: Obiettivo
+      description: Una frase concreta sul risultato atteso.
+      placeholder: Rendere più chiaro o affidabile...
+    validations:
+      required: true
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Azioni verificabili da completare.
+      placeholder: |
+        - [ ] Azione 1
+        - [ ] Azione 2
+    validations:
+      required: true
+  - type: textarea
+    id: done_definition
+    attributes:
+      label: Definition of done
+      description: Come capire che la task è davvero chiusa.
+    validations:
+      required: true

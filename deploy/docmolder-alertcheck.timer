@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodic DocMolder operational alert check
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=docmolder-alertcheck.service
+
+[Install]
+WantedBy=timers.target

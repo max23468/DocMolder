@@ -19,9 +19,41 @@ dependencies = [
 
 [project.scripts]
 docmolder = "docmolder.main:main"
+docmolder-fix-git-lock = "docmolder.git_utils:main"
+docmolder-git-safe = "docmolder.git_utils:safe_git_main"
+docmolder-healthcheck = "docmolder.healthcheck:main"
+docmolder-reconcile = "docmolder.reconcile:main"
+docmolder-sqlite-backup = "docmolder.sqlite_backup:main"
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2.2",
+  "coverage>=7.10.7",
+  "ruff==0.15.9",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+]
+ignore = [
+  "E501",
+]
+
+[tool.coverage.run]
+source = ["src/docmolder"]
+
+[tool.coverage.report]
+show_missing = true

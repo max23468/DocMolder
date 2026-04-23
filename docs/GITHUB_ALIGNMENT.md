@@ -55,7 +55,7 @@ Questa non e una preferenza soft: per DocMolder il flusso ufficiale e solo PR sq
 
 Regola aggiuntiva fondamentale:
 
-- le PR ordinarie non devono toccare `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py`;
+- le PR ordinarie non devono toccare `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py`;
 - quei file vengono aggiornati solo dalla Release PR automatica;
 - se compaiono in una PR normale, la PR va corretta prima del merge;
 - per il dettaglio operativo della policy, fai sempre riferimento a [VERSIONING.md](./VERSIONING.md).
