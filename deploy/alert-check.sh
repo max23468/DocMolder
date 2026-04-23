@@ -3,10 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
-VENV_DIR="${DOCMOLDER_VENV_DIR:-$(cd "${APP_DIR}/.." && pwd)/venv}"
 ENV_FILE="${DOCMOLDER_ENV_FILE:-/etc/docmolder/docmolder.env}"
-SERVICE_NAME="${DOCMOLDER_SERVICE_NAME:-docmolder}"
-HEALTHCHECK_BIN="${DOCMOLDER_HEALTHCHECK_BIN:-${VENV_DIR}/bin/docmolder-healthcheck}"
 
 if [ -f "${ENV_FILE}" ]; then
   set -a
@@ -14,6 +11,10 @@ if [ -f "${ENV_FILE}" ]; then
   source "${ENV_FILE}"
   set +a
 fi
+
+VENV_DIR="${DOCMOLDER_VENV_DIR:-$(cd "${APP_DIR}/.." && pwd)/venv}"
+SERVICE_NAME="${DOCMOLDER_SERVICE_NAME:-docmolder}"
+HEALTHCHECK_BIN="${DOCMOLDER_HEALTHCHECK_BIN:-${VENV_DIR}/bin/docmolder-healthcheck}"
 
 cd "${APP_DIR}"
 "${HEALTHCHECK_BIN}" \
