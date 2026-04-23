@@ -63,6 +63,7 @@ Prima del commit, esegui i check rilevanti alla modifica:
 - smoke Telegram: `make smoke-ui`, solo quando serve e quando l'ambiente locale lo permette.
 
 Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente con motivo e rischio residuo.
+Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: citale solo se sono richieste esplicitamente, se servono per PR/release/audit, se falliscono, se non sono eseguibili o se lasciano un rischio residuo utile da conoscere.
 
 ## 8) Documentazione e roadmap
 
