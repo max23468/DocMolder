@@ -1922,6 +1922,31 @@ def _resolve_job_selector(deps: BotDependencies, selector: str) -> JobRecord | N
     return deps.session_store.get_job(job_id)
 
 
+def _resolve_user_job_selector(deps: BotDependencies, user_id: int, selector: str) -> JobRecord | None:
+    normalized = selector.strip().lower()
+    if not normalized:
+        return None
+    if normalized == "latest":
+        recent_jobs = deps.session_store.list_user_jobs(user_id, limit=1)
+        return recent_jobs[0] if recent_jobs else None
+    status_selectors = {
+        "failed": JobStatus.FAILED,
+        "running": JobStatus.RUNNING,
+        "queued": JobStatus.QUEUED,
+        "succeeded": JobStatus.SUCCEEDED,
+    }
+    if normalized in status_selectors:
+        status = status_selectors[normalized]
+        for job in deps.session_store.list_user_jobs(user_id, limit=50):
+            if job.status == status:
+                return job
+        return None
+    job = _resolve_job_selector(deps, normalized)
+    if job is None or job.user_id != user_id:
+        return None
+    return job
+
+
 def _extract_metric_entries(raw_meta: dict[str, str], prefix: str) -> list[tuple[str, int]]:
     entries: list[tuple[str, int]] = []
     for key, raw_value in raw_meta.items():
@@ -2026,8 +2051,8 @@ async def _handle_start_payload(
         return True
     if payload.startswith("retry_"):
         selector = payload.removeprefix("retry_")
-        source_job = _resolve_job_selector(deps, selector)
-        if source_job is None or source_job.user_id != user_id:
+        source_job = _resolve_user_job_selector(deps, user_id, selector)
+        if source_job is None:
             await message.reply_text("Non riesco a trovare quel job da rilanciare.")
             return True
         if not _has_capacity_for_new_job(user_id, deps):

@@ -25,6 +25,7 @@ from docmolder.bot import (
     _extract_metric_entries,
     _invalid_callback_message,
     _resolve_job_selector,
+    _resolve_user_job_selector,
     _telegram_api_call,
     _sync_telegram_branding,
     _build_admin_report,
@@ -940,6 +941,35 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(_resolve_job_selector(self.deps, "succeeded").id, succeeded_job.id)
         self.assertEqual(_resolve_job_selector(self.deps, str(latest_job.id)).id, latest_job.id)
 
+    def test_resolve_user_job_selector_scopes_latest_to_user(self) -> None:
+        own_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        self.store.create_job(
+            user_id=8,
+            chat_id=99,
+            reply_to_message_id=124,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+
+        self.assertEqual(_resolve_user_job_selector(self.deps, 7, "latest").id, own_job.id)
+
+    def test_resolve_user_job_selector_rejects_other_user_job_id(self) -> None:
+        other_job = self.store.create_job(
+            user_id=8,
+            chat_id=99,
+            reply_to_message_id=124,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+
+        self.assertIsNone(_resolve_user_job_selector(self.deps, 7, str(other_job.id)))
+
     def test_extract_metric_entries_sorts_by_count_desc(self) -> None:
         entries = _extract_metric_entries(
             {
@@ -1063,6 +1093,35 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
         self.assertEqual(len(queued_jobs), 1)
+        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+
+    async def test_start_deep_link_retry_latest_ignores_other_users_newer_job(self) -> None:
+        own_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        other_job = self.store.create_job(
+            user_id=8,
+            chat_id=99,
+            reply_to_message_id=124,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        message = SimpleNamespace(reply_text=AsyncMock(), message_id=781)
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=["retry_latest"])
+
+        await start_command(update, context)
+
+        queued_jobs = [job for job in self.store._jobs.values() if job.id not in {own_job.id, other_job.id}]
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertEqual(queued_jobs[0].user_id, 7)
         self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
 
     async def test_retry_command_help_mentions_supported_selectors(self) -> None:

@@ -63,14 +63,14 @@ jobs:
               raise SystemExit(0)
 
           release_title = re.compile(r"^chore\(main\): release docmolder \d+\.\d+\.\d+$")
-          looks_like_release_pr = (
-              bool(release_title.match(pr_title))
-              or "This PR was generated with [Release Please]" in pr_body
-              or head_ref.startswith("release-please--")
-              or pr_author == "github-actions[bot]"
+          release_pr_generated_by_actions = (
+              pr_author == "github-actions[bot]"
+              and bool(release_title.match(pr_title))
+              and "This PR was generated with [Release Please]" in pr_body
+              and head_ref.startswith("release-please--")
           )
 
-          if looks_like_release_pr:
+          if release_pr_generated_by_actions:
               print("Release PR detected; release-owned files are allowed.")
               raise SystemExit(0)
 

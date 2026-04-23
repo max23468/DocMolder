@@ -93,9 +93,9 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 
 ## 10) Deploy e operazioni
 
-- Esegui deploy, reboot, modifiche VPS o aggiornamenti `.env` quando sono utili per completare la richiesta o il contesto operativo li rende chiaramente opportuni.
-- Prima di un'azione operativa con impatto su VPS, servizio o configurazione, avvisa l'utente indicando cosa farai, perché serve, impatto atteso, verifica prevista e possibile rollback.
-- Se target, rischio o intento sono ambigui, fermati e chiedi conferma prima di procedere.
+- Esegui deploy, reboot, modifiche VPS o aggiornamenti `.env` solo quando l'utente li ha richiesti esplicitamente o ha già dato consenso chiaro per quella specifica operazione.
+- Prima di un'azione operativa con impatto su VPS, servizio o configurazione, chiedi consenso esplicito indicando cosa farai, perché serve, impatto atteso, verifica prevista e possibile rollback.
+- Se target, rischio, intento o consenso operativo sono ambigui, fermati e chiedi conferma prima di procedere.
 - Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.
 - Per deploy o manutenzione VPS, seguire `docs/VPS_RUNBOOK.md` e riportare sempre comandi eseguiti, esito e verifiche.
 - Dopo un deploy, non limitarti allo stato `active`: controlla anche log recenti e percorso utente minimo quando possibile.
