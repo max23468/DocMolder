@@ -34,7 +34,7 @@ jobs:
           zero = "0" * 40
 
           conventional = re.compile(
-              r"^(feat|fix|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: [^ ].+ \(#\d+\)$"
+              r"^(feat|fix|ops|security|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: [^ ].+ \(#\d+\)$"
           )
           release_commit = re.compile(
               r"^chore\(main\): release docmolder \d+\.\d+\.\d+ \(#\d+\)$"

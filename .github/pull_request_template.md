@@ -6,6 +6,12 @@
 
 ## Titolo PR
 <!-- Usa un titolo in formato Conventional Commits, ad esempio: feat(bot): add restart action -->
+<!-- Il titolo entra nel changelog: descrivi il cambiamento rilasciabile, non il lavoro interno. -->
+
+## Release note
+<!-- Se questa PR deve produrre una release, scrivi 1-3 frasi leggibili da utenti/admin/maintainer. -->
+<!-- Se non deve produrre changelog release-please, usa un tipo non rilasciabile. -->
+<!-- La label skip-changelog vale per le release note generate da GitHub. -->
 
 ## Release policy
 <!-- Salvo Release PR automatica, non modificare CHANGELOG.md, .release-please-manifest.json, pyproject.toml o src/docmolder/__init__.py -->
