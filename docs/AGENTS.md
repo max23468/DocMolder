@@ -1,67 +1,102 @@
 # AGENTS.md — Istruzioni operative per Codex (DocMolder)
 
 Questo file definisce linee guida persistenti per gli agenti che lavorano in questa repository.
-Scope: intera repository (salvo override in AGENTS.md più specifici in sottocartelle).
+Scope: intera repository, salvo override in `AGENTS.md` più specifici in sottocartelle.
 
-## 1) Obiettivo
-- Mantenere modifiche piccole, chiare e verificabili.
+## 1) Contesto da leggere prima
+
+Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
+- `docs/CONTEXT.md` per lo stato sintetico del progetto;
+- `docs/DECISIONS.md` per il perimetro prodotto;
+- `docs/ROADMAP.md` per le priorità correnti;
+- `docs/LOCAL_DEV.md` per setup e comandi di verifica;
+- `docs/VERSIONING.md` e `docs/RELEASE_PROCESS.md` quando la task riguarda commit, PR, release o deploy.
+
+Il file `AGENTS.md` nella root è solo un puntatore: in caso di dubbio prevale questo file.
+
+## 2) Obiettivo di lavoro
+
+- Preferire modifiche chiare, coese e verificabili.
+- Le modifiche importanti sono accettabili quando servono, ma vanno prima esplicitate come piano e poi spezzate in passaggi comprensibili, testabili e, quando possibile, accompagnati da rollback o mitigazione chiari.
 - Preferire robustezza, leggibilità e semplicità operativa.
-- Evitare side-effect non richiesti rispetto alla task dell’utente.
+- Evitare side-effect non richiesti rispetto alla task dell'utente.
+- Tenere DocMolder nel suo perimetro: utility documentale Telegram-first, semplice, guidata e affidabile.
 
-## 2) Principi di lavoro
-- Cambia solo ciò che è necessario per la richiesta corrente.
-- Prima di modificare: comprendi il contesto e i vincoli esistenti.
-- Non introdurre dipendenze nuove senza una motivazione esplicita.
+## 3) Prima di intervenire
 
-## 3) Stile e qualità del codice
+- Controlla lo stato del worktree con `git status --short`.
+- Comprendi il flusso toccato prima di editare: handler Telegram, pipeline documentale, session store, servizi, config o deploy.
+- Non revertire modifiche già presenti se non richiesto esplicitamente.
+- Se la richiesta è ambigua, fermati e fai domande mirate all'utente prima di scegliere approccio, scope o comportamento.
+
+## 4) Stile e qualità del codice
+
 - Segui le convenzioni già presenti nel progetto.
 - Usa nomi espliciti e coerenti con il dominio del progetto.
 - Evita blocchi troppo grandi: favorisci funzioni piccole e testabili.
 - Non aggiungere commenti ridondanti; commenta solo decisioni non ovvie.
-- Non inserire `try/catch` attorno agli import.
+- Non inserire `try/except` attorno agli import.
+- Non introdurre nuove dipendenze senza avvisare prima l'utente e spiegare motivazione, impatto e alternative.
 
-## 4) Logging, errori e UX operativa
+## 5) Logging, errori e UX operativa
+
 - Gestisci errori in modo esplicito e con messaggi utili.
-- Evita leak di dati sensibili in log ed error message.
+- Evita leak di dati sensibili in log, trace, messaggi Telegram ed error message.
 - Se il fallback è possibile, preferiscilo al crash.
-- Mantieni output e messaggi consistenti con il tono del progetto.
+- Mantieni output e messaggi coerenti con il tono del progetto: italiano chiaro, operativo, senza rumore inutile.
+- Per flussi utente Telegram, cura anche stati intermedi, retry, messaggi di errore e azioni successive suggerite.
 
-## 5) Sicurezza e dati
-- Minimizza la persistenza dei file utente e dei temporanei.
+## 6) Sicurezza, dati e file temporanei
+
+- Minimizza la persistenza di file utente e temporanei.
 - Non committare segreti, token, credenziali o file `.env` reali.
-- Rispetta i limiti operativi già presenti (dimensioni, concorrenza, retention).
+- Rispetta i limiti operativi già presenti: dimensioni, concorrenza, retention e cleanup.
+- Non loggare contenuti dei documenti caricati dagli utenti.
+- Per modifiche a runtime dir, backup, restore o VPS, verifica anche `docs/VPS_RUNBOOK.md`.
 
-## 6) Testing e verifica minima
-Prima del commit, esegui (quando disponibili):
-- test/unit/integration rilevanti alla modifica;
-- eventuali linters/formatters del progetto;
-- verifica manuale del percorso utente toccato dalla modifica.
+## 7) Testing e verifica minima
 
-Se un check non è eseguibile nell’ambiente corrente, dichiaralo esplicitamente.
+Prima del commit, esegui i check rilevanti alla modifica:
+- suite completa: `make test`;
+- compilazione/import: `make compile`;
+- test mirati: `.venv/bin/python -m unittest tests.<modulo>`;
+- smoke Telegram: `make smoke-ui`, solo quando serve e quando l'ambiente locale lo permette.
 
-## 7) Commit e PR
-- Un commit deve essere coeso (una modifica logica principale).
+Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente con motivo e rischio residuo.
+
+## 8) Documentazione e roadmap
+
+- Aggiorna la documentazione quando l'utente lo chiede o quando cambia un comportamento utente, operativo o di sviluppo.
+- Non aggiornare il changelog di release nelle PR normali.
+- Nella roadmap, gli item completati vanno rimossi dalla checklist; non usare checkbox segnate come completate per elementi già fatti.
+- Non aggiungere roadmap laterali se la task può essere chiusa con un intervento piccolo e verificabile.
+
+## 9) Commit, PR e release
+
+- Un commit deve essere coeso: una modifica logica principale.
 - Messaggi commit chiari, in forma imperativa, con scope quando utile.
-- PR con:
-  - contesto/problema,
-  - soluzione adottata,
-  - impatti/rischi,
-  - test effettuati.
-- Per il versioning, la repository e `release-please`-first:
+- Il flusso ufficiale è branch dedicato, PR verso `main`, CI verde e squash merge.
+- Il titolo PR deve seguire Conventional Commits perché guida `release-please`.
+- Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi e test effettuati.
+- Per il versioning, la repository è `release-please`-first:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
   - il bump versione e il changelog di release spettano solo alla Release PR generata dal workflow automatico;
   - se una modifica ordinaria tocca quei file, fermati e riallinea la PR al flusso ufficiale prima del merge.
 
-## 8) Definizione di Done
+## 10) Deploy e operazioni
+
+- Esegui deploy, reboot, modifiche VPS o aggiornamenti `.env` quando sono utili per completare la richiesta o il contesto operativo li rende chiaramente opportuni.
+- Prima di un'azione operativa con impatto su VPS, servizio o configurazione, avvisa l'utente indicando cosa farai, perché serve, impatto atteso, verifica prevista e possibile rollback.
+- Se target, rischio o intento sono ambigui, fermati e chiedi conferma prima di procedere.
+- Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.
+- Per deploy o manutenzione VPS, seguire `docs/VPS_RUNBOOK.md` e riportare sempre comandi eseguiti, esito e verifiche.
+- Dopo un deploy, non limitarti allo stato `active`: controlla anche log recenti e percorso utente minimo quando possibile.
+
+## 11) Definizione di Done
+
 Una modifica è “done” se:
 - risolve la richiesta senza regressioni evidenti;
 - mantiene coerenza con architettura e convenzioni esistenti;
 - include verifiche eseguite e limiti noti;
-- è documentata quanto basta per manutenzione futura.
-
-## 9) Regole pratiche per l’agente
-- Non fare refactor estesi non richiesti.
-- Non cambiare naming/API pubbliche senza necessità.
-- Non modificare file non correlati “già che ci sei”.
-- In caso di ambiguità, preferisci la soluzione più semplice e reversibile.
-- Nella roadmap, gli item completati vanno rimossi dalla checklist; non usare checkbox segnate come completate per elementi già fatti.
+- aggiorna documentazione o roadmap solo quando serve davvero;
+- non lascia file temporanei, dati utente o modifiche non correlate.
