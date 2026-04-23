@@ -8,6 +8,15 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.4.2](https://github.com/max23468/DocMolder/compare/docmolder-v0.4.1...docmolder-v0.4.2) (2026-04-23)
+
+
+### Docs
+
+* add internal review rule ([#23](https://github.com/max23468/DocMolder/issues/23)) ([2b6aa35](https://github.com/max23468/DocMolder/commit/2b6aa351def281b65a2e432dc31344e4c376b1be))
+* clarify squash merge subject requirements ([#22](https://github.com/max23468/DocMolder/issues/22)) ([689bdcb](https://github.com/max23468/DocMolder/commit/689bdcbd788455208fd63a202fb09c108c2bf62c))
+* update agent operating guidelines ([a913ff3](https://github.com/max23468/DocMolder/commit/a913ff3bbf4cf849856acf59e4e2679c446db211))
+
 ## [0.4.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.4.0...docmolder-v0.4.1) (2026-04-20)
 
 
