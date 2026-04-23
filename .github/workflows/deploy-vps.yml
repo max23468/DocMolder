@@ -149,7 +149,11 @@ jobs:
               -o ServerAliveInterval=30 \
               -o StrictHostKeyChecking="${SSH_STRICT}" \
               "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
-              "sudo /opt/docmolder/app/deploy/smoke-check.sh"
+              "sudo bash -lc 'set -euo pipefail
+              set -a
+              source /etc/docmolder/docmolder.env
+              set +a
+              /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name \"\${DOCMOLDER_SERVICE_NAME:-docmolder}\"'"
 
       - name: Smoke test Telegram Bot API on VPS
         run: |
