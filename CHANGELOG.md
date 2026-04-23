@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.6.2](https://github.com/max23468/DocMolder/compare/docmolder-v0.6.1...docmolder-v0.6.2) (2026-04-23)
+
+
+### Documentazione
+
+* consolidate agent instructions in root ([#44](https://github.com/max23468/DocMolder/issues/44)) ([d36c475](https://github.com/max23468/DocMolder/commit/d36c4754663a54efd2a52ce622a0857dac340694))
+
 ## [0.6.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.6.0...docmolder-v0.6.1) (2026-04-23)
 
 
