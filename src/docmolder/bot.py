@@ -37,6 +37,7 @@ from docmolder.branding import (
 )
 from docmolder.keyboards import (
     build_actions_keyboard,
+    build_access_review_keyboard,
     build_admin_dashboard_keyboard,
     build_compression_keyboard,
     build_history_keyboard,
@@ -52,6 +53,8 @@ from docmolder.job_flow import (
     enqueue_job_from_existing_payload as enqueue_job_from_existing_payload_flow,
     run_job_payload as run_job_payload_flow,
 )
+from docmolder.healthcheck import build_health_report
+from docmolder.logging_utils import log_event
 from docmolder.messages import (
     ADMIN_ONLY_MESSAGE,
     FILE_TOO_LARGE_MESSAGE,
@@ -90,6 +93,7 @@ from docmolder.processing import (
     ProcessingResult,
     ProcessingUserError,
 )
+from docmolder.retry import run_async_with_retry
 from docmolder.services import (
     build_session_file,
     build_session_recap,
@@ -100,6 +104,7 @@ from docmolder.services import (
     sanitize_filename,
 )
 from docmolder.session_store import SQLiteSessionStore, SessionStore
+from docmolder.telegram_messaging import send_telegram_message
 
 logger = logging.getLogger(__name__)
 
@@ -115,10 +120,17 @@ _PENDING_IMAGES_PDF_MARGIN_PREFIX = "images_pdf_margin"
 _SERVICE_MODE_META_KEY = "service_mode"
 _SERVICE_MODE_NORMAL = "normal"
 _SERVICE_MODE_MAINTENANCE = "maintenance"
+_ACCESS_META_PREFIX = "access:"
+_ACCESS_STATUS_PENDING = "pending"
+_ACCESS_STATUS_APPROVED = "approved"
+_ACCESS_STATUS_BLOCKED = "blocked"
+_ACCESS_STATUS_REJECTED = "rejected"
 _TELEGRAM_RETRY_ATTEMPTS = 3
 _TELEGRAM_METRIC_PREFIX = "telegram_metric:"
 _ADMIN_CALLBACK_REPLAY_WINDOW_SECONDS = 5
 _NEW_USER_NOTIFICATION_COOLDOWN_SECONDS = 120
+_BRANDING_SYNC_RETRY_AT_META_KEY = "branding_sync:retry_at"
+_BRANDING_SYNC_DEFAULT_BACKOFF_SECONDS = 3600
 
 
 class PendingActionEnqueueKwargs(TypedDict, total=False):
@@ -208,6 +220,47 @@ def _is_authorized(user_id: int | None, settings: Settings) -> bool:
     return user_id in settings.allowed_user_ids
 
 
+def _access_meta_key(user_id: int) -> str:
+    return f"{_ACCESS_META_PREFIX}{user_id}:status"
+
+
+def _get_dynamic_access_status(deps: BotDependencies, user_id: int | None) -> str | None:
+    if user_id is None:
+        return None
+    value = deps.session_store.get_meta(_access_meta_key(user_id))
+    return value.strip().lower() if value else None
+
+
+def _set_dynamic_access_status(deps: BotDependencies, user_id: int, status: str) -> None:
+    deps.session_store.set_meta(_access_meta_key(user_id), status)
+
+
+def _is_authorized_for_deps(user_id: int | None, deps: BotDependencies) -> bool:
+    if user_id is None:
+        return False
+    if _is_admin(user_id, deps.settings):
+        return True
+    dynamic_status = _get_dynamic_access_status(deps, user_id)
+    if dynamic_status in {_ACCESS_STATUS_BLOCKED, _ACCESS_STATUS_REJECTED}:
+        return False
+    if dynamic_status == _ACCESS_STATUS_APPROVED:
+        return True
+    return _is_authorized(user_id, deps.settings)
+
+
+def _list_dynamic_access_statuses(deps: BotDependencies) -> list[tuple[int, str]]:
+    entries: list[tuple[int, str]] = []
+    for key, value in deps.session_store.list_meta(_ACCESS_META_PREFIX).items():
+        suffix = key.removeprefix(_ACCESS_META_PREFIX)
+        raw_user_id = suffix.split(":", 1)[0]
+        try:
+            user_id = int(raw_user_id)
+        except ValueError:
+            continue
+        entries.append((user_id, value))
+    return sorted(entries, key=lambda item: item[0])
+
+
 def _is_admin(user_id: int | None, settings: Settings) -> bool:
     if user_id is None:
         return False
@@ -270,6 +323,27 @@ def _record_upload_metric(deps: BotDependencies, upload_kind: str) -> None:
     _increment_meta_counter(deps, f"{_TELEGRAM_METRIC_PREFIX}upload:{upload_kind}")
 
 
+def _append_audit_log(
+    deps: BotDependencies,
+    event_type: str,
+    *,
+    actor_user_id: int | None,
+    outcome: str,
+    target_user_id: int | None = None,
+    detail: str = "",
+) -> None:
+    try:
+        deps.session_store.append_audit_log_entry(
+            event_type,
+            actor_user_id=actor_user_id,
+            target_user_id=target_user_id,
+            outcome=outcome,
+            detail=detail,
+        )
+    except Exception:
+        logger.exception("Impossibile registrare audit log %s.", event_type)
+
+
 def _callback_replay_meta_key(user_id: int, callback_data: str, message_id: int | None) -> str:
     return f"callback_replay:{user_id}:{message_id or 0}:{callback_data}"
 
@@ -295,25 +369,52 @@ def _new_user_admin_meta_key(admin_user_id: int, suffix: str) -> str:
 
 async def _telegram_api_call(label: str, call, *args, **kwargs):
     deps = kwargs.pop("_deps", None)
-    for attempt in range(1, _TELEGRAM_RETRY_ATTEMPTS + 1):
-        try:
-            return await call(*args, **kwargs)
-        except RetryAfter as exc:
-            if attempt >= _TELEGRAM_RETRY_ATTEMPTS:
-                raise
-            retry_after = max(1, int(getattr(exc, "retry_after", 1)))
-            logger.warning("Telegram rate limit su %s, ritento tra %ss", label, retry_after)
+
+    async def action():
+        return await call(*args, **kwargs)
+
+    def should_retry(exc: Exception) -> bool:
+        return isinstance(exc, (RetryAfter, TimedOut, NetworkError))
+
+    def delay_for_exception(exc: Exception, attempt_index: int) -> float | None:
+        if isinstance(exc, RetryAfter):
+            return float(max(1, int(getattr(exc, "retry_after", 1))))
+        return float(attempt_index + 1)
+
+    def on_retry(exc: Exception, attempt_no: int, total_attempts: int, delay: float) -> None:
+        if isinstance(exc, RetryAfter):
+            logger.warning("Telegram rate limit su %s, ritento tra %ss", label, int(delay))
             if isinstance(deps, BotDependencies):
                 _increment_meta_counter(deps, f"{_TELEGRAM_METRIC_PREFIX}retry_after:{label}")
-            await asyncio.sleep(retry_after)
-        except (TimedOut, NetworkError) as exc:
-            if attempt >= _TELEGRAM_RETRY_ATTEMPTS:
-                raise
-            wait_seconds = attempt
-            logger.warning("Errore temporaneo Telegram su %s (%s), ritento tra %ss", label, type(exc).__name__, wait_seconds)
+        else:
+            logger.warning(
+                "Errore temporaneo Telegram su %s (%s), ritento tra %ss",
+                label,
+                type(exc).__name__,
+                int(delay),
+            )
             if isinstance(deps, BotDependencies):
                 _increment_meta_counter(deps, f"{_TELEGRAM_METRIC_PREFIX}network_retry:{label}")
-            await asyncio.sleep(wait_seconds)
+        log_event(
+            logger,
+            logging.WARNING,
+            "telegram_api_retry",
+            label=label,
+            error_type=type(exc).__name__,
+            attempt=attempt_no,
+            total_attempts=total_attempts,
+            delay_seconds=round(delay, 2),
+        )
+
+    return await run_async_with_retry(
+        action,
+        max_attempts=_TELEGRAM_RETRY_ATTEMPTS,
+        should_retry=should_retry,
+        on_retry=on_retry,
+        delay_for_exception=delay_for_exception,
+        jitter_max=0,
+        sleep_fn=asyncio.sleep,
+    )
 
 
 async def _safe_answer_callback(query) -> None:
@@ -332,13 +433,18 @@ async def _safe_send_message(
     deps: BotDependencies | None = None,
     **kwargs,
 ):
-    return await _telegram_api_call(
-        "sendMessage",
-        bot.send_message,
+    parse_mode = kwargs.pop("parse_mode", None)
+
+    async def api_call(label: str, call, **call_kwargs):
+        return await _telegram_api_call(label, call, _deps=deps, **call_kwargs)
+
+    return await send_telegram_message(
+        bot,
         chat_id=chat_id,
         text=text,
+        api_call=api_call,
         reply_to_message_id=reply_to_message_id,
-        _deps=deps,
+        parse_mode=parse_mode,
         **kwargs,
     )
 
@@ -420,12 +526,13 @@ async def _run_job_payload(
 async def _post_init(application: Application) -> None:
     deps: BotDependencies = application.bot_data["deps"]
     _run_cleanup_cycle(deps)
-    await _sync_telegram_branding(application, deps.settings)
+    await _sync_telegram_branding(application, deps.settings, deps.session_store)
     requeued_jobs = deps.session_store.requeue_incomplete_jobs()
     for job in requeued_jobs:
         await deps.job_queue.put(job.id)
     if requeued_jobs:
         logger.info("Ripresi %s job incompleti dalla coda persistente.", len(requeued_jobs))
+        log_event(logger, logging.INFO, "jobs_requeued_on_startup", count=len(requeued_jobs))
     deps.job_worker_task = asyncio.create_task(_job_worker(application))
     deps.cleanup_task = asyncio.create_task(_cleanup_worker(deps))
     deps.admin_report_task = asyncio.create_task(_admin_report_worker(application))
@@ -488,8 +595,24 @@ def _consume_upload_slot(user_id: int, deps: BotDependencies) -> bool:
     return True
 
 
-async def _sync_telegram_branding(application: Application, settings: Settings) -> None:
+async def _sync_telegram_branding(
+    application: Application,
+    settings: Settings,
+    session_store: SessionStore | None = None,
+) -> None:
     if not settings.telegram_brand_sync_enabled:
+        return
+
+    retry_at = _parse_meta_datetime(session_store.get_meta(_BRANDING_SYNC_RETRY_AT_META_KEY)) if session_store else None
+    now = datetime.now(timezone.utc)
+    if retry_at is not None and now < retry_at:
+        log_event(
+            logger,
+            logging.INFO,
+            "telegram_branding_sync_skipped",
+            reason="backoff_active",
+            retry_at=retry_at.isoformat(),
+        )
         return
 
     bot = application.bot
@@ -504,6 +627,21 @@ async def _sync_telegram_branding(application: Application, settings: Settings) 
             await bot.set_my_short_description(TELEGRAM_SHORT_DESCRIPTION, **kwargs)
             await bot.set_my_commands(commands, **kwargs)
         await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+        if session_store is not None:
+            session_store.set_meta(_BRANDING_SYNC_RETRY_AT_META_KEY, "")
+        log_event(logger, logging.INFO, "telegram_branding_sync_completed")
+    except RetryAfter as exc:
+        retry_after = max(1, int(getattr(exc, "retry_after", _BRANDING_SYNC_DEFAULT_BACKOFF_SECONDS)))
+        retry_at = now + timedelta(seconds=retry_after)
+        if session_store is not None:
+            session_store.set_meta(_BRANDING_SYNC_RETRY_AT_META_KEY, retry_at.isoformat())
+        log_event(
+            logger,
+            logging.WARNING,
+            "telegram_branding_sync_rate_limited",
+            retry_after_seconds=retry_after,
+            retry_at=retry_at.isoformat(),
+        )
     except TelegramError:
         logger.warning("Non sono riuscito a sincronizzare il branding Telegram del bot.", exc_info=True)
 
@@ -539,7 +677,7 @@ async def _prepare_message_handler(
     if user is None or message is None:
         return None
 
-    is_allowed = _is_admin(user.id, deps.settings) if require_admin else _is_authorized(user.id, deps.settings)
+    is_allowed = _is_admin(user.id, deps.settings) if require_admin else _is_authorized_for_deps(user.id, deps)
     if not is_allowed:
         await message.reply_text(ADMIN_ONLY_MESSAGE if require_admin else UNAUTHORIZED_MESSAGE)
         return None
@@ -657,6 +795,46 @@ async def access_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await message.reply_text(_build_access_status_message(deps, user.id), reply_markup=build_main_menu_keyboard())
 
 
+async def policy_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    user = update.effective_user
+    message = update.effective_message
+    if user is None or message is None:
+        return
+    deps.session_store.register_user(user.id, user.username, user.first_name, user.last_name)
+    _record_command_metric(deps, "policy")
+    await message.reply_text(_build_policy_message(deps), reply_markup=build_main_menu_keyboard())
+
+
+async def request_access_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    user = update.effective_user
+    message = update.effective_message
+    if user is None or message is None:
+        return
+    deps.session_store.register_user(user.id, user.username, user.first_name, user.last_name)
+    _record_command_metric(deps, "request_access")
+
+    current_status = _get_dynamic_access_status(deps, user.id)
+    if _is_authorized_for_deps(user.id, deps):
+        await message.reply_text("Il tuo accesso a DocMolder è già attivo.", reply_markup=build_main_menu_keyboard())
+        return
+    if current_status == _ACCESS_STATUS_BLOCKED:
+        await message.reply_text(
+            "Il tuo accesso è sospeso. Contatta l'admin del bot per una riattivazione.",
+            reply_markup=build_main_menu_keyboard(),
+        )
+        return
+
+    _set_dynamic_access_status(deps, user.id, _ACCESS_STATUS_PENDING)
+    _append_audit_log(deps, "request_access", actor_user_id=user.id, outcome="pending", target_user_id=user.id)
+    await _notify_admins_about_access_request(user, context, deps)
+    await message.reply_text(
+        "Richiesta accesso inviata all'admin. Ti basta attendere: quando viene approvata potrai usare il bot.",
+        reply_markup=build_main_menu_keyboard(),
+    )
+
+
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prepared = await _prepare_message_handler(update, context, require_admin=True)
     if prepared is None:
@@ -699,13 +877,27 @@ async def health_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     )
 
 
-async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def maintenance_overview_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     prepared = await _prepare_message_handler(update, context, require_admin=True)
     if prepared is None:
         return
     deps, _user, message = prepared
+    _record_command_metric(deps, "maintenance_overview")
+    await message.reply_text(
+        _build_admin_maintenance_overview(deps),
+        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+    )
+
+
+async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, user, message = prepared
     _record_command_metric(deps, "pause")
     _set_service_mode(deps, _SERVICE_MODE_MAINTENANCE)
+    _append_audit_log(deps, "service_mode", actor_user_id=user.id, outcome="maintenance", detail="command:/pause")
+    log_event(logger, logging.INFO, "admin_service_mode_changed", actor_user_id=user.id, service_mode="maintenance")
     await message.reply_text(
         "Servizio messo in modalità manutenzione. I nuovi comandi utente vengono bloccati finché non riattivi il servizio.",
         reply_markup=build_admin_dashboard_keyboard(service_paused=True),
@@ -716,9 +908,11 @@ async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     prepared = await _prepare_message_handler(update, context, require_admin=True)
     if prepared is None:
         return
-    deps, _user, message = prepared
+    deps, user, message = prepared
     _record_command_metric(deps, "resume")
     _set_service_mode(deps, _SERVICE_MODE_NORMAL)
+    _append_audit_log(deps, "service_mode", actor_user_id=user.id, outcome="normal", detail="command:/resume")
+    log_event(logger, logging.INFO, "admin_service_mode_changed", actor_user_id=user.id, service_mode="normal")
     await message.reply_text(
         "Servizio riattivato. Il bot accetta di nuovo richieste utente normali.",
         reply_markup=build_admin_dashboard_keyboard(service_paused=False),
@@ -758,7 +952,7 @@ async def retry_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     prepared = await _prepare_message_handler(update, context, require_admin=True)
     if prepared is None:
         return
-    deps, _user, message = prepared
+    deps, user, message = prepared
     _record_command_metric(deps, "retry")
     raw_args = [str(arg).strip().lower() for arg in getattr(context, "args", []) if str(arg).strip()]
     if not raw_args:
@@ -788,10 +982,75 @@ async def retry_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         reply_to_message_id=message.message_id,
         auto_rotate_pdf=False if disable_auto_rotate else None,
     )
+    _append_audit_log(
+        deps,
+        "admin_retry_job",
+        actor_user_id=user.id,
+        target_user_id=source_job.user_id,
+        outcome="queued",
+        detail=f"source_job_id={source_job.id} rerun_job_id={rerun_job.id} no_auto_rotate={disable_auto_rotate}",
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "admin_job_retry_queued",
+        actor_user_id=user.id,
+        source_job_id=source_job.id,
+        rerun_job_id=rerun_job.id,
+        target_user_id=source_job.user_id,
+        no_auto_rotate=disable_auto_rotate,
+    )
     if disable_auto_rotate:
         await message.reply_text(_build_rerun_without_rotation_message(source_job, rerun_job.id))
         return
     await message.reply_text(_build_history_rerun_message(source_job, rerun_job.id))
+
+
+async def access_review_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    prepared = await _prepare_message_handler(update, context, require_admin=True)
+    if prepared is None:
+        return
+    deps, user, message = prepared
+    command = (message.text or "").split(maxsplit=1)[0].split("@", 1)[0].lower()
+    _record_command_metric(deps, command.removeprefix("/"))
+    target_user_id = _parse_target_user_id(context)
+    if target_user_id is None:
+        await message.reply_text(
+            "Uso corretto: /approve_user <id>, /reject_user <id>, /suspend_user <id> oppure /reactivate_user <id>."
+        )
+        return
+
+    if command == "/approve_user":
+        status = _ACCESS_STATUS_APPROVED
+        outcome = "approved"
+    elif command == "/reactivate_user":
+        status = _ACCESS_STATUS_APPROVED
+        outcome = "reactivated"
+    elif command == "/suspend_user":
+        status = _ACCESS_STATUS_BLOCKED
+        outcome = "blocked"
+    else:
+        status = _ACCESS_STATUS_REJECTED
+        outcome = "rejected"
+
+    _set_dynamic_access_status(deps, target_user_id, status)
+    _append_audit_log(
+        deps,
+        "access_review",
+        actor_user_id=user.id,
+        target_user_id=target_user_id,
+        outcome=outcome,
+        detail=f"command:{command}",
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "access_review_completed",
+        actor_user_id=user.id,
+        target_user_id=target_user_id,
+        outcome=outcome,
+    )
+    await message.reply_text(f"Stato accesso utente {target_user_id}: {outcome}.")
 
 
 async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -820,6 +1079,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     _record_callback_metric(deps, f"admin:{action or 'overview'}")
     if action == "pause":
         _set_service_mode(deps, _SERVICE_MODE_MAINTENANCE)
+        _append_audit_log(deps, "service_mode", actor_user_id=user.id, outcome="maintenance", detail="callback:admin:pause")
+        log_event(logger, logging.INFO, "admin_service_mode_changed", actor_user_id=user.id, service_mode="maintenance")
         body = (
             "Console admin DocMolder\n"
             "Servizio impostato in modalità manutenzione.\n\n"
@@ -827,6 +1088,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         )
     elif action == "resume":
         _set_service_mode(deps, _SERVICE_MODE_NORMAL)
+        _append_audit_log(deps, "service_mode", actor_user_id=user.id, outcome="normal", detail="callback:admin:resume")
+        log_event(logger, logging.INFO, "admin_service_mode_changed", actor_user_id=user.id, service_mode="normal")
         body = (
             "Console admin DocMolder\n"
             "Servizio riattivato.\n\n"
@@ -838,6 +1101,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         body = _build_admin_health_report(deps)
     elif action == "metrics":
         body = _build_telegram_metrics_report(deps)
+    elif action == "maintenance":
+        body = _build_admin_maintenance_overview(deps)
     elif action == "failed":
         failed_job = _resolve_job_selector(deps, "failed")
         body = _build_user_history_job_detail(failed_job) if failed_job is not None else "Non vedo job falliti recenti."
@@ -870,6 +1135,41 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         if "message is not modified" in str(exc).lower():
             return
         raise
+
+
+async def handle_access_review_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    query = update.callback_query
+    await _safe_answer_callback(query)
+    user = query.from_user
+    if user is None or not _is_admin(user.id, deps.settings):
+        await query.edit_message_text(ADMIN_ONLY_MESSAGE)
+        return
+    try:
+        _, action, raw_user_id = (query.data or "").split(":", 2)
+        target_user_id = int(raw_user_id)
+    except (TypeError, ValueError):
+        await query.edit_message_text(_invalid_callback_message())
+        return
+    if action == "approve":
+        status = _ACCESS_STATUS_APPROVED
+        outcome = "approved"
+    elif action == "reject":
+        status = _ACCESS_STATUS_REJECTED
+        outcome = "rejected"
+    else:
+        await query.edit_message_text(_invalid_callback_message())
+        return
+    _set_dynamic_access_status(deps, target_user_id, status)
+    _append_audit_log(
+        deps,
+        "access_review",
+        actor_user_id=user.id,
+        target_user_id=target_user_id,
+        outcome=outcome,
+        detail=f"callback:access:{action}",
+    )
+    await query.edit_message_text(f"Richiesta accesso utente {target_user_id}: {outcome}.")
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1002,7 +1302,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     await _safe_answer_callback(query)
 
     user = query.from_user
-    if not _is_authorized(user.id if user else None, deps.settings):
+    if not _is_authorized_for_deps(user.id if user else None, deps):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
@@ -1092,7 +1392,7 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
     preset = (query.data or "").removeprefix("compress:")
     _record_callback_metric(deps, f"compress:{preset}")
     user = query.from_user
-    if not _is_authorized(user.id if user else None, deps.settings):
+    if not _is_authorized_for_deps(user.id if user else None, deps):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
@@ -1138,7 +1438,7 @@ async def handle_split_output_callback(update: Update, context: ContextTypes.DEF
     output_choice = (query.data or "").removeprefix("split_output:")
     _record_callback_metric(deps, f"split_output:{output_choice}")
     user = query.from_user
-    if not _is_authorized(user.id if user else None, deps.settings):
+    if not _is_authorized_for_deps(user.id if user else None, deps):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
@@ -1197,7 +1497,7 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
     await _safe_answer_callback(query)
 
     user = query.from_user
-    if not _is_authorized(user.id if user else None, deps.settings):
+    if not _is_authorized_for_deps(user.id if user else None, deps):
         await query.message.reply_text(UNAUTHORIZED_MESSAGE)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
@@ -1333,7 +1633,7 @@ async def handle_history_callback(update: Update, context: ContextTypes.DEFAULT_
     await _safe_answer_callback(query)
 
     user = query.from_user
-    if not _is_authorized(user.id if user else None, deps.settings):
+    if not _is_authorized_for_deps(user.id if user else None, deps):
         await query.message.reply_text(UNAUTHORIZED_MESSAGE, reply_to_message_id=query.message.message_id)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
@@ -1395,7 +1695,7 @@ async def handle_rotate_callback(update: Update, context: ContextTypes.DEFAULT_T
     await _safe_answer_callback(query)
 
     user = query.from_user
-    if not _is_authorized(user.id if user else None, deps.settings):
+    if not _is_authorized_for_deps(user.id if user else None, deps):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
@@ -1436,7 +1736,7 @@ async def handle_images_pdf_layout_callback(update: Update, context: ContextType
     await _safe_answer_callback(query)
 
     user = query.from_user
-    if not _is_authorized(user.id if user else None, deps.settings):
+    if not _is_authorized_for_deps(user.id if user else None, deps):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
@@ -1489,7 +1789,7 @@ async def handle_images_pdf_margin_callback(update: Update, context: ContextType
     await _safe_answer_callback(query)
 
     user = query.from_user
-    if not _is_authorized(user.id if user else None, deps.settings):
+    if not _is_authorized_for_deps(user.id if user else None, deps):
         await query.edit_message_text(UNAUTHORIZED_MESSAGE)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
@@ -1539,7 +1839,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     _purge_expired_sessions(deps)
     user = update.effective_user
     message = update.effective_message
-    if not _is_authorized(user.id if user else None, deps.settings):
+    if not _is_authorized_for_deps(user.id if user else None, deps):
         await message.reply_text(UNAUTHORIZED_MESSAGE)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
@@ -1870,15 +2170,57 @@ def _build_admin_health_report(deps: BotDependencies) -> str:
     )
 
 
+def _build_admin_maintenance_overview(deps: BotDependencies) -> str:
+    max_running_age_seconds = int(getattr(deps.settings, "health_max_running_job_age_seconds", 3600))
+    health = build_health_report(
+        deps.settings,
+        max_queued_jobs=getattr(deps.settings, "health_max_queued_jobs", 20),
+        max_running_jobs=getattr(deps.settings, "health_max_running_jobs", 5),
+        max_running_job_age_seconds=max_running_age_seconds,
+        max_runtime_dir_bytes=getattr(deps.settings, "health_max_runtime_dir_bytes", 2_147_483_648),
+        max_backup_age_seconds=getattr(deps.settings, "health_max_backup_age_seconds", 172800),
+    )
+    stale_jobs = deps.session_store.list_stale_running_jobs(max_age_seconds=max_running_age_seconds, limit=5)
+    pending_users = [
+        user_id for user_id, status in _list_dynamic_access_statuses(deps) if status == _ACCESS_STATUS_PENDING
+    ]
+    recent_audit_entries = deps.session_store.list_audit_log_entries(limit=5)
+    stale_block = "\n".join(_format_job_line(job) for job in stale_jobs) or "- Nessun running stale"
+    pending_block = "\n".join(f"- Utente {user_id}" for user_id in pending_users[:5]) or "- Nessuna richiesta pending"
+    audit_block = "\n".join(
+        f"- {entry.event_type}: {entry.outcome} ({entry.actor_user_id or 'sistema'} -> {entry.target_user_id or '-'})"
+        for entry in recent_audit_entries
+    ) or "- Nessun evento audit"
+    alerts = ", ".join(health.get("alerts", [])) or "nessun alert"
+    warnings = ", ".join(health.get("warnings", [])) or "nessun warning"
+    return (
+        "Manutenzione operativa DocMolder\n"
+        f"- Health: {health['status']}\n"
+        f"- Alert: {alerts}\n"
+        f"- Warning: {warnings}\n"
+        f"- Runtime size: {_format_bytes(int(health['runtime']['size_bytes']))}\n"
+        f"- Backup disponibili: {health['backup']['count']}\n"
+        f"- Ultimo backup age seconds: {health['backup']['latest_age_seconds']}\n\n"
+        "Running stale:\n"
+        f"{stale_block}\n\n"
+        "Richieste accesso pending:\n"
+        f"{pending_block}\n\n"
+        "Audit recente:\n"
+        f"{audit_block}"
+    )
+
+
 def _build_access_status_message(deps: BotDependencies, user_id: int) -> str:
     session = deps.session_store.get(user_id)
     active_jobs = deps.session_store.count_active_jobs_for_user(user_id)
     recent_jobs = deps.session_store.list_user_jobs(user_id, limit=1)
     last_job = recent_jobs[0] if recent_jobs else None
+    dynamic_status = _get_dynamic_access_status(deps, user_id) or "nessuno"
     lines = [
         "Stato accesso DocMolder",
         f"- Service mode: {_build_service_status_label(deps)}",
-        f"- Accesso account: {'consentito' if _is_authorized(user_id, deps.settings) else 'non consentito'}",
+        f"- Accesso account: {'consentito' if _is_authorized_for_deps(user_id, deps) else 'non consentito'}",
+        f"- Stato richiesta: {dynamic_status}",
         f"- Job attivi: {active_jobs}/{deps.settings.max_active_jobs_per_user}",
         f"- Sessione corrente: {'attiva' if session is not None and session.files else 'vuota'}",
     ]
@@ -1894,6 +2236,72 @@ def _build_access_status_message(deps: BotDependencies, user_id: int) -> str:
         lines.append("- Ultimo job: nessuno")
     lines.append("- Self-service rapido: usa /last per rilanciare l'ultimo job e /history per vedere i dettagli recenti.")
     return "\n".join(lines)
+
+
+def _build_policy_message(deps: BotDependencies) -> str:
+    return (
+        "Policy sintetica DocMolder\n\n"
+        "Uso supportato:\n"
+        "- invia PDF, immagini o scansioni nella chat privata con il bot\n"
+        "- ogni richiesta deve essere una trasformazione documentale chiara e circoscritta\n\n"
+        "Dati e retention:\n"
+        "- i file caricati servono solo per creare il risultato richiesto\n"
+        f"- le directory job temporanee vengono pulite dopo circa {deps.settings.stale_job_retention_hours} ore\n"
+        "- il database conserva metadati tecnici dei job, preferenze minime, audit admin e metriche operative\n"
+        "- il contenuto dei documenti non viene scritto nei log e non va inserito in issue, test o report\n\n"
+        "Limiti operativi:\n"
+        f"- file massimo: {deps.settings.max_file_size_mb} MB\n"
+        f"- file per sessione: {deps.settings.max_session_files}\n"
+        f"- job attivi per utente: {deps.settings.max_active_jobs_per_user}\n"
+        f"- upload rapido: {deps.settings.upload_burst_limit} file in {deps.settings.upload_burst_window_seconds} secondi\n\n"
+        "Accesso:\n"
+        "- se il bot è ristretto, usa /request_access per chiedere l'abilitazione\n"
+        "- in manutenzione i nuovi job utente sono sospesi, ma restano disponibili policy e richiesta accesso"
+    )
+
+
+def _parse_target_user_id(context: ContextTypes.DEFAULT_TYPE) -> int | None:
+    raw_args = [str(arg).strip() for arg in getattr(context, "args", []) if str(arg).strip()]
+    if not raw_args:
+        return None
+    try:
+        return int(raw_args[0])
+    except ValueError:
+        return None
+
+
+async def _notify_admins_about_access_request(
+    user: User,
+    context: ContextTypes.DEFAULT_TYPE,
+    deps: BotDependencies,
+) -> None:
+    if not deps.settings.admin_user_ids:
+        return
+    full_name = html.escape(
+        getattr(user, "full_name", None)
+        or " ".join(part for part in [user.first_name, user.last_name] if part)
+        or "Sconosciuto"
+    )
+    username = f"@{html.escape(user.username)}" if user.username else "non disponibile"
+    text = (
+        "Richiesta accesso DocMolder\n"
+        f"ID utente: <code>{user.id}</code>\n"
+        f"Nome: {full_name}\n"
+        f"Username: {username}"
+    )
+    for admin_user_id in deps.settings.admin_user_ids:
+        try:
+            await _safe_send_message(
+                context.bot,
+                chat_id=admin_user_id,
+                text=text,
+                deps=deps,
+                parse_mode=ParseMode.HTML,
+                reply_markup=build_access_review_keyboard(user.id),
+                disable_web_page_preview=True,
+            )
+        except TelegramError:
+            logger.exception("Impossibile inviare richiesta accesso all'admin %s", admin_user_id)
 
 
 def _resolve_job_selector(deps: BotDependencies, selector: str) -> JobRecord | None:
@@ -2128,16 +2536,25 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("history", history_command))
     application.add_handler(CommandHandler("last", last_command))
     application.add_handler(CommandHandler("access", access_command))
+    application.add_handler(CommandHandler("policy", policy_command))
+    application.add_handler(CommandHandler("privacy", policy_command))
+    application.add_handler(CommandHandler("request_access", request_access_command))
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CommandHandler("queue", queue_command))
     application.add_handler(CommandHandler("health", health_command))
+    application.add_handler(CommandHandler("maintenance_overview", maintenance_overview_command))
     application.add_handler(CommandHandler("pause", pause_command))
     application.add_handler(CommandHandler("resume", resume_command))
     application.add_handler(CommandHandler("metrics", metrics_command))
     application.add_handler(CommandHandler("job", job_command))
     application.add_handler(CommandHandler("retry", retry_command))
+    application.add_handler(CommandHandler("approve_user", access_review_command))
+    application.add_handler(CommandHandler("reject_user", access_review_command))
+    application.add_handler(CommandHandler("suspend_user", access_review_command))
+    application.add_handler(CommandHandler("reactivate_user", access_review_command))
     application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CallbackQueryHandler(handle_access_review_callback, pattern=r"^access:"))
     application.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^admin:"))
     application.add_handler(CallbackQueryHandler(handle_history_callback, pattern=r"^history:"))
     application.add_handler(CallbackQueryHandler(handle_rotate_callback, pattern=r"^rotate:"))
@@ -3177,6 +3594,7 @@ def _run_cleanup_cycle(deps: BotDependencies) -> None:
     removed_dirs = deps.processor.cleanup_stale_job_dirs(deps.settings.stale_job_retention_hours)
     if removed_dirs:
         logger.info("Cleanup schedulato: rimosse %s cartelle temporanee residue.", removed_dirs)
+    log_event(logger, logging.INFO, "cleanup_cycle_complete", removed_dirs=removed_dirs)
 
 
 async def _maybe_send_periodic_admin_reports(application: Application, deps: BotDependencies) -> None:
@@ -3465,6 +3883,7 @@ async def _process_job(application: Application, job_id: int) -> None:
     job = deps.session_store.get_job(job_id)
     if job is None:
         return
+    log_event(logger, logging.INFO, "job_started", job_id=job.id, user_id=job.user_id, action=job.action)
 
     await _safe_send_message(
         application.bot,
@@ -3481,6 +3900,15 @@ async def _process_job(application: Application, job_id: int) -> None:
             result = await _run_job_payload(application, job, job_dir)
         except ProcessingUserError as exc:
             deps.session_store.mark_job_failed(job.id, str(exc))
+            log_event(
+                logger,
+                logging.WARNING,
+                "job_failed",
+                job_id=job.id,
+                user_id=job.user_id,
+                action=job.action,
+                error_type=type(exc).__name__,
+            )
             await _safe_send_message(
                 application.bot,
                 chat_id=job.chat_id,
@@ -3492,6 +3920,15 @@ async def _process_job(application: Application, job_id: int) -> None:
         except Exception:
             logger.exception("Errore durante il job %s", job.id)
             deps.session_store.mark_job_failed(job.id, GENERIC_ERROR_MESSAGE)
+            log_event(
+                logger,
+                logging.ERROR,
+                "job_failed",
+                job_id=job.id,
+                user_id=job.user_id,
+                action=job.action,
+                error_type="unexpected",
+            )
             await _safe_send_message(
                 application.bot,
                 chat_id=job.chat_id,
@@ -3514,6 +3951,18 @@ async def _process_job(application: Application, job_id: int) -> None:
             duration_ms=duration_ms,
         )
         deps.session_store.record_completed_action(job.user_id, job.action)
+        log_event(
+            logger,
+            logging.INFO,
+            "job_succeeded",
+            job_id=job.id,
+            user_id=job.user_id,
+            action=job.action,
+            processing_mode=result.processing_mode,
+            duration_ms=duration_ms,
+            input_bytes=input_bytes,
+            output_bytes=output_bytes,
+        )
         result_message = await _send_result(
             application.bot,
             job.chat_id,

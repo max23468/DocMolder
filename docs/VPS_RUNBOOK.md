@@ -35,6 +35,8 @@ Avvia servizio:
 ```bash
 sudo systemctl enable --now docmolder
 sudo systemctl enable --now docmolder-db-backup.timer
+sudo systemctl enable --now docmolder-alertcheck.timer
+sudo systemctl enable --now docmolder-reconcile.timer
 sudo systemctl status docmolder
 ```
 
@@ -46,6 +48,8 @@ Log e stato:
 sudo systemctl status docmolder
 sudo journalctl -u docmolder -n 50 --no-pager
 sudo systemctl status docmolder-db-backup.timer
+sudo systemctl status docmolder-alertcheck.timer
+sudo systemctl status docmolder-reconcile.timer
 ```
 
 Restart:
@@ -64,6 +68,37 @@ Backup manuale SQLite:
 
 ```bash
 sudo /opt/docmolder/app/deploy/backup-db.sh
+```
+
+Healthcheck operativo:
+
+```bash
+sudo /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name docmolder
+```
+
+Smoke check post-deploy con retry:
+
+```bash
+sudo /opt/docmolder/app/deploy/smoke-check.sh
+```
+
+Manutenzione one-shot:
+
+```bash
+sudo -u docmolder /opt/docmolder/venv/bin/docmolder-reconcile
+```
+
+Timer reconcile:
+
+```bash
+sudo systemctl status docmolder-reconcile.timer
+sudo journalctl -u docmolder-reconcile.service -n 50 --no-pager
+```
+
+Verifica permessi:
+
+```bash
+sudo /opt/docmolder/app/deploy/check-perms.sh
 ```
 
 Ripristino da backup SQLite:
@@ -102,6 +137,8 @@ Se i job falliscono:
 - backup consigliati: `/opt/docmolder/data/runtime/backups`
 - i file job restano temporanei e vengono puliti dal cleanup schedulato
 - il timer `docmolder-db-backup.timer` crea un backup SQLite giornaliero verificato e applica retention corta
+- il timer `docmolder-alertcheck.timer` esegue un healthcheck operativo ogni 5 minuti
+- il timer `docmolder-reconcile.timer` riallinea periodicamente job stale e runtime temporaneo
 
 ## Nota operativa
 

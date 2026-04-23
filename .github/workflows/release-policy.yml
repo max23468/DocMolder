@@ -46,7 +46,6 @@ jobs:
           protected_files = {
               ".release-please-manifest.json",
               "CHANGELOG.md",
-              "pyproject.toml",
               "src/docmolder/__init__.py",
           }
 
@@ -57,6 +56,13 @@ jobs:
           ).splitlines()
 
           touched = [path for path in changed if path in protected_files]
+          if "pyproject.toml" in changed:
+              pyproject_diff = subprocess.check_output(
+                  ["git", "diff", "--unified=0", f"origin/{base_ref}...HEAD", "--", "pyproject.toml"],
+                  text=True,
+              )
+              if re.search(r"^[+-]version\s*=", pyproject_diff, re.MULTILINE):
+                  touched.append("pyproject.toml version")
 
           if not touched:
               print("PR does not modify release-owned files.")
@@ -79,6 +85,7 @@ jobs:
               print(f"- {path}")
           print("")
           print("Normal PRs must not update version, manifest, or release changelog files manually.")
+          print("Edits to pyproject.toml are allowed only when they do not change the package version.")
           print("Merge the functional PR first, then let release-please open or update the Release PR.")
           sys.exit(1)
           PY

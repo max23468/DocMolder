@@ -46,9 +46,9 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 - Storico ultimi job con dettaglio essenziale e possibilità di rilanciare un'elaborazione
-- Self-service rapido con `/last` e `/access`
+- Self-service rapido con `/last`, `/access`, `/request_access` e `/policy`
 - Deep link Telegram per scorciatoie contestuali e rilancio rapido di job
-- Console admin Telegram con queue, health, metrics, pause/resume e scorciatoie inline
+- Console admin Telegram con queue, health, metrics, manutenzione, access review, pause/resume e scorciatoie inline
 - Metriche Telegram leggere e alert admin meno rumorosi
 - Nomi output più leggibili, derivati dal file sorgente e dall'azione eseguita
 
@@ -91,7 +91,7 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - correzione orientamento immagini
 - storico lavori utente con recupero rapido del job via rilancio
 - self-service utente con `/last` e `/access`
-- console admin Telegram live con `/queue`, `/health`, `/metrics`, `/job`, `/retry`, `/pause`, `/resume`
+- console admin Telegram live con `/queue`, `/health`, `/maintenance_overview`, `/metrics`, `/job`, `/retry`, access review, `/pause`, `/resume`
 - metriche e retry Bot API per i flussi Telegram più sensibili
 
 ## Nota sul motore PDF attuale
@@ -160,6 +160,7 @@ Documenti utili:
 - [`docs/VERSIONING.md`](docs/VERSIONING.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - [`docs/GITHUB_ALIGNMENT.md`](docs/GITHUB_ALIGNMENT.md)
+- [`docs/GITHUB_MAINTENANCE.md`](docs/GITHUB_MAINTENANCE.md)
 
 ## Variabili ambiente
 
@@ -199,9 +200,11 @@ Se configuri `DOCMOLDER_ADMIN_USER_IDS`, l'admin può usare anche:
 - `/admin` per vedere un riepilogo rapido di utenti, nuovi accessi, operazioni completate, stato coda, utenti più attivi e ultimi job riusciti o falliti
 - `/queue` per vedere backlog, job queued/running e ultimi falliti
 - `/health` per controllare runtime, SQLite, backup e worker
+- `/maintenance_overview` per backlog operativo, accessi pending, running stale e audit recente
 - `/metrics` per vedere le metriche Telegram aggregate
 - `/job <selector>` per aprire rapidamente il dettaglio di un job
 - `/retry <selector>` per rilanciare un job esistente
+- `/approve_user <id>`, `/reject_user <id>`, `/suspend_user <id>`, `/reactivate_user <id>` per gestire accessi dinamici
 - `/pause` e `/resume` per mettere il bot in manutenzione o riattivarlo
 
 Comandi utente utili:
@@ -209,3 +212,5 @@ Comandi utente utili:
 - `/history` per vedere gli ultimi job personali, aprirne i dettagli essenziali o rilanciarli
 - `/last` per rilanciare l'ultimo job personale
 - `/access` per controllare accesso, sessione e coda personale
+- `/request_access` per chiedere abilitazione quando il bot è ristretto
+- `/policy` o `/privacy` per limiti, retention e regole operative sintetiche

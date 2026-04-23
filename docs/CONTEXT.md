@@ -21,11 +21,17 @@ Ultimo aggiornamento del contesto:
 ## Dove trovare le informazioni
 
 - Setup locale e test: [LOCAL_DEV.md](./LOCAL_DEV.md)
+- Architettura: [ARCHITECTURE.md](./ARCHITECTURE.md)
+- Modello dati: [DATA_MODEL.md](./DATA_MODEL.md)
 - Deploy e operations VPS: [VPS_RUNBOOK.md](./VPS_RUNBOOK.md)
+- Governance servizio: [SERVICE_GOVERNANCE.md](./SERVICE_GOVERNANCE.md)
+- Sicurezza operativa: [SECURITY.md](./SECURITY.md)
 - Processo rilascio: [RELEASE_PROCESS.md](./RELEASE_PROCESS.md)
 - Policy versioni e changelog: [VERSIONING.md](./VERSIONING.md)
 - Strategia pipeline PDF: [PDF_PIPELINE.md](./PDF_PIPELINE.md)
 - Decisioni tecniche: [DECISIONS.md](./DECISIONS.md)
+- Decisioni aperte: [DECISIONS_PENDING.md](./DECISIONS_PENDING.md)
+- Milestone: [MILESTONE_BOARD.md](./MILESTONE_BOARD.md)
 - Roadmap: [ROADMAP.md](./ROADMAP.md)
 - Changelog: [../CHANGELOG.md](../CHANGELOG.md)
 - Indice documentazione: [INDEX.md](./INDEX.md)
@@ -50,3 +56,4 @@ Ultimo aggiornamento del contesto:
 - la comprensione testuale e ora piu tollerante su richieste naturali, sinonimi e piccoli refusi, con estrazione diretta di pagine, rotazioni, watermark e livello di compressione
 - quando un comando testuale e ambiguo o incompleto, il bot prova a chiarire l'azione o chiede il dettaglio mancante invece di fermarsi su una lettura fragile
 - la Fase 4 ha aggiunto lo split PDF in un file per pagina, con scelta tra archivio ZIP e PDF separati
+- l'allineamento operativo ha introdotto healthcheck/reconcile CLI, timer alert/reconcile, audit admin, access request in chat, `/policy`, helper retry/logging/messaging e tool git-safe locale

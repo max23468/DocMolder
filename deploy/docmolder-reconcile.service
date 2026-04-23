@@ -1,0 +1,8 @@
+[Unit]
+Description=DocMolder runtime reconciliation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/docmolder/app/deploy/reconcile.sh

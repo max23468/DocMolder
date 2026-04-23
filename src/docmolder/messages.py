@@ -50,13 +50,15 @@ HELP_MESSAGE = (
     "/history\n"
     "/last\n"
     "/access\n"
+    "/request_access\n"
+    "/policy\n"
     "/status\n"
     "/reset  (azzera sessione e ultime scelte rapide)"
 )
 
 UNAUTHORIZED_MESSAGE = (
     "Questo account non puo usare il bot in questo momento. "
-    f"Riprova piu tardi oppure contatta l'amministratore di {BRAND_NAME}."
+    f"Usa /request_access per chiedere l'abilitazione oppure contatta l'amministratore di {BRAND_NAME}."
 )
 
 SESSION_EMPTY_MESSAGE = (

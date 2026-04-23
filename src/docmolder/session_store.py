@@ -9,6 +9,7 @@ from docmolder.models import (
     AdminActionStat,
     AdminStats,
     AdminUserStat,
+    AuditLogEntry,
     FileKind,
     JobRecord,
     JobStatus,
@@ -105,6 +106,24 @@ class SessionStore(Protocol):
         since_minutes: int | None = None,
     ) -> list[JobRecord]: ...
 
+    def list_stale_running_jobs(self, max_age_seconds: int, limit: int = 20) -> list[JobRecord]: ...
+
+    def requeue_stale_running_jobs(self, max_age_seconds: int) -> list[JobRecord]: ...
+
+    def prune_finished_jobs(self, retention_days: int) -> int: ...
+
+    def append_audit_log_entry(
+        self,
+        event_type: str,
+        *,
+        actor_user_id: int | None,
+        outcome: str,
+        target_user_id: int | None = None,
+        detail: str = "",
+    ) -> AuditLogEntry: ...
+
+    def list_audit_log_entries(self, limit: int = 100) -> list[AuditLogEntry]: ...
+
 
 class InMemorySessionStore:
     def __init__(self) -> None:
@@ -113,8 +132,10 @@ class InMemorySessionStore:
         self._known_user_ids: set[int] = set()
         self._completed_actions: list[tuple[int, SupportedActionValue]] = []
         self._jobs: dict[int, JobRecord] = {}
+        self._audit_entries: list[AuditLogEntry] = []
         self._meta: dict[str, str] = {}
         self._next_job_id = 1
+        self._next_audit_id = 1
 
     def get(self, user_id: int) -> UserSession | None:
         with self._lock:
@@ -407,6 +428,81 @@ class InMemorySessionStore:
                 reverse=True,
             )
             return jobs[:limit]
+
+    def list_stale_running_jobs(self, max_age_seconds: int, limit: int = 20) -> list[JobRecord]:
+        from datetime import datetime, timedelta, timezone
+
+        threshold = datetime.now(timezone.utc) - timedelta(seconds=max(0, max_age_seconds))
+        with self._lock:
+            jobs = [
+                job
+                for job in self._jobs.values()
+                if job.status == JobStatus.RUNNING and job.started_at is not None and job.started_at < threshold
+            ]
+            jobs.sort(key=lambda job: (job.started_at or job.created_at, job.id))
+            return jobs[:limit]
+
+    def requeue_stale_running_jobs(self, max_age_seconds: int) -> list[JobRecord]:
+        from dataclasses import replace
+
+        stale_jobs = self.list_stale_running_jobs(max_age_seconds=max_age_seconds, limit=1000)
+        with self._lock:
+            for stale_job in stale_jobs:
+                job = self._jobs[stale_job.id]
+                job.status = JobStatus.QUEUED
+                job.started_at = None
+                job.finished_at = None
+                job.error_message = None
+                job.result_message = None
+                job.processing_mode = None
+                job.input_bytes = None
+                job.output_bytes = None
+                job.duration_ms = None
+            return [replace(self._jobs[job.id]) for job in stale_jobs]
+
+    def prune_finished_jobs(self, retention_days: int) -> int:
+        from datetime import datetime, timedelta, timezone
+
+        threshold = datetime.now(timezone.utc) - timedelta(days=max(0, retention_days))
+        with self._lock:
+            prune_ids = [
+                job_id
+                for job_id, job in self._jobs.items()
+                if job.status in {JobStatus.SUCCEEDED, JobStatus.FAILED}
+                and (job.finished_at or job.created_at) < threshold
+            ]
+            for job_id in prune_ids:
+                self._jobs.pop(job_id, None)
+            return len(prune_ids)
+
+    def append_audit_log_entry(
+        self,
+        event_type: str,
+        *,
+        actor_user_id: int | None,
+        outcome: str,
+        target_user_id: int | None = None,
+        detail: str = "",
+    ) -> AuditLogEntry:
+        from datetime import datetime, timezone
+
+        with self._lock:
+            entry = AuditLogEntry(
+                id=self._next_audit_id,
+                event_type=event_type,
+                actor_user_id=actor_user_id,
+                target_user_id=target_user_id,
+                outcome=outcome,
+                detail=detail,
+                created_at=datetime.now(timezone.utc),
+            )
+            self._audit_entries.append(entry)
+            self._next_audit_id += 1
+            return entry
+
+    def list_audit_log_entries(self, limit: int = 100) -> list[AuditLogEntry]:
+        with self._lock:
+            return list(reversed(self._audit_entries))[:limit]
 
 
 class SQLiteSessionStore:
@@ -889,6 +985,109 @@ class SQLiteSessionStore:
             rows = connection.execute(query, params).fetchall()
         return [_job_from_row(row) for row in rows]
 
+    def list_stale_running_jobs(self, max_age_seconds: int, limit: int = 20) -> list[JobRecord]:
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM jobs
+                WHERE status = ? AND started_at IS NOT NULL AND started_at < datetime('now', ?)
+                ORDER BY started_at ASC, id ASC
+                LIMIT ?
+                """,
+                (JobStatus.RUNNING.value, f"-{max(0, max_age_seconds)} second", limit),
+            ).fetchall()
+        return [_job_from_row(row) for row in rows]
+
+    def requeue_stale_running_jobs(self, max_age_seconds: int) -> list[JobRecord]:
+        stale_jobs = self.list_stale_running_jobs(max_age_seconds=max_age_seconds, limit=1000)
+        if not stale_jobs:
+            return []
+        stale_ids = [job.id for job in stale_jobs]
+        placeholders = ", ".join("?" for _ in stale_ids)
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                f"""
+                UPDATE jobs
+                SET status = ?, started_at = NULL, finished_at = NULL, result_message = NULL, error_message = NULL,
+                    processing_mode = NULL, input_bytes = NULL, output_bytes = NULL, duration_ms = NULL
+                WHERE id IN ({placeholders})
+                """,
+                (JobStatus.QUEUED.value, *stale_ids),
+            )
+            rows = connection.execute(
+                f"""
+                SELECT *
+                FROM jobs
+                WHERE id IN ({placeholders})
+                ORDER BY id ASC
+                """,
+                stale_ids,
+            ).fetchall()
+            connection.commit()
+        return [_job_from_row(row) for row in rows]
+
+    def prune_finished_jobs(self, retention_days: int) -> int:
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                """
+                DELETE FROM jobs
+                WHERE status IN (?, ?)
+                  AND COALESCE(finished_at, created_at) < datetime('now', ?)
+                """,
+                (
+                    JobStatus.SUCCEEDED.value,
+                    JobStatus.FAILED.value,
+                    f"-{max(0, retention_days)} day",
+                ),
+            )
+            connection.commit()
+            return int(cursor.rowcount)
+
+    def append_audit_log_entry(
+        self,
+        event_type: str,
+        *,
+        actor_user_id: int | None,
+        outcome: str,
+        target_user_id: int | None = None,
+        detail: str = "",
+    ) -> AuditLogEntry:
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO audit_log (
+                    event_type,
+                    actor_user_id,
+                    target_user_id,
+                    outcome,
+                    detail,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (event_type, actor_user_id, target_user_id, outcome, detail),
+            )
+            connection.commit()
+            row = connection.execute(
+                "SELECT * FROM audit_log WHERE id = ?",
+                (int(cursor.lastrowid),),
+            ).fetchone()
+        return _audit_entry_from_row(row)
+
+    def list_audit_log_entries(self, limit: int = 100) -> list[AuditLogEntry]:
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT *
+                FROM audit_log
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [_audit_entry_from_row(row) for row in rows]
+
     def _initialize(self) -> None:
         with self._lock, self._connect() as connection:
             connection.executescript(
@@ -965,6 +1164,22 @@ class SQLiteSessionStore:
 
                 CREATE INDEX IF NOT EXISTS idx_jobs_status_created_at
                     ON jobs(status, created_at);
+
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_type TEXT NOT NULL,
+                    actor_user_id INTEGER,
+                    target_user_id INTEGER,
+                    outcome TEXT NOT NULL,
+                    detail TEXT NOT NULL DEFAULT '',
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_audit_log_created_at
+                    ON audit_log(created_at);
+
+                CREATE INDEX IF NOT EXISTS idx_audit_log_event_type
+                    ON audit_log(event_type);
                 """
             )
             self._ensure_job_metrics_columns(connection)
@@ -1032,6 +1247,18 @@ def _job_from_row(row: sqlite3.Row) -> JobRecord:
         input_bytes=row["input_bytes"] if "input_bytes" in row.keys() else None,
         output_bytes=row["output_bytes"] if "output_bytes" in row.keys() else None,
         duration_ms=row["duration_ms"] if "duration_ms" in row.keys() else None,
+    )
+
+
+def _audit_entry_from_row(row: sqlite3.Row) -> AuditLogEntry:
+    return AuditLogEntry(
+        id=row["id"],
+        event_type=row["event_type"],
+        actor_user_id=row["actor_user_id"],
+        target_user_id=row["target_user_id"],
+        outcome=row["outcome"],
+        detail=row["detail"],
+        created_at=_from_sqlite_datetime(row["created_at"]),
     )
 
 

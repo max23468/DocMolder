@@ -2,7 +2,7 @@ VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: setup run test compile smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps
+.PHONY: setup run test compile ci build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps
 
 setup:
 	python3 -m venv $(VENV)
@@ -16,6 +16,12 @@ test:
 
 compile:
 	$(PYTHON) -m compileall src tests
+
+ci:
+	bash scripts/ci_verify.sh
+
+build:
+	$(PYTHON) -m build
 
 brand-assets:
 	$(PYTHON) scripts/render_brand_assets.py

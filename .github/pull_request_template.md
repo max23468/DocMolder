@@ -14,7 +14,7 @@
 <!-- La label skip-changelog vale per le release note generate da GitHub. -->
 
 ## Release policy
-<!-- Salvo Release PR automatica, non modificare CHANGELOG.md, .release-please-manifest.json, pyproject.toml o src/docmolder/__init__.py -->
+<!-- Salvo Release PR automatica, non modificare CHANGELOG.md, .release-please-manifest.json, il campo version di pyproject.toml o src/docmolder/__init__.py -->
 
 ## Impatti e rischi
 - [ ] Nessun impatto operativo rilevante

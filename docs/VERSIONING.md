@@ -17,13 +17,13 @@ La fonte di verita della release e composta da:
 - [CHANGELOG.md](../CHANGELOG.md) in root
 - `.release-please-manifest.json` come stato corrente della versione gestita
 
-`pyproject.toml` e `src/docmolder/__init__.py` sono file derivati e vengono aggiornati automaticamente dal flusso di release.
+Il campo `version` di `pyproject.toml` e `src/docmolder/__init__.py` sono derivati e vengono aggiornati automaticamente dal flusso di release.
 
 I seguenti file sono quindi **riservati alla Release PR** generata da `release-please`:
 
 - `CHANGELOG.md`
 - `.release-please-manifest.json`
-- `pyproject.toml`
+- campo `version` di `pyproject.toml`
 - `src/docmolder/__init__.py`
 
 Le PR ordinarie non devono modificarli.

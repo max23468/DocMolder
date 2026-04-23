@@ -34,6 +34,18 @@ make run
 
 ## Testing
 
+Gate completo locale:
+
+```bash
+bash scripts/ci_verify.sh
+```
+
+Il gate usa `ruff`, `coverage` e `build` quando le dipendenze dev sono installate:
+
+```bash
+.venv/bin/pip install -e ".[dev]"
+```
+
 Suite completa:
 
 ```bash
@@ -59,6 +71,13 @@ Compilazione/import:
 
 ```bash
 make compile
+```
+
+Git maintenance locale:
+
+```bash
+docmolder-fix-git-lock .
+docmolder-git-safe -- status --short
 ```
 
 ## Flusso quotidiano consigliato

@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from telegram.constants import ParseMode
+from telegram.error import BadRequest
+
+from docmolder.telegram_messaging import chunk_message, send_telegram_message
+
+
+class TelegramMessagingTest(unittest.IsolatedAsyncioTestCase):
+    def test_chunk_message_splits_on_lines(self) -> None:
+        chunks = chunk_message("prima\nseconda\nterza", limit=13)
+
+        self.assertEqual(chunks, ["prima\nseconda", "terza"])
+
+    async def test_send_telegram_message_chunks_and_keeps_reply_markup_on_last_chunk(self) -> None:
+        bot = SimpleNamespace(send_message=AsyncMock())
+        api_call = AsyncMock(return_value="ok")
+
+        await send_telegram_message(
+            bot,
+            chat_id=12,
+            text="prima\nseconda\nterza",
+            api_call=api_call,
+            chunk_limit=13,
+            reply_markup="keyboard",
+        )
+
+        self.assertEqual(api_call.await_count, 2)
+        self.assertNotIn("reply_markup", api_call.await_args_list[0].kwargs)
+        self.assertEqual(api_call.await_args_list[1].kwargs["reply_markup"], "keyboard")
+
+    async def test_send_telegram_message_retries_without_parse_mode_on_bad_request(self) -> None:
+        bot = SimpleNamespace(send_message=AsyncMock())
+        api_call = AsyncMock(side_effect=[BadRequest("bad html"), "ok"])
+
+        result = await send_telegram_message(
+            bot,
+            chat_id=12,
+            text="<b>rotto",
+            api_call=api_call,
+            parse_mode=ParseMode.HTML,
+        )
+
+        self.assertEqual(result, "ok")
+        self.assertEqual(api_call.await_count, 2)
+        self.assertEqual(api_call.await_args_list[0].kwargs["parse_mode"], ParseMode.HTML)
+        self.assertNotIn("parse_mode", api_call.await_args_list[1].kwargs)
