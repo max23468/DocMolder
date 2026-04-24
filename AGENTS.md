@@ -69,6 +69,13 @@ Prima del commit, esegui i check rilevanti alla modifica:
 Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente con motivo e rischio residuo.
 Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: citale solo se sono richieste esplicitamente, se servono per PR/release/audit, se falliscono, se non sono eseguibili o se lasciano un rischio residuo utile da conoscere.
 
+## 7.1) Risposte finali e prossimi passi
+
+- Non includere messaggi celebrativi o contabili sui check, come "123 test superati", "456 verifiche verdi", "tutto verde" o formule simili. Se le verifiche sono rilevanti, riportale in modo sintetico e operativo, privilegiando errori, limiti o rischi residui rispetto ai conteggi.
+- Se uno o più test/check falliscono, dirlo sempre in modo esplicito: indica quale comando o check è fallito, il motivo noto o il sintomo principale, l'impatto pratico e il prossimo passo consigliato. Non nascondere un fallimento dietro formule generiche o un riepilogo positivo.
+- Quando la risposta lascia aperte una o più azioni sensate, proponi il prossimo passo o una breve lista di prossimi passi concreti. Se ci sono alternative, rendile facili da scegliere con opzioni brevi, numerate o nominate, indicando l'effetto pratico di ciascuna.
+- Non forzare un prossimo passo quando la richiesta è completamente chiusa e non c'è una decisione utile da prendere.
+
 ## 8) Documentazione e roadmap
 
 - Aggiorna la documentazione quando l'utente lo chiede o quando cambia un comportamento utente, operativo o di sviluppo.
