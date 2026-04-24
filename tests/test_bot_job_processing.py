@@ -1945,6 +1945,33 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("formato A4", message.reply_text.await_args.args[0])
         self.assertIsNotNone(self.store.get(7))
 
+    async def test_text_request_for_document_photo_fix_enqueues_direct_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("img-1", "foto_documento.jpg", FileKind.IMAGE)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Raddrizza foto documento",
+            chat_id=99,
+            message_id=4571,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertEqual(queued_job.action, SupportedAction.DOCUMENT_PHOTO_FIX.value)
+        self.assertIsNone(self.store.get(7))
+        message.reply_text.assert_awaited_once()
+        self.assertIn("Raddrizzamento foto documento", message.reply_text.await_args.args[0])
+
     async def test_layout_callback_a4_prompts_for_margin_choice(self) -> None:
         self.store.save(
             UserSession(

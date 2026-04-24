@@ -277,6 +277,39 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertTrue(result.output_path.exists())
         self.assertEqual(result.output_name, "cropped.pdf")
 
+    def test_document_photo_fix_creates_pdf_with_perspective_correction(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_document_photo" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "photo.jpg"
+        image = Image.new("RGB", (600, 800), (70, 75, 82))
+        draw = ImageDraw.Draw(image)
+        page_points = [(150, 90), (475, 135), (520, 700), (85, 645)]
+        draw.polygon(page_points, fill=(245, 245, 238), outline=(230, 230, 220))
+        for y in range(190, 560, 70):
+            draw.line((150, y, 455, y + 25), fill=(45, 45, 45), width=5)
+        image.save(image_path)
+
+        result = self.processor.process(SupportedAction.DOCUMENT_PHOTO_FIX, [image_path], "document_photo")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.output_name, "document_photo.pdf")
+        self.assertEqual(result.processing_mode, "opencv")
+        self.assertIn("Correzione prospettica", result.message)
+        reader = PdfReader(str(result.output_path))
+        self.assertEqual(len(reader.pages), 1)
+
+    def test_document_photo_fix_uses_conservative_fallback_without_clear_page(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_document_photo_fallback" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "unclear.jpg"
+        Image.new("RGB", (420, 320), (180, 180, 180)).save(image_path)
+
+        result = self.processor.process(SupportedAction.DOCUMENT_PHOTO_FIX, [image_path], "document_photo_fallback")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.processing_mode, "fallback")
+        self.assertIn("fallback conservativo", result.message)
+
     def test_images_to_pdf_can_keep_original_image_format(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_2" / "input"
         input_dir.mkdir(parents=True, exist_ok=True)

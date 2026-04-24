@@ -15,7 +15,6 @@ Questo documento non e una checklist di task: raccoglie scelte da chiarire prima
 ## Prodotto
 
 - decidere quanto spingere OCR e comprensione documento senza trasformare il bot in suite documentale generalista
-- decidere se la scansione da foto debba restare azione mirata o diventare un flusso piu ampio con anteprima e correzioni
 - decidere se introdurre preset utente persistenti oltre alle preferenze rapide attuali
 - decidere quali scorciatoie conversazionali meritino stato persistente e quali debbano restare inferenze momentanee
 

@@ -190,8 +190,8 @@ Per il versioning ordinario, il repository e `release-please`-first: le feature 
 
 In sintesi, le priorità attuali sono:
 
-- Fase 5: riferimenti contestuali piu robusti e test conversazionali multi-step ancora piu realistici
-- Fase 6: scansione documento da foto con rilevamento foglio, correzione prospettica e post-processing dedicato
+- Fase 7: robustezza VPS e performance sui flussi piu pesanti
+- Fase 8: ottimizzazione del funzionamento interno e delle raccomandazioni utente
 
 ## Monitoraggio admin
 

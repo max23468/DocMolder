@@ -8,6 +8,7 @@ from docmolder.models import FileKind, SessionFile, SupportedAction, UserSession
 ACTION_LABELS: dict[SupportedAction, str] = {
     SupportedAction.IMAGES_TO_PDF: "PDF da immagini",
     SupportedAction.IMAGES_TO_PDF_CROP: "PDF con ritaglio bordi",
+    SupportedAction.DOCUMENT_PHOTO_FIX: "Raddrizza foto documento",
     SupportedAction.IMAGES_TO_PDF_GRAYSCALE: "PDF grigio da immagini",
     SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: "PDF grigio con ritaglio bordi",
     SupportedAction.PDF_COMPRESS: "Comprimi PDF",
@@ -25,6 +26,7 @@ ACTION_LABELS: dict[SupportedAction, str] = {
 OUTPUT_SUFFIX_BY_ACTION: dict[SupportedAction, str] = {
     SupportedAction.IMAGES_TO_PDF: "pdf",
     SupportedAction.IMAGES_TO_PDF_CROP: "cropped_pdf",
+    SupportedAction.DOCUMENT_PHOTO_FIX: "document_photo",
     SupportedAction.IMAGES_TO_PDF_GRAYSCALE: "grayscale",
     SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: "cropped_grayscale",
     SupportedAction.PDF_GRAYSCALE: "grayscale",
@@ -42,6 +44,7 @@ OUTPUT_SUFFIX_BY_ACTION: dict[SupportedAction, str] = {
 IMAGE_ONLY_ACTIONS: tuple[SupportedAction, ...] = (
     SupportedAction.IMAGES_TO_PDF,
     SupportedAction.IMAGES_TO_PDF_CROP,
+    SupportedAction.DOCUMENT_PHOTO_FIX,
     SupportedAction.IMAGES_TO_PDF_GRAYSCALE,
     SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE,
     SupportedAction.AUTO_ORIENT,
@@ -77,6 +80,7 @@ PENDING_ACTION_LABELS: dict[str, str] = {
 EXPOSED_ACTION_ORDER: tuple[SupportedAction, ...] = (
     SupportedAction.IMAGES_TO_PDF,
     SupportedAction.IMAGES_TO_PDF_CROP,
+    SupportedAction.DOCUMENT_PHOTO_FIX,
     SupportedAction.IMAGES_TO_PDF_GRAYSCALE,
     SupportedAction.PDF_GRAYSCALE,
     SupportedAction.PDF_COMPRESS,
@@ -163,6 +167,7 @@ def infer_recommended_actions(session: UserSession) -> list[SupportedAction]:
     if {item.kind for item in session.files} == {FileKind.IMAGE}:
         ordered_candidates = [
             SupportedAction.IMAGES_TO_PDF,
+            SupportedAction.DOCUMENT_PHOTO_FIX,
             SupportedAction.IMAGES_TO_PDF_CROP,
             SupportedAction.IMAGES_TO_PDF_GRAYSCALE,
             SupportedAction.AUTO_ORIENT,
