@@ -8,6 +8,19 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.9.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.8.1...docmolder-v0.9.0) (2026-04-24)
+
+
+### Funzionalità
+
+* strengthen VPS health and performance safeguards ([#67](https://github.com/max23468/DocMolder/issues/67)) ([4866e62](https://github.com/max23468/DocMolder/commit/4866e628c0664cc4afc05d19b708d50a838ec8b7))
+
+
+### Documentazione
+
+* document GitHub ready fallback ([#66](https://github.com/max23468/DocMolder/issues/66)) ([828273b](https://github.com/max23468/DocMolder/commit/828273b99c6a837c71e6667b5639f2520648eefa))
+* remove deploy consent prompt rules ([#62](https://github.com/max23468/DocMolder/issues/62)) ([add2a0c](https://github.com/max23468/DocMolder/commit/add2a0c83b5c46309c9bc4e2e805e521602b2271))
+
 ## [0.8.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.8.0...docmolder-v0.8.1) (2026-04-24)
 
 
