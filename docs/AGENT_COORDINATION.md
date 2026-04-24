@@ -1,0 +1,92 @@
+# Coordinamento Agenti
+
+Questo documento e il registro operativo leggero per coordinare piu chat, agenti o istanze Codex sullo stesso repository.
+
+Non sostituisce roadmap, issue o PR. Serve a evitare conflitti, doppio lavoro e modifiche sovrapposte quando piu istanze lavorano in parallelo.
+
+## Principi
+
+- Una chat principale dovrebbe fare da coordinatore quando il lavoro e ampio o distribuito.
+- Ogni agente parallelo deve avere un sotto-task circoscritto, con ownership chiara su file, moduli o responsabilita.
+- Ogni filone non banale dovrebbe vivere su una branch o worktree dedicato, preferibilmente `codex/<tema>`.
+- La PR, appena esiste, diventa la fonte di verita per diff, check e review.
+- Il registro deve restare breve: aggiorna solo cio che aiuta un'altra istanza a capire cosa non rompere.
+
+## Protocollo di avvio
+
+Prima di modifiche non banali, una nuova chat o istanza deve:
+
+1. eseguire `git status --short`;
+2. leggere questo documento;
+3. controllare branch o PR aperte rilevanti per l'area toccata;
+4. dichiarare o annotare l'ownership del lavoro;
+5. evitare file e flussi gia presidiati da un'altra istanza, salvo coordinamento esplicito.
+
+Comando consigliato:
+
+```bash
+python3 scripts/agent_start.py --area "<area>" --owner "<owner/chat>"
+```
+
+## Uso degli agenti
+
+Usa agenti paralleli solo quando il coordinatore puo assegnare lavori indipendenti.
+
+Buoni esempi:
+
+- esplorare una zona del codice e riportare evidenze;
+- implementare una patch circoscritta su file assegnati;
+- aggiungere test mirati per un comportamento gia deciso;
+- fare review del diff o controllare impatto docs/deploy.
+
+Evita agenti paralleli per decisioni di prodotto ambigue, modifiche sullo stesso handler o refactor trasversali senza ownership esplicita.
+
+Per deleghe ripetibili usa:
+
+- [CODEX_TASK_PACKET.md](./CODEX_TASK_PACKET.md) per preparare il brief del sub-agente;
+- [CODEX_TASK_PROMPTS.md](./CODEX_TASK_PROMPTS.md) per prompt operativi riutilizzabili.
+
+## Regola anti-conflitto
+
+Se un'altra istanza sta lavorando sulla stessa area:
+
+- non sovrascrivere le sue modifiche;
+- non fare cleanup o refactor opportunistici nei file che possiede;
+- integra o ribasa solo quando e necessario e comprendi il diff;
+- segnala il conflitto nel registro, nella PR o in chat se il coordinamento non e chiaro.
+
+Comando consigliato:
+
+```bash
+python3 scripts/agent_parallel_safe.py --owner "<owner/chat>"
+```
+
+## Handoff
+
+A fine lavoro, lascia un aggiornamento sintetico con:
+
+- file o moduli toccati;
+- comportamento cambiato;
+- test o check eseguiti;
+- rischi residui;
+- prossimo passo consigliato.
+
+Comando consigliato:
+
+```bash
+python3 scripts/agent_handoff.py --owner "<owner/chat>" --summary "<cosa fatta>" --check "<check eseguiti>" --risk "<rischi residui>" --next-step "<prossimo passo>"
+```
+
+## Registro attivo
+
+Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente conflittuali.
+
+| Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
+| --- | --- | --- | --- | --- |
+| chiuso | Codex gestione commenti bot | codex/codex-github-ops-integrations | review bot aperte: CI/publish, deploy wrapper, bot rerun, processing foto, Telegram messaging, git utils | Fix locali applicati e verificati con `bash scripts/ci_verify.sh`; thread GitHub storici restano aperti finche non vengono risolti su GitHub. |
+
+## Template nuova riga
+
+```markdown
+| in corso | <chat/owner> | <branch o worktree> | <file/moduli/responsabilita> | <stato, check, rischi, PR> |
+```

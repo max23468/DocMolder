@@ -24,6 +24,10 @@ Ultimo aggiornamento del contesto:
 - Setup locale e test: [LOCAL_DEV.md](./LOCAL_DEV.md)
 - Architettura: [ARCHITECTURE.md](./ARCHITECTURE.md)
 - Modello dati: [DATA_MODEL.md](./DATA_MODEL.md)
+- Coordinamento tra agenti e chat parallele: [AGENT_COORDINATION.md](./AGENT_COORDINATION.md)
+- Task packet e prompt Codex: [CODEX_TASK_PACKET.md](./CODEX_TASK_PACKET.md), [CODEX_TASK_PROMPTS.md](./CODEX_TASK_PROMPTS.md)
+- Integrazioni Codex, GitHub e operations: [CODEX_INTEGRATIONS.md](./CODEX_INTEGRATIONS.md)
+- Tooling Codex/GitHub/operations: `scripts/codex_dev_report.py`, `scripts/github_maintenance_report.py`, `scripts/ops_report.py`
 - Deploy e operations VPS: [VPS_RUNBOOK.md](./VPS_RUNBOOK.md)
 - Governance servizio: [SERVICE_GOVERNANCE.md](./SERVICE_GOVERNANCE.md)
 - Sicurezza operativa: [OPERATIONS_SECURITY.md](./OPERATIONS_SECURITY.md)

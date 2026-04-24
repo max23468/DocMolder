@@ -9,6 +9,7 @@ Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
 - `docs/CONTEXT.md` per lo stato sintetico del progetto;
 - `docs/DECISIONS.md` per il perimetro prodotto;
 - `docs/ROADMAP.md` per le priorità correnti;
+- `docs/AGENT_COORDINATION.md` quando lavori in parallelo, riprendi una chat precedente o trovi modifiche non tue nel worktree;
 - `docs/LOCAL_DEV.md` per setup e comandi di verifica;
 - `docs/VERSIONING.md` e `docs/RELEASE_PROCESS.md` quando la task riguarda commit, PR, release o deploy.
 
@@ -38,6 +39,24 @@ Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
 - Non inserire `try/except` attorno agli import.
 - Non introdurre nuove dipendenze senza avvisare prima l'utente e spiegare motivazione, impatto e alternative.
 - I file `.DS_Store` non fanno parte della repository: ignorali sempre e rimuovi quelli creati localmente quando li incontri.
+
+## 4.1) Lavoro parallelo tra agenti
+
+Quando piu chat, agenti o istanze Codex lavorano sul progetto nello stesso periodo, il coordinamento deve essere esplicito e leggibile dal repository.
+
+- Usa una chat principale come coordinatore quando il lavoro e ampio: definisce scope, assegna sotto-task, integra i risultati e prende decisioni finali su merge, PR, deploy o prodotto.
+- Usa sub-agenti o istanze parallele solo per sotto-task separabili e circoscritti: esplorazione di una zona del codice, patch su un modulo specifico, test mirati, review del diff o controllo documentale/deploy impact.
+- Assegna ownership chiara prima di iniziare: ogni agente deve sapere quali file, moduli o responsabilita puo toccare; evita che due agenti modifichino lo stesso flusso senza coordinamento esplicito.
+- Non usare sub-agenti per task piccoli, decisioni prodotto ambigue, refactor trasversali o modifiche dove il coordinatore dipende subito dal risultato per il passo successivo.
+- Quando deleghi, prepara un task packet con `docs/CODEX_TASK_PACKET.md` e, se utile, usa i prompt di `docs/CODEX_TASK_PROMPTS.md`.
+- Preferisci branch o worktree dedicati per filone di lavoro, con nomi `codex/<tema>` quando crei nuove branch operative.
+- Aggiorna `docs/AGENT_COORDINATION.md` all'avvio e alla chiusura di lavori non banali, indicando task, branch/worktree, area posseduta, stato, file toccati, verifiche e rischi residui.
+- All'avvio di una nuova chat o quando riprendi lavoro, leggi `docs/AGENT_COORDINATION.md`, controlla `git status --short` e verifica branch/PR aperte rilevanti prima di editare.
+- Per un briefing iniziale standard usa `python3 scripts/agent_start.py --area <area> --owner <owner>`.
+- Prima di toccare aree potenzialmente condivise usa `python3 scripts/agent_parallel_safe.py --owner <owner>`.
+- Se trovi un'altra istanza attiva sulla stessa area, non sovrascrivere ne normalizzare le sue modifiche: integra, ribasa o segnala il conflitto in modo esplicito.
+- Per lavori non minuscoli, apri una branch o una draft PR appena possibile: la PR diventa la fonte di verita per diff, check, review e handoff.
+- A fine lavoro lascia un handoff sintetico nel registro o nella PR: cosa e stato fatto, cosa resta aperto, quali check sono stati eseguiti e quali aree non vanno toccate senza rilettura. Per generarlo puoi usare `python3 scripts/agent_handoff.py`.
 
 ## 5) Logging, errori e UX operativa
 
