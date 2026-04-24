@@ -25,6 +25,7 @@ Canale GitHub preferito:
 
 - usa dove possibile il tool/plugin GitHub come canale primario per repository, PR, issue, commenti, review, metadata e creazione PR;
 - usa `gh` e `git` locali solo per operazioni non coperte bene dal plugin, come branch/commit/push locali, stato auth, log GitHub Actions e inspect di run CI;
+- usa `gh pr ready <numero>` per rimuovere lo stato draft: il tool connector `mark_pull_request_ready_for_review` al momento richiede il campo GraphQL `PullRequest.htmlUrl`, che non esiste nello schema GitHub; il campo valido sarebbe `url`;
 - quando passi da plugin a CLI, mantieni allineati branch locale, PR corrente e SHA monitorato.
 
 Strumenti locali:
