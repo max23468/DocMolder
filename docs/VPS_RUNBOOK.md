@@ -70,6 +70,12 @@ Backup manuale SQLite:
 sudo /opt/docmolder/app/deploy/backup-db.sh
 ```
 
+Backup manuale via GitHub Actions, senza deploy:
+
+```bash
+gh workflow run vps-backup.yml --ref main
+```
+
 Healthcheck operativo:
 
 ```bash
