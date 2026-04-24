@@ -10,14 +10,21 @@ TITLE="$1"
 BASE_BRANCH="${2:-main}"
 BASE_REF="origin/${BASE_BRANCH}"
 BRANCH="$(git branch --show-current)"
-HEAD_SHA="$(git rev-parse HEAD)"
+body_file=""
+
+cleanup() {
+  if [ -n "${body_file}" ] && [ -f "${body_file}" ]; then
+    rm -f "${body_file}"
+  fi
+}
+trap cleanup EXIT
 
 if [ -z "${BRANCH}" ] || [ "${BRANCH}" = "${BASE_BRANCH}" ]; then
   echo "Errore: crea una branch dedicata prima di pubblicare." >&2
   exit 1
 fi
 
-python3 scripts/current_failed_runs.py --branch "${BRANCH}" --sha "${HEAD_SHA}" --fail
+python3 scripts/publish_doctor.py --base "${BASE_BRANCH}" --fail
 bash scripts/preflight_publish.sh "${BASE_REF}"
 
 if ! git diff --quiet || ! git diff --cached --quiet; then
@@ -37,8 +44,10 @@ if [ "$(gh pr list --head "${BRANCH}" --json number --jq 'length')" = "0" ]; the
   gh pr create --draft --base "${BASE_BRANCH}" --head "${BRANCH}" --title "${TITLE}" --body-file "${body_file}"
 fi
 rm -f "${body_file}"
+body_file=""
 
 PR_NUMBER="$(gh pr view --json number --jq '.number')"
+python3 scripts/publish_doctor.py --base "${BASE_BRANCH}" --fail
 python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail
 gh pr checks "${PR_NUMBER}" --watch --interval 10
 python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail

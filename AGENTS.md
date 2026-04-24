@@ -80,6 +80,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 
 - Un commit deve essere coeso: una modifica logica principale.
 - Messaggi commit chiari, in forma imperativa, con scope quando utile.
+- Per operazioni GitHub usa dove possibile il tool/plugin GitHub come canale primario per repository, PR, issue, commenti, review, metadata e creazione PR; ricorri a `gh`/git locali solo quando il plugin non copre bene l'operazione, ad esempio branch/commit/push locali, stato auth, log GitHub Actions o inspect di run CI.
 - Il flusso ufficiale è branch dedicato, PR verso `main`, CI verde e squash merge.
 - Il titolo PR deve seguire Conventional Commits perché guida `release-please`; scrivilo come frase da changelog, orientata al cambiamento rilasciabile e non all'attività interna.
 - Prima di aprire o mergiare una PR, usa `scripts/preflight_publish.sh` o `make preflight-publish` per classificare il diff, bloccare tocchi accidentali ai file release-owned e capire se il deploy VPS è davvero atteso.
