@@ -22,14 +22,6 @@
           "section": "Correzioni"
         },
         {
-          "type": "ops",
-          "section": "Operatività"
-        },
-        {
-          "type": "security",
-          "section": "Sicurezza e guardrail"
-        },
-        {
           "type": "deps",
           "section": "Dipendenze"
         },

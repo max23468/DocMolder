@@ -395,6 +395,15 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertEqual(result.processing_mode, "fallback")
         self.assertIn("fallback conservativo", result.message)
 
+    def test_document_photo_fallback_caps_image_before_enhancement(self) -> None:
+        image = Image.new("RGB", (3600, 2800), "white")
+
+        with patch.object(self.processor, "_detect_document_photo_corners", return_value=None):
+            transformed = self.processor._transform_document_photo(image)
+
+        self.assertEqual(transformed.mode, "fallback")
+        self.assertLessEqual(max(transformed.image.size), 2400 + (2400 // 45 * 2))
+
     def test_images_to_pdf_can_keep_original_image_format(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_2" / "input"
         input_dir.mkdir(parents=True, exist_ok=True)

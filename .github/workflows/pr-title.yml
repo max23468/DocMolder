@@ -26,7 +26,7 @@ jobs:
 
           title = os.environ["PR_TITLE"].strip()
           pattern = re.compile(
-              r"^(feat|fix|ops|security|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: [^ ].+$"
+              r"^(feat|fix|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: [^ ].+$"
           )
 
           if pattern.match(title):
@@ -35,7 +35,7 @@ jobs:
 
           print("Invalid PR title.")
           print("Use: <type>(optional-scope)!: short summary")
-          print("Allowed types: feat, fix, ops, security, docs, deps, refactor, test, chore, build, ci")
+          print("Allowed types: feat, fix, docs, deps, refactor, test, chore, build, ci")
           print(f"Current title: {title}")
           sys.exit(1)
           PY

@@ -1051,6 +1051,7 @@ class DocumentProcessor:
         corners = self._detect_document_photo_corners(image)
         if corners is None:
             fallback_image = self._auto_crop_scan_borders(image)
+            fallback_image = self._limit_document_photo_output_size(fallback_image)
             warnings.add("contorno_non_sicuro")
             return _DocumentPhotoTransform(
                 image=self._add_document_photo_margin(self._enhance_document_photo(fallback_image)),
@@ -1186,6 +1187,14 @@ class DocumentProcessor:
             borderValue=(255, 255, 255),
         )
         return Image.fromarray(warped)
+
+    def _limit_document_photo_output_size(self, image: Image.Image) -> Image.Image:
+        width, height = image.size
+        scale = min(1.0, DOCUMENT_PHOTO_OUTPUT_MAX_SIDE / max(width, height))
+        if scale >= 1.0:
+            return image.copy()
+        target_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+        return image.resize(target_size, Image.Resampling.LANCZOS)
 
     def _order_document_points(self, points: np.ndarray) -> np.ndarray:
         ordered = np.zeros((4, 2), dtype="float32")
