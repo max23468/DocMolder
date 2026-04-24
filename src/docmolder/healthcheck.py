@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -77,6 +78,10 @@ def build_health_report(
     max_running_job_age_seconds: int | None = None,
     max_runtime_dir_bytes: int | None = None,
     max_backup_age_seconds: int | None = None,
+    min_disk_free_bytes: int | None = None,
+    min_disk_free_percent: int | None = None,
+    max_load_per_cpu: float | None = None,
+    min_memory_available_bytes: int | None = None,
 ) -> dict[str, Any]:
     runtime_dir = settings.runtime_dir
     database_path = settings.database_path
@@ -161,6 +166,29 @@ def build_health_report(
         alerts.append("backup_stale")
 
     disk_usage = _disk_usage(runtime_dir if runtime_exists else runtime_dir.parent)
+    if disk_usage is not None:
+        disk_total_bytes, _, disk_free_bytes = disk_usage
+        if min_disk_free_bytes is not None and disk_free_bytes < min_disk_free_bytes:
+            alerts.append("disk_free_bytes_below_min")
+        if min_disk_free_percent is not None and disk_total_bytes > 0:
+            disk_free_percent = (disk_free_bytes / disk_total_bytes) * 100
+            if disk_free_percent < min_disk_free_percent:
+                alerts.append("disk_free_percent_below_min")
+
+    cpu_count = _cpu_count()
+    load_average = _load_average()
+    if max_load_per_cpu is not None and cpu_count and load_average is not None:
+        if load_average[0] / cpu_count > max_load_per_cpu:
+            alerts.append("load_average_exceeded")
+
+    memory_info = _memory_info()
+    if (
+        min_memory_available_bytes is not None
+        and memory_info is not None
+        and memory_info["available_bytes"] < min_memory_available_bytes
+    ):
+        alerts.append("memory_available_below_min")
+
     status = "ok" if not reasons and not alerts else "fail"
     report: dict[str, Any] = {
         "ok": status == "ok",
@@ -182,6 +210,21 @@ def build_health_report(
             "disk_total_bytes": disk_usage[0] if disk_usage is not None else None,
             "disk_used_bytes": disk_usage[1] if disk_usage is not None else None,
             "disk_free_bytes": disk_usage[2] if disk_usage is not None else None,
+            "disk_free_percent": (
+                round((disk_usage[2] / disk_usage[0]) * 100, 1) if disk_usage is not None and disk_usage[0] else None
+            ),
+        },
+        "system": {
+            "cpu_count": cpu_count,
+            "load_average_1m": load_average[0] if load_average is not None else None,
+            "load_average_5m": load_average[1] if load_average is not None else None,
+            "load_average_15m": load_average[2] if load_average is not None else None,
+            "load_per_cpu_1m": (
+                round(load_average[0] / cpu_count, 2) if load_average is not None and cpu_count else None
+            ),
+            "memory_total_bytes": memory_info["total_bytes"] if memory_info is not None else None,
+            "memory_used_bytes": memory_info["used_bytes"] if memory_info is not None else None,
+            "memory_available_bytes": memory_info["available_bytes"] if memory_info is not None else None,
         },
         "database": {
             "path": str(database_path),
@@ -216,6 +259,7 @@ def build_health_report(
 
 def render_text_report(report: dict[str, Any]) -> str:
     runtime = report["runtime"]
+    system = report["system"]
     database = report["database"]
     backup = report["backup"]
     jobs = report["jobs"]
@@ -228,6 +272,10 @@ def render_text_report(report: dict[str, Any]) -> str:
             f"runtime_exists: {runtime['exists']}",
             f"runtime_writable: {runtime['writable']}",
             f"runtime_size_bytes: {runtime['size_bytes']}",
+            f"runtime_disk_free_bytes: {runtime['disk_free_bytes']}",
+            f"runtime_disk_free_percent: {runtime['disk_free_percent']}",
+            f"system_load_per_cpu_1m: {system['load_per_cpu_1m']}",
+            f"system_memory_available_bytes: {system['memory_available_bytes']}",
             f"database_path: {database['path']}",
             f"database_exists: {database['exists']}",
             f"database_integrity_ok: {database['integrity_ok']}",
@@ -255,6 +303,43 @@ def _disk_usage(path: Path) -> tuple[int, int, int] | None:
     return usage.total, usage.used, usage.free
 
 
+def _cpu_count() -> int | None:
+    count = os.cpu_count()
+    return count if count and count > 0 else None
+
+
+def _load_average() -> tuple[float, float, float] | None:
+    try:
+        return os.getloadavg()
+    except (AttributeError, OSError):
+        return None
+
+
+def _memory_info() -> dict[str, int] | None:
+    meminfo_path = Path("/proc/meminfo")
+    if not meminfo_path.exists():
+        return None
+    values: dict[str, int] = {}
+    try:
+        for line in meminfo_path.read_text(encoding="utf-8").splitlines():
+            key, _, raw_value = line.partition(":")
+            parts = raw_value.strip().split()
+            if not parts:
+                continue
+            values[key] = int(parts[0]) * 1024
+    except (OSError, ValueError):
+        return None
+    total = values.get("MemTotal")
+    available = values.get("MemAvailable", values.get("MemFree"))
+    if total is None or available is None:
+        return None
+    return {
+        "total_bytes": total,
+        "available_bytes": available,
+        "used_bytes": max(0, total - available),
+    }
+
+
 def _is_writable_dir(path: Path) -> bool:
     return path.is_dir() and path.exists() and path.stat().st_mode is not None and _can_touch(path)
 
@@ -279,6 +364,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-running-job-age-seconds", type=int, help="Eta massima dei job running.")
     parser.add_argument("--max-runtime-dir-bytes", type=int, help="Dimensione massima runtime dir.")
     parser.add_argument("--max-backup-age-seconds", type=int, help="Eta massima ultimo backup.")
+    parser.add_argument("--min-disk-free-bytes", type=int, help="Spazio disco libero minimo.")
+    parser.add_argument("--min-disk-free-percent", type=int, help="Percentuale minima di disco libero.")
+    parser.add_argument("--max-load-per-cpu", type=float, help="Load average 1m massimo per CPU.")
+    parser.add_argument("--min-memory-available-bytes", type=int, help="Memoria disponibile minima.")
     return parser
 
 
@@ -312,6 +401,20 @@ def main(argv: list[str] | None = None) -> int:
             args.max_backup_age_seconds
             if args.max_backup_age_seconds is not None
             else settings.health_max_backup_age_seconds
+        ),
+        min_disk_free_bytes=(
+            args.min_disk_free_bytes if args.min_disk_free_bytes is not None else settings.health_min_disk_free_bytes
+        ),
+        min_disk_free_percent=(
+            args.min_disk_free_percent
+            if args.min_disk_free_percent is not None
+            else settings.health_min_disk_free_percent
+        ),
+        max_load_per_cpu=args.max_load_per_cpu if args.max_load_per_cpu is not None else settings.health_max_load_per_cpu,
+        min_memory_available_bytes=(
+            args.min_memory_available_bytes
+            if args.min_memory_available_bytes is not None
+            else settings.health_min_memory_available_bytes
         ),
     )
     if args.json:

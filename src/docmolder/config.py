@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     )
     health_max_runtime_dir_bytes: int = Field(default=2_147_483_648, alias="DOCMOLDER_HEALTH_MAX_RUNTIME_DIR_BYTES")
     health_max_backup_age_seconds: int = Field(default=172800, alias="DOCMOLDER_HEALTH_MAX_BACKUP_AGE_SECONDS")
+    health_min_disk_free_bytes: int = Field(default=536_870_912, alias="DOCMOLDER_HEALTH_MIN_DISK_FREE_BYTES")
+    health_min_disk_free_percent: int = Field(default=10, alias="DOCMOLDER_HEALTH_MIN_DISK_FREE_PERCENT")
+    health_max_load_per_cpu: float = Field(default=2.0, alias="DOCMOLDER_HEALTH_MAX_LOAD_PER_CPU")
+    health_min_memory_available_bytes: int = Field(
+        default=134_217_728,
+        alias="DOCMOLDER_HEALTH_MIN_MEMORY_AVAILABLE_BYTES",
+    )
+    image_pdf_max_source_side_px: int = Field(default=3200, alias="DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX")
     runtime_dir: Path = Field(default=Path("./data/runtime"), alias="DOCMOLDER_RUNTIME_DIR")
     database_path: Path = Field(default=Path("./data/runtime/docmolder.db"), alias="DOCMOLDER_DATABASE_PATH")
     sqlite_backup_dir: Path = Field(default=Path("./data/runtime/backups"), alias="DOCMOLDER_SQLITE_BACKUP_DIR")

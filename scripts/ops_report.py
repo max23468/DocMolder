@@ -103,6 +103,14 @@ def next_actions(report: dict[str, object]) -> list[str]:
         total = int(runtime.get("disk_total_bytes") or 0)
         if total and free / total < 0.15:
             actions.append("Spazio disco sotto il 15 percento: pulizia runtime/log o aumento spazio.")
+    system = health.get("system", {})
+    if isinstance(system, dict):
+        load_per_cpu = system.get("load_per_cpu_1m")
+        if load_per_cpu is not None and float(load_per_cpu) > 2:
+            actions.append("Load CPU alto: riduci job pesanti o verifica processi attivi sulla VPS.")
+        memory_available = system.get("memory_available_bytes")
+        if memory_available is not None and int(memory_available) < 128 * 1024 * 1024:
+            actions.append("RAM disponibile bassa: verifica job pesanti e processi concorrenti.")
     if not actions:
         actions.append("Nessuna azione immediata dal report locale.")
     return actions
@@ -124,6 +132,13 @@ def print_text(report: dict[str, object]) -> None:
                 f"queued={jobs.get('jobs_queued')} running={jobs.get('jobs_running')} "
                 f"failed={jobs.get('jobs_failed')} succeeded={jobs.get('jobs_succeeded')} "
                 f"stale={jobs.get('stale_running_jobs')}"
+            )
+        system = health.get("system", {})
+        if isinstance(system, dict):
+            print(
+                "- System: "
+                f"load_per_cpu_1m={system.get('load_per_cpu_1m')} "
+                f"memory_available_bytes={system.get('memory_available_bytes')}"
             )
     else:
         print("\n## Health")

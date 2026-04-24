@@ -442,6 +442,18 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertTrue(result.output_path.exists())
         self.assertIn("scala di grigi", result.message)
 
+    def test_images_to_pdf_downscales_huge_inputs_before_conversion(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_huge_image" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "huge.jpg"
+        Image.new("RGB", (900, 620), "white").save(image_path)
+        processor = DocumentProcessor(self.runtime_dir, image_pdf_max_source_side_px=160)
+
+        result = processor.images_to_pdf([image_path], "huge_downscaled", use_a4_layout=False)
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("Ho ridotto 1 immagine molto grande", result.message)
+
     def test_process_images_to_pdf_grayscale_does_not_roundtrip_through_pdf_grayscale(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_5" / "input"
         input_dir.mkdir(parents=True, exist_ok=True)

@@ -29,6 +29,7 @@ A4_MARGIN_NARROW_PX = 48
 A4_MARGIN_NONE_PX = 0
 DOCUMENT_PHOTO_DETECTION_MAX_SIDE = 1800
 DOCUMENT_PHOTO_OUTPUT_MAX_SIDE = 2400
+IMAGE_PDF_DEFAULT_MAX_SOURCE_SIDE = 3200
 
 
 @dataclass(slots=True)
@@ -59,9 +60,15 @@ class ProcessingUserError(Exception):
 
 
 class DocumentProcessor:
-    def __init__(self, runtime_dir: Path, ghostscript_timeout_seconds: int = 120) -> None:
+    def __init__(
+        self,
+        runtime_dir: Path,
+        ghostscript_timeout_seconds: int = 120,
+        image_pdf_max_source_side_px: int = IMAGE_PDF_DEFAULT_MAX_SOURCE_SIDE,
+    ) -> None:
         self.runtime_dir = runtime_dir
         self.ghostscript_timeout_seconds = max(1, ghostscript_timeout_seconds)
+        self.image_pdf_max_source_side_px = max(800, image_pdf_max_source_side_px)
 
     def create_job_dir(self, user_id: int) -> Path:
         job_dir = self.runtime_dir / "jobs" / f"user_{user_id}_{uuid.uuid4().hex[:12]}"
@@ -181,23 +188,24 @@ class DocumentProcessor:
             raise ProcessingUserError("Non ho ricevuto immagini da convertire in PDF.")
         output_path = image_paths[0].parent.parent / f"{output_stem}.pdf"
         prepared_images: list[Image.Image] = []
+        downscaled_images = 0
         try:
             for image_path in image_paths:
                 with Image.open(image_path) as image:
-                    corrected = ImageOps.exif_transpose(image)
-                    if grayscale_output:
-                        if corrected.mode != "L":
-                            corrected = ImageOps.grayscale(corrected)
-                    elif corrected.mode not in ("RGB", "L"):
-                        corrected = corrected.convert("RGB")
-                    elif corrected.mode == "L":
-                        corrected = corrected.convert("RGB")
-                    if auto_crop:
-                        corrected = self._auto_crop_scan_borders(corrected)
-                    if use_a4_layout:
-                        prepared_images.append(self._build_a4_page(corrected, margin_px=a4_margin_px))
-                    else:
-                        prepared_images.append(corrected.copy())
+                    corrected, was_downscaled = self._prepare_image_for_pdf(
+                        image,
+                        grayscale_output=grayscale_output,
+                        auto_crop=auto_crop,
+                    )
+                    if was_downscaled:
+                        downscaled_images += 1
+                    try:
+                        if use_a4_layout:
+                            prepared_images.append(self._build_a4_page(corrected, margin_px=a4_margin_px))
+                        else:
+                            prepared_images.append(corrected.copy())
+                    finally:
+                        corrected.close()
 
             first, *rest = prepared_images
             first.save(output_path, "PDF", save_all=True, append_images=rest, resolution=150.0)
@@ -210,6 +218,7 @@ class DocumentProcessor:
             grayscale_output=grayscale_output,
             use_a4_layout=use_a4_layout,
             a4_margin_px=a4_margin_px,
+            downscaled_images=downscaled_images,
         )
 
         return ProcessingResult(
@@ -987,13 +996,62 @@ class DocumentProcessor:
         grayscale_output: bool,
         use_a4_layout: bool,
         a4_margin_px: int,
+        downscaled_images: int = 0,
     ) -> str:
         crop_prefix = "dopo il ritaglio automatico dei bordi delle immagini, " if auto_crop else ""
         grayscale_prefix = "in scala di grigi " if grayscale_output else ""
+        downscale_note = ""
+        if downscaled_images:
+            image_label = "1 immagine molto grande" if downscaled_images == 1 else f"{downscaled_images} immagini molto grandi"
+            downscale_note = f" Ho ridotto {image_label} prima della conversione."
         if not use_a4_layout:
-            return f"PDF creato con successo {crop_prefix}{grayscale_prefix}mantenendo il formato originale delle immagini."
+            return (
+                f"PDF creato con successo {crop_prefix}{grayscale_prefix}"
+                f"mantenendo il formato originale delle immagini.{downscale_note}"
+            )
         margin_label = self._describe_a4_margin(a4_margin_px)
-        return f"PDF creato con successo {crop_prefix}{grayscale_prefix}in formato A4 con {margin_label}."
+        return f"PDF creato con successo {crop_prefix}{grayscale_prefix}in formato A4 con {margin_label}.{downscale_note}"
+
+    def _prepare_image_for_pdf(
+        self,
+        image: Image.Image,
+        *,
+        grayscale_output: bool,
+        auto_crop: bool,
+    ) -> tuple[Image.Image, bool]:
+        prepared = ImageOps.exif_transpose(image)
+        if prepared is image:
+            prepared = image.copy()
+        else:
+            prepared.load()
+
+        was_downscaled = False
+        max_side = max(prepared.size)
+        if max_side > self.image_pdf_max_source_side_px:
+            resized = prepared.copy()
+            resized.thumbnail(
+                (self.image_pdf_max_source_side_px, self.image_pdf_max_source_side_px),
+                Image.Resampling.LANCZOS,
+            )
+            prepared.close()
+            prepared = resized
+            was_downscaled = True
+
+        if grayscale_output and prepared.mode != "L":
+            converted = ImageOps.grayscale(prepared)
+            prepared.close()
+            prepared = converted
+        elif not grayscale_output and prepared.mode != "RGB":
+            converted = prepared.convert("RGB")
+            prepared.close()
+            prepared = converted
+
+        if auto_crop:
+            cropped = self._auto_crop_scan_borders(prepared)
+            prepared.close()
+            prepared = cropped
+
+        return prepared, was_downscaled
 
     def _describe_a4_margin(self, margin_px: int) -> str:
         if margin_px >= A4_MARGIN_WIDE_PX:

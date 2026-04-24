@@ -2623,6 +2623,7 @@ def build_application(settings: Settings) -> Application:
     processor = DocumentProcessor(
         runtime_dir=settings.runtime_dir,
         ghostscript_timeout_seconds=settings.ghostscript_timeout_seconds,
+        image_pdf_max_source_side_px=settings.image_pdf_max_source_side_px,
     )
     deps = BotDependencies(settings=settings, session_store=session_store, processor=processor)
 

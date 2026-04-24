@@ -2,7 +2,7 @@ VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor cleanup-branches codex-dev-report github-maintenance ops-report
+.PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor cleanup-branches codex-dev-report github-maintenance ops-report profile-processing
 
 setup:
 	python3 -m venv $(VENV)
@@ -67,3 +67,6 @@ github-maintenance:
 
 ops-report:
 	$(PYTHON) scripts/ops_report.py
+
+profile-processing:
+	$(PYTHON) scripts/profile_processing_flows.py

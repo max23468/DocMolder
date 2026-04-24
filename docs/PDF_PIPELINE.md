@@ -89,6 +89,7 @@ Per le immagini:
 - in alcuni flussi puo applicare ritaglio bordi e conversione in scala di grigi
 - per foto di fogli puo usare "Raddrizza foto documento", con rilevamento contorno, correzione prospettica, normalizzazione leggibilita e fallback conservativo se il foglio non e chiaro
 - quando il risultato richiesto e un PDF in scala di grigi da immagini, il bot lo genera direttamente in grigio invece di creare prima un PDF a colori e riconvertirlo dopo
+- le immagini con lato molto grande vengono ridotte prima della conversione, entro `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX`, per proteggere RAM e CPU della VPS senza conservare file intermedi permanenti
 
 ## Auto-orientamento PDF
 

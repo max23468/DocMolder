@@ -20,9 +20,8 @@ Questo documento non e una checklist di task: raccoglie scelte da chiarire prima
 
 ## Operativita
 
-- decidere soglie stabili per coda troppo lunga, job stuck, failure rate e runtime dir in crescita
+- decidere eventuali soglie piu restrittive per coda troppo lunga, job stuck, failure rate, runtime dir, disco, load e RAM dopo osservazione in produzione
 - decidere se introdurre alert esterni oltre agli alert Telegram admin
-- decidere se monitorare CPU, RAM e disco tramite script locale, systemd timer o servizio esterno
 - decidere il livello minimo di smoke test post-deploy da considerare bloccante
 - decidere quando SQLite smette di essere accettabile per volume, concorrenza o retention
 
