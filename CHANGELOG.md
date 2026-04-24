@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.8.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.8.0...docmolder-v0.8.1) (2026-04-24)
+
+
+### Correzioni
+
+* address open Codex bot review findings ([#58](https://github.com/max23468/DocMolder/issues/58)) ([a3441f4](https://github.com/max23468/DocMolder/commit/a3441f4669b1a9876b31bc6d95a700c09b953df6))
+
 ## [0.8.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.7.0...docmolder-v0.8.0) (2026-04-24)
 
 
