@@ -1,0 +1,100 @@
+name: VPS Backup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Backup SQLite on Oracle VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DOCMOLDER_VPS_HOST: ${{ secrets.DOCMOLDER_VPS_HOST }}
+      DOCMOLDER_VPS_USER: ${{ secrets.DOCMOLDER_VPS_USER }}
+      DOCMOLDER_VPS_PORT: ${{ secrets.DOCMOLDER_VPS_PORT }}
+      DOCMOLDER_VPS_SSH_KNOWN_HOSTS: ${{ secrets.DOCMOLDER_VPS_SSH_KNOWN_HOSTS }}
+
+    steps:
+      - name: Validate SSH secrets
+        env:
+          DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64: ${{ secrets.DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+
+          missing=0
+          for var in DOCMOLDER_VPS_HOST DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64; do
+            if [ -z "${!var:-}" ]; then
+              echo "::error::Missing required secret: ${var}"
+              missing=1
+            fi
+          done
+
+          if [ "${missing}" -ne 0 ]; then
+            exit 1
+          fi
+
+      - name: Set SSH defaults
+        run: |
+          set -euo pipefail
+          echo "DOCMOLDER_VPS_USER=${DOCMOLDER_VPS_USER:-opc}" >> "${GITHUB_ENV}"
+          echo "DOCMOLDER_VPS_PORT=${DOCMOLDER_VPS_PORT:-22}" >> "${GITHUB_ENV}"
+
+      - name: Prepare SSH key
+        env:
+          DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64: ${{ secrets.DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.ssh"
+          printf '%s' "${DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64}" | base64 --decode > "${HOME}/.ssh/docmolder_vps"
+          chmod 600 "${HOME}/.ssh/docmolder_vps"
+
+      - name: Prepare known hosts
+        run: |
+          set -euo pipefail
+          mkdir -p "${HOME}/.ssh"
+          touch "${HOME}/.ssh/known_hosts"
+          chmod 644 "${HOME}/.ssh/known_hosts"
+
+          if [ -n "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS:-}" ]; then
+            printf '%s\n' "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+            echo "SSH_STRICT=yes" >> "${GITHUB_ENV}"
+          else
+            echo "SSH_STRICT=accept-new" >> "${GITHUB_ENV}"
+          fi
+
+      - name: Create verified SQLite backup
+        run: |
+          set -euo pipefail
+
+          ssh \
+            -i "${HOME}/.ssh/docmolder_vps" \
+            -p "${DOCMOLDER_VPS_PORT}" \
+            -o BatchMode=yes \
+            -o ConnectTimeout=15 \
+            -o ServerAliveInterval=30 \
+            -o StrictHostKeyChecking="${SSH_STRICT}" \
+            "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
+            "sudo env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin bash -lc 'set -euo pipefail
+            /opt/docmolder/app/deploy/backup-db.sh
+            source /opt/docmolder/app/deploy/env-load.sh
+            load_docmolder_env_file /etc/docmolder/docmolder.env
+            backup_dir=\"\${DOCMOLDER_SQLITE_BACKUP_DIR:-\${DOCMOLDER_RUNTIME_DIR%/}/backups}\"
+            sudo -u docmolder ls -lah \"\${backup_dir}\"
+            /opt/docmolder/venv/bin/python -m docmolder.healthcheck --check-service-active --service-name \"\${DOCMOLDER_SERVICE_NAME:-docmolder}\"'"
+
+      - name: Backup summary
+        if: always()
+        run: |
+          {
+            echo "## VPS Backup"
+            echo ""
+            echo "- Workflow conclusion: \`${{ job.status }}\`"
+            echo "- No application files were deployed."
+          } >> "${GITHUB_STEP_SUMMARY}"

@@ -49,7 +49,7 @@ jobs:
               "src/docmolder/__init__.py",
           }
 
-          subprocess.check_call(["git", "fetch", "origin", base_ref, "--depth=1"])
+          subprocess.check_call(["git", "fetch", "origin", base_ref])
           changed = subprocess.check_output(
               ["git", "diff", "--name-only", f"origin/{base_ref}...HEAD"],
               text=True,

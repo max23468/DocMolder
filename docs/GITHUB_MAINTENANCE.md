@@ -11,6 +11,7 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - Main commit guard: `.github/workflows/main-commit-policy.yml`
 - Deploy VPS: `.github/workflows/deploy-vps.yml`
 - VPS Check: `.github/workflows/vps-check.yml`
+- VPS Backup: `.github/workflows/vps-backup.yml`
 - Rollback VPS: `.github/workflows/rollback-vps.yml`
 - Dependabot: `.github/dependabot.yml`
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
@@ -42,7 +43,7 @@ Strumenti locali:
 
 La CI usa lo stesso classificatore: per cambi senza impatto runtime mantiene i check richiesti ma salta install, test Python e package build pesanti.
 
-`Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente.
+`Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `VPS Backup` crea un backup SQLite verificato senza deployare file; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente.
 
 ### Corsie di pubblicazione
 
