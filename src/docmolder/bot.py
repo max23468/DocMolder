@@ -650,6 +650,80 @@ def _has_capacity_for_new_job(user_id: int, deps: BotDependencies) -> bool:
     return deps.session_store.count_active_jobs_for_user(user_id) < deps.settings.max_active_jobs_per_user
 
 
+def _is_latest_job_rerun_text(text: str) -> bool:
+    keyword_text = _normalize_keyword_text(text)
+    if not keyword_text:
+        return False
+    padded_text = f" {keyword_text} "
+    rerun_fragments = (
+        " ripeti ",
+        " ripetere ",
+        " ripetilo ",
+        " rilancia ",
+        " rilanciare ",
+        " rilancialo ",
+        " rifai ",
+        " rifare ",
+        " rifallo ",
+        " riesegui ",
+        " rieseguire ",
+        " rieseguilo ",
+    )
+    contextual_fragments = (
+        " ultimo ",
+        " ultimo job ",
+        " ultimo lavoro ",
+        " ultimo flusso ",
+        " quello ",
+        " precedente ",
+    )
+    return any(fragment in padded_text for fragment in rerun_fragments) and any(
+        fragment in padded_text for fragment in contextual_fragments
+    )
+
+
+def _mentions_context_reference(text: str) -> bool:
+    keyword_text = _normalize_keyword_text(text)
+    if not keyword_text:
+        return False
+    padded_text = f" {keyword_text} "
+    context_fragments = (
+        " questo pdf ",
+        " quel pdf ",
+        " quello ",
+        " questo documento ",
+        " quel documento ",
+        " ultimo pdf ",
+        " ultimo file ",
+        " ultimo documento ",
+        " ultimo job ",
+        " file precedente ",
+        " documento precedente ",
+        " comprimilo ",
+        " alleggeriscilo ",
+        " riducilo ",
+        " dividilo ",
+        " separalo ",
+        " giralo ",
+        " ruotalo ",
+        " rifallo ",
+    )
+    return any(fragment in padded_text for fragment in context_fragments)
+
+
+def _build_missing_context_reference_message(deps: BotDependencies, user_id: int) -> str:
+    latest_jobs = deps.session_store.list_user_jobs(user_id, limit=1)
+    if latest_jobs:
+        return (
+            "Ho capito il riferimento, ma non ho una sessione attiva con un PDF sicuro su cui lavorare.\n"
+            "Se vuoi ripetere l'ultimo job, scrivi /last. Se invece vuoi modificare un PDF preciso, reinviamelo e riparto da quello."
+        )
+    return (
+        "Ho capito il riferimento, ma non ho ancora un PDF attivo in questa chat.\n"
+        "Inviami il file e poi puoi scrivere frasi come `comprimi questo PDF` o `dividilo senza zip`."
+    )
+
+
 def _filter_keyboard_for_session(session: UserSession) -> InlineKeyboardMarkup | None:
     return build_actions_keyboard(infer_exposed_actions(session))
 
@@ -765,7 +839,22 @@ async def last_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     deps, user, message = prepared
     _record_command_metric(deps, "last")
 
-    jobs = deps.session_store.list_user_jobs(user.id, limit=1)
+    await _rerun_latest_user_job(
+        context=context,
+        deps=deps,
+        user_id=user.id,
+        message=message,
+    )
+
+
+async def _rerun_latest_user_job(
+    *,
+    context: ContextTypes.DEFAULT_TYPE,
+    deps: BotDependencies,
+    user_id: int,
+    message: Message,
+) -> None:
+    jobs = deps.session_store.list_user_jobs(user_id, limit=1)
     if not jobs:
         await message.reply_text(
             "Non ho ancora un job da rilanciare per te. Inviami immagini o PDF e poi potrò ripetere l'ultimo flusso.",
@@ -773,7 +862,7 @@ async def last_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         return
 
-    if not _has_capacity_for_new_job(user.id, deps):
+    if not _has_capacity_for_new_job(user_id, deps):
         await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
 
@@ -1862,6 +1951,14 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if menu_text == "Guida rapida" or text == "Cosa posso fare":
         await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
         return
+    if _is_latest_job_rerun_text(text):
+        await _rerun_latest_user_job(
+            context=context,
+            deps=deps,
+            user_id=user.id,
+            message=message,
+        )
+        return
 
     session = deps.session_store.get(user.id)
     if session is not None and session.files:
@@ -1954,6 +2051,13 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     quick_action_guidance = _build_quick_action_guidance(session, menu_text)
     if quick_action_guidance is not None:
         await message.reply_text(quick_action_guidance, reply_markup=build_main_menu_keyboard())
+        return
+
+    if _mentions_context_reference(text):
+        await message.reply_text(
+            _build_missing_context_reference_message(deps, user.id),
+            reply_markup=build_main_menu_keyboard(),
+        )
         return
 
     await message.reply_text(
