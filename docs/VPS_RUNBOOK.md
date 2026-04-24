@@ -76,6 +76,12 @@ Healthcheck operativo:
 sudo /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name docmolder
 ```
 
+Report operations completo:
+
+```bash
+sudo /opt/docmolder/venv/bin/python /opt/docmolder/app/scripts/ops_report.py --check-service
+```
+
 Smoke check post-deploy con retry:
 
 ```bash

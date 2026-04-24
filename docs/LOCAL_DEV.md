@@ -73,6 +73,42 @@ Compilazione/import:
 make compile
 ```
 
+Briefing agente:
+
+```bash
+python3 scripts/agent_start.py --area docs --owner codex
+```
+
+Preflight anti-overlap tra agenti:
+
+```bash
+python3 scripts/agent_parallel_safe.py --owner codex
+```
+
+Handoff agente:
+
+```bash
+python3 scripts/agent_handoff.py --owner codex --summary "..." --check "..." --risk "..." --next-step "..."
+```
+
+Report sviluppo Codex:
+
+```bash
+make codex-dev-report
+```
+
+Report GitHub manutenzione/release:
+
+```bash
+make github-maintenance
+```
+
+Report osservabilita/operations:
+
+```bash
+make ops-report
+```
+
 Git maintenance locale:
 
 ```bash

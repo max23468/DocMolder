@@ -28,6 +28,9 @@ Canale GitHub preferito:
 
 Strumenti locali:
 
+- `scripts/codex_dev_report.py` o `make codex-dev-report`: riepiloga impatto del diff, rischi e check consigliati prima di delegare, aprire PR o pubblicare.
+- `scripts/github_maintenance_report.py` o `make github-maintenance`: riepiloga PR aperte, Release PR, PR Dependabot, alert Dependabot leggibili e run Actions fallite recenti.
+- `scripts/ops_report.py` o `make ops-report`: produce un report operativo locale/VPS con healthcheck, stato systemd quando disponibile e prossime azioni.
 - `scripts/classify_changes.py`: classifica il diff in docs/test/CI/code/ops/deploy e segnala file riservati a `release-please`.
 - `scripts/preflight_publish.sh` o `make preflight-publish`: blocca branch sbagliati e version bump/changelog manuali prima del push.
 - `scripts/current_failed_runs.py`: mostra solo run failed del branch e SHA correnti, evitando di inseguire failure vecchie o non correlate.
@@ -106,12 +109,13 @@ Configurazione consigliata:
 
 Frequenza minima mensile:
 
-1. controllare workflow falliti o flakey;
-2. verificare PR Dependabot aperte;
-3. verificare alert Security e Dependabot;
-4. controllare che i ruleset di `main` siano coerenti con il flusso reale;
-5. controllare che `release-please` non abbia Release PR bloccate;
-6. verificare che i secret VPS e release siano ancora presenti e non scaduti.
+1. eseguire `make github-maintenance`;
+2. controllare workflow falliti o flakey;
+3. verificare PR Dependabot aperte;
+4. verificare alert Security e Dependabot;
+5. controllare che i ruleset di `main` siano coerenti con il flusso reale;
+6. controllare che `release-please` non abbia Release PR bloccate;
+7. verificare che i secret VPS e release siano ancora presenti e non scaduti.
 
 ## Fallback operativo
 

@@ -2,7 +2,7 @@ VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor cleanup-branches
+.PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor cleanup-branches codex-dev-report github-maintenance ops-report
 
 setup:
 	python3 -m venv $(VENV)
@@ -58,3 +58,12 @@ publish-doctor:
 
 cleanup-branches:
 	bash scripts/cleanup_merged_branches.sh
+
+codex-dev-report:
+	$(PYTHON) scripts/codex_dev_report.py
+
+github-maintenance:
+	$(PYTHON) scripts/github_maintenance_report.py
+
+ops-report:
+	$(PYTHON) scripts/ops_report.py
