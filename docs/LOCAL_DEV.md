@@ -80,6 +80,14 @@ docmolder-fix-git-lock .
 docmolder-git-safe -- status --short
 ```
 
+Publish readiness:
+
+```bash
+make publish-doctor
+```
+
+Il controllo blocca i casi che rendono rumorosa la pubblicazione: `HEAD detached`, branch indietro o divergente da `origin/main`, file riservati a `release-please`, run GitHub fallite sullo SHA corrente e commenti aperti del Codex connector bot.
+
 ## Flusso quotidiano consigliato
 
 1. aggiorna dipendenze solo se necessario (`make setup`)

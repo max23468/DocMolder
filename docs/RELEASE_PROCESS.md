@@ -14,6 +14,8 @@ Questa guida descrive il processo standard per portare una modifica da PR a rele
 
 Verifica almeno:
 
+- branch di lavoro creata da `origin/main`, non `HEAD detached`
+- `make publish-doctor` senza blocker per intercettare base vecchia, run failed correnti, commenti bot aperti e file riservati a `release-please`
 - codice coerente con il comportamento voluto
 - test rilevanti verdi
 - classificazione del diff con `scripts/classify_changes.py` o `make preflight-publish`
@@ -33,6 +35,7 @@ Regole operative essenziali:
 - eccezione: modifiche minuscole solo documentali (`docs:`, limitate a `AGENTS.md`, `README.md` o `docs/**`) possono essere pubblicate direttamente su `main` dopo preflight/check mirati
 - niente bump manuali di versione o changelog nelle PR normali
 - per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile
+- prima di aprire o aggiornare la PR, usare `scripts/publish_doctor.py --fail` o affidarsi a `scripts/publish_change.sh`, che lo esegue automaticamente
 - prima di inseguire una run failed, controllare solo branch e SHA correnti con `scripts/current_failed_runs.py`
 - i dettagli della policy vivono in [VERSIONING.md](./VERSIONING.md)
 

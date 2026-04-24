@@ -20,19 +20,44 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 
 ## Pubblicazione più fluida
 
+Canale GitHub preferito:
+
+- usa dove possibile il tool/plugin GitHub come canale primario per repository, PR, issue, commenti, review, metadata e creazione PR;
+- usa `gh` e `git` locali solo per operazioni non coperte bene dal plugin, come branch/commit/push locali, stato auth, log GitHub Actions e inspect di run CI;
+- quando passi da plugin a CLI, mantieni allineati branch locale, PR corrente e SHA monitorato.
+
 Strumenti locali:
 
 - `scripts/classify_changes.py`: classifica il diff in docs/test/CI/code/ops/deploy e segnala file riservati a `release-please`.
 - `scripts/preflight_publish.sh` o `make preflight-publish`: blocca branch sbagliati e version bump/changelog manuali prima del push.
 - `scripts/current_failed_runs.py`: mostra solo run failed del branch e SHA correnti, evitando di inseguire failure vecchie o non correlate.
 - `scripts/check_codex_bot_comments.py`: blocca ready/merge quando il Codex connector bot ha lasciato commenti aperti sulla PR.
+- `scripts/publish_doctor.py` o `make publish-doctor`: verifica in un unico punto branch/base, detached HEAD, divergenza da `origin/main`, file riservati a `release-please`, run failed correnti e commenti bot aperti.
 - `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
-- `scripts/publish_change.sh "<titolo conventional>"`: preflight, commit se serve, push, PR draft, check, ready e auto-merge.
+- `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push, PR draft, check, ready e auto-merge.
 - `scripts/cleanup_merged_branches.sh` o `make cleanup-branches`: elimina branch locali `codex/*` già mergiati.
 
 La CI usa lo stesso classificatore: per cambi senza impatto runtime mantiene i check richiesti ma salta install, test Python e package build pesanti.
 
 `Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente.
+
+### Corsie di pubblicazione
+
+Prima di qualunque publish da Codex:
+
+```bash
+git fetch origin main
+git switch -c codex/<scope> origin/main
+make publish-doctor
+```
+
+Usa poi una sola corsia, dichiarandola nella risposta finale:
+
+- **Docs minuscoli diretti**: solo `AGENTS.md`, `README.md` o `docs/**`, titolo `docs: ...`, nessun deploy/release atteso, `make publish-doctor` e preflight verdi. Evita questa corsia se il cambio tocca workflow, script, codice runtime, configurazione, release-owned files o istruzioni operative ambigue.
+- **PR standard**: default per codice, CI, script, test, configurazione e docs operative non banali. Usa `scripts/publish_change.sh "<titolo conventional>"`.
+- **PR + deploy/release follow-through**: solo quando il classificatore indica `deploy_relevant` o il titolo produce release. Tratta PR funzionale, Release PR e Deploy VPS come fasi separate da monitorare, non come un unico errore indistinto.
+
+Se `publish_doctor` segnala branch indietro/divergente, detached HEAD, run failed correnti o commenti bot aperti, correggi quello prima di creare o aggiornare la PR.
 
 ## CI veloce
 
