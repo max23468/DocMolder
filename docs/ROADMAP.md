@@ -33,8 +33,7 @@ Completata.
 
 ## Fase 5: Evoluzione Esperienza Utente
 
-- [ ] gestire meglio riferimenti contestuali come “questo PDF”, “quello” o “l'ultimo job”
-- [ ] rafforzare i test conversazionali realistici multi-step sui flussi Telegram più importanti
+Completata.
 
 ## Fase 6: Scansione Documento da Foto
 

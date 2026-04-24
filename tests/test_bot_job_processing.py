@@ -855,6 +855,51 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(queued_jobs), 1)
         self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
 
+    async def test_text_request_can_rerun_latest_job_with_context_phrase(self) -> None:
+        source_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":null}',
+        )
+        message = SimpleNamespace(
+            text="Ripeti l'ultimo job",
+            chat_id=99,
+            message_id=501,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertEqual(queued_jobs[0].rerun_of_job_id, source_job.id)
+        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+
+    async def test_context_reference_without_active_session_asks_for_safe_next_step(self) -> None:
+        message = SimpleNamespace(
+            text="Comprimi questo PDF",
+            chat_id=99,
+            message_id=502,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        self.assertIn("non ho ancora un PDF attivo", message.reply_text.await_args.args[0])
+
     async def test_metrics_command_returns_telegram_metrics_report(self) -> None:
         self.deps.settings.admin_user_ids = [7]
         self.store.set_meta("telegram_metric:command:start", "4")
@@ -1791,6 +1836,32 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.store.get(7))
         message.reply_text.assert_awaited_once()
 
+    async def test_text_request_can_rotate_active_pdf_with_pronoun(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Giralo a destra",
+            chat_id=99,
+            message_id=7022,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertEqual(queued_job.action, "pdf_rotate")
+        self.assertIn('"rotate_degrees": 90', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
+
     async def test_rotate_callback_enqueues_manual_rotation_job(self) -> None:
         self.store.save(
             UserSession(
@@ -2139,6 +2210,32 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn('"compression_preset": "strong"', queued_job.payload_json)
         message.reply_text.assert_awaited_once()
 
+    async def test_text_request_can_compress_active_pdf_with_pronoun(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "risultato.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Alleggeriscilo forte",
+            chat_id=99,
+            message_id=7893,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertEqual(queued_job.action, "pdf_compress")
+        self.assertIn('"compression_preset": "strong"', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
+
     async def test_text_request_for_split_pdf_prompts_for_output_choice(self) -> None:
         self.store.save(
             UserSession(
@@ -2193,6 +2290,50 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(queued_job.action, "pdf_split")
         self.assertIn('"split_output_zip": false', queued_job.payload_json)
         message.reply_text.assert_awaited_once()
+
+    async def test_contextual_split_conversation_prompts_then_enqueues_output_choice(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "risultato.pdf", FileKind.PDF)],
+            )
+        )
+        first_message = SimpleNamespace(
+            text="Dividilo",
+            chat_id=99,
+            message_id=8993,
+            reply_text=AsyncMock(),
+        )
+        first_update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=first_message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(first_update, context)
+
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(saved_session.pending_action, "pdf_split")
+        self.assertIn("ZIP", first_message.reply_text.await_args.args[0])
+
+        second_message = SimpleNamespace(
+            text="pdf separati",
+            chat_id=99,
+            message_id=8994,
+            reply_text=AsyncMock(),
+        )
+        second_update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=second_message,
+        )
+
+        await handle_menu_text(second_update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertEqual(queued_job.action, "pdf_split")
+        self.assertIn('"split_output_zip": false', queued_job.payload_json)
+        self.assertIsNone(self.store.get(7))
 
     async def test_text_request_respects_negated_zip_with_article(self) -> None:
         self.store.save(

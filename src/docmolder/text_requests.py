@@ -223,12 +223,24 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
     mentions_split = _matches_keyword_group(
         keyword_text,
         tokens,
-        ("dividi", "dividere", "separa", "separare", "split", "splitta", "spezza"),
+        ("dividi", "dividilo", "dividere", "separa", "separalo", "separare", "split", "splitta", "spezza", "spezzalo"),
     )
     mentions_compress = _matches_keyword_group(
         keyword_text,
         tokens,
-        ("comprimi", "compressione", "alleggerisci", "riduci", "ottimizza", "peso"),
+        (
+            "comprimi",
+            "comprimilo",
+            "compressione",
+            "alleggerisci",
+            "alleggeriscilo",
+            "riduci",
+            "riducilo",
+            "ottimizza",
+            "ottimizzalo",
+            "peso",
+            "piu leggero",
+        ),
     )
     mentions_auto_orient = _matches_keyword_group(
         keyword_text,
@@ -238,7 +250,7 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
     mentions_rotate = _matches_keyword_group(
         keyword_text,
         tokens,
-        ("ruota", "rotazione", "gira", "girare", "capovolgi"),
+        ("ruota", "ruotalo", "rotazione", "gira", "giralo", "girare", "capovolgi", "capovolgilo"),
     )
     mentions_extract = _matches_keyword_group(
         keyword_text,
@@ -263,7 +275,18 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
     mentions_pdf_creation = _matches_keyword_group(
         keyword_text,
         tokens,
-        ("crea pdf", "fai pdf", "genera pdf", "converti in pdf", "trasforma in pdf", "in pdf"),
+        (
+            "crea pdf",
+            "fai pdf",
+            "fallo pdf",
+            "fanne pdf",
+            "genera pdf",
+            "converti in pdf",
+            "trasforma in pdf",
+            "trasformale in pdf",
+            "mettile in pdf",
+            "in pdf",
+        ),
     )
     page_selection = _extract_page_selection_from_text(normalized_text, allow_keywordless_sequence=True)
     rotate_degrees = _extract_rotation_degrees(keyword_text)
