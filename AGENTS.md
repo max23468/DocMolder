@@ -131,9 +131,8 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 
 ## 10) Deploy e operazioni
 
-- Esegui deploy, reboot, modifiche VPS o aggiornamenti `.env` solo quando l'utente li ha richiesti esplicitamente o ha già dato consenso chiaro per quella specifica operazione.
 - Il workflow `Deploy VPS` automatico deve restare path-aware: parte su `main` solo per file deploy-relevant. Per verifiche senza deploy usa `VPS Check`; per ripristinare una revisione usa `Rollback VPS`.
-- Prima di un'azione operativa con impatto su VPS, servizio o configurazione, chiedi consenso esplicito indicando cosa farai, perché serve, impatto atteso, verifica prevista e possibile rollback.
+- Non fare deploy inutili: prima di mergeare o avviare workflow che possono deployare, verifica che il diff sia davvero deploy-relevant e che il deploy sia coerente con la richiesta corrente.
 - Se target, rischio, intento o consenso operativo sono ambigui, fermati e chiedi conferma prima di procedere.
 - Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.
 - Per deploy o manutenzione VPS, seguire `docs/VPS_RUNBOOK.md` e riportare sempre comandi eseguiti, esito e verifiche.
