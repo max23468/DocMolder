@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.keyboards import build_actions_keyboard
 from docmolder.models import FileKind, SupportedAction, UserSession
-from docmolder.services import (
+from docmolder.action_catalog import (
     build_next_step_hint,
     build_output_stem,
     build_session_file,
@@ -20,7 +20,7 @@ from docmolder.services import (
 )
 
 
-class ServiceHelpersTest(unittest.TestCase):
+class ActionCatalogHelpersTest(unittest.TestCase):
     def test_build_output_stem_uses_source_pdf_name_for_single_file(self) -> None:
         session_file = build_session_file("pdf-1", "Documento Finale.pdf", FileKind.PDF)
 

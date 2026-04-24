@@ -20,8 +20,6 @@ class BrandAssetsTest(unittest.TestCase):
             expected_names = {
                 "docmolder-logo-square.png",
                 "docmolder-logo-ios-rounded.png",
-                "docmolder-logo-telegram-circle.png",
-                "docmolder-telegram-profile.png",
                 "docmolder-telegram-profile.jpg",
                 "docmolder-app-icon.png",
                 "docmolder-logo-horizontal.png",

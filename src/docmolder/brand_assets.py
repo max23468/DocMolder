@@ -107,8 +107,6 @@ def render_brand_assets(output_dir: Path) -> list[Path]:
     named_images: tuple[tuple[str, Image.Image], ...] = (
         ("docmolder-logo-square.png", render_square_variant(size=2048)),
         ("docmolder-logo-ios-rounded.png", render_ios_variant(size=2048)),
-        ("docmolder-logo-telegram-circle.png", render_circle_variant(size=2048)),
-        ("docmolder-telegram-profile.png", render_circle_variant(size=2048)),
         ("docmolder-app-icon.png", render_ios_variant(size=1024)),
         ("docmolder-logo-horizontal.png", render_horizontal_logo(font_family="avenir")),
         ("docmolder-share-card.png", render_share_card()),

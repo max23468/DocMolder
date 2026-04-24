@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.models import CompressionPreset, FileKind, JobPayload, UserSession
-from docmolder.services import build_session_file
+from docmolder.action_catalog import build_session_file
 
 
 class JobPayloadModelTest(unittest.TestCase):

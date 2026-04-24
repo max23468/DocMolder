@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
 
 from docmolder.branding import MAIN_MENU_PLACEHOLDER, MAIN_MENU_ROWS
 from docmolder.models import SupportedAction
-from docmolder.services import get_action_label
+from docmolder.action_catalog import get_action_label
 
 
 def _build_action_button_label(action: SupportedAction) -> str:
