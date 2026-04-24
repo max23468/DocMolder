@@ -51,7 +51,7 @@ Non e:
 
 - `src/docmolder/bot.py`
   - handler Telegram, wizard utente, admin console, queue worker e messaggi
-- `src/docmolder/services.py`
+- `src/docmolder/action_catalog.py`
   - catalogo centrale di azioni, naming output e compatibilita tra file e operazioni
 - `src/docmolder/telegram_messaging.py`
   - chunking messaggi lunghi e fallback parse-mode per invii Telegram gestiti
@@ -68,7 +68,13 @@ Non e:
 ### Persistenza
 
 - `src/docmolder/session_store.py`
-  - sessioni, file associati alla sessione, job, utenti noti, usage events e `app_meta`
+  - facciata compatibile per store sessioni/job
+- `src/docmolder/session_store_protocol.py`
+  - protocollo condiviso dello store
+- `src/docmolder/sqlite_session_store.py`
+  - sessioni, file associati alla sessione, job, utenti noti, usage events e `app_meta` su SQLite
+- `src/docmolder/in_memory_session_store.py`
+  - store in memoria per test e runtime isolati
 - `src/docmolder/sqlite_backup.py`
   - backup e restore verificati di SQLite
 - `src/docmolder/healthcheck.py`
@@ -131,6 +137,12 @@ Regole:
 - lo storico persistente riguarda job, metadati e metriche leggere, non il contenuto dei documenti
 - SQLite e il target corrente per singola VPS e carico controllato
 - una crescita rilevante di concorrenza o retention richiede una nuova decisione architetturale
+
+## Path operativi stabili
+
+- `deploy/` resta il percorso degli script e delle unità `systemd` usate dalla VPS
+- `scripts/` resta il percorso degli strumenti locali, CI e publishing richiamati da Makefile, workflow e runbook
+- eventuali riorganizzazioni future di questi percorsi devono introdurre prima wrapper compatibili nei path storici, poi aggiornare workflow e documentazione
 
 ## Osservabilita minima
 

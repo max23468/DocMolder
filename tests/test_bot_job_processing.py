@@ -89,7 +89,7 @@ from docmolder.models import CompressionPreset, FileKind, JobStatus, SupportedAc
 from docmolder.models import AdminActionStat, AdminStats, AdminUserStat
 from docmolder.keyboards import build_main_menu_keyboard
 from docmolder.session_store import InMemorySessionStore
-from docmolder.services import build_session_file
+from docmolder.action_catalog import build_session_file
 
 
 class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):

@@ -14,9 +14,10 @@ Ultimo aggiornamento del contesto:
 - `src/docmolder/main.py`: entrypoint applicazione.
 - `src/docmolder/bot.py`: handler Telegram, orchestrazione flussi utente.
 - `src/docmolder/processing.py`: pipeline documentale.
-- `src/docmolder/session_store.py`: persistenza sessioni/job su SQLite.
+- `src/docmolder/session_store.py`: facciata store sessioni/job.
+- `src/docmolder/sqlite_session_store.py`: persistenza sessioni/job su SQLite.
 - `src/docmolder/sqlite_backup.py`: backup e restore verificati del database SQLite.
-- `src/docmolder/services.py`: regole azioni supportate e naming output.
+- `src/docmolder/action_catalog.py`: regole azioni supportate e naming output.
 
 ## Dove trovare le informazioni
 
@@ -25,7 +26,7 @@ Ultimo aggiornamento del contesto:
 - Modello dati: [DATA_MODEL.md](./DATA_MODEL.md)
 - Deploy e operations VPS: [VPS_RUNBOOK.md](./VPS_RUNBOOK.md)
 - Governance servizio: [SERVICE_GOVERNANCE.md](./SERVICE_GOVERNANCE.md)
-- Sicurezza operativa: [SECURITY.md](./SECURITY.md)
+- Sicurezza operativa: [OPERATIONS_SECURITY.md](./OPERATIONS_SECURITY.md)
 - Processo rilascio: [RELEASE_PROCESS.md](./RELEASE_PROCESS.md)
 - Policy versioni e changelog: [VERSIONING.md](./VERSIONING.md)
 - Strategia pipeline PDF: [PDF_PIPELINE.md](./PDF_PIPELINE.md)

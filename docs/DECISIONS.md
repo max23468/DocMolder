@@ -93,7 +93,7 @@ Motivazione:
 - rende piu semplice verificare l'allineamento tra modello interno e UI Telegram
 
 Conseguenze:
-- l'introduzione di una nuova azione passa prima dal catalogo in `services.py`
+- l'introduzione di una nuova azione passa prima dal catalogo in `action_catalog.py`
 - tastiere e report si appoggiano a etichette condivise invece di duplicare stringhe locali
 
 ## SQLite come persistenza locale del progetto
