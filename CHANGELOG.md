@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.7.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.6.2...docmolder-v0.7.0) (2026-04-24)
+
+
+### Funzionalità
+
+* migliora i riferimenti contestuali in chat ([#51](https://github.com/max23468/DocMolder/issues/51)) ([3d8031a](https://github.com/max23468/DocMolder/commit/3d8031a2a449bde1e9f38ded0fc0c6739355bedc))
+
 ## [0.6.2](https://github.com/max23468/DocMolder/compare/docmolder-v0.6.1...docmolder-v0.6.2) (2026-04-23)
 
 
