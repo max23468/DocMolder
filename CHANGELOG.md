@@ -8,6 +8,18 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.8.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.7.0...docmolder-v0.8.0) (2026-04-24)
+
+
+### Funzionalità
+
+* **bot:** raddrizza foto documento ([#54](https://github.com/max23468/DocMolder/issues/54)) ([569e86a](https://github.com/max23468/DocMolder/commit/569e86a6c8e022f34744c6e930c77e59cf633877))
+
+
+### Documentazione
+
+* update publish instructions ([06c76fb](https://github.com/max23468/DocMolder/commit/06c76fb6481100fa62656d25d9c60c9d420b3c6f))
+
 ## [0.7.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.6.2...docmolder-v0.7.0) (2026-04-24)
 
 
