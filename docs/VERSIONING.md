@@ -58,8 +58,8 @@ Esempi validi:
 
 - `feat(bot): add history relaunch shortcuts`
 - `fix(pdf): handle encrypted files more clearly`
-- `ops(release): require explicit release PR follow-through`
-- `security(release): harden release-owned file guardrails`
+- `fix(release): require explicit release PR follow-through`
+- `fix(security): harden release-owned file guardrails`
 - `docs(smoke): clarify post-deploy smoke levels`
 - `feat(api)!: rename admin report payload`
 
@@ -73,8 +73,8 @@ DocMolder segue Semantic Versioning con una regola pre-`1.0.0` esplicita:
 
 - `feat:` produce un **minor bump**
 - `fix:` produce un **patch bump**
-- `ops:` produce un **patch bump**
-- `security:` produce un **patch bump**
+- usa `fix:` per correzioni operative o di sicurezza che devono produrre un **patch bump**
+- `ops:` e `security:` non sono tipi ammessi nel flusso di merge: restano concetti utili per label o testo release, ma non vanno usati come prefisso Conventional Commit in questa repository
 - `deps:` produce un **patch bump**
 - `docs:` produce un **patch bump** solo quando la modifica documenta un comportamento operativo o utente gia effettivo
 - qualunque tipo con `!` o footer `BREAKING CHANGE:` produce:
@@ -105,13 +105,13 @@ Usa `fix:` per:
 - bug funzionali
 - correzioni di comportamento atteso gia esistente
 
-Usa `ops:` per:
+Usa `fix(ops):` o un altro scope `fix(...)` esplicito per:
 
 - cambi operativi percepibili da admin o maintainer
 - flussi di release, deploy, monitoraggio o manutenzione che meritano nota pubblica
 - automazioni operative che cambiano il modo corretto di gestire il progetto
 
-Usa `security:` per:
+Usa `fix(security):` per:
 
 - hardening di guardrail, policy, controlli o gestione accessi
 - riduzione di rischi su dati utente, segreti, workflow o infrastruttura
@@ -135,14 +135,14 @@ Il changelog generato da `release-please` raggruppa le PR rilasciabili in sezion
 
 - `feat:` → `Funzionalità`
 - `fix:` → `Correzioni`
-- `ops:` → `Operatività`
-- `security:` → `Sicurezza e guardrail`
+- `fix(ops):` e altri `fix(...)` → `Correzioni`
+- `fix(security):` → `Correzioni`; per evidenziare la natura di sicurezza usa titolo e release note della PR
 - `deps:` → `Dipendenze`
 - `docs:` → `Documentazione`
 
 I tipi interni `chore:`, `ci:`, `test:`, `refactor:` e `build:` sono configurati come nascosti nel changelog release-please: usali quando vuoi mantenere il commit tracciabile senza aggiungere rumore alla release.
 
-Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi deve capire l'impatto della release. Per esempio una correzione al workflow che impedisce bypass sui file di release è `security(release)`, non un generico `fix:`.
+Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi deve capire l'impatto della release usando uno scope chiaro. Per esempio una correzione al workflow che impedisce bypass sui file di release è `fix(release): ...`, non un generico `fix:`.
 
 ## Flusso release
 

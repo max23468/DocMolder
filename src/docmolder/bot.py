@@ -1951,7 +1951,8 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if menu_text == "Guida rapida" or text == "Cosa posso fare":
         await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
         return
-    if _is_latest_job_rerun_text(text):
+    session = deps.session_store.get(user.id)
+    if _is_latest_job_rerun_text(text) and not (session is not None and session.files):
         await _rerun_latest_user_job(
             context=context,
             deps=deps,
@@ -1960,7 +1961,6 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         )
         return
 
-    session = deps.session_store.get(user.id)
     if session is not None and session.files:
         if session.pending_action is not None:
             handled = await _handle_pending_session_input(

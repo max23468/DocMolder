@@ -12,12 +12,21 @@ TelegramApiCall = Callable[..., Awaitable[Any]]
 
 
 def chunk_message(text: str, limit: int = 3500) -> list[str]:
+    if limit <= 0:
+        raise ValueError("Il limite chunk deve essere positivo.")
     if len(text) <= limit:
         return [text]
     chunks: list[str] = []
     current: list[str] = []
     current_length = 0
     for line in text.splitlines():
+        while len(line) > limit:
+            if current:
+                chunks.append("\n".join(current))
+                current = []
+                current_length = 0
+            chunks.append(line[:limit])
+            line = line[limit:]
         extra = len(line) + (1 if current else 0)
         if current and current_length + extra > limit:
             chunks.append("\n".join(current))

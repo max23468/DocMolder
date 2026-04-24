@@ -27,12 +27,15 @@ def resolve_git_dir(repo_path: str = ".") -> Path:
 
 
 def list_index_lock_holders(lock_path: Path) -> list[str]:
-    result = subprocess.run(
-        ["lsof", str(lock_path)],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["lsof", str(lock_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return []
     if result.returncode not in (0, 1):
         stderr = result.stderr.strip() or "errore sconosciuto"
         raise RuntimeError(f"Impossibile verificare i processi che tengono il lock: {stderr}")

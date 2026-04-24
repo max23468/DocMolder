@@ -83,6 +83,7 @@ class PublishDoctorTest(unittest.TestCase):
     def test_main_branch_allows_docs_only_shortcut(self) -> None:
         impact = {
             "changed_count": 1,
+            "changed_files": ["docs/LOCAL_DEV.md"],
             "recommended_release_type": "chore",
             "deploy_relevant": False,
             "release_owned": False,
@@ -104,6 +105,31 @@ class PublishDoctorTest(unittest.TestCase):
 
         self.assertFalse([issue for issue in issues if issue.level == "blocker"])
         self.assertTrue(any("docs-only" in issue.message for issue in issues))
+
+    def test_main_branch_blocks_docs_only_outside_direct_allowlist(self) -> None:
+        impact = {
+            "changed_count": 1,
+            "changed_files": [".github/pull_request_template.md"],
+            "recommended_release_type": "chore",
+            "deploy_relevant": False,
+            "release_owned": False,
+            "docs_only": True,
+        }
+        with (
+            patch.object(publish_doctor, "current_branch", return_value="main"),
+            patch.object(publish_doctor, "current_sha", return_value="abc123"),
+            patch.object(publish_doctor, "ref_exists", return_value=True),
+            patch.object(publish_doctor, "rev_counts", return_value=(0, 0)),
+            patch.object(publish_doctor, "changed_files", return_value=[]),
+            patch.object(publish_doctor, "classify", return_value=impact),
+        ):
+            issues, _details = publish_doctor.collect_report(
+                base_branch="main",
+                skip_fetch=True,
+                skip_github=True,
+            )
+
+        self.assertTrue(any(issue.level == "blocker" and "branch dedicata" in issue.message for issue in issues))
 
     def test_main_branch_blocks_non_docs_changes(self) -> None:
         impact = {
@@ -128,6 +154,44 @@ class PublishDoctorTest(unittest.TestCase):
             )
 
         self.assertTrue(any(issue.level == "blocker" and "branch dedicata" in issue.message for issue in issues))
+
+    def test_unreadable_failed_runs_block_publish(self) -> None:
+        impact = {
+            "changed_count": 1,
+            "changed_files": ["src/docmolder/bot.py"],
+            "recommended_release_type": "fix",
+            "deploy_relevant": True,
+            "release_owned": False,
+            "docs_only": False,
+        }
+        with (
+            patch.object(publish_doctor, "current_branch", return_value="codex/demo"),
+            patch.object(publish_doctor, "current_sha", return_value="abc123"),
+            patch.object(publish_doctor, "ref_exists", return_value=True),
+            patch.object(publish_doctor, "rev_counts", return_value=(1, 0)),
+            patch.object(publish_doctor, "changed_files", return_value=[]),
+            patch.object(publish_doctor, "classify", return_value=impact),
+            patch.object(publish_doctor, "github_available", return_value=True),
+            patch.object(
+                publish_doctor,
+                "gh",
+                return_value=subprocess.CompletedProcess(["gh"], 0, stdout="", stderr=""),
+            ),
+            patch.object(
+                publish_doctor,
+                "current_failed_runs",
+                return_value=subprocess.CompletedProcess(["current_failed_runs.py"], 2, stdout="", stderr="api error"),
+            ),
+            patch.object(publish_doctor, "open_pr_number", return_value=None),
+        ):
+            issues, details = publish_doctor.collect_report(
+                base_branch="main",
+                skip_fetch=True,
+                skip_github=False,
+            )
+
+        self.assertEqual(details["current_failed_runs_exit"], 2)
+        self.assertTrue(any(issue.level == "blocker" and "run GitHub" in issue.message for issue in issues))
 
 
 if __name__ == "__main__":

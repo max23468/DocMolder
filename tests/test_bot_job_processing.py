@@ -882,6 +882,39 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(queued_jobs[0].rerun_of_job_id, source_job.id)
         self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
 
+    async def test_rerun_context_phrase_does_not_override_active_session(self) -> None:
+        source_job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[{"telegram_file_id":"old-pdf","file_name":"vecchio.pdf","kind":"pdf"}]}',
+        )
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("new-pdf", "corrente.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Ripeti quello precedente su questo PDF",
+            chat_id=99,
+            message_id=5011,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
+        self.assertEqual(len(queued_jobs), 0)
+        message.reply_text.assert_awaited_once()
+        self.assertNotIn("Ripeto il job", message.reply_text.await_args.args[0])
+
     async def test_context_reference_without_active_session_asks_for_safe_next_step(self) -> None:
         message = SimpleNamespace(
             text="Comprimi questo PDF",

@@ -30,10 +30,10 @@ def default_sha() -> str:
     return git_value(["rev-parse", "HEAD"])
 
 
-def load_runs(branch: str, sha: str, limit: int) -> list[dict[str, object]]:
+def load_runs(branch: str, sha: str, limit: int) -> list[dict[str, object]] | None:
     if shutil.which("gh") is None:
-        print("GitHub CLI non disponibile: salto controllo run failed correnti.", file=sys.stderr)
-        return []
+        print("GitHub CLI non disponibile: impossibile controllare le run failed correnti.", file=sys.stderr)
+        return None
 
     result = run(
         [
@@ -53,7 +53,7 @@ def load_runs(branch: str, sha: str, limit: int) -> list[dict[str, object]]:
     )
     if result.returncode != 0:
         print(f"Impossibile leggere le run GitHub correnti: {result.stderr.strip()}", file=sys.stderr)
-        return []
+        return None
     return json.loads(result.stdout or "[]")
 
 
@@ -87,7 +87,11 @@ def main() -> int:
         print("HEAD detached: specifica --branch.", file=sys.stderr)
         return 2
 
-    failures = current_failures(load_runs(branch, sha, args.limit), sha)
+    runs = load_runs(branch, sha, args.limit)
+    if runs is None:
+        return 2
+
+    failures = current_failures(runs, sha)
     if not failures:
         print(f"Nessuna run failed corrente per {branch}@{sha[:12]}.")
         return 0

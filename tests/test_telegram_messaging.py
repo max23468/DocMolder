@@ -20,6 +20,12 @@ class TelegramMessagingTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(chunks, ["prima\nseconda", "terza"])
 
+    def test_chunk_message_splits_single_overlong_line(self) -> None:
+        chunks = chunk_message("abcdefghij", limit=4)
+
+        self.assertEqual(chunks, ["abcd", "efgh", "ij"])
+        self.assertTrue(all(len(chunk) <= 4 for chunk in chunks))
+
     async def test_send_telegram_message_chunks_and_keeps_reply_markup_on_last_chunk(self) -> None:
         bot = SimpleNamespace(send_message=AsyncMock())
         api_call = AsyncMock(return_value="ok")
