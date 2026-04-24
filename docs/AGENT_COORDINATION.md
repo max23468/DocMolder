@@ -22,6 +22,14 @@ Prima di modifiche non banali, una nuova chat o istanza deve:
 4. dichiarare o annotare l'ownership del lavoro;
 5. evitare file e flussi gia presidiati da un'altra istanza, salvo coordinamento esplicito.
 
+Se la nuova chat implica modifiche ai file e il worktree corrente e gia sporco
+per modifiche non collegate alla richiesta, non continuare nello stesso
+worktree. Considera quel diff gia posseduto da un altro filone, crea
+automaticamente una branch/worktree dedicata `codex/<tema>` da una base pulita e
+lavora li, mantenendo branch e PR separate. Non usare un semplice
+`git switch -c` sopra modifiche non tue: gli uncommitted changes seguirebbero la
+nuova branch e i filoni resterebbero mescolati.
+
 Comando consigliato:
 
 ```bash

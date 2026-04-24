@@ -25,6 +25,7 @@ Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
 ## 3) Prima di intervenire
 
 - Controlla lo stato del worktree con `git status --short`.
+- Se una nuova chat implica modifiche ai file e `git status --short` mostra modifiche non tue o non collegate alla richiesta, non aggiungere altri edit nello stesso worktree: considera quel diff gia posseduto da un altro filone, apri automaticamente una branch/worktree dedicata `codex/<tema>` da una base pulita e continua li.
 - Comprendi il flusso toccato prima di editare: handler Telegram, pipeline documentale, session store, servizi, config o deploy.
 - Non revertire modifiche già presenti se non richiesto esplicitamente.
 - Se la richiesta è ambigua, fermati e fai domande mirate all'utente prima di scegliere approccio, scope o comportamento.
@@ -50,6 +51,8 @@ Quando piu chat, agenti o istanze Codex lavorano sul progetto nello stesso perio
 - Non usare sub-agenti per task piccoli, decisioni prodotto ambigue, refactor trasversali o modifiche dove il coordinatore dipende subito dal risultato per il passo successivo.
 - Quando deleghi, prepara un task packet con `docs/CODEX_TASK_PACKET.md` e, se utile, usa i prompt di `docs/CODEX_TASK_PROMPTS.md`.
 - Preferisci branch o worktree dedicati per filone di lavoro, con nomi `codex/<tema>` quando crei nuove branch operative.
+- All'avvio di una nuova chat che deve modificare file, se la branch/worktree corrente e gia sporca per altre modifiche, separa automaticamente il nuovo lavoro: non riusare la stessa working tree, crea una branch/worktree dedicata da una base pulita e mantieni i due filoni distinti fino a PR/merge.
+- Se modifiche non tue sono gia presenti nel worktree corrente, non basta fare `git switch -c`: gli uncommitted changes seguirebbero la nuova branch. Usa invece un worktree separato o una base pulita equivalente, poi annota la separazione in `docs/AGENT_COORDINATION.md` quando il lavoro non e minuscolo.
 - Aggiorna `docs/AGENT_COORDINATION.md` all'avvio e alla chiusura di lavori non banali, indicando task, branch/worktree, area posseduta, stato, file toccati, verifiche e rischi residui.
 - All'avvio di una nuova chat o quando riprendi lavoro, leggi `docs/AGENT_COORDINATION.md`, controlla `git status --short` e verifica branch/PR aperte rilevanti prima di editare.
 - Per un briefing iniziale standard usa `python3 scripts/agent_start.py --area <area> --owner <owner>`.
