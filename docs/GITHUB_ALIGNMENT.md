@@ -43,6 +43,7 @@ Anche da solo conviene mantenere un mini-flusso PR:
 5. lasciare a `Release Please` la Release PR e il changelog finale
 
 Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre con branch dedicato + PR + squash merge.
+Eccezione operativa: per modifiche minuscole, solo documentali e a basso rischio (`docs:`, limitate a `AGENTS.md`, `README.md` o `docs/**`), il maintainer puo pubblicare direttamente su `main` dopo preflight/check mirati.
 
 Vantaggi principali:
 
@@ -51,7 +52,7 @@ Vantaggi principali:
 - minor rischio di rompere deploy con commit diretti su `main`;
 - versioni e GitHub Releases allineate senza doppia manutenzione manuale.
 
-Questa non e una preferenza soft: per DocMolder il flusso ufficiale e solo PR squashate verso `main`.
+Questa non e una preferenza soft: per DocMolder il flusso ufficiale resta PR squashate verso `main`, salvo la scorciatoia documentale esplicita descritta sopra.
 
 Regola aggiuntiva fondamentale:
 

@@ -39,6 +39,25 @@ jobs:
           release_commit = re.compile(
               r"^chore\(main\): release docmolder \d+\.\d+\.\d+ \(#\d+\)$"
           )
+          direct_docs_commit = re.compile(
+              r"^docs(\([a-z0-9._/-]+\))?: [^ ].+"
+          )
+          direct_docs_paths = ("AGENTS.md", "README.md")
+
+          def changed_files_for(sha: str) -> list[str]:
+              return subprocess.check_output(
+                  ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", sha],
+                  text=True,
+              ).splitlines()
+
+          def is_direct_docs_commit(sha: str, subject: str) -> bool:
+              if not direct_docs_commit.match(subject):
+                  return False
+              changed_files = changed_files_for(sha)
+              return bool(changed_files) and all(
+                  path in direct_docs_paths or path.startswith("docs/")
+                  for path in changed_files
+              )
 
           rev_range = after if before == zero else f"{before}..{after}"
           output = subprocess.check_output(
@@ -53,7 +72,7 @@ jobs:
           invalid = []
           for line in output.splitlines():
               sha, subject = line.split("\t", 1)
-              if conventional.match(subject) or release_commit.match(subject):
+              if conventional.match(subject) or release_commit.match(subject) or is_direct_docs_commit(sha, subject):
                   continue
               invalid.append((sha, subject))
 
@@ -67,5 +86,6 @@ jobs:
           print("")
           print("Use squash-merged PR commits on main so release-please can derive the next version correctly.")
           print("Expected format on main: conventional title plus PR suffix, for example feat(bot): add retry flow (#123).")
+          print("Exception: direct docs commits are allowed only for docs:, AGENTS.md, README.md, or docs/**.")
           sys.exit(1)
           PY

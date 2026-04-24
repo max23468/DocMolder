@@ -30,6 +30,7 @@ Regole operative essenziali:
 - nessun push diretto su `main`
 - PR con titolo in formato Conventional Commits
 - squash merge su `main`
+- eccezione: modifiche minuscole solo documentali (`docs:`, limitate a `AGENTS.md`, `README.md` o `docs/**`) possono essere pubblicate direttamente su `main` dopo preflight/check mirati
 - niente bump manuali di versione o changelog nelle PR normali
 - per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile
 - prima di inseguire una run failed, controllare solo branch e SHA correnti con `scripts/current_failed_runs.py`
