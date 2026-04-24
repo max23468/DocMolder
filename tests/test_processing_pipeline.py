@@ -9,13 +9,49 @@ from unittest.mock import patch
 import subprocess
 import zipfile
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 from pypdf import PdfReader, PdfWriter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.models import CompressionPreset, SupportedAction
 from docmolder.processing import A4_MARGIN_WIDE_PX, DocumentProcessor, ProcessingUserError
+
+
+def _save_realistic_document_photo(path: Path, *, near_edge: bool = False, low_contrast: bool = False) -> None:
+    background_color = (126, 116, 102) if not low_contrast else (112, 108, 102)
+    image = Image.new("RGB", (1200, 1600), background_color)
+    draw = ImageDraw.Draw(image)
+
+    for x in range(0, image.width, 32):
+        texture_delta = (x % 64 - 32) // 5
+        texture_color = tuple(min(255, max(0, channel + texture_delta)) for channel in background_color)
+        draw.line((x, 0, x, image.height), fill=texture_color, width=1)
+
+    if near_edge:
+        page_points = [(20, 70), (1020, 120), (1110, 1510), (15, 1450)]
+    else:
+        page_points = [(245, 120), (930, 220), (1015, 1435), (145, 1300)]
+
+    shadow_points = [(x + 30, y + 45) for x, y in page_points]
+    draw.polygon(shadow_points, fill=(82, 75, 68))
+
+    page_fill = (248, 247, 239) if not low_contrast else (154, 150, 142)
+    page_outline = (224, 222, 210) if not low_contrast else (136, 132, 126)
+    ink_color = (20, 20, 20) if not low_contrast else (76, 74, 70)
+    draw.polygon(page_points, fill=page_fill, outline=page_outline)
+
+    draw.rectangle((340, 300, 720, 352), outline=ink_color, width=4)
+    draw.text((360, 310), "DOCMOLDER TEST INVOICE", fill=ink_color)
+    for y in range(440, 940, 75):
+        draw.line((300, y, 830, y + 35), fill=ink_color, width=7)
+    for x in (310, 520, 730):
+        draw.line((x, 1040, x + 80, 1215), fill=ink_color, width=4)
+    for y in (1040, 1098, 1156, 1214):
+        draw.line((300, y, 850, y + 10), fill=ink_color, width=4)
+
+    image = image.filter(ImageFilter.GaussianBlur(radius=0.4))
+    image.save(path, quality=90)
 
 
 class DocumentProcessorPipelineTest(unittest.TestCase):
@@ -297,6 +333,55 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertIn("Correzione prospettica", result.message)
         reader = PdfReader(str(result.output_path))
         self.assertEqual(len(reader.pages), 1)
+
+    def test_document_photo_fix_handles_realistic_synthetic_phone_photo(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_realistic_document_photo" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "desk_photo.jpg"
+        _save_realistic_document_photo(image_path)
+
+        result = self.processor.process(SupportedAction.DOCUMENT_PHOTO_FIX, [image_path], "realistic_document")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.processing_mode, "opencv")
+        self.assertIn("Correzione prospettica applicata a 1", result.message)
+        self.assertNotIn("fallback conservativo", result.message)
+        reader = PdfReader(str(result.output_path))
+        self.assertEqual(len(reader.pages), 1)
+
+    def test_document_photo_fix_warns_when_realistic_page_is_near_photo_edges(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_realistic_document_near_edge" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "near_edge_photo.jpg"
+        _save_realistic_document_photo(image_path, near_edge=True)
+
+        result = self.processor.process(SupportedAction.DOCUMENT_PHOTO_FIX, [image_path], "near_edge_document")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.processing_mode, "opencv")
+        self.assertIn("Correzione prospettica applicata a 1", result.message)
+        self.assertIn("foglio e vicino ai bordi", result.message)
+
+    def test_document_photo_fix_handles_realistic_synthetic_batch(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_realistic_document_batch" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        first_image = input_dir / "page_1.jpg"
+        second_image = input_dir / "page_2.jpg"
+        _save_realistic_document_photo(first_image)
+        _save_realistic_document_photo(second_image, near_edge=True)
+
+        result = self.processor.process(
+            SupportedAction.DOCUMENT_PHOTO_FIX,
+            [first_image, second_image],
+            "realistic_document_batch",
+        )
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.processing_mode, "opencv")
+        self.assertIn("2 foto dei documenti", result.message)
+        self.assertIn("Correzione prospettica applicata a 2", result.message)
+        reader = PdfReader(str(result.output_path))
+        self.assertEqual(len(reader.pages), 2)
 
     def test_document_photo_fix_uses_conservative_fallback_without_clear_page(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_document_photo_fallback" / "input"
