@@ -171,6 +171,8 @@ Limiti principali configurabili:
 - `DOCMOLDER_UPLOAD_BURST_WINDOW_SECONDS`
 - `DOCMOLDER_MAX_ACTIVE_JOBS_PER_USER`
 - `DOCMOLDER_GHOSTSCRIPT_TIMEOUT_SECONDS`
+- `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX`
+- `DOCMOLDER_HEALTH_*` per soglie operative di VPS, coda, disco, load, RAM, backup e runtime
 
 Il servizio puo rifiutare o rimandare lavorazioni troppo pesanti per proteggere VPS, coda e utenti.
 

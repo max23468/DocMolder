@@ -46,7 +46,7 @@ Deliverable principali:
 
 Stato:
 
-- parzialmente implementata, da formalizzare con soglie e smoke piu forti
+- completata per il perimetro attuale: backup, restore, health/smoke, spazio disco, runtime dir e job stale sono coperti da CLI, timer e runbook
 
 ### M2 - Osservabilita e alert
 
@@ -68,7 +68,7 @@ Deliverable principali:
 
 Stato:
 
-- base presente in `/health`, `/queue`, `/metrics` e alert admin
+- stabile per il perimetro attuale: `/health`, `/queue`, `/metrics`, alert admin e healthcheck CLI includono soglie operative principali
 
 ### M3 - Cleanup e lifecycle dati
 
@@ -133,7 +133,7 @@ Deliverable principali:
 
 Stato:
 
-- pianificata in roadmap
+- completata per il perimetro VPS corrente: worker seriale, limiti per utente, downscale preventivo immagini enormi e profiler locale dei flussi pesanti
 
 ## Priorita correnti
 

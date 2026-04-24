@@ -61,7 +61,7 @@ Non e:
 ### Pipeline documentale
 
 - `src/docmolder/processing.py`
-  - trasformazioni PDF e immagini, fallback, cleanup job e metriche di processing
+  - trasformazioni PDF e immagini, fallback, downscale preventivo immagini enormi, cleanup job e metriche di processing
 - `docs/PDF_PIPELINE.md`
   - dettaglia compromessi tra percorsi nativi, Ghostscript e fallback raster
 
@@ -156,6 +156,7 @@ Canali attuali:
 - backup giornaliero verificato tramite timer `docmolder-db-backup.timer`
 - alert check periodico tramite timer `docmolder-alertcheck.timer`
 - reconcile periodico tramite timer `docmolder-reconcile.timer`
+- soglie leggere per disco, runtime dir, load medio per CPU, RAM disponibile, coda e job running stale
 
 Eventi e log devono permettere di correlare almeno:
 

@@ -109,6 +109,12 @@ Report osservabilita/operations:
 make ops-report
 ```
 
+Profilo locale leggero dei flussi pesanti:
+
+```bash
+make profile-processing
+```
+
 Git maintenance locale:
 
 ```bash

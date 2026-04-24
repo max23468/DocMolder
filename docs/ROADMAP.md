@@ -41,20 +41,7 @@ Completata.
 
 ## Fase 7: Robustezza VPS e Performance
 
-- [ ] aggiungere un health check post-deploy più forte, non limitato al solo stato `active` del servizio
-- [ ] introdurre backup automatico di SQLite con strategia semplice e restore verificabile
-- [ ] configurare meglio rotazione log e housekeeping della VPS
-- [ ] rendere più rigoroso il cleanup di file temporanei e directory di runtime per evitare accumuli inutili sulla VPS
-- [ ] aggiungere monitor leggero di CPU, RAM, disco e crescita del runtime dir
-- [ ] introdurre alert su errori anomali o aumenti anomali dei job falliti
-- [ ] introdurre limiti più intelligenti sui batch pesanti per evitare saturazione di RAM e CPU su upload molto grandi
-- [ ] aggiungere downscale preventivo delle immagini enormi quando eccedono chiaramente il necessario per un PDF leggibile
-- [ ] regolare meglio il parallelismo effettivo dei job più costosi per non sovraccaricare la VPS
-- [ ] aggiungere piccoli test di carico locali e ripetibili sui flussi più pesanti
-- [ ] profilare i flussi più costosi come compressione, grayscale e foto verso PDF
-- [ ] rendere più esplicite e controllate le dipendenze di sistema tra locale e VPS
-- [ ] aggiungere verifica periodica dello spazio disco disponibile sulla VPS
-- [ ] mantenere una retention corta e automatica per log e backup in modo da limitare l'occupazione disco
+Completata.
 
 ## Fase 8: Ottimizzazione del Funzionamento
 

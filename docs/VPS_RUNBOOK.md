@@ -29,6 +29,8 @@ Variabili minime:
 - `DOCMOLDER_SQLITE_BACKUP_DIR`
 - limiti runtime (`SESSION_TTL`, `MAX_SESSION_FILES`, burst upload, job concorrenti)
 - soglie alert admin (`DOCMOLDER_ADMIN_ALERT_*`) se vuoi renderle piu o meno sensibili
+- soglie health (`DOCMOLDER_HEALTH_*`) per coda, job stale, runtime dir, backup, disco, load e RAM
+- `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX` per controllare il downscale preventivo delle immagini molto grandi
 
 Avvia servizio:
 
@@ -86,6 +88,12 @@ Report operations completo:
 
 ```bash
 sudo /opt/docmolder/venv/bin/python /opt/docmolder/app/scripts/ops_report.py --check-service
+```
+
+Profilo locale/VPS dei flussi pesanti:
+
+```bash
+sudo -u docmolder /opt/docmolder/venv/bin/python /opt/docmolder/app/scripts/profile_processing_flows.py
 ```
 
 Smoke check post-deploy con retry:
@@ -151,6 +159,7 @@ Se i job falliscono:
 - il timer `docmolder-db-backup.timer` crea un backup SQLite giornaliero verificato e applica retention corta
 - il timer `docmolder-alertcheck.timer` esegue un healthcheck operativo ogni 5 minuti
 - il timer `docmolder-reconcile.timer` riallinea periodicamente job stale e runtime temporaneo
+- journald viene configurato con retention corta tramite `/etc/systemd/journald.conf.d/docmolder.conf`
 
 ## Nota operativa
 
