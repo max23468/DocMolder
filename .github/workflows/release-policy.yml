@@ -119,6 +119,23 @@ jobs:
               r"^(feat|fix|ops|security|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: .+ \(#\d+\)$"
           )
           release_commit = re.compile(r"^chore\(main\): release docmolder \d+\.\d+\.\d+ \(#\d+\)$")
+          direct_docs_commit = re.compile(r"^docs(\([a-z0-9._/-]+\))?: [^ ].+")
+          direct_docs_paths = ("AGENTS.md", "README.md")
+
+          def changed_files_for(sha: str) -> list[str]:
+              return subprocess.check_output(
+                  ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", sha],
+                  text=True,
+              ).splitlines()
+
+          def is_direct_docs_commit(sha: str, subject: str) -> bool:
+              if not direct_docs_commit.match(subject):
+                  return False
+              changed_files = changed_files_for(sha)
+              return bool(changed_files) and all(
+                  path in direct_docs_paths or path.startswith("docs/")
+                  for path in changed_files
+              )
 
           rev_range = after if before == zero else f"{before}..{after}"
           output = subprocess.check_output(
@@ -133,7 +150,7 @@ jobs:
           invalid = []
           for line in output.splitlines():
               sha, subject = line.split("\t", 1)
-              if squash_pr_commit.match(subject) or release_commit.match(subject):
+              if squash_pr_commit.match(subject) or release_commit.match(subject) or is_direct_docs_commit(sha, subject):
                   continue
               invalid.append((sha, subject))
 
@@ -146,5 +163,6 @@ jobs:
               print(f"- {sha[:7]} {subject}")
           print("")
           print("Without branch protection this is only a guardrail, but the official flow remains: branch + PR + squash merge + release-please.")
+          print("Exception: direct docs commits are allowed only for docs:, AGENTS.md, README.md, or docs/**.")
           sys.exit(1)
           PY
