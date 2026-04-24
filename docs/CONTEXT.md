@@ -58,4 +58,5 @@ Ultimo aggiornamento del contesto:
 - quando un comando testuale e ambiguo o incompleto, il bot prova a chiarire l'azione o chiede il dettaglio mancante invece di fermarsi su una lettura fragile
 - la Fase 4 ha aggiunto lo split PDF in un file per pagina, con scelta tra archivio ZIP e PDF separati
 - la Fase 5 ha rafforzato i riferimenti contestuali in chat: pronomi come "questo PDF"/"quello", frasi come "giralo" o "alleggeriscilo" e "ripeti l'ultimo job" sono gestiti in modo piu esplicito
+- la Fase 6 ha aggiunto "Raddrizza foto documento": una trasformazione automatica per foto di fogli, con rilevamento contorno, correzione prospettica, normalizzazione leggibilita e fallback conservativi
 - l'allineamento operativo ha introdotto healthcheck/reconcile CLI, timer alert/reconcile, audit admin, access request in chat, `/policy`, helper retry/logging/messaging e tool git-safe locale

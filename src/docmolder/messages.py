@@ -9,6 +9,7 @@ WELCOME_MESSAGE = (
     "Lavoro bene quando mi mandi PDF, foto o scansioni direttamente qui su Telegram.\n\n"
     "Ti aiuto a:\n"
     "- creare PDF ordinati da immagini\n"
+    "- raddrizzare foto di documenti senza aprire un editor\n"
     "- comprimere, unire, dividere e convertire PDF\n"
     "- estrarre, riordinare, eliminare o ruotare pagine\n"
     "- aggiungere watermark testuali\n"
@@ -27,6 +28,7 @@ HELP_MESSAGE = (
     "Esempi:\n"
     "- più immagini -> un PDF unico\n"
     "- immagini scannerizzate -> ritaglio bordi e PDF\n"
+    "- foto storta di un foglio -> raddrizza foto documento\n"
     "- immagini -> PDF con formato originale oppure A4 con bordi a scelta\n"
     "- un PDF -> comprimi o scala di grigi\n"
     "- un PDF -> dividi in un file per pagina\n"
@@ -35,6 +37,7 @@ HELP_MESSAGE = (
     "Puoi anche scrivermi richieste semplici come:\n"
     "- fammi un pdf in scala di grigi\n"
     "- ritaglia i bordi e crea un pdf\n"
+    "- raddrizza foto documento\n"
     "- converti in bianco e nero\n"
     "- unisci questi pdf\n"
     "- comprimi questo pdf\n"
@@ -173,6 +176,8 @@ def build_text_request_queued_message(
         )
     if action == SupportedAction.IMAGES_TO_PDF_CROP:
         return f"Ritaglio automatico e creazione PDF presi in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
+    if action == SupportedAction.DOCUMENT_PHOTO_FIX:
+        return f"Raddrizzamento foto documento preso in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
     if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:
         return f"PDF in scala di grigi preso in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
     if action == SupportedAction.IMAGES_TO_PDF:

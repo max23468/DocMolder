@@ -70,6 +70,7 @@ Enum centrale delle azioni supportate:
 
 - immagini verso PDF
 - crop immagini
+- raddrizzamento foto documento
 - scala di grigi
 - compressione
 - merge

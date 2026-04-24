@@ -16,6 +16,7 @@ class SessionStatus(StrEnum):
 class SupportedAction(StrEnum):
     IMAGES_TO_PDF = "images_to_pdf"
     IMAGES_TO_PDF_CROP = "images_to_pdf_crop"
+    DOCUMENT_PHOTO_FIX = "document_photo_fix"
     IMAGES_TO_PDF_GRAYSCALE = "images_to_pdf_grayscale"
     IMAGES_TO_PDF_CROP_GRAYSCALE = "images_to_pdf_crop_grayscale"
     PDF_GRAYSCALE = "pdf_grayscale"
@@ -33,6 +34,7 @@ class SupportedAction(StrEnum):
 SupportedActionValue: TypeAlias = Literal[
     "images_to_pdf",
     "images_to_pdf_crop",
+    "document_photo_fix",
     "images_to_pdf_grayscale",
     "images_to_pdf_crop_grayscale",
     "pdf_grayscale",

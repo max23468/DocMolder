@@ -91,11 +91,11 @@ Stato:
 
 - decisioni ancora aperte su retention job e cancellazione completa
 
-### M4 - Scansione documento da foto
+### M4 - Raddrizzamento foto documento
 
 Obiettivo:
 
-- introdurre una scansione da foto piu robusta senza spostare il prodotto verso editor generalista
+- introdurre una trasformazione automatica per foto di documenti senza spostare il prodotto verso editor generalista
 
 Dipendenze:
 
@@ -111,7 +111,7 @@ Deliverable principali:
 
 Stato:
 
-- pianificata in roadmap
+- implementata come azione "Raddrizza foto documento"
 
 ### M5 - Performance e job pesanti
 

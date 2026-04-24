@@ -87,6 +87,7 @@ Per le immagini:
 - oppure puo impaginarle in A4
 - se usa A4, chiede anche il tipo di bordo
 - in alcuni flussi puo applicare ritaglio bordi e conversione in scala di grigi
+- per foto di fogli puo usare "Raddrizza foto documento", con rilevamento contorno, correzione prospettica, normalizzazione leggibilita e fallback conservativo se il foglio non e chiaro
 - quando il risultato richiesto e un PDF in scala di grigi da immagini, il bot lo genera direttamente in grigio invece di creare prima un PDF a colori e riconvertirlo dopo
 
 ## Auto-orientamento PDF

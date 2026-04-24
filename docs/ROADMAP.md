@@ -11,7 +11,7 @@ Va letta dentro il perimetro definito in [docs/DECISIONS.md](./DECISIONS.md): `D
 - [Fase 3: Comprensione Linguaggio Naturale](#fase-3-comprensione-linguaggio-naturale)
 - [Fase 4: Estensioni PDF Mirate](#fase-4-estensioni-pdf-mirate)
 - [Fase 5: Evoluzione Esperienza Utente](#fase-5-evoluzione-esperienza-utente)
-- [Fase 6: Scansione Documento da Foto](#fase-6-scansione-documento-da-foto)
+- [Fase 6: Raddrizzamento Foto Documento](#fase-6-raddrizzamento-foto-documento)
 - [Fase 7: Robustezza VPS e Performance](#fase-7-robustezza-vps-e-performance)
 - [Fase 8: Ottimizzazione del Funzionamento](#fase-8-ottimizzazione-del-funzionamento)
 
@@ -35,18 +35,9 @@ Completata.
 
 Completata.
 
-## Fase 6: Scansione Documento da Foto
+## Fase 6: Raddrizzamento Foto Documento
 
-- [ ] aggiungere una modalità dedicata di scansione documento distinta dal semplice ritaglio bordi
-- [ ] rilevare il contorno del foglio fotografato invece di basarsi solo sul bounding box del contenuto
-- [ ] introdurre correzione prospettica per raddrizzare fogli fotografati in modo non perfettamente frontale
-- [ ] migliorare la distinzione tra sfondo e carta anche con illuminazione irregolare o sfondi simili al foglio
-- [ ] aggiungere una normalizzazione preliminare di luminosità e contrasto prima del ritaglio
-- [ ] rendere il rilevamento bordi più robusto tramite strategie basate su edge detection e contorni
-- [ ] introdurre fallback tra più strategie di ritaglio, ad esempio foglio, contenuto o formato originale
-- [ ] aggiungere un post-processing da scansione per pulizia sfondo, contrasto e resa più leggibile del documento
-- [ ] introdurre controlli di qualità input per segnalare foto troppo storte, scure o incomplete
-- [ ] migliorare la gestione dei margini finali per evitare ritagli troppo aggressivi
+Completata.
 
 ## Fase 7: Robustezza VPS e Performance
 

@@ -247,6 +247,25 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
         tokens,
         ("orientamento", "raddrizza", "raddrizzare", "addrizza", "dritto"),
     )
+    mentions_document_photo_fix = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        (
+            "raddrizza foto documento",
+            "sistema foto documento",
+            "migliora foto documento",
+            "foto documento",
+            "foto del documento",
+            "foglio storto",
+            "raddrizza foglio",
+            "sistema foglio",
+            "correggi prospettiva",
+            "prospettiva",
+            "foto storta",
+            "scansiona documento",
+            "scansiona questo foglio",
+        ),
+    )
     mentions_rotate = _matches_keyword_group(
         keyword_text,
         tokens,
@@ -381,10 +400,11 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
     if SupportedAction.PDF_GRAYSCALE in supported and mentions_grayscale:
         return TextRequestResolution(kind="enqueue", action=SupportedAction.PDF_GRAYSCALE)
 
-    if SupportedAction.AUTO_ORIENT in supported and mentions_auto_orient and not mentions_rotate:
-        return TextRequestResolution(kind="enqueue", action=SupportedAction.AUTO_ORIENT)
-
     if session_kinds == {FileKind.IMAGE}:
+        if SupportedAction.DOCUMENT_PHOTO_FIX in supported and (
+            mentions_document_photo_fix or (mentions_crop and "foglio" in tokens and mentions_auto_orient)
+        ):
+            return TextRequestResolution(kind="enqueue", action=SupportedAction.DOCUMENT_PHOTO_FIX)
         if SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE in supported and mentions_crop and mentions_grayscale:
             return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE)
         if SupportedAction.IMAGES_TO_PDF_CROP in supported and mentions_crop and (mentions_pdf or mentions_grayscale or mentions_pdf_creation):
@@ -393,6 +413,9 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
             return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF_GRAYSCALE)
         if SupportedAction.IMAGES_TO_PDF in supported and (mentions_pdf or mentions_pdf_creation):
             return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF)
+
+    if SupportedAction.AUTO_ORIENT in supported and mentions_auto_orient and not mentions_rotate:
+        return TextRequestResolution(kind="enqueue", action=SupportedAction.AUTO_ORIENT)
 
     return None
 
