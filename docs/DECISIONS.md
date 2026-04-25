@@ -56,18 +56,21 @@ Conseguenze:
 - il recupero storico dei file non e disponibile di default
 - la pulizia automatica dei job e parte essenziale del sistema
 
-## Auto-orientamento PDF invece di rotazione manuale come azione primaria
+## Auto-orientamento PDF come scelta raccomandata
 
 Decisione:
 - le elaborazioni PDF compatibili correggono automaticamente l'orientamento quando serve
+- la rotazione manuale resta disponibile come azione esplicita per i casi in cui l'utente vuole controllare direttamente i gradi di rotazione
 
 Motivazione:
 - semplifica la UX
 - riduce la necessita di una scelta tecnica esplicita da parte dell'utente
 - copre meglio il caso pratico di PDF con poche pagine fuori orientamento
+- mantiene una via manuale utile per casi particolari che l'auto-orientamento non deve indovinare
 
 Conseguenze:
-- la rotazione manuale non e piu esposta come azione principale
+- l'auto-orientamento e il comportamento raccomandato nei flussi compatibili
+- la rotazione manuale puo essere esposta come azione avanzata, ma non deve diventare il percorso consigliato di default
 - quando l'auto-rotazione interviene, il bot deve permettere di rifare il job senza correzione automatica
 
 ## Fallback conservativi nella pipeline PDF

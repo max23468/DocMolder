@@ -155,12 +155,15 @@ Segnali da verificare:
 - errori Telegram e failure rate non persistenti oltre le soglie admin configurate
 - spazio disco sufficiente per runtime, job temporanei e backup
 
-Soglie da formalizzare nelle prossime iterazioni:
+Soglie configurabili:
 
-- numero massimo di job in coda
-- eta massima di un job `running`
-- dimensione massima accettabile del runtime dir
-- eta massima dell'ultimo backup SQLite
+- numero massimo di job in coda: `DOCMOLDER_HEALTH_MAX_QUEUED_JOBS`
+- numero massimo di job in esecuzione: `DOCMOLDER_HEALTH_MAX_RUNNING_JOBS`
+- eta massima di un job `running`: `DOCMOLDER_HEALTH_MAX_RUNNING_JOB_AGE_SECONDS`
+- dimensione massima accettabile del runtime dir: `DOCMOLDER_HEALTH_MAX_RUNTIME_DIR_BYTES`
+- eta massima dell'ultimo backup SQLite: `DOCMOLDER_HEALTH_MAX_BACKUP_AGE_SECONDS`
+- spazio disco minimo: `DOCMOLDER_HEALTH_MIN_DISK_FREE_BYTES` e `DOCMOLDER_HEALTH_MIN_DISK_FREE_PERCENT`
+- carico e memoria minimi per VPS: `DOCMOLDER_HEALTH_MAX_LOAD_PER_CPU` e `DOCMOLDER_HEALTH_MIN_MEMORY_AVAILABLE_BYTES`
 
 ## Manutenzione one-shot
 
