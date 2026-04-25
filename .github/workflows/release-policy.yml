@@ -119,7 +119,7 @@ jobs:
               r"^(feat|fix|docs|deps|refactor|test|chore|build|ci)(\([a-z0-9._/-]+\))?(!)?: .+ \(#\d+\)$"
           )
           release_commit = re.compile(r"^chore\(main\): release docmolder \d+\.\d+\.\d+ \(#\d+\)$")
-          direct_docs_commit = re.compile(r"^docs(\([a-z0-9._/-]+\))?: [^ ].+")
+          direct_docs_commit = re.compile(r"^chore(\([a-z0-9._/-]+\))?: [^ ].+")
           direct_docs_paths = ("AGENTS.md", "README.md")
 
           def changed_files_for(sha: str) -> list[str]:
@@ -163,6 +163,6 @@ jobs:
               print(f"- {sha[:7]} {subject}")
           print("")
           print("Without branch protection this is only a guardrail, but the official flow remains: branch + PR + squash merge + release-please.")
-          print("Exception: direct docs commits are allowed only for docs:, AGENTS.md, README.md, or docs/**.")
+          print("Exception: direct docs commits are allowed only for chore(docs):, AGENTS.md, README.md, or docs/**.")
           sys.exit(1)
           PY

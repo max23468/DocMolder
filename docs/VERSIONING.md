@@ -38,7 +38,7 @@ Policy del progetto:
 - ogni modifica destinata a release passa da PR
 - il titolo della PR e parte del processo di versioning, non solo descrizione editoriale
 - ogni commit che entra su `main` deve provenire da una PR squashata
-- eccezione stretta: commit diretti `docs:` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
+- eccezione stretta: commit diretti `chore(docs):` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
 - il workflow `Main Commit Policy` e un guardrail di verifica, non un'alternativa al flusso PR
 - il workflow `Release Policy` blocca le PR normali che provano a fare bump versione o changelog manuali
 
@@ -120,12 +120,14 @@ Usa `fix(security):` per:
 Usa `docs:` per:
 
 - runbook, release process o istruzioni operative che cambiano davvero il modo corretto di usare o mantenere il progetto
+- documentazione che vuoi far comparire nella prossima release
 
 Usa `chore:` o `ci:` per:
 
 - manutenzione interna
 - housekeeping
 - workflow e tooling che non meritano una release annotata per gli utilizzatori del progetto
+- aggiornamenti documentali rapidi e non rilasciabili, in particolare con `chore(docs):`
 
 Usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`) per modifiche interne che non devono produrre una release autonoma, per esempio aggiornamenti alle sole istruzioni agent senza impatto sul prodotto o sull'operativita del maintainer. La label `skip-changelog` resta utile per le release note generate da GitHub, ma il flusso principale `release-please` dipende dal tipo del commit/PR.
 
