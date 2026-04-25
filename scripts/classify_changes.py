@@ -120,6 +120,7 @@ def changed_files(git_range: GitRange, *, staged: bool, working_tree: bool) -> l
     else:
         paths.update(run_git(["diff", "--name-only", f"{git_range.base}...{git_range.head}"], check=False).splitlines())
     if working_tree:
+        paths.update(run_git(["diff", "--cached", "--name-only"], check=False).splitlines())
         paths.update(run_git(["diff", "--name-only"], check=False).splitlines())
         paths.update(run_git(["ls-files", "--others", "--exclude-standard"], check=False).splitlines())
     return sorted(path for path in paths if path)
@@ -140,6 +141,7 @@ def pyproject_version_changed(git_range: GitRange, paths: list[str], *, staged: 
     diff_args.extend(["--", "pyproject.toml"])
     diff = run_git(diff_args, check=False)
     if working_tree:
+        diff += "\n" + run_git(["diff", "--cached", "--unified=0", "--", "pyproject.toml"], check=False)
         diff += "\n" + run_git(["diff", "--unified=0", "--", "pyproject.toml"], check=False)
     version_line = re.compile(r"^[+-]\s*version\s*=")
     for line in diff.splitlines():

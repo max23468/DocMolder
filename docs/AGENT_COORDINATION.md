@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| in corso | Codex late review comments | codex/address-late-review-comments | Commenti Codex tardivi su PR #67/#70/#71: `processing.py`, publish/preflight scripts, test mirati | Patch locale pronta; `bash scripts/ci_verify.sh` passato. Diff deploy-relevant per `src/docmolder/processing.py`; al merge seguire Deploy VPS e ricontrollo commenti bot. |
 | chiuso | Codex phase-7 | codex/phase-7-robustness-performance | Fase 7 robustezza VPS e performance: health/monitoring, cleanup, batch pesanti, performance immagini, docs operative | Fase chiusa con `bash scripts/ci_verify.sh`; diff deploy-relevant, al publish seguire preflight/PR/deploy VPS. |
 | chiuso | Codex gestione commenti bot | codex/codex-github-ops-integrations | review bot aperte: CI/publish, deploy wrapper, bot rerun, processing foto, Telegram messaging, git utils | Fix locali applicati e verificati con `bash scripts/ci_verify.sh`; thread GitHub storici restano aperti finche non vengono risolti su GitHub. |
 

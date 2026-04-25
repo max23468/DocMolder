@@ -33,6 +33,11 @@ if [ -z "${BRANCH}" ] || [ "${BRANCH}" = "${BASE_BRANCH}" ]; then
   fi
 
   if git diff --cached --quiet; then
+    ahead_count="$(git rev-list --count "${BASE_REF}..HEAD" 2>/dev/null || printf '0')"
+    if [ "${ahead_count}" -gt 0 ]; then
+      git push origin "${BRANCH}"
+      exit 0
+    fi
     echo "Nessun cambio documentale da pubblicare."
     exit 0
   fi

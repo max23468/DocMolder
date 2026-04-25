@@ -21,24 +21,34 @@ impact_env="$("${PYTHON_BIN}" "${classify_args[@]}" --format env)"
 release_owned="$(printf '%s\n' "${impact_env}" | awk -F= '/DOCMOLDER_RELEASE_OWNED=/{print $2}')"
 docs_only="$(printf '%s\n' "${impact_env}" | awk -F= '/DOCMOLDER_DOCS_ONLY=/{print $2}')"
 
+docs_path_allowed() {
+  case "$1" in
+    AGENTS.md|README.md|docs/*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 main_docs_only_paths_allowed() {
-  local changed_paths
+  local changed_paths status path second_path
   changed_paths="$(
     {
-      git diff --name-only "${BASE_REF}...HEAD"
-      git diff --cached --name-only
-      git diff --name-only
-      git ls-files --others --exclude-standard
+      git diff --name-status -M "${BASE_REF}...HEAD"
+      git diff --cached --name-status -M
+      git diff --name-status -M
+      git ls-files --others --exclude-standard | awk '{print "A\t" $0}'
     } | sort -u
   )"
 
   [ -n "${changed_paths}" ] || return 1
 
-  local path
-  while IFS= read -r path; do
-    case "${path}" in
-      AGENTS.md|README.md|docs/*) ;;
-      *) return 1 ;;
+  while IFS=$'\t' read -r status path second_path; do
+    case "${status}" in
+      R*|C*)
+        docs_path_allowed "${path}" && docs_path_allowed "${second_path}" || return 1
+        ;;
+      *)
+        docs_path_allowed "${path}" || return 1
+        ;;
     esac
   done <<< "${changed_paths}"
 }
