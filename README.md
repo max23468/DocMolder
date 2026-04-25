@@ -46,7 +46,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 - Storico ultimi job con dettaglio essenziale e possibilità di rilanciare un'elaborazione
-- Self-service rapido con `/last`, `/access`, `/request_access` e `/policy`
+- Self-service rapido con `/history`, `/last`, `/access`, `/request_access`, `/policy`, `/status` e `/reset`
 - Deep link Telegram per scorciatoie contestuali e rilancio rapido di job
 - Console admin Telegram con queue, health, metrics, manutenzione, access review, pause/resume e scorciatoie inline
 - Metriche Telegram leggere e alert admin meno rumorosi
@@ -65,7 +65,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 
 - Nessun salvataggio permanente dei file utente nel perimetro attuale del prodotto
 - Pulizia automatica delle cartelle temporanee
-- Limiti su dimensione file, numero di allegati e carico concorrente già presenti in forma iniziale e da rifinire prima di un uso più ampio
+- Limiti configurabili su dimensione file, numero di allegati, burst upload e carico concorrente
 
 ## Stato attuale
 
@@ -90,7 +90,7 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - correzione automatica dell'orientamento PDF nei flussi compatibili
 - correzione orientamento immagini
 - storico lavori utente con recupero rapido del job via rilancio
-- self-service utente con `/last` e `/access`
+- self-service utente con `/history`, `/last`, `/access`, `/request_access`, `/policy`, `/status` e `/reset`
 - console admin Telegram live con `/queue`, `/health`, `/maintenance_overview`, `/metrics`, `/job`, `/retry`, access review, `/pause`, `/resume`
 - metriche e retry Bot API per i flussi Telegram più sensibili
 
@@ -178,8 +178,29 @@ Documenti utili:
 - `DOCMOLDER_CLEANUP_INTERVAL_MINUTES`
 - `DOCMOLDER_STALE_JOB_RETENTION_HOURS`
 - `DOCMOLDER_GHOSTSCRIPT_TIMEOUT_SECONDS`
+- `DOCMOLDER_ADMIN_DAILY_REPORT_HOUR`
+- `DOCMOLDER_ADMIN_WEEKLY_REPORT_DAY`
+- `DOCMOLDER_ADMIN_WEEKLY_REPORT_HOUR`
+- `DOCMOLDER_ADMIN_ALERT_WINDOW_MINUTES`
+- `DOCMOLDER_ADMIN_ALERT_MIN_FINISHED_JOBS`
+- `DOCMOLDER_ADMIN_ALERT_FAILURE_RATE_PERCENT`
+- `DOCMOLDER_ADMIN_ALERT_REPEATED_FAILURES_THRESHOLD`
+- `DOCMOLDER_ADMIN_ALERT_COOLDOWN_MINUTES`
+- `DOCMOLDER_HEALTH_MAX_QUEUED_JOBS`
+- `DOCMOLDER_HEALTH_MAX_RUNNING_JOBS`
+- `DOCMOLDER_HEALTH_MAX_RUNNING_JOB_AGE_SECONDS`
+- `DOCMOLDER_HEALTH_MAX_RUNTIME_DIR_BYTES`
+- `DOCMOLDER_HEALTH_MAX_BACKUP_AGE_SECONDS`
+- `DOCMOLDER_HEALTH_MIN_DISK_FREE_BYTES`
+- `DOCMOLDER_HEALTH_MIN_DISK_FREE_PERCENT`
+- `DOCMOLDER_HEALTH_MAX_LOAD_PER_CPU`
+- `DOCMOLDER_HEALTH_MIN_MEMORY_AVAILABLE_BYTES`
+- `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX`
 - `DOCMOLDER_RUNTIME_DIR`
 - `DOCMOLDER_DATABASE_PATH`
+- `DOCMOLDER_SQLITE_BACKUP_DIR`
+- `DOCMOLDER_SQLITE_BACKUP_RETENTION_DAYS`
+- `DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED`
 
 ## Prossimi passi suggeriti
 
@@ -188,9 +209,8 @@ Le modifiche rilevanti vengono annotate in [`CHANGELOG.md`](CHANGELOG.md), mentr
 
 Per il versioning ordinario, il repository e `release-please`-first: le feature PR e le fix PR non devono aggiornare manualmente versione o changelog di release. Quei file vengono gestiti dalla Release PR automatica.
 
-In sintesi, le priorità attuali sono:
+In sintesi, la priorità attuale è:
 
-- Fase 7: robustezza VPS e performance sui flussi piu pesanti
 - Fase 8: ottimizzazione del funzionamento interno e delle raccomandazioni utente
 
 ## Monitoraggio admin
@@ -214,3 +234,5 @@ Comandi utente utili:
 - `/access` per controllare accesso, sessione e coda personale
 - `/request_access` per chiedere abilitazione quando il bot è ristretto
 - `/policy` o `/privacy` per limiti, retention e regole operative sintetiche
+- `/status` per vedere il riepilogo della sessione corrente
+- `/reset` per azzerare sessione e ultime scelte rapide
