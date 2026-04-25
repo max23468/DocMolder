@@ -40,7 +40,7 @@ jobs:
               r"^chore\(main\): release docmolder \d+\.\d+\.\d+ \(#\d+\)$"
           )
           direct_docs_commit = re.compile(
-              r"^docs(\([a-z0-9._/-]+\))?: [^ ].+"
+              r"^chore(\([a-z0-9._/-]+\))?: [^ ].+"
           )
           direct_docs_paths = ("AGENTS.md", "README.md")
 
@@ -86,6 +86,6 @@ jobs:
           print("")
           print("Use squash-merged PR commits on main so release-please can derive the next version correctly.")
           print("Expected format on main: conventional title plus PR suffix, for example feat(bot): add retry flow (#123).")
-          print("Exception: direct docs commits are allowed only for docs:, AGENTS.md, README.md, or docs/**.")
+          print("Exception: direct docs commits are allowed only for chore(docs):, AGENTS.md, README.md, or docs/**.")
           sys.exit(1)
           PY

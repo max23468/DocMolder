@@ -58,7 +58,7 @@ make publish-doctor
 
 Usa poi una sola corsia, dichiarandola nella risposta finale:
 
-- **Docs minuscoli diretti**: solo `AGENTS.md`, `README.md` o `docs/**`, titolo `docs: ...`, nessun deploy/release atteso. Da `main` aggiornato usa `make publish-docs TITLE="docs: <descrizione>"`: lo script esegue publish doctor, preflight, commit e push diretto senza PR. Evita questa corsia se il cambio tocca workflow, script, codice runtime, configurazione, release-owned files o istruzioni operative ambigue.
+- **Docs minuscoli diretti**: solo `AGENTS.md`, `README.md` o `docs/**`, titolo `chore(docs): ...`, nessun deploy/release atteso. Da `main` aggiornato usa `make publish-docs TITLE="chore(docs): <descrizione>"`: lo script esegue publish doctor, preflight, commit e push diretto senza PR. Evita questa corsia se il cambio tocca workflow, script, codice runtime, configurazione, release-owned files o istruzioni operative ambigue.
 - **PR standard**: default per codice, CI, script, test, configurazione e docs operative non banali. Usa `scripts/publish_change.sh "<titolo conventional>"`.
 - **PR + deploy/release follow-through**: solo quando il classificatore indica `deploy_relevant` o il titolo produce release. Tratta PR funzionale, Release PR e Deploy VPS come fasi separate da monitorare, non come un unico errore indistinto.
 

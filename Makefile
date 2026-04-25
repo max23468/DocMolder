@@ -57,7 +57,7 @@ publish-doctor:
 	$(PYTHON) scripts/publish_doctor.py --fail
 
 publish-docs:
-	@test -n "$(TITLE)" || (echo 'Uso: make publish-docs TITLE="docs: descrizione"' >&2; exit 2)
+	@test -n "$(TITLE)" || (echo 'Uso: make publish-docs TITLE="chore(docs): descrizione"' >&2; exit 2)
 	bash scripts/publish_change.sh "$(TITLE)"
 
 cleanup-branches:
