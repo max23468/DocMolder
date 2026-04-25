@@ -43,7 +43,7 @@ Anche da solo conviene mantenere un mini-flusso PR:
 5. lasciare a `Release Please` la Release PR e il changelog finale
 
 Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre con branch dedicato + PR + squash merge.
-Eccezione operativa: per modifiche minuscole, solo documentali e a basso rischio (`docs:`, limitate a `AGENTS.md`, `README.md` o `docs/**`), il maintainer puo pubblicare direttamente su `main` dopo preflight/check mirati.
+Eccezione operativa: per modifiche minuscole, solo documentali e a basso rischio (`docs:`, limitate a `AGENTS.md`, `README.md` o `docs/**`), il maintainer puo pubblicare direttamente da `main` con `make publish-docs TITLE="docs: <descrizione>"`, che esegue preflight/check mirati e salta branch/PR.
 
 Vantaggi principali:
 

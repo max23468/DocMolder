@@ -32,7 +32,7 @@ Regole operative essenziali:
 - nessun push diretto su `main`
 - PR con titolo in formato Conventional Commits
 - squash merge su `main`
-- eccezione: modifiche minuscole solo documentali (`docs:`, limitate a `AGENTS.md`, `README.md` o `docs/**`) possono essere pubblicate direttamente su `main` dopo preflight/check mirati
+- eccezione: modifiche minuscole solo documentali (`docs:`, limitate a `AGENTS.md`, `README.md` o `docs/**`) si pubblicano direttamente da `main` con `make publish-docs TITLE="docs: <descrizione>"`, che esegue preflight/check mirati e salta branch/PR
 - niente bump manuali di versione o changelog nelle PR normali
 - per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile
 - prima di aprire o aggiornare la PR, usare `scripts/publish_doctor.py --fail` o affidarsi a `scripts/publish_change.sh`, che lo esegue automaticamente

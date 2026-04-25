@@ -2,7 +2,7 @@ VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor cleanup-branches codex-dev-report github-maintenance ops-report profile-processing
+.PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor publish-docs cleanup-branches codex-dev-report github-maintenance ops-report profile-processing
 
 setup:
 	python3 -m venv $(VENV)
@@ -55,6 +55,10 @@ preflight-publish:
 
 publish-doctor:
 	$(PYTHON) scripts/publish_doctor.py --fail
+
+publish-docs:
+	@test -n "$(TITLE)" || (echo 'Uso: make publish-docs TITLE="docs: descrizione"' >&2; exit 2)
+	bash scripts/publish_change.sh "$(TITLE)"
 
 cleanup-branches:
 	bash scripts/cleanup_merged_branches.sh
