@@ -20,8 +20,26 @@ cleanup() {
 trap cleanup EXIT
 
 if [ -z "${BRANCH}" ] || [ "${BRANCH}" = "${BASE_BRANCH}" ]; then
-  echo "Errore: crea una branch dedicata prima di pubblicare." >&2
-  exit 1
+  python3 scripts/publish_doctor.py --base "${BASE_BRANCH}" --skip-github --fail
+  bash scripts/preflight_publish.sh "${BASE_REF}"
+
+  if [[ ! "${TITLE}" =~ ^docs(\([a-z0-9._/-]+\))?:\ [^[:space:]].+ ]]; then
+    echo "Errore: il publish diretto docs-only su ${BASE_BRANCH} richiede un titolo docs: valido." >&2
+    exit 1
+  fi
+
+  if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
+    git add AGENTS.md README.md docs
+  fi
+
+  if git diff --cached --quiet; then
+    echo "Nessun cambio documentale da pubblicare."
+    exit 0
+  fi
+
+  git commit -m "${TITLE}"
+  git push origin "${BRANCH}"
+  exit 0
 fi
 
 python3 scripts/publish_doctor.py --base "${BASE_BRANCH}" --fail
