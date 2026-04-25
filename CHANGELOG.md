@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.9.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.9.0...docmolder-v0.9.1) (2026-04-25)
+
+
+### Documentazione
+
+* require post-merge bot comment checks ([#69](https://github.com/max23468/DocMolder/issues/69)) ([ffed09b](https://github.com/max23468/DocMolder/commit/ffed09bf4965abf1de344bbc8ea38e3f0ff8a0ee))
+
 ## [0.9.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.8.1...docmolder-v0.9.0) (2026-04-24)
 
 
