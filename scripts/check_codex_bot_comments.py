@@ -138,14 +138,15 @@ def find_bot_comments(
 
     for thread in pull["reviewThreads"]["nodes"]:  # type: ignore[index]
         resolved = bool(thread["isResolved"])
-        if resolved and not include_resolved:
-            continue
-        if bool(thread.get("isOutdated")) and not include_outdated:
-            continue
         path = str(thread.get("path") or "(thread)")
         for comment in thread["comments"]["nodes"]:
             author = ((comment.get("author") or {}).get("login") or "")
             if author in BOT_LOGINS:
+                seen_urls.add(str(comment.get("url") or ""))
+                if resolved and not include_resolved:
+                    continue
+                if bool(thread.get("isOutdated")) and not include_outdated:
+                    continue
                 found.append(
                     BotComment(
                         author=author,
@@ -156,7 +157,6 @@ def find_bot_comments(
                         source="graphql-thread",
                     )
                 )
-                seen_urls.add(str(comment.get("url") or ""))
 
     for comment in pull["comments"]["nodes"]:  # type: ignore[index]
         author = ((comment.get("author") or {}).get("login") or "")
