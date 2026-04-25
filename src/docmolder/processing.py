@@ -1028,13 +1028,10 @@ class DocumentProcessor:
         was_downscaled = False
         max_side = max(prepared.size)
         if max_side > self.image_pdf_max_source_side_px:
-            resized = prepared.copy()
-            resized.thumbnail(
+            prepared.thumbnail(
                 (self.image_pdf_max_source_side_px, self.image_pdf_max_source_side_px),
                 Image.Resampling.LANCZOS,
             )
-            prepared.close()
-            prepared = resized
             was_downscaled = True
 
         if grayscale_output and prepared.mode != "L":

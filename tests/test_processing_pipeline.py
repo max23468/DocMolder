@@ -9,7 +9,7 @@ from unittest.mock import patch
 import subprocess
 import zipfile
 
-from PIL import Image, ImageDraw, ImageFilter
+from PIL import Image, ImageDraw, ImageFilter, ImageOps
 from pypdf import PdfReader, PdfWriter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -453,6 +453,28 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
 
         self.assertTrue(result.output_path.exists())
         self.assertIn("Ho ridotto 1 immagine molto grande", result.message)
+
+    def test_prepare_image_downscales_in_place_to_limit_peak_memory(self) -> None:
+        source = Image.new("RGB", (20, 20), "white")
+        prepared = Image.new("RGB", (900, 620), "white")
+        processor = DocumentProcessor(self.runtime_dir, image_pdf_max_source_side_px=160)
+        processor.image_pdf_max_source_side_px = 160
+
+        with (
+            patch.object(ImageOps, "exif_transpose", return_value=prepared),
+            patch.object(Image.Image, "copy", side_effect=AssertionError("unexpected full-size copy")),
+        ):
+            result, was_downscaled = processor._prepare_image_for_pdf(
+                source,
+                grayscale_output=False,
+                auto_crop=False,
+            )
+
+        self.assertIs(result, prepared)
+        self.assertTrue(was_downscaled)
+        self.assertLessEqual(max(result.size), 160)
+        result.close()
+        source.close()
 
     def test_process_images_to_pdf_grayscale_does_not_roundtrip_through_pdf_grayscale(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_5" / "input"
