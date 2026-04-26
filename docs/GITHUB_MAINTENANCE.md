@@ -42,7 +42,7 @@ Strumenti locali:
 - `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push, PR draft, check, ready e auto-merge.
 - `scripts/cleanup_merged_branches.sh` o `make cleanup-branches`: elimina branch locali `codex/*` già mergiati.
 
-La CI usa lo stesso classificatore: per cambi senza impatto runtime mantiene i check richiesti ma salta install, test Python e package build pesanti.
+La CI usa lo stesso classificatore, ma non parte automaticamente su push o PR: va avviata manualmente con `workflow_dispatch` solo quando serve un gate remoto. Per cambi senza impatto runtime mantiene i check richiesti ma salta install, test Python e package build pesanti.
 
 `Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `VPS Backup` crea un backup SQLite verificato senza deployare file; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente.
 
@@ -64,9 +64,11 @@ Usa poi una sola corsia, dichiarandola nella risposta finale:
 
 Se `publish_doctor` segnala branch indietro/divergente, detached HEAD, run failed correnti o commenti bot aperti, correggi quello prima di creare o aggiornare la PR.
 
-## CI veloce
+## CI manuale a consumo ridotto
 
-Il workflow `CI` è diviso in gate indipendenti:
+Il workflow `CI` resta disponibile solo manualmente per contenere il consumo di minuti Actions. Prima di aprire o mergiare una PR, esegui di norma i gate locali rilevanti (`make ci`, `make test` o suite mirate); avvia la CI remota solo per cambi rischiosi, release candidate o quando serve una verifica su runner GitHub. L'input manuale `full_tests` e attivo di default e forza quality gate, matrix test e package build anche quando il diff non li richiederebbe.
+
+Il workflow è diviso in gate indipendenti:
 
 - `Classify change impact`: decide se servono test completi, package build, coverage e deploy.
 - `Fast gate`: controlli statici rapidi su workflow, shell script, script Python e whitespace.

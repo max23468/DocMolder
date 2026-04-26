@@ -1,11 +1,13 @@
 name: CI
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
   workflow_dispatch:
+    inputs:
+      full_tests:
+        description: Run quality, test matrix and package build regardless of diff
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -36,20 +38,29 @@ jobs:
         id: classify
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+          FORCE_FULL_TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.full_tests }}
         run: |
           set -euo pipefail
-          if [ "${BASE_REF}" = "0000000000000000000000000000000000000000" ]; then
+          if [ -z "${BASE_REF}" ] || [ "${BASE_REF}" = "0000000000000000000000000000000000000000" ]; then
             BASE_REF="HEAD~1"
           fi
           python3 scripts/classify_changes.py --base "${BASE_REF}" --format env > change-impact.env
           cat change-impact.env
+          if [ "${FORCE_FULL_TESTS}" = "true" ]; then
+            {
+              echo "DOCMOLDER_FULL_TESTS_REQUIRED=true"
+              echo "DOCMOLDER_PACKAGE_BUILD_REQUIRED=true"
+              echo "DOCMOLDER_COVERAGE_REQUIRED=true"
+              echo "DOCMOLDER_NO_RUNTIME_IMPACT=false"
+            } >> change-impact.env
+          fi
           {
-            echo "no_runtime_impact=$(awk -F= '/DOCMOLDER_NO_RUNTIME_IMPACT=/{print $2}' change-impact.env)"
+            echo "no_runtime_impact=$(awk -F= '/DOCMOLDER_NO_RUNTIME_IMPACT=/{value=$2} END{print value}' change-impact.env)"
             echo "deploy_relevant=$(awk -F= '/DOCMOLDER_DEPLOY_RELEVANT=/{print $2}' change-impact.env)"
             echo "docs_only=$(awk -F= '/DOCMOLDER_DOCS_ONLY=/{print $2}' change-impact.env)"
-            echo "full_tests_required=$(awk -F= '/DOCMOLDER_FULL_TESTS_REQUIRED=/{print $2}' change-impact.env)"
-            echo "package_build_required=$(awk -F= '/DOCMOLDER_PACKAGE_BUILD_REQUIRED=/{print $2}' change-impact.env)"
-            echo "coverage_required=$(awk -F= '/DOCMOLDER_COVERAGE_REQUIRED=/{print $2}' change-impact.env)"
+            echo "full_tests_required=$(awk -F= '/DOCMOLDER_FULL_TESTS_REQUIRED=/{value=$2} END{print value}' change-impact.env)"
+            echo "package_build_required=$(awk -F= '/DOCMOLDER_PACKAGE_BUILD_REQUIRED=/{value=$2} END{print value}' change-impact.env)"
+            echo "coverage_required=$(awk -F= '/DOCMOLDER_COVERAGE_REQUIRED=/{value=$2} END{print value}' change-impact.env)"
             echo "fast_static_required=$(awk -F= '/DOCMOLDER_FAST_STATIC_REQUIRED=/{print $2}' change-impact.env)"
           } >> "${GITHUB_OUTPUT}"
 
@@ -69,7 +80,7 @@ jobs:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
         run: |
           set -euo pipefail
-          if [ "${BASE_REF}" = "0000000000000000000000000000000000000000" ]; then
+          if [ -z "${BASE_REF}" ] || [ "${BASE_REF}" = "0000000000000000000000000000000000000000" ]; then
             BASE_REF="HEAD~1"
           fi
           bash scripts/ci_static_verify.sh "${BASE_REF}"
