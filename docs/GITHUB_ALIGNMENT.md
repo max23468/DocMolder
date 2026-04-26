@@ -9,7 +9,7 @@ Elementi già presenti o introdotti:
 - `README.md` chiaro su obiettivi e avvio rapido
 - `SECURITY.md` per policy vulnerabilità
 - `docs/` per runbook, decisioni e roadmap
-- `.github/workflows/ci.yml` per test automatici su push/PR
+- `.github/workflows/ci.yml` per test manuali completi via `workflow_dispatch`
 - `.github/dependabot.yml` per aggiornamenti dipendenze
 - `.github/ISSUE_TEMPLATE/` per bug/feature standardizzati
 - `.github/pull_request_template.md` per PR coerenti
@@ -23,8 +23,8 @@ Configura da **Settings**:
 1. **General → Pull Requests**
    - abilita "Automatically delete head branches".
 2. **Branches → Branch protection (main)**
-   - se disponibile sul piano/account, richiedi almeno 1 status check (`CI / Python ...`).
-   - opzionale ma utile anche da solo: "Require branches to be up to date before merging".
+   - se disponibile sul piano/account, richiedi PR prima del merge e linear history.
+   - evita di rendere obbligatorio il workflow `CI` finche resta manuale-only per risparmiare minuti Actions.
 3. **Actions → General**
    - consenti solo actions verificate (GitHub + verified creators) per ridurre rischio supply-chain.
 4. **Security → Code security and analysis**
@@ -39,7 +39,7 @@ Anche da solo conviene mantenere un mini-flusso PR:
 1. branch feature (`feat/...`, `fix/...`)
 2. commit piccoli e coesi
 3. PR verso `main` con titolo Conventional Commits
-4. squash merge solo a CI verde
+4. squash merge dopo verifiche locali rilevanti; esegui `CI` manualmente solo quando serve un gate remoto
 5. lasciare a `Release Please` la Release PR e il changelog finale
 
 Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre con branch dedicato + PR + squash merge.
@@ -79,7 +79,7 @@ Per non complicare troppo in fase iniziale, abilita solo se c'è beneficio chiar
 
 ## 6) Checklist rapida di igiene GitHub
 
-- CI verde su `main`
+- verifiche locali rilevanti eseguite prima del merge
 - Dependabot attivo
 - Template issue/PR presenti
 - Policy sicurezza presente

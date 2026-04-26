@@ -34,7 +34,7 @@ Regole operative essenziali:
 - squash merge su `main`
 - eccezione: modifiche minuscole solo documentali (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`) si pubblicano direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR
 - niente bump manuali di versione o changelog nelle PR normali
-- per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile
+- per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile; se il workflow `CI` manuale-only non viene eseguito, basarsi sui check locali rilevanti prima di ready/merge
 - prima di aprire o aggiornare la PR, usare `scripts/publish_doctor.py --fail` o affidarsi a `scripts/publish_change.sh`, che lo esegue automaticamente
 - prima di inseguire una run failed, controllare solo branch e SHA correnti con `scripts/current_failed_runs.py`
 - i dettagli della policy vivono in [VERSIONING.md](./VERSIONING.md)
@@ -51,7 +51,7 @@ Esempi di titolo:
 - `fix(pdf): preserve clearer error for protected files`
 - `docs(release): explain release bootstrap`
 
-I workflow GitHub fanno da guardrail, ma la fonte primaria della policy resta [VERSIONING.md](./VERSIONING.md).
+I workflow GitHub fanno da guardrail quando vengono avviati. Il workflow `CI` e manuale-only per ridurre il consumo Actions; la fonte primaria della policy resta [VERSIONING.md](./VERSIONING.md).
 
 ## Release
 
