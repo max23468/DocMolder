@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| chiuso | Codex latest-bot-comments | codex/fix-manual-ci-base | `.github/workflows/ci.yml` | Corretto commento bot tardivo su PR #78: base diff workflow_dispatch allineata a merge-base main; verificato con static/preflight mirati. |
 | chiuso | Codex manual-ci-only | codex/manual-ci-only | `.github/workflows/ci.yml`, docs GitHub/release | CI resa manuale-only con input `full_tests`; verificato con `bash scripts/ci_static_verify.sh origin/main`, classificatore e `git diff --check`. |
 | chiuso | Codex late review comments | codex/address-late-review-comments / #74 | Commenti Codex tardivi su PR #67/#70/#71: `processing.py`, publish/preflight scripts, test mirati | Fix pubblicato con #74, release `docmolder-v0.9.1` e Deploy VPS completati; post-merge bot check puliti su #74/#75. |
 | chiuso | Codex phase-7 | codex/phase-7-robustness-performance | Fase 7 robustezza VPS e performance: health/monitoring, cleanup, batch pesanti, performance immagini, docs operative | Fase chiusa con `bash scripts/ci_verify.sh`; diff deploy-relevant, al publish seguire preflight/PR/deploy VPS. |
