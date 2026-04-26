@@ -42,7 +42,12 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${BASE_REF}" ] || [ "${BASE_REF}" = "0000000000000000000000000000000000000000" ]; then
-            BASE_REF="HEAD~1"
+            for candidate in origin/main main HEAD~1; do
+              if git rev-parse --verify --quiet "${candidate}" >/dev/null; then
+                BASE_REF="${candidate}"
+                break
+              fi
+            done
           fi
           python3 scripts/classify_changes.py --base "${BASE_REF}" --format env > change-impact.env
           cat change-impact.env
@@ -81,7 +86,12 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${BASE_REF}" ] || [ "${BASE_REF}" = "0000000000000000000000000000000000000000" ]; then
-            BASE_REF="HEAD~1"
+            for candidate in origin/main main HEAD~1; do
+              if git rev-parse --verify --quiet "${candidate}" >/dev/null; then
+                BASE_REF="${candidate}"
+                break
+              fi
+            done
           fi
           bash scripts/ci_static_verify.sh "${BASE_REF}"
 
