@@ -15,11 +15,13 @@ class DeployScriptsTest(unittest.TestCase):
         self.assertIn("sudo --preserve-env=DOCMOLDER_RELEASE_GITHUB_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN", script)
         self.assertIn('--git-token-env "${DOCMOLDER_RELEASE_GIT_TOKEN_ENV:-DOCMOLDER_RELEASE_GIT_TOKEN}"', script)
 
-    def test_webhook_install_does_not_restart_listener_from_deploy_hook(self) -> None:
+    def test_webhook_install_defers_listener_restart_outside_deploy_hook(self) -> None:
         script = (ROOT / "deploy" / "install-github-webhook.sh").read_text(encoding="utf-8")
 
-        self.assertIn("systemctl enable --now docmolder-github-webhook.service", script)
-        self.assertNotIn("systemctl restart docmolder-github-webhook.service", script)
+        self.assertIn('systemctl enable --now "${WEBHOOK_SERVICE}"', script)
+        self.assertIn("systemd-run", script)
+        self.assertIn('--on-active="${WEBHOOK_RESTART_DELAY}"', script)
+        self.assertNotIn("sudo systemctl restart docmolder-github-webhook.service", script)
 
 
 if __name__ == "__main__":
