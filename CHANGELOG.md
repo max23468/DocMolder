@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.11.4](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.3...docmolder-v0.11.4) (2026-04-27)
+
+
+### Correzioni
+
+* **release:** preserve custom git token env ([#96](https://github.com/max23468/DocMolder/issues/96)) ([0cee5d5](https://github.com/max23468/DocMolder/commit/0cee5d55d079c318e77b4c30a81ba64ef79fabcf))
+
 ## [0.11.3](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.2...docmolder-v0.11.3) (2026-04-27)
 
 

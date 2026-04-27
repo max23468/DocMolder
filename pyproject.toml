@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docmolder"
-version = "0.11.3"
+version = "0.11.4"
 description = "Bot Telegram per trasformazioni documentali in italiano"
 readme = "README.md"
 requires-python = ">=3.11"
