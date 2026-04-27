@@ -137,7 +137,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 
 ## 10) Deploy e operazioni
 
-- La VPS corretta di DocMolder e quella dietro `docmolder.duckdns.org`: usa sempre questo host per deploy e verifiche, non host diversi del perimetro personale. Per SSH usa l'utente `ubuntu`. Il workflow `Deploy VPS` automatico deve restare path-aware: parte su `main` solo per file deploy-relevant. Per verifiche senza deploy usa `VPS Check`; per ripristinare una revisione usa `Rollback VPS`. Per i deploy ordinari, il default e il deploy manuale sulla VPS; GitHub Actions si usa solo su richiesta esplicita o quando il canale manuale non e praticabile.
+- La VPS corretta di DocMolder e quella dietro `docmolder.duckdns.org`: usa sempre questo host per deploy e verifiche, non host diversi del perimetro personale. La combinazione SSH da ricordare e `ssh -i ~/.ssh/docmolder_oracle ubuntu@docmolder.duckdns.org`. Il workflow `Deploy VPS` automatico deve restare path-aware: parte su `main` solo per file deploy-relevant. Per verifiche senza deploy usa `VPS Check`; per ripristinare una revisione usa `Rollback VPS`. Per i deploy ordinari, il default e il deploy manuale sulla VPS; GitHub Actions si usa solo su richiesta esplicita o quando il canale manuale non e praticabile.
 - Non fare deploy inutili: prima di mergeare o avviare workflow che possono deployare, verifica che il diff sia davvero deploy-relevant e che il deploy sia coerente con la richiesta corrente.
 - Se target, rischio, intento o consenso operativo sono ambigui, fermati e chiedi conferma prima di procedere.
 - Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.

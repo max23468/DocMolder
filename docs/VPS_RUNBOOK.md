@@ -148,7 +148,7 @@ sudo -u docmolder ls -lah /opt/docmolder/data/runtime/backups
 ## Dominio pubblico e HTTPS
 
 Il dominio operativo e `docmolder.duckdns.org`; il bot pubblico e raggiungibile da `https://t.me/docmolder_bot`.
-Questa e la VPS corretta di DocMolder: usare questo host/dominio per deploy e verifiche, non altri host del perimetro personale. Per SSH usa l'utente `ubuntu`.
+Questa e la VPS corretta di DocMolder: usare questo host/dominio per deploy e verifiche, non altri host del perimetro personale. La combinazione SSH da usare e `ssh -i ~/.ssh/docmolder_oracle ubuntu@docmolder.duckdns.org`.
 
 Duck DNS e mantenuto dalla VPS con:
 
