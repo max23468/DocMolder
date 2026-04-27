@@ -22,6 +22,7 @@ dependencies = [
 docmolder = "docmolder.main:main"
 docmolder-fix-git-lock = "docmolder.git_utils:main"
 docmolder-git-safe = "docmolder.git_utils:safe_git_main"
+docmolder-github-webhook = "docmolder.github_webhook:main"
 docmolder-healthcheck = "docmolder.healthcheck:main"
 docmolder-reconcile = "docmolder.reconcile:main"
 docmolder-sqlite-backup = "docmolder.sqlite_backup:main"

@@ -2,7 +2,7 @@ VENV := .venv
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor publish-docs cleanup-branches codex-dev-report github-maintenance ops-report profile-processing
+.PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor publish-docs cleanup-branches codex-dev-report github-maintenance ops-report profile-processing install-hooks
 
 setup:
 	python3 -m venv $(VENV)
@@ -74,3 +74,6 @@ ops-report:
 
 profile-processing:
 	$(PYTHON) scripts/profile_processing_flows.py
+
+install-hooks:
+	bash scripts/install_git_hooks.sh

@@ -34,7 +34,7 @@ Regole operative essenziali:
 - squash merge su `main`
 - eccezione: modifiche minuscole solo documentali (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`) si pubblicano direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR
 - niente bump manuali di versione o changelog nelle PR normali
-- per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile; se il workflow `CI` manuale-only non viene eseguito, basarsi sui check locali rilevanti prima di ready/merge
+- per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile; in modalita senza GitHub Actions il comando si ferma dopo la creazione della PR e lascia il merge finale al maintainer. Se vuoi riattivare il vecchio auto-follow-up, esporta `DOCMOLDER_USE_GH_ACTIONS=1`
 - prima di aprire o aggiornare la PR, usare `scripts/publish_doctor.py --fail` o affidarsi a `scripts/publish_change.sh`, che lo esegue automaticamente
 - prima di inseguire una run failed, controllare solo branch e SHA correnti con `scripts/current_failed_runs.py`
 - i dettagli della policy vivono in [VERSIONING.md](./VERSIONING.md)
@@ -51,25 +51,25 @@ Esempi di titolo:
 - `fix(pdf): preserve clearer error for protected files`
 - `docs(release): explain release bootstrap`
 
-I workflow GitHub fanno da guardrail quando vengono avviati. Il workflow `CI` e manuale-only per ridurre il consumo Actions; la fonte primaria della policy resta [VERSIONING.md](./VERSIONING.md).
+I workflow GitHub fanno da guardrail solo quando li avvii esplicitamente. `CI` resta manuale-only per ridurre il consumo Actions; la fonte primaria della policy resta [VERSIONING.md](./VERSIONING.md).
 
 ## Release
 
 Il flusso ufficiale e:
 
 1. merge della PR su `main`
-2. esecuzione del workflow `Release Please`
-3. apertura o aggiornamento automatico della Release PR
+2. esecuzione del workflow `Release Please`, solo se lo avvii esplicitamente
+3. apertura o aggiornamento della Release PR da parte del workflow
 4. revisione finale della Release PR con versione e changelog generati
 5. merge della Release PR
-6. creazione automatica di tag Git e GitHub Release
+6. creazione di tag Git e GitHub Release da parte del workflow
 
 Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 
 Non usare piu il vecchio flusso di aggiornamento manuale del changelog per ogni modifica ordinaria.
 Non fare bump versione manuali nelle PR normali.
 
-`Release Please` non parte automaticamente per cambi solo `.github/**`, `docs/**`, `scripts/**`, `tests/**`, `README.md` o `AGENTS.md`. Resta eseguibile manualmente con `workflow_dispatch` se una manutenzione interna deve comunque produrre release.
+`Release Please` non parte automaticamente per cambi solo `.github/**`, `docs/**`, `scripts/**`, `tests/**`, `README.md` o `AGENTS.md`. Resta eseguibile manualmente con `workflow_dispatch` solo se una manutenzione interna deve comunque produrre release e vuoi consumare esplicitamente Actions.
 
 ## Verifica locale
 
@@ -102,8 +102,8 @@ In breve:
 
 1. verificare che la release da deployare esista su GitHub con tag coerente
 2. per deploy standard da remoto, aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
-3. usare `Deploy VPS` in GitHub Actions solo se lo chiedi esplicitamente o se il canale manuale non e disponibile
-4. per controlli senza deploy, usare il workflow `VPS Check`
+3. in alternativa, lasciare che il webhook privato GitHub -> VPS faccia partire lo stesso script
+4. per controlli senza deploy, usare `VPS Check` solo come fallback esplicito
 5. per ripristino esplicito, usare `Rollback VPS` con tag o SHA precedente
 6. controllare stato servizio, timer backup SQLite, log recenti e revisione live
 7. verificare che i backup SQLite siano attivi o lanciare almeno un backup manuale se hai toccato persistenza o runbook

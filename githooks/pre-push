@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+remote_name="${1:-}"
+remote_url="${2:-}"
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  if [ -z "${local_ref:-}" ] || [ -z "${remote_ref:-}" ]; then
+    continue
+  fi
+
+  if [ "${local_sha}" = "0000000000000000000000000000000000000000" ]; then
+    continue
+  fi
+
+  echo "[githook] pre-push ${remote_name} ${remote_ref}" >&2
+
+  if [ "${remote_ref}" = "refs/heads/main" ]; then
+    bash scripts/preflight_publish.sh "origin/main"
+    bash scripts/ci_verify.sh
+  else
+    bash scripts/ci_static_verify.sh
+  fi
+done

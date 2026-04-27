@@ -119,10 +119,12 @@ sudo cp "${APP_DIR}/deploy/docmolder-reconcile.service" /etc/systemd/system/docm
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.timer" /etc/systemd/system/docmolder-reconcile.timer
 sudo cp "${APP_DIR}/deploy/docmolder-duckdns.service" /etc/systemd/system/docmolder-duckdns.service
 sudo cp "${APP_DIR}/deploy/docmolder-duckdns.timer" /etc/systemd/system/docmolder-duckdns.timer
+sudo install -D -m 755 "${APP_DIR}/deploy/install-github-webhook.sh" /opt/docmolder/bin/install-github-webhook.sh
 sudo install -D -m 755 "${APP_DIR}/deploy/update-duckdns.sh" /opt/docmolder/bin/update-duckdns.sh
 sudo mkdir -p /etc/systemd/journald.conf.d
 sudo cp "${APP_DIR}/deploy/docmolder-journald.conf" /etc/systemd/journald.conf.d/docmolder.conf
 sudo bash "${APP_DIR}/deploy/install-static-site.sh"
+sudo bash "${APP_DIR}/deploy/install-github-webhook.sh"
 sudo systemctl daemon-reload
 sudo systemctl try-restart systemd-journald.service || true
 sudo systemctl enable --now docmolder-db-backup.timer

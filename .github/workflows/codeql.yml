@@ -1,12 +1,7 @@
 name: CodeQL
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-  schedule:
-    - cron: "25 4 * * 1"
+  # Trigger manuale: push, PR e schedule automatici sono disattivati in modalita senza budget Actions.
   workflow_dispatch:
 
 permissions:

@@ -1,0 +1,16 @@
+[Unit]
+Description=DocMolder GitHub deploy webhook listener
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/docmolder/github-webhook.env
+WorkingDirectory=/opt/docmolder/app
+ExecStart=/opt/docmolder/venv/bin/docmolder-github-webhook
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

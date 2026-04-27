@@ -6,6 +6,7 @@ Questo file raccoglie decisioni architetturali e di prodotto gia prese, in forma
 
 - [Perimetro prodotto: utility documentale chat-first](#perimetro-prodotto-utility-documentale-chat-first)
 - [Polling invece di webhook pubblici](#polling-invece-di-webhook-pubblici)
+- [Webhook privato per deploy e hook locali](#webhook-privato-per-deploy-e-hook-locali)
 - [Retention breve dei file temporanei](#retention-breve-dei-file-temporanei)
 - [Auto-orientamento PDF invece di rotazione manuale come azione primaria](#auto-orientamento-pdf-invece-di-rotazione-manuale-come-azione-primaria)
 - [Fallback conservativi nella pipeline PDF](#fallback-conservativi-nella-pipeline-pdf)
@@ -45,6 +46,24 @@ Conseguenze:
 - il bot non dipende da ingress pubblici
 - il vhost pubblico resta un sito statico di presentazione e ingresso verso Telegram finche non viene deciso un endpoint DocMolder specifico
 - eventuali evoluzioni API-first, webhook Telegram o UI web richiederebbero una decisione nuova
+
+## Webhook privato per deploy e hook locali
+
+Decisione:
+- l'automazione senza GitHub Actions usa webhook privati GitHub -> VPS solo per il deploy su `main`
+- il listener webhook gira sulla VPS dietro Nginx e verifica firma HMAC, repository e branch prima di lanciare `deploy/update-vps.sh`
+- i controlli di qualità locale vivono in hook `git` installabili con `make install-hooks`
+
+Motivazione:
+- permette di mantenere il deploy automatico senza dipendere da Actions
+- mantiene il listener semplice e confinato alla VPS, non al runtime Telegram
+- sposta i gate quotidiani vicino alla macchina di sviluppo, dove il costo di verifica e nullo
+
+Conseguenze:
+- il deploy automatico dipende da un webhook GitHub configurato esplicitamente sulla repository
+- la VPS deve esporre un endpoint HTTPS dedicato al listener, ma non un runtime web applicativo generalista
+- gli hook locali possono bloccare push non pronti prima che arrivino su GitHub
+- se il webhook o gli hook non sono configurati, il percorso resta manuale ma non si rompe il bot
 
 ## Retention breve dei file temporanei
 

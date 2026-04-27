@@ -1,10 +1,7 @@
 name: Release Policy
 
-on:
-  pull_request:
-  push:
-    branches:
-      - main
+# Disattivato in modalita senza budget GitHub Actions.
+on: []
 
 permissions:
   contents: read

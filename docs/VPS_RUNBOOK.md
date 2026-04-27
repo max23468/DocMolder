@@ -69,7 +69,27 @@ Aggiornamento codice dopo push, percorso di default per i deploy manuali:
 sudo /opt/docmolder/app/deploy/update-vps.sh
 ```
 
-Usa `Deploy VPS` in GitHub Actions solo se lo chiedi esplicitamente o se non hai accesso diretto alla VPS.
+Usa `Deploy VPS` in GitHub Actions solo se lo chiedi esplicitamente; il percorso normale resta il deploy manuale diretto sulla VPS.
+
+Deploy automatico senza Actions:
+
+```bash
+sudo systemctl status docmolder-github-webhook.service
+sudo journalctl -u docmolder-github-webhook.service -n 50 --no-pager
+sudo cat /etc/docmolder/github-webhook.env
+```
+
+Il listener webhook riceve gli eventi GitHub su `/webhooks/github/deploy`, verifica la firma HMAC e lancia `update-vps.sh` sul commit ricevuto. L'endpoint di health del listener e `/webhooks/github/healthz`.
+
+Per configurarlo:
+
+```bash
+sudo /opt/docmolder/app/deploy/install-github-webhook.sh
+sudo nano /etc/docmolder/github-webhook.env
+sudo systemctl restart docmolder-github-webhook.service
+```
+
+Il file `/etc/docmolder/github-webhook.env` contiene il secret da copiare nel webhook GitHub.
 
 Backup manuale SQLite:
 
@@ -77,11 +97,13 @@ Backup manuale SQLite:
 sudo /opt/docmolder/app/deploy/backup-db.sh
 ```
 
-Backup manuale via GitHub Actions, senza deploy:
+Backup manuale via GitHub Actions, senza deploy, solo se lo chiedi esplicitamente:
 
 ```bash
 gh workflow run vps-backup.yml --ref main
 ```
+
+Il percorso normale resta comunque il backup locale con lo script sulla VPS.
 
 Healthcheck operativo:
 
@@ -191,15 +213,17 @@ HTTPS e predisposto con Nginx e Certbot:
 
 Nel perimetro attuale il bot pubblico resta in polling Telegram: il vhost pubblico non proxya verso
 un'app DocMolder. Espone il mini sito statico del tool, il link al bot Telegram e `/healthz` statico
-per verificare certificato, DNS e reverse proxy senza cambiare il runtime del bot. Un endpoint HTTP,
-webhook Telegram, API o UI web richiederebbe una decisione esplicita e un servizio applicativo
-dedicato.
+per verificare certificato, DNS e reverse proxy senza cambiare il runtime del bot. Il solo endpoint
+web esposto oltre al sito e il listener deploy GitHub privato; un endpoint HTTP, webhook Telegram,
+API o UI web per il bot richiederebbe una decisione esplicita e un servizio applicativo dedicato.
 
 Il deploy standard aggiorna il sito statico con:
 
 ```bash
 sudo /opt/docmolder/app/deploy/install-static-site.sh
 ```
+
+Se il certificato HTTPS e gia presente, lo stesso script genera anche il vhost con proxy al listener webhook locale.
 
 Verifiche rapide:
 

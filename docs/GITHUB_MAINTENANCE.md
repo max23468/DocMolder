@@ -17,7 +17,9 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
 - Ownership: `.github/CODEOWNERS`
 
-`Deploy VPS` non parte per ogni push su `main`: il trigger automatico usa una allowlist di path deploy-relevant (`src/**`, `deploy/**`, packaging e lock/requirements). Per cambi solo docs, test, release note, istruzioni agent, template o workflow GitHub, il default resta l'aggiornamento manuale della VPS; usa `workflow_dispatch` solo se mi chiedi esplicitamente di passare da GitHub Actions o se il canale manuale non e disponibile.
+In modalita senza budget GitHub Actions, i workflow automatici sono disattivati per default. `CI`, `Deploy VPS`, `Release Please` e gli altri dispatch manuali restano disponibili solo come eccezione esplicita; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) diventano la fonte di verita operativa.
+
+Il percorso realmente automatico senza Actions passa da `make install-hooks` sul repo locale e dal servizio `docmolder-github-webhook` sulla VPS.
 
 ## Pubblicazione più fluida
 
@@ -39,7 +41,9 @@ Strumenti locali:
 - `scripts/check_codex_bot_comments.py`: blocca ready/merge quando il Codex connector bot ha lasciato commenti aperti sulla PR.
 - `scripts/publish_doctor.py` o `make publish-doctor`: verifica in un unico punto branch/base, detached HEAD, divergenza da `origin/main`, file riservati a `release-please`, run failed correnti e commenti bot aperti.
 - `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
-- `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push, PR draft, check, ready e auto-merge.
+- `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR draft; con `DOCMOLDER_USE_GH_ACTIONS=1` riattivi il vecchio watch/check/ready/auto-merge.
+- `make install-hooks`: installa i hook Git locali che eseguono i controlli prima del push.
+- `docmolder-github-webhook.service`: listener systemd sulla VPS che riceve il webhook GitHub privato e lancia il deploy.
 - `scripts/cleanup_merged_branches.sh` o `make cleanup-branches`: elimina branch locali `codex/*` già mergiati.
 
 La CI usa lo stesso classificatore, ma non parte automaticamente su push o PR: va avviata manualmente con `workflow_dispatch` solo quando serve un gate remoto. Per cambi senza impatto runtime mantiene i check richiesti ma salta install, test Python e package build pesanti.
@@ -76,7 +80,7 @@ Il workflow è diviso in gate indipendenti:
 - `Python 3.11/3.12/3.13`: test completi solo per cambi runtime/test; coverage solo su Python 3.12.
 - `package-build`: build del pacchetto solo per cambi a `src/**`, packaging o dipendenze.
 
-`CodeQL` mantiene il check su PR/main, ma l'analisi pesante parte solo per cambi a codice o dipendenze, oltre a schedule settimanale e manuale. `Dependency Review` mantiene il check su PR, ma l'action parte solo quando la PR tocca file di dipendenze (`pyproject.toml`, lock/requirements).
+`CodeQL` resta disponibile solo su avvio esplicito con `workflow_dispatch`. `Dependency Review`, `Main Commit Policy`, `Release Policy` e `PR Title` sono disattivati finche la modalita senza budget Actions resta attiva.
 
 ## Configurazione consigliata nella UI GitHub
 
@@ -114,11 +118,11 @@ Configurazione consigliata:
 Frequenza minima mensile:
 
 1. eseguire `make github-maintenance`;
-2. controllare workflow falliti o flakey;
+2. controllare workflow falliti o flakey solo se hai riattivato esplicitamente le Actions;
 3. verificare PR Dependabot aperte;
 4. verificare alert Security e Dependabot;
 5. controllare che i ruleset di `main` siano coerenti con il flusso reale;
-6. controllare che `release-please` non abbia Release PR bloccate;
+6. controllare che `release-please` non abbia Release PR bloccate, se il workflow e stato riattivato esplicitamente;
 7. verificare che i secret VPS e release siano ancora presenti e non scaduti.
 
 ## Fallback operativo

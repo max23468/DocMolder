@@ -1,7 +1,7 @@
 name: Dependency Review
 
-on:
-  pull_request:
+# Disattivato in modalita senza budget GitHub Actions.
+on: []
 
 permissions:
   contents: read

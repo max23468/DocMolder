@@ -17,7 +17,7 @@ La fonte di verita della release e composta da:
 - [CHANGELOG.md](../CHANGELOG.md) in root
 - `.release-please-manifest.json` come stato corrente della versione gestita
 
-Il campo `version` di `pyproject.toml` e `src/docmolder/__init__.py` sono derivati e vengono aggiornati automaticamente dal flusso di release.
+Il campo `version` di `pyproject.toml` e `src/docmolder/__init__.py` sono derivati e vengono aggiornati dal flusso di release quando `release-please` viene avviato esplicitamente.
 
 I seguenti file sono quindi **riservati alla Release PR** generata da `release-please`:
 
@@ -41,6 +41,7 @@ Policy del progetto:
 - eccezione stretta: commit diretti `chore(docs):` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
 - il workflow `Main Commit Policy` e un guardrail di verifica, non un'alternativa al flusso PR
 - il workflow `Release Policy` blocca le PR normali che provano a fare bump versione o changelog manuali
+- in modalita senza budget GitHub Actions, questi guardrail restano disattivati e i controlli locali (`publish_doctor`, `preflight`, `ci_verify`) diventano la verifica primaria
 
 Il titolo della PR squashata diventa il commit che `release-please` usera per:
 
@@ -150,7 +151,7 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 
 1. si apre una PR con titolo convenzionale
 2. la PR viene squash-mergeata su `main`
-3. `release-please` aggiorna o crea una Release PR
+3. `release-please` aggiorna o crea una Release PR solo quando lo avvii esplicitamente con `workflow_dispatch`
 4. la Release PR contiene:
    - nuova versione
    - aggiornamento di `CHANGELOG.md`
@@ -166,12 +167,12 @@ Per evitare i disallineamenti visti nei tentativi precedenti:
 - non fare mai bump manuali "gia dentro" una feature PR;
 - non aggiornare il changelog di release dentro una feature PR;
 - non riallineare a mano manifest o version file salvo manutenzione eccezionale del flusso release;
-- se serve una release, si mergea la PR funzionale e si lascia lavorare `release-please`.
+- se serve una release, si mergea la PR funzionale e si lascia lavorare `release-please` solo quando vuoi consumare Actions esplicitamente; altrimenti il mantenimento della release e manuale.
 
 Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR e da considerare sbagliata e va corretta prima del merge.
 
 ## Baseline attuale
 
-La baseline iniziale del flusso automatico e `0.1.0`, bootstrappata sul commit `cfd7271`.
+La baseline iniziale del flusso di release e `0.1.0`, bootstrappata sul commit `cfd7271`.
 
 Le modifiche precedenti restano consolidate nella release baseline presente in [CHANGELOG.md](../CHANGELOG.md).

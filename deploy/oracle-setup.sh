@@ -53,7 +53,10 @@ sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.service" /etc/systemd/system/doc
 sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.timer" /etc/systemd/system/docmolder-alertcheck.timer
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.service" /etc/systemd/system/docmolder-reconcile.service
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.timer" /etc/systemd/system/docmolder-reconcile.timer
+sudo install -D -m 755 "${APP_DIR}/deploy/install-github-webhook.sh" /opt/docmolder/bin/install-github-webhook.sh
 sudo systemctl daemon-reload
+sudo bash "${APP_DIR}/deploy/install-static-site.sh"
+sudo bash "${APP_DIR}/deploy/install-github-webhook.sh"
 
 echo "Installazione completata."
 echo "Prossimi passi:"
