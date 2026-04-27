@@ -57,6 +57,7 @@ sudo chown root:root "${AUTO_RELEASE_ENV_FILE}"
 sudo chmod 600 "${AUTO_RELEASE_ENV_FILE}"
 sudo systemctl daemon-reload
 sudo systemctl enable --now docmolder-github-webhook.service
+sudo systemctl restart docmolder-github-webhook.service
 
 echo "[status]"
 sudo systemctl is-active docmolder-github-webhook.service

@@ -2,6 +2,7 @@
 set -euo pipefail
 
 APP_DIR="${DOCMOLDER_VPS_APP_DIR:-/opt/docmolder/app}"
+APP_USER="${DOCMOLDER_APP_USER:-docmolder}"
 VENV_PYTHON="${DOCMOLDER_VENV_PYTHON:-/opt/docmolder/venv/bin/python}"
 ENV_FILE="${DOCMOLDER_AUTO_RELEASE_ENV_FILE:-/etc/docmolder/release.env}"
 
@@ -24,9 +25,17 @@ esac
 
 cd "${APP_DIR}"
 
-exec "${VENV_PYTHON}" "${APP_DIR}/scripts/auto_release.py" \
+args=(
+  "${VENV_PYTHON}" "${APP_DIR}/scripts/auto_release.py"
   --repo-dir "${APP_DIR}" \
   --repository "${DOCMOLDER_RELEASE_REPOSITORY:-max23468/DocMolder}" \
   --branch "${DOCMOLDER_RELEASE_BRANCH:-main}" \
   --author-name "${DOCMOLDER_RELEASE_GIT_AUTHOR_NAME:-docmolder-release-bot}" \
   --author-email "${DOCMOLDER_RELEASE_GIT_AUTHOR_EMAIL:-docmolder-release-bot@users.noreply.github.com}"
+)
+
+if [ "$(id -u)" -eq 0 ] && id "${APP_USER}" >/dev/null 2>&1; then
+  exec sudo -E -u "${APP_USER}" "${args[@]}"
+fi
+
+exec "${args[@]}"
