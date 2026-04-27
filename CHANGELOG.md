@@ -8,6 +8,23 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.11.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.10.1...docmolder-v0.11.0) (2026-04-28)
+
+
+### Funzionalità
+
+* **site:** publish privacy page and duckdns units (#85) [skip ci] ([a1faa27](https://github.com/max23468/DocMolder/commit/a1faa271fd1c60c1b7723dac2c36f70a17e9865b))
+
+### Correzioni
+
+* **release:** automate VPS releases without Actions ([#88](https://github.com/max23468/DocMolder/issues/88)) ([cc7ba6e](https://github.com/max23468/DocMolder/commit/cc7ba6e41fd497a3e7311c00181f1b344923b408))
+* **site:** add favicon.ico fallback for static pages ([#89](https://github.com/max23468/DocMolder/issues/89)) ([f2157ab](https://github.com/max23468/DocMolder/commit/f2157abdcb9334608a539dfcadca37a2611a6c04))
+* **release:** run VPS auto-release as app user ([#91](https://github.com/max23468/DocMolder/issues/91)) ([862e0c2](https://github.com/max23468/DocMolder/commit/862e0c23c481ff1800defd805f493d07ce832f2a))
+
+### Documentazione
+
+* close privacy duckdns handoff [skip ci] ([d5c24b3](https://github.com/max23468/DocMolder/commit/d5c24b3ee98b5e7bdc8051f158ba762f014f82a3))
+
 ## [0.10.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.10.0...docmolder-v0.10.1) (2026-04-27)
 
 
