@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="DocMolder e un bot Telegram pubblico per rendere PDF e scansioni pronti, in pochi tocchi.">
+  <meta name="theme-color" content="#132836">
+  <link rel="canonical" href="https://docmolder.duckdns.org/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="DocMolder">
+  <meta property="og:title" content="DocMolder - PDF e scansioni pronti">
+  <meta property="og:description" content="Bot Telegram pubblico per sistemare PDF, scansioni e immagini senza passare da editor complicati.">
+  <meta property="og:url" content="https://docmolder.duckdns.org/">
+  <meta property="og:image" content="https://docmolder.duckdns.org/assets/brand/docmolder-share-card.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="DocMolder - PDF e scansioni pronti">
+  <meta name="twitter:description" content="Apri @docmolder_bot, manda il file, scegli l'azione, ricevi il risultato.">
+  <meta name="twitter:image" content="https://docmolder.duckdns.org/assets/brand/docmolder-share-card.png">
+  <title>DocMolder - PDF e scansioni pronti</title>
+  <link rel="icon" href="/assets/brand/docmolder-mark-master.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="/assets/brand/docmolder-app-icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/assets/brand/docmolder-app-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #132836;
+      --slate: #35536B;
+      --teal: #28ADB0;
+      --mist: #CBEAEC;
+      --paper: #F4EEDD;
+      --coral: #FF7A59;
+      --white: #FFFFFF;
+      --soft: #F8FBFA;
+      --line: rgba(19, 40, 54, 0.14);
+      --shadow: 0 18px 48px rgba(19, 40, 54, 0.16);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--soft);
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .shell {
+      min-height: 100vh;
+      background:
+        linear-gradient(90deg, rgba(203, 234, 236, 0.28) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(203, 234, 236, 0.28) 1px, transparent 1px),
+        var(--soft);
+      background-size: 64px 64px;
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      padding: 18px clamp(20px, 5vw, 64px);
+      background: rgba(248, 251, 250, 0.88);
+      border-bottom: 1px solid var(--line);
+      backdrop-filter: blur(16px);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .brand img {
+      width: 38px;
+      height: 38px;
+      display: block;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      color: var(--slate);
+      font-size: 15px;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+    }
+
+    .nav-links a:hover,
+    .nav-links a:focus-visible {
+      color: var(--ink);
+    }
+
+    .hero {
+      min-height: calc(100vh - 75px);
+      display: grid;
+      grid-template-columns: minmax(0, 1.02fr) minmax(320px, 0.98fr);
+      align-items: center;
+      gap: clamp(34px, 6vw, 84px);
+      padding: clamp(52px, 7vw, 94px) clamp(20px, 5vw, 64px) 56px;
+    }
+
+    .hero-copy {
+      max-width: 720px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0 0 22px;
+      color: var(--slate);
+      font-size: 14px;
+      font-weight: 720;
+    }
+
+    .eyebrow::before {
+      width: 12px;
+      height: 12px;
+      content: "";
+      background: var(--teal);
+      border: 3px solid var(--paper);
+      box-shadow: 0 0 0 1px rgba(19, 40, 54, 0.18);
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 12ch;
+      font-size: clamp(56px, 8vw, 116px);
+      line-height: 0.92;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 620px;
+      margin: 24px 0 0;
+      color: var(--slate);
+      font-size: clamp(20px, 2.2vw, 28px);
+      line-height: 1.38;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 32px;
+    }
+
+    .button {
+      display: inline-flex;
+      min-height: 46px;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 0 18px;
+      border: 1px solid var(--ink);
+      border-radius: 8px;
+      font-weight: 760;
+      text-decoration: none;
+      transition: transform 160ms ease, background 160ms ease, color 160ms ease, border-color 160ms ease;
+    }
+
+    .button.primary {
+      color: var(--ink);
+      background: var(--teal);
+      border-color: var(--teal);
+    }
+
+    .button.secondary {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.64);
+    }
+
+    .button:hover,
+    .button:focus-visible {
+      transform: translateY(-2px);
+    }
+
+    .hero-panel {
+      position: relative;
+      padding: clamp(18px, 3vw, 28px);
+      color: var(--paper);
+      background: var(--ink);
+      border: 1px solid rgba(244, 238, 221, 0.18);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-panel::before {
+      position: absolute;
+      inset: 0;
+      content: "";
+      background:
+        linear-gradient(90deg, rgba(203, 234, 236, 0.08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(203, 234, 236, 0.08) 1px, transparent 1px);
+      background-size: 42px 42px;
+      pointer-events: none;
+    }
+
+    .chat {
+      position: relative;
+      display: grid;
+      gap: 14px;
+    }
+
+    .chat-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(244, 238, 221, 0.16);
+    }
+
+    .bot {
+      display: flex;
+      align-items: center;
+      min-width: 0;
+      gap: 12px;
+    }
+
+    .bot img {
+      width: 48px;
+      height: 48px;
+      display: block;
+    }
+
+    .bot strong {
+      display: block;
+      font-size: 18px;
+    }
+
+    .bot span,
+    .status {
+      color: rgba(244, 238, 221, 0.72);
+      font-size: 13px;
+    }
+
+    .bubble {
+      max-width: 88%;
+      padding: 14px 16px;
+      border-radius: 8px;
+      line-height: 1.45;
+    }
+
+    .bubble.user {
+      justify-self: end;
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    .bubble.bot {
+      justify-self: start;
+      display: block;
+      color: var(--paper);
+      background: rgba(203, 234, 236, 0.12);
+      border: 1px solid rgba(203, 234, 236, 0.18);
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .quick-actions span {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 12px;
+      color: var(--paper);
+      background: rgba(244, 238, 221, 0.08);
+      border: 1px solid rgba(244, 238, 221, 0.16);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .quick-actions img {
+      width: 20px;
+      height: 20px;
+      flex: 0 0 auto;
+    }
+
+    .result {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 8px;
+      padding: 16px;
+      color: var(--ink);
+      background: var(--mist);
+      border-radius: 8px;
+    }
+
+    .result strong {
+      display: block;
+    }
+
+    .result span {
+      color: var(--slate);
+      font-size: 13px;
+    }
+
+    .section {
+      padding: 72px clamp(20px, 5vw, 64px);
+      border-top: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.62);
+    }
+
+    .section.dark {
+      color: var(--paper);
+      background: var(--ink);
+    }
+
+    .section-head {
+      max-width: 760px;
+      margin-bottom: 32px;
+    }
+
+    .section h2 {
+      margin: 0;
+      font-size: clamp(34px, 5vw, 64px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .section p {
+      max-width: 680px;
+      color: var(--slate);
+      font-size: 18px;
+      line-height: 1.6;
+    }
+
+    .dark p {
+      color: rgba(244, 238, 221, 0.78);
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .step,
+    .feature {
+      padding: 22px;
+      background: var(--white);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+
+    .step-number {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      margin-bottom: 18px;
+      color: var(--ink);
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-weight: 800;
+    }
+
+    .step h3,
+    .feature h3 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      line-height: 1.18;
+    }
+
+    .step p,
+    .feature p {
+      margin: 0;
+      font-size: 16px;
+    }
+
+    .features {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .feature {
+      min-height: 186px;
+    }
+
+    .feature img {
+      width: 32px;
+      height: 32px;
+      margin-bottom: 18px;
+    }
+
+    .privacy-band {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 420px);
+      align-items: center;
+      gap: 34px;
+    }
+
+    .privacy-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .privacy-list li {
+      padding: 14px 16px;
+      color: var(--paper);
+      background: rgba(244, 238, 221, 0.08);
+      border: 1px solid rgba(244, 238, 221, 0.16);
+      border-radius: 8px;
+    }
+
+    .footer {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 28px clamp(20px, 5vw, 64px);
+      color: var(--slate);
+      background: var(--white);
+      border-top: 1px solid var(--line);
+      font-size: 14px;
+    }
+
+    @media (max-width: 1040px) {
+      .hero {
+        grid-template-columns: 1fr;
+        min-height: auto;
+      }
+
+      .hero-copy {
+        max-width: 780px;
+      }
+
+      .features {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .nav {
+        position: static;
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero {
+        padding-top: 42px;
+      }
+
+      h1 {
+        font-size: clamp(54px, 18vw, 82px);
+      }
+
+      .lead {
+        font-size: 20px;
+      }
+
+      .hero-panel {
+        padding: 16px;
+      }
+
+      .chat-head,
+      .result {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .bubble,
+      .bubble.user {
+        max-width: 100%;
+        justify-self: stretch;
+      }
+
+      .quick-actions,
+      .steps,
+      .features,
+      .privacy-band {
+        grid-template-columns: 1fr;
+      }
+
+      .section {
+        padding-top: 56px;
+        padding-bottom: 56px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      .button {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav" aria-label="Navigazione principale">
+      <a class="brand" href="#top" aria-label="DocMolder">
+        <img src="/assets/brand/docmolder-mark-master.svg" alt="">
+        <span>DocMolder</span>
+      </a>
+      <div class="nav-links">
+        <a href="#come-funziona">Come funziona</a>
+        <a href="#azioni">Azioni</a>
+        <a href="#privacy">Dati</a>
+        <a href="https://t.me/docmolder_bot" rel="noopener">Apri bot</a>
+      </div>
+    </nav>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow">Bot Telegram pubblico per documenti veloci</p>
+          <h1 id="hero-title">DocMolder</h1>
+          <p class="lead">PDF e scansioni pronti, in pochi tocchi. Apri il bot su Telegram, manda il file in chat e ricevi un risultato pulito.</p>
+          <div class="actions" aria-label="Azioni principali">
+            <a class="button primary" href="https://t.me/docmolder_bot" rel="noopener">Apri @docmolder_bot</a>
+            <a class="button secondary" href="#azioni">Scopri le azioni</a>
+          </div>
+        </div>
+
+        <div class="hero-panel" aria-label="Anteprima del flusso Telegram">
+          <div class="chat">
+            <div class="chat-head">
+              <div class="bot">
+                <img src="/assets/brand/docmolder-mark-master.svg" alt="">
+                <div>
+                  <strong>DocMolder</strong>
+                  <span>PDF e scansioni pronti</span>
+                </div>
+              </div>
+              <div class="status">bot pubblico</div>
+            </div>
+
+            <div class="bubble user">Apro @docmolder_bot e carico tre foto.</div>
+            <div class="bubble bot">Ti propongo solo le azioni compatibili con i file ricevuti.</div>
+
+            <div class="quick-actions" aria-label="Azioni compatibili">
+              <span><img src="/assets/brand/icons/pdf.svg" alt="">Crea PDF</span>
+              <span><img src="/assets/brand/icons/compress.svg" alt="">Comprimi</span>
+              <span><img src="/assets/brand/icons/scan.svg" alt="">Foto in A4</span>
+              <span><img src="/assets/brand/icons/merge.svg" alt="">Unisci</span>
+            </div>
+
+            <div class="result">
+              <div>
+                <strong>documenti-pronti.pdf</strong>
+                <span>Output pulito, pronto da inviare</span>
+              </div>
+              <span>completato</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="come-funziona" class="section" aria-labelledby="flow-title">
+        <div class="section-head">
+          <h2 id="flow-title">Una decisione per volta.</h2>
+          <p>DocMolder evita menu lunghi e passaggi inutili. Il bot pubblico guarda i file ricevuti e guida l'utente verso il prossimo passo sensato.</p>
+        </div>
+        <div class="steps">
+          <article class="step">
+            <div class="step-number">1</div>
+            <h3>Manda file o foto</h3>
+            <p>PDF, scansioni o immagini arrivano direttamente nella chat pubblica del bot.</p>
+          </article>
+          <article class="step">
+            <div class="step-number">2</div>
+            <h3>Scegli l'azione</h3>
+            <p>Il bot mostra solo opzioni compatibili: crea, comprimi, unisci, estrai, ruota.</p>
+          </article>
+          <article class="step">
+            <div class="step-number">3</div>
+            <h3>Ricevi il risultato</h3>
+            <p>Il documento torna pronto, con fallback conservativi quando servono.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="azioni" class="section" aria-labelledby="actions-title">
+        <div class="section-head">
+          <h2 id="actions-title">Azioni essenziali, senza rumore.</h2>
+          <p>Il perimetro resta nitido: trasformazioni pratiche per PDF e documenti fotografati, non una suite complessa.</p>
+        </div>
+        <div class="features">
+          <article class="feature">
+            <img src="/assets/brand/icons/pdf.svg" alt="">
+            <h3>Crea PDF</h3>
+            <p>Trasforma immagini e scansioni in un PDF ordinato.</p>
+          </article>
+          <article class="feature">
+            <img src="/assets/brand/icons/compress.svg" alt="">
+            <h3>Comprimi</h3>
+            <p>Riduce il peso mantenendo un output leggibile.</p>
+          </article>
+          <article class="feature">
+            <img src="/assets/brand/icons/merge.svg" alt="">
+            <h3>Unisci</h3>
+            <p>Combina piu PDF in un unico documento.</p>
+          </article>
+          <article class="feature">
+            <img src="/assets/brand/icons/watermark.svg" alt="">
+            <h3>Watermark</h3>
+            <p>Aggiunge una marcatura chiara quando richiesta.</p>
+          </article>
+          <article class="feature">
+            <img src="/assets/brand/icons/scan.svg" alt="">
+            <h3>Raddrizza</h3>
+            <p>Corregge foto di fogli con un fallback prudente.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="privacy" class="section dark" aria-labelledby="privacy-title">
+        <div class="privacy-band">
+          <div>
+            <h2 id="privacy-title">Pensato per restare leggero.</h2>
+            <p>DocMolder e pubblico su Telegram, ma resta leggero: la VPS esegue le trasformazioni, non diventa un archivio permanente di file personali.</p>
+          </div>
+          <ul class="privacy-list" aria-label="Principi operativi">
+            <li>File temporanei con retention breve.</li>
+            <li>Bot pubblico raggiungibile da @docmolder_bot.</li>
+            <li>Flusso principale via Telegram polling.</li>
+            <li>Nessun editor web o dashboard documentale.</li>
+            <li>Sito pubblico statico, senza proxy verso il runtime del bot.</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>DocMolder - PDF e scansioni pronti, in pochi tocchi.</span>
+      <span>docmolder.duckdns.org</span>
+    </footer>
+  </div>
+</body>
+</html>

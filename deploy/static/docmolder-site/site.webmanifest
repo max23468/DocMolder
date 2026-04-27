@@ -1,0 +1,24 @@
+{
+  "name": "DocMolder",
+  "short_name": "DocMolder",
+  "description": "Bot Telegram pubblico per PDF e scansioni pronti, in pochi tocchi.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F8FBFA",
+  "theme_color": "#132836",
+  "icons": [
+    {
+      "src": "/assets/brand/docmolder-app-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/brand/docmolder-logo-square.png",
+      "sizes": "2048x2048",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

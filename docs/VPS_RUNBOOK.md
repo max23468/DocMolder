@@ -48,10 +48,13 @@ Log e stato:
 
 ```bash
 sudo systemctl status docmolder
+sudo systemctl status nginx
 sudo journalctl -u docmolder -n 50 --no-pager
 sudo systemctl status docmolder-db-backup.timer
 sudo systemctl status docmolder-alertcheck.timer
 sudo systemctl status docmolder-reconcile.timer
+sudo systemctl status docmolder-duckdns.timer
+sudo systemctl status certbot-renew.timer
 ```
 
 Restart:
@@ -102,6 +105,13 @@ Smoke check post-deploy con retry:
 sudo /opt/docmolder/app/deploy/smoke-check.sh
 ```
 
+Aggiornamento Duck DNS manuale:
+
+```bash
+sudo /opt/docmolder/bin/update-duckdns.sh
+sudo journalctl -u docmolder-duckdns.service -n 20 --no-pager
+```
+
 Manutenzione one-shot:
 
 ```bash
@@ -133,6 +143,54 @@ Verifica backup disponibili:
 sudo -u docmolder ls -lah /opt/docmolder/data/runtime/backups
 ```
 
+## Dominio pubblico e HTTPS
+
+Il dominio operativo e `docmolder.duckdns.org`; il bot pubblico e raggiungibile da `https://t.me/docmolder_bot`.
+
+Duck DNS e mantenuto dalla VPS con:
+
+- config root-only: `/etc/docmolder/duckdns.env`
+- updater: `/opt/docmolder/bin/update-duckdns.sh`
+- timer: `docmolder-duckdns.timer`
+
+Il timer aggiorna periodicamente il record Duck DNS verso l'IP pubblico della VPS. Per verifica:
+
+```bash
+dig +short docmolder.duckdns.org
+sudo systemctl status docmolder-duckdns.timer
+sudo /opt/docmolder/bin/update-duckdns.sh
+```
+
+HTTPS e predisposto con Nginx e Certbot:
+
+- vhost Nginx: `/etc/nginx/conf.d/docmolder.conf`
+- sorgente sito statico: `/opt/docmolder/app/deploy/static/docmolder-site/`
+- contenuto pubblicato: `/usr/share/nginx/docmolder/`
+- certificato: `/etc/letsencrypt/live/docmolder.duckdns.org/`
+- rinnovo automatico: `certbot-renew.timer`
+
+Nel perimetro attuale il bot pubblico resta in polling Telegram: il vhost pubblico non proxya verso
+un'app DocMolder. Espone il mini sito statico del tool, il link al bot Telegram e `/healthz` statico
+per verificare certificato, DNS e reverse proxy senza cambiare il runtime del bot. Un endpoint HTTP,
+webhook Telegram, API o UI web richiederebbe una decisione esplicita e un servizio applicativo
+dedicato.
+
+Il deploy standard aggiorna il sito statico con:
+
+```bash
+sudo /opt/docmolder/app/deploy/install-static-site.sh
+```
+
+Verifiche rapide:
+
+```bash
+curl -I http://docmolder.duckdns.org/
+curl -I https://docmolder.duckdns.org/
+curl https://docmolder.duckdns.org/healthz
+sudo certbot certificates
+sudo systemctl status certbot-renew.timer
+```
+
 ## Troubleshooting rapido
 
 Se il bot non parte, controlla prima:
@@ -159,6 +217,8 @@ Se i job falliscono:
 - il timer `docmolder-db-backup.timer` crea un backup SQLite giornaliero verificato e applica retention corta
 - il timer `docmolder-alertcheck.timer` esegue un healthcheck operativo ogni 5 minuti
 - il timer `docmolder-reconcile.timer` riallinea periodicamente job stale e runtime temporaneo
+- il timer `docmolder-duckdns.timer` mantiene aggiornato il dominio Duck DNS della VPS
+- il timer `certbot-renew.timer` mantiene rinnovabili i certificati HTTPS gestiti da Certbot
 - journald viene configurato con retention corta tramite `/etc/systemd/journald.conf.d/docmolder.conf`
 
 ## Nota operativa
