@@ -13,13 +13,13 @@ Questa guida definisce la policy ufficiale di versionamento di `DocMolder`.
 
 La fonte di verita della release e composta da:
 
-- tag Git `vX.Y.Z`
+- tag Git `docmolder-vX.Y.Z`
 - [CHANGELOG.md](../CHANGELOG.md) in root
 - `.release-please-manifest.json` come stato corrente della versione gestita
 
-Il campo `version` di `pyproject.toml` e `src/docmolder/__init__.py` sono derivati e vengono aggiornati dal flusso di release quando `release-please` viene avviato esplicitamente.
+Il campo `version` di `pyproject.toml` e `src/docmolder/__init__.py` sono derivati e vengono aggiornati dal flusso di release. Nel percorso normale senza GitHub Actions li aggiorna la release automatica sulla VPS; `release-please` resta un fallback manuale esplicito.
 
-I seguenti file sono quindi **riservati alla Release PR** generata da `release-please`:
+I seguenti file sono quindi **riservati al flusso di release**:
 
 - `CHANGELOG.md`
 - `.release-please-manifest.json`
@@ -40,12 +40,11 @@ Policy del progetto:
 - ogni commit che entra su `main` deve provenire da una PR squashata
 - eccezione stretta: commit diretti `chore(docs):` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
 - il workflow `Main Commit Policy` e un guardrail di verifica, non un'alternativa al flusso PR
-- il workflow `Release Policy` blocca le PR normali che provano a fare bump versione o changelog manuali
+- il workflow `Release Policy` blocca le PR normali che provano a fare bump versione o changelog manuali quando viene avviato esplicitamente
 - in modalita senza budget GitHub Actions, questi guardrail restano disattivati e i controlli locali (`publish_doctor`, `preflight`, `ci_verify`) diventano la verifica primaria
 
-Il titolo della PR squashata diventa il commit che `release-please` usera per:
+Il titolo della PR squashata diventa il commit che il flusso di release usera per:
 
-- decidere se aprire una Release PR
 - determinare il bump di versione
 - generare il changelog della release
 
@@ -130,11 +129,11 @@ Usa `chore:` o `ci:` per:
 - workflow e tooling che non meritano una release annotata per gli utilizzatori del progetto
 - aggiornamenti documentali rapidi e non rilasciabili, in particolare con `chore(docs):`
 
-Usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`) per modifiche interne che non devono produrre una release autonoma, per esempio aggiornamenti alle sole istruzioni agent senza impatto sul prodotto o sull'operativita del maintainer. La label `skip-changelog` resta utile per le release note generate da GitHub, ma il flusso principale `release-please` dipende dal tipo del commit/PR.
+Usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`) per modifiche interne che non devono produrre una release autonoma, per esempio aggiornamenti alle sole istruzioni agent senza impatto sul prodotto o sull'operativita del maintainer. La label `skip-changelog` resta utile per le release note generate da GitHub, ma il flusso principale dipende dal tipo del commit/PR.
 
 ## Sezioni del changelog
 
-Il changelog generato da `release-please` raggruppa le PR rilasciabili in sezioni orientate al lettore:
+Il changelog generato dal flusso di release raggruppa le PR rilasciabili in sezioni orientate al lettore:
 
 - `feat:` → `Funzionalità`
 - `fix:` → `Correzioni`
@@ -143,7 +142,7 @@ Il changelog generato da `release-please` raggruppa le PR rilasciabili in sezion
 - `deps:` → `Dipendenze`
 - `docs:` → `Documentazione`
 
-I tipi interni `chore:`, `ci:`, `test:`, `refactor:` e `build:` sono configurati come nascosti nel changelog release-please: usali quando vuoi mantenere il commit tracciabile senza aggiungere rumore alla release.
+I tipi interni `chore:`, `ci:`, `test:`, `refactor:` e `build:` sono esclusi dal changelog automatico: usali quando vuoi mantenere il commit tracciabile senza aggiungere rumore alla release.
 
 Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi deve capire l'impatto della release usando uno scope chiaro. Per esempio una correzione al workflow che impedisce bypass sui file di release è `fix(release): ...`, non un generico `fix:`.
 
@@ -151,12 +150,15 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 
 1. si apre una PR con titolo convenzionale
 2. la PR viene squash-mergeata su `main`
-3. `release-please` aggiorna o crea una Release PR solo quando lo avvii esplicitamente con `workflow_dispatch`
-4. la Release PR contiene:
+3. il webhook VPS deploya `main`
+4. dopo deploy riuscito, `scripts/auto_release.py` crea automaticamente la release se ci sono commit rilasciabili dal tag precedente
+5. la release automatica contiene:
    - nuova versione
    - aggiornamento di `CHANGELOG.md`
    - bump dei file versione
-5. al merge della Release PR GitHub crea tag e Release
+   - tag `docmolder-vX.Y.Z`
+   - GitHub Release
+6. il commit di release viene redeployato dal webhook e poi viene ignorato dal generatore di release, evitando loop
 
 Non usare `main` per commit manuali o push diretti. Se una modifica e urgente, si apre comunque una PR piccola e la si squash-mergea appena la CI e verde.
 
@@ -167,7 +169,7 @@ Per evitare i disallineamenti visti nei tentativi precedenti:
 - non fare mai bump manuali "gia dentro" una feature PR;
 - non aggiornare il changelog di release dentro una feature PR;
 - non riallineare a mano manifest o version file salvo manutenzione eccezionale del flusso release;
-- se serve una release, si mergea la PR funzionale e si lascia lavorare `release-please` solo quando vuoi consumare Actions esplicitamente; altrimenti il mantenimento della release e manuale.
+- se serve una release, si mergea la PR funzionale e si lascia lavorare la release automatica VPS; `release-please` resta solo come fallback esplicito quando vuoi consumare Actions.
 
 Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR e da considerare sbagliata e va corretta prima del merge.
 

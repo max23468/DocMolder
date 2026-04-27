@@ -47,23 +47,28 @@ Conseguenze:
 - il vhost pubblico resta un sito statico di presentazione e ingresso verso Telegram finche non viene deciso un endpoint DocMolder specifico
 - eventuali evoluzioni API-first, webhook Telegram o UI web richiederebbero una decisione nuova
 
-## Webhook privato per deploy e hook locali
+## Webhook privato per deploy, release e hook locali
 
 Decisione:
-- l'automazione senza GitHub Actions usa webhook privati GitHub -> VPS solo per il deploy su `main`
+- l'automazione senza GitHub Actions usa webhook privati GitHub -> VPS per il deploy su `main` e, se abilitato, per la release automatica successiva
 - il listener webhook gira sulla VPS dietro Nginx e verifica firma HMAC, repository e branch prima di lanciare `deploy/update-vps.sh`
+- dopo un deploy riuscito, il listener puo lanciare `deploy/auto-release.sh`, che crea bump, changelog, commit di release, tag e GitHub Release quando trova commit rilasciabili dal tag precedente
 - i controlli di qualità locale vivono in hook `git` installabili con `make install-hooks`
+- il token GitHub usato per scrivere release vive solo sulla VPS in `/etc/docmolder/release.env`, con permessi root-only
 
 Motivazione:
 - permette di mantenere il deploy automatico senza dipendere da Actions
+- permette di mantenere versioni, changelog, tag e GitHub Releases allineati anche senza Actions
 - mantiene il listener semplice e confinato alla VPS, non al runtime Telegram
 - sposta i gate quotidiani vicino alla macchina di sviluppo, dove il costo di verifica e nullo
 
 Conseguenze:
 - il deploy automatico dipende da un webhook GitHub configurato esplicitamente sulla repository
+- la release automatica dipende da un token GitHub con permessi di scrittura sui contenuti del repository
 - la VPS deve esporre un endpoint HTTPS dedicato al listener, ma non un runtime web applicativo generalista
 - gli hook locali possono bloccare push non pronti prima che arrivino su GitHub
 - se il webhook o gli hook non sono configurati, il percorso resta manuale ma non si rompe il bot
+- i commit `chore(main): release docmolder X.Y.Z` non producono una nuova release, evitando loop di release/deploy
 
 ## Retention breve dei file temporanei
 

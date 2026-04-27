@@ -22,7 +22,7 @@ Verifica almeno:
 - documentazione aggiornata se cambia il flusso utente o operativo
 - se cambia il catalogo azioni o la struttura dei job, aggiorna anche contesto, testing e decisioni tecniche correlate
 - roadmap aggiornata solo se cambia il piano futuro
-- nessun aggiornamento manuale di `CHANGELOG.md`, `.release-please-manifest.json`, campo `version` di `pyproject.toml` o `src/docmolder/__init__.py`, salvo Release PR o correzioni eccezionali del flusso
+- nessun aggiornamento manuale di `CHANGELOG.md`, `.release-please-manifest.json`, campo `version` di `pyproject.toml` o `src/docmolder/__init__.py`, salvo commit di release automatico o correzioni eccezionali del flusso
 
 ## PR e merge
 
@@ -34,7 +34,7 @@ Regole operative essenziali:
 - squash merge su `main`
 - eccezione: modifiche minuscole solo documentali (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`) si pubblicano direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR
 - niente bump manuali di versione o changelog nelle PR normali
-- per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile; in modalita senza GitHub Actions il comando si ferma dopo la creazione della PR e lascia il merge finale al maintainer. Se vuoi riattivare il vecchio auto-follow-up, esporta `DOCMOLDER_USE_GH_ACTIONS=1`
+- per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"` quando possibile; in modalita senza GitHub Actions il comando si ferma dopo la creazione della PR e lascia il merge finale al maintainer. Dopo il merge su `main`, il webhook VPS gestisce deploy e release automatica se abilitata. Se vuoi riattivare il vecchio auto-follow-up via Actions, esporta `DOCMOLDER_USE_GH_ACTIONS=1`
 - prima di aprire o aggiornare la PR, usare `scripts/publish_doctor.py --fail` o affidarsi a `scripts/publish_change.sh`, che lo esegue automaticamente
 - prima di inseguire una run failed, controllare solo branch e SHA correnti con `scripts/current_failed_runs.py`
 - i dettagli della policy vivono in [VERSIONING.md](./VERSIONING.md)
@@ -55,21 +55,20 @@ I workflow GitHub fanno da guardrail solo quando li avvii esplicitamente. `CI` r
 
 ## Release
 
-Il flusso ufficiale e:
+Il flusso ufficiale senza GitHub Actions e:
 
 1. merge della PR su `main`
-2. esecuzione del workflow `Release Please`, solo se lo avvii esplicitamente
-3. apertura o aggiornamento della Release PR da parte del workflow
-4. revisione finale della Release PR con versione e changelog generati
-5. merge della Release PR
-6. creazione di tag Git e GitHub Release da parte del workflow
+2. il webhook privato GitHub -> VPS esegue il deploy
+3. dopo un deploy riuscito, `deploy/auto-release.sh` esegue `scripts/auto_release.py` se `/etc/docmolder/release.env` abilita la release automatica
+4. se ci sono commit rilasciabili dal tag precedente, la VPS crea commit di release, tag `docmolder-vX.Y.Z` e GitHub Release
+5. il push del commit di release riattiva il webhook e redeploya la versione con bump/changelog, senza generare una nuova release
 
 Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 
 Non usare piu il vecchio flusso di aggiornamento manuale del changelog per ogni modifica ordinaria.
 Non fare bump versione manuali nelle PR normali.
 
-`Release Please` non parte automaticamente per cambi solo `.github/**`, `docs/**`, `scripts/**`, `tests/**`, `README.md` o `AGENTS.md`. Resta eseguibile manualmente con `workflow_dispatch` solo se una manutenzione interna deve comunque produrre release e vuoi consumare esplicitamente Actions.
+`Release Please` non parte automaticamente. Resta eseguibile manualmente con `workflow_dispatch` solo come fallback esplicito se vuoi consumare Actions; il percorso automatico normale e quello VPS senza Actions.
 
 ## Verifica locale
 
@@ -100,9 +99,9 @@ Il flusso GitHub/Codex per lavorare senza Mac locale e in [docs/CODEX_CLOUD_DEPL
 
 In breve:
 
-1. verificare che la release da deployare esista su GitHub con tag coerente
-2. per deploy standard da remoto, aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
-3. in alternativa, lasciare che il webhook privato GitHub -> VPS faccia partire lo stesso script
+1. per deploy standard da remoto, lasciare che il webhook privato GitHub -> VPS aggiorni la VPS su push a `main`
+2. in alternativa, aggiornare manualmente la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
+3. verificare che, quando ci sono commit rilasciabili, la release automatica crei tag e GitHub Release coerenti
 4. per controlli senza deploy, usare `VPS Check` solo come fallback esplicito
 5. per ripristino esplicito, usare `Rollback VPS` con tag o SHA precedente
 6. controllare stato servizio, timer backup SQLite, log recenti e revisione live

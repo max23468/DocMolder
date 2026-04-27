@@ -19,7 +19,7 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 
 In modalita senza budget GitHub Actions, i workflow automatici sono disattivati per default. `CI`, `Deploy VPS`, `Release Please` e gli altri dispatch manuali restano disponibili solo come eccezione esplicita; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) diventano la fonte di verita operativa.
 
-Il percorso realmente automatico senza Actions passa da `make install-hooks` sul repo locale e dal servizio `docmolder-github-webhook` sulla VPS.
+Il percorso realmente automatico senza Actions passa da `make install-hooks` sul repo locale e dal servizio `docmolder-github-webhook` sulla VPS. Dopo il deploy, il listener puo lanciare `deploy/auto-release.sh`: se `/etc/docmolder/release.env` abilita `DOCMOLDER_AUTO_RELEASE_ENABLED=true` e contiene un token GitHub valido, la VPS crea automaticamente commit di release, tag e GitHub Release.
 
 ## Pubblicazione più fluida
 
@@ -42,6 +42,7 @@ Strumenti locali:
 - `scripts/publish_doctor.py` o `make publish-doctor`: verifica in un unico punto branch/base, detached HEAD, divergenza da `origin/main`, file riservati a `release-please`, run failed correnti e commenti bot aperti.
 - `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
 - `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR draft; con `DOCMOLDER_USE_GH_ACTIONS=1` riattivi il vecchio watch/check/ready/auto-merge.
+- `scripts/auto_release.py`: crea release senza Actions da una checkout pulita, aggiornando changelog, manifest, versioni, tag e GitHub Release.
 - `make install-hooks`: installa i hook Git locali che eseguono i controlli prima del push.
 - `docmolder-github-webhook.service`: listener systemd sulla VPS che riceve il webhook GitHub privato e lancia il deploy.
 - `scripts/cleanup_merged_branches.sh` o `make cleanup-branches`: elimina branch locali `codex/*` già mergiati.
@@ -81,6 +82,16 @@ Il workflow è diviso in gate indipendenti:
 - `package-build`: build del pacchetto solo per cambi a `src/**`, packaging o dipendenze.
 
 `CodeQL` resta disponibile solo su avvio esplicito con `workflow_dispatch`. `Dependency Review`, `Main Commit Policy`, `Release Policy` e `PR Title` sono disattivati finche la modalita senza budget Actions resta attiva.
+
+## Release automatica senza Actions
+
+Il listener VPS esegue la release automatica solo dopo un deploy riuscito. La release viene saltata quando:
+
+- `/etc/docmolder/release.env` manca o `DOCMOLDER_AUTO_RELEASE_ENABLED` non e `true`;
+- non ci sono commit rilasciabili dal tag `docmolder-vX.Y.Z` piu recente;
+- il commit ricevuto e solo una release commit `chore(main): release docmolder X.Y.Z`.
+
+Quando ci sono commit `feat:`, `fix:`, `deps:` o `docs:` rilasciabili, `scripts/auto_release.py` aggiorna `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` e `src/docmolder/__init__.py`, crea il tag `docmolder-vX.Y.Z`, pusha commit/tag e crea o aggiorna la GitHub Release corrispondente. Il token non deve stare nel repository: vive in `/etc/docmolder/release.env` con permessi `600`.
 
 ## Configurazione consigliata nella UI GitHub
 
