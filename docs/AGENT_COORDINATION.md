@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| in corso | Codex fix-vps-auto-release-user | codex/fix-vps-auto-release-user | `deploy/auto-release.sh`, `deploy/install-github-webhook.sh`, test deploy script, release VPS | Correzione autorelease VPS: esecuzione Git come utente applicativo e restart webhook su install/update; env release abilitato manualmente su VPS, pubblicazione PR in corso. |
 | chiuso | Codex remove-disabled-workflows | codex/remove-disabled-workflows / #90 | `.github/workflows/*`, docs GitHub/versioning | Rimossi i workflow disattivati con `on: []` che generavano run fallite senza job; PR #90 mergiata, nessuna nuova run Actions sul branch. |
 | chiuso | Codex vps-auto-release | codex/vps-auto-release | release automation VPS, webhook deploy/release, docs versioning/deploy | Release automatica senza GitHub Actions pubblicata con #88; webhook deploy/release attivo sulla VPS. |
 | chiuso | Codex no-gh-actions-default | codex/no-gh-actions-default | `.github/workflows/*`, `scripts/publish_change.sh`, docs operativi GitHub/release/deploy | Trigger automatici GitHub Actions disattivati per operare con gate locali e deploy manuale; `bash scripts/preflight_publish.sh` e `git diff --check` OK. |
