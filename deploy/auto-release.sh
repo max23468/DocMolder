@@ -30,6 +30,7 @@ args=(
   --repo-dir "${APP_DIR}" \
   --repository "${DOCMOLDER_RELEASE_REPOSITORY:-max23468/DocMolder}" \
   --branch "${DOCMOLDER_RELEASE_BRANCH:-main}" \
+  --git-token-env "${DOCMOLDER_RELEASE_GIT_TOKEN_ENV:-DOCMOLDER_RELEASE_GIT_TOKEN}" \
   --author-name "${DOCMOLDER_RELEASE_GIT_AUTHOR_NAME:-docmolder-release-bot}" \
   --author-email "${DOCMOLDER_RELEASE_GIT_AUTHOR_EMAIL:-docmolder-release-bot@users.noreply.github.com}"
 )
