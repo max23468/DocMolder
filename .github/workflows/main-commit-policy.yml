@@ -1,9 +1,7 @@
 name: Main Commit Policy
 
-on:
-  push:
-    branches:
-      - main
+# Disattivato in modalita senza budget GitHub Actions.
+on: []
 
 permissions:
   contents: read

@@ -10,6 +10,7 @@ TITLE="$1"
 BASE_BRANCH="${2:-main}"
 BASE_REF="origin/${BASE_BRANCH}"
 BRANCH="$(git branch --show-current)"
+USE_GH_ACTIONS="${DOCMOLDER_USE_GH_ACTIONS:-0}"
 body_file=""
 
 cleanup() {
@@ -68,6 +69,13 @@ if [ "$(gh pr list --head "${BRANCH}" --json number --jq 'length')" = "0" ]; the
 fi
 rm -f "${body_file}"
 body_file=""
+
+if [ "${USE_GH_ACTIONS}" != "1" ]; then
+  PR_URL="$(gh pr view --json url --jq '.url')"
+  echo "GitHub Actions disattivate di default: PR creata ma pubblicazione ferma qui."
+  echo "Completa i controlli locali e mergea manualmente quando sei pronto: ${PR_URL}"
+  exit 0
+fi
 
 PR_NUMBER="$(gh pr view --json number --jq '.number')"
 python3 scripts/publish_doctor.py --base "${BASE_BRANCH}" --fail

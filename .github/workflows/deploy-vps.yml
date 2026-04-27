@@ -1,15 +1,7 @@
 name: Deploy VPS
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "deploy/**"
-      - "pyproject.toml"
-      - "requirements*.txt"
-      - "src/**"
-      - "uv.lock"
+  # Trigger manuale: il deploy automatico su push e disattivato in modalita senza budget Actions.
   workflow_dispatch:
     inputs:
       target_ref:

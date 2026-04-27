@@ -128,10 +128,10 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi, classificazione del cambio, impatto deploy/release e test effettuati.
 - Se una PR deve produrre una release, includi una sezione `Release note` di 1-3 frasi in linguaggio naturale; se è solo manutenzione interna, usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`). Usa `skip-changelog` solo per escludere la PR dalle release note generate da GitHub, non come sostituto del tipo PR per `release-please`.
 - Se apri una PR come draft per far partire i check, monitora i check della PR e rimuovi automaticamente lo stato draft appena i check richiesti sono verdi, salvo richiesta esplicita contraria o dubbi residui da risolvere prima della review.
-- Per il versioning, la repository è `release-please`-first:
+- Per il versioning, la repository resta compatibile con `release-please` ma in modalita senza budget Actions la strada normale e locale/manuale:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
-  - il bump versione e il changelog di release spettano solo alla Release PR generata dal workflow automatico;
-  - dopo il merge di una PR funzionale, se `release-please` apre o aggiorna una Release PR, monitorala automaticamente, aspetta i check richiesti, rimuovi eventuale draft se presente e mergiala senza chiedere un via esplicito ulteriore;
+  - il bump versione e il changelog di release spettano solo alla Release PR quando il workflow e riattivato esplicitamente;
+  - dopo il merge di una PR funzionale, se `release-please` viene avviato e apre o aggiorna una Release PR, monitorala, aspetta i check richiesti, rimuovi eventuale draft se presente e mergiala senza chiedere un via esplicito ulteriore;
   - fermati prima del merge della Release PR solo se i check falliscono, se la Release PR contiene cambi inattesi rispetto a versione/changelog/manifest previsti, se emergono conflitti o se l'utente ha chiesto esplicitamente di non rilasciare;
   - se una modifica ordinaria tocca quei file, fermati e riallinea la PR al flusso ufficiale prima del merge.
 
@@ -143,6 +143,8 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.
 - Per deploy o manutenzione VPS, seguire `docs/VPS_RUNBOOK.md` e riportare sempre comandi eseguiti, esito e verifiche.
 - Dopo un deploy, non limitarti allo stato `active`: controlla anche log recenti e percorso utente minimo quando possibile.
+- In modalita senza budget GitHub Actions, i workflow automatici restano spenti per default: usa i gate locali e il deploy manuale sulla VPS come percorso normale, e ricorri a `workflow_dispatch` solo se l'utente lo chiede esplicitamente.
+- Se vuoi automazione senza Actions, usa `make install-hooks` sul repo locale e il listener `docmolder-github-webhook.service` sulla VPS; il webhook privato deve verificare repository, branch e firma HMAC prima di lanciare `update-vps.sh`.
 
 ## 11) Definizione di Done
 

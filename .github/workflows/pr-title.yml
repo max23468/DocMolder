@@ -1,12 +1,7 @@
 name: PR Title
 
-on:
-  pull_request_target:
-    types:
-      - opened
-      - edited
-      - synchronize
-      - reopened
+# Disattivato in modalita senza budget GitHub Actions.
+on: []
 
 permissions:
   pull-requests: read

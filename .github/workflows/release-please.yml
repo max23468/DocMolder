@@ -1,16 +1,7 @@
 name: Release Please
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - ".github/**"
-      - "AGENTS.md"
-      - "README.md"
-      - "docs/**"
-      - "scripts/**"
-      - "tests/**"
+  # Trigger manuale: l'aggiornamento automatico su push e disattivato in modalita senza budget Actions.
   workflow_dispatch:
 
 permissions:

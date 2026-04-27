@@ -141,6 +141,7 @@ Regole:
 ## Path operativi stabili
 
 - `deploy/` resta il percorso degli script e delle unità `systemd` usate dalla VPS
+- `deploy/` include anche il listener webhook GitHub privato che avvia l'aggiornamento automatico della VPS senza usare GitHub Actions
 - `scripts/` resta il percorso degli strumenti locali, CI e publishing richiamati da Makefile, workflow e runbook
 - eventuali riorganizzazioni future di questi percorsi devono introdurre prima wrapper compatibili nei path storici, poi aggiornare workflow e documentazione
 
@@ -149,6 +150,7 @@ Regole:
 Canali attuali:
 
 - log `systemd` del servizio `docmolder`
+- log `systemd` del listener `docmolder-github-webhook`
 - comando CLI `docmolder-healthcheck`
 - comandi admin Telegram `/health`, `/queue` e `/metrics`
 - metriche job in `jobs`
@@ -169,6 +171,7 @@ Eventi e log devono permettere di correlare almeno:
 ## Limiti da tenere presenti
 
 - il bot usa polling Telegram, non webhook pubblici
+- l'automazione deploy puo usare un webhook GitHub privato sulla VPS, ma non espone il bot come servizio web generale
 - il runtime e pensato per un singolo nodo applicativo
 - i file temporanei devono restare sotto cleanup attivo
 - i log non devono contenere contenuti dei documenti
