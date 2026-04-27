@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from scripts import auto_release
 
@@ -62,6 +63,39 @@ class AutoReleaseTests(unittest.TestCase):
         self.assertIn("### Correzioni", entry)
         self.assertIn("**bot:** add a useful shortcut", entry)
         self.assertIn("**deploy:** repair webhook release", entry)
+
+    def test_main_uses_separate_git_token_when_configured(self):
+        with (
+            patch.dict(
+                auto_release.os.environ,
+                {
+                    "DOCMOLDER_RELEASE_GITHUB_TOKEN": "api-token",
+                    "DOCMOLDER_RELEASE_GIT_TOKEN": "git-token",
+                },
+                clear=True,
+            ),
+            patch.object(auto_release.sys, "argv", ["auto_release.py"]),
+            patch.object(auto_release, "apply_release", return_value="ok") as apply_release,
+            patch("builtins.print"),
+        ):
+            exit_code = auto_release.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(apply_release.call_args.kwargs["api_token"], "api-token")
+        self.assertEqual(apply_release.call_args.kwargs["git_token"], "git-token")
+
+    def test_main_falls_back_to_api_token_for_git_push(self):
+        with (
+            patch.dict(auto_release.os.environ, {"DOCMOLDER_RELEASE_GITHUB_TOKEN": "api-token"}, clear=True),
+            patch.object(auto_release.sys, "argv", ["auto_release.py"]),
+            patch.object(auto_release, "apply_release", return_value="ok") as apply_release,
+            patch("builtins.print"),
+        ):
+            exit_code = auto_release.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(apply_release.call_args.kwargs["api_token"], "api-token")
+        self.assertEqual(apply_release.call_args.kwargs["git_token"], "api-token")
 
 
 if __name__ == "__main__":

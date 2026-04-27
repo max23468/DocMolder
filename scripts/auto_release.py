@@ -371,7 +371,17 @@ def ensure_github_release(*, repository: str, token: str, plan: ReleasePlan) -> 
         raise RuntimeError(f"GitHub release creation failed: {create_status} {create_response}")
 
 
-def apply_release(*, cwd: Path, repository: str, branch: str, token: str, author_name: str, author_email: str, dry_run: bool) -> str:
+def apply_release(
+    *,
+    cwd: Path,
+    repository: str,
+    branch: str,
+    api_token: str,
+    git_token: str,
+    author_name: str,
+    author_email: str,
+    dry_run: bool,
+) -> str:
     run(["git", "fetch", "--tags", "origin", branch], cwd=cwd)
     ensure_clean(cwd=cwd)
     plan = build_release_plan(cwd=cwd, repository=repository)
@@ -381,7 +391,7 @@ def apply_release(*, cwd: Path, repository: str, branch: str, token: str, author
     if tag_exists(plan.next_tag, cwd=cwd):
         if dry_run:
             return f"Would ensure GitHub release for existing tag {plan.next_tag}."
-        ensure_github_release(repository=repository, token=token, plan=plan)
+        ensure_github_release(repository=repository, token=api_token, plan=plan)
         return f"Release {plan.next_tag} already tagged; GitHub release ensured."
 
     if dry_run:
@@ -392,8 +402,8 @@ def apply_release(*, cwd: Path, repository: str, branch: str, token: str, author
     run(["git", "add", "CHANGELOG.md", ".release-please-manifest.json", "pyproject.toml", "src/docmolder/__init__.py"], cwd=cwd)
     run(["git", "commit", "-m", f"chore(main): release docmolder {plan.next_version}"], cwd=cwd)
     run(["git", "tag", plan.next_tag], cwd=cwd)
-    push_with_token(cwd=cwd, repository=repository, branch=branch, tag=plan.next_tag, token=token)
-    ensure_github_release(repository=repository, token=token, plan=plan)
+    push_with_token(cwd=cwd, repository=repository, branch=branch, tag=plan.next_tag, token=git_token)
+    ensure_github_release(repository=repository, token=api_token, plan=plan)
     return f"Released {plan.next_tag}."
 
 
@@ -403,6 +413,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repository", default=os.getenv("DOCMOLDER_RELEASE_REPOSITORY", "max23468/DocMolder"))
     parser.add_argument("--branch", default=os.getenv("DOCMOLDER_RELEASE_BRANCH", "main"))
     parser.add_argument("--token-env", default="DOCMOLDER_RELEASE_GITHUB_TOKEN")
+    parser.add_argument("--git-token-env", default=os.getenv("DOCMOLDER_RELEASE_GIT_TOKEN_ENV", "DOCMOLDER_RELEASE_GIT_TOKEN"))
     parser.add_argument("--author-name", default=os.getenv("DOCMOLDER_RELEASE_GIT_AUTHOR_NAME", "docmolder-release-bot"))
     parser.add_argument("--author-email", default=os.getenv("DOCMOLDER_RELEASE_GIT_AUTHOR_EMAIL", "docmolder-release-bot@users.noreply.github.com"))
     parser.add_argument("--dry-run", action="store_true")
@@ -411,16 +422,21 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    token = os.getenv(args.token_env, "").strip()
-    if not token and not args.dry_run:
-        print(f"Missing {args.token_env}; cannot push release commit or create GitHub Release.", file=sys.stderr)
+    api_token = os.getenv(args.token_env, "").strip()
+    git_token = os.getenv(args.git_token_env, "").strip() or api_token
+    if not api_token and not args.dry_run:
+        print(f"Missing {args.token_env}; cannot create GitHub Release.", file=sys.stderr)
+        return 2
+    if not git_token and not args.dry_run:
+        print(f"Missing {args.git_token_env}; cannot push release commit or tag.", file=sys.stderr)
         return 2
     try:
         message = apply_release(
             cwd=Path(args.repo_dir).resolve(),
             repository=args.repository,
             branch=args.branch,
-            token=token,
+            api_token=api_token,
+            git_token=git_token,
             author_name=args.author_name,
             author_email=args.author_email,
             dry_run=args.dry_run,
