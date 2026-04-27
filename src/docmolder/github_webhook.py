@@ -66,6 +66,8 @@ class WebhookConfig:
     secret: str
     deploy_script: str
     deploy_timeout_seconds: int
+    auto_release_script: str
+    auto_release_timeout_seconds: int
     max_body_bytes: int
 
     @classmethod
@@ -80,6 +82,8 @@ class WebhookConfig:
             secret=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SECRET", "").strip(),
             deploy_script=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT", "/opt/docmolder/app/deploy/update-vps.sh").strip(),
             deploy_timeout_seconds=env_int("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_TIMEOUT_SECONDS", 3600),
+            auto_release_script=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_SCRIPT", "/opt/docmolder/app/deploy/auto-release.sh").strip(),
+            auto_release_timeout_seconds=env_int("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_TIMEOUT_SECONDS", 1200),
             max_body_bytes=env_int("DOCMOLDER_GITHUB_WEBHOOK_MAX_BODY_BYTES", 1_048_576),
         )
 
@@ -144,10 +148,12 @@ class GitHubDeployWebhookApp:
             "ok": self.config.ready,
             "configured": self.config.ready,
             "busy": self.state.busy,
+            "queued_jobs": self.jobs.qsize(),
             "webhook_path": self.config.webhook_path,
             "health_path": self.config.health_path,
             "repository": self.config.repository,
             "branch": self.config.branch,
+            "auto_release_script": self.config.auto_release_script,
             "last_job": self.state.last_job,
             "last_result": self.state.last_result,
             "last_error": self.state.last_error,
@@ -176,12 +182,13 @@ class GitHubDeployWebhookApp:
                 self._run_deploy(job)
             except Exception as exc:  # pragma: no cover - defensive guard
                 self.state.last_error = str(exc)
-                self.state.last_result = {
-                    "ok": False,
-                    "target_ref": job.target_ref,
-                    "error": str(exc),
-                    "finished_at": utc_now(),
-                }
+                if self.state.last_result is None or self.state.last_result.get("ok") is not False:
+                    self.state.last_result = {
+                        "ok": False,
+                        "target_ref": job.target_ref,
+                        "error": str(exc),
+                        "finished_at": utc_now(),
+                    }
                 print(f"[webhook] deploy failed unexpectedly: {exc}", flush=True)
             finally:
                 self.state.busy = False
@@ -225,6 +232,41 @@ class GitHubDeployWebhookApp:
             raise RuntimeError(f"Deploy script exited with {result.returncode}")
 
         print(f"[webhook] deploy OK for {job.target_ref}", flush=True)
+        release_result = self._run_auto_release()
+        self.state.last_result["auto_release"] = release_result
+        self.state.last_result["ok"] = release_result["ok"]
+        if not release_result["ok"]:
+            self.state.last_error = f"auto release exited with {release_result['returncode']}"
+            raise RuntimeError(self.state.last_error)
+
+    def _run_auto_release(self) -> dict[str, Any]:
+        script = Path(self.config.auto_release_script)
+        if not script.exists():
+            print(f"[webhook] auto release script missing: {script}; skipping", flush=True)
+            return {"ok": True, "skipped": True, "reason": "script missing", "script": str(script), "returncode": 0}
+
+        command = [str(script)]
+        print(f"[webhook] running auto release: {' '.join(command)}", flush=True)
+        result = subprocess.run(
+            command,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=self.config.auto_release_timeout_seconds,
+        )
+        if result.stdout:
+            for line in result.stdout.splitlines():
+                print(f"[release stdout] {line}", flush=True)
+        if result.stderr:
+            for line in result.stderr.splitlines():
+                print(f"[release stderr] {line}", flush=True)
+
+        return {
+            "ok": result.returncode == 0,
+            "returncode": result.returncode,
+            "script": str(script),
+            "finished_at": utc_now(),
+        }
 
 
 class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
@@ -282,13 +324,6 @@ class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
         accept, target_ref, reason = should_accept_push(payload, self.server.app.config.repository, self.server.app.config.branch)
         if not accept:
             self._send_json(HTTPStatus.ACCEPTED, {"ok": True, "ignored": True, "reason": reason})
-            return
-
-        if self.server.app.state.busy:
-            self._send_json(
-                HTTPStatus.ACCEPTED,
-                {"ok": True, "queued": False, "reason": "deploy already running", "delivery_id": delivery_id},
-            )
             return
 
         job = DeployJob(
@@ -374,9 +409,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--secret", default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SECRET", ""))
     parser.add_argument("--deploy-script", default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT", "/opt/docmolder/app/deploy/update-vps.sh"))
     parser.add_argument(
+        "--auto-release-script",
+        default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_SCRIPT", "/opt/docmolder/app/deploy/auto-release.sh"),
+    )
+    parser.add_argument(
         "--deploy-timeout-seconds",
         type=int,
         default=env_int("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_TIMEOUT_SECONDS", 3600),
+    )
+    parser.add_argument(
+        "--auto-release-timeout-seconds",
+        type=int,
+        default=env_int("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_TIMEOUT_SECONDS", 1200),
     )
     parser.add_argument(
         "--max-body-bytes",
@@ -398,6 +442,8 @@ def main(argv: list[str] | None = None) -> None:
         secret=args.secret.strip(),
         deploy_script=args.deploy_script,
         deploy_timeout_seconds=args.deploy_timeout_seconds,
+        auto_release_script=args.auto_release_script,
+        auto_release_timeout_seconds=args.auto_release_timeout_seconds,
         max_body_bytes=args.max_body_bytes,
     )
     app = GitHubDeployWebhookApp(config)
@@ -413,6 +459,7 @@ def main(argv: list[str] | None = None) -> None:
                 "health_path": config.health_path,
                 "repository": config.repository,
                 "branch": config.branch,
+                "auto_release_script": config.auto_release_script,
                 "configured": config.ready,
             },
             ensure_ascii=False,

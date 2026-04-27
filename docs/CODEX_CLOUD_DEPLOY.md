@@ -11,11 +11,12 @@ In modalita standard senza GitHub Actions, il percorso consigliato e:
 1. Codex cloud prepara e pubblica il codice su GitHub.
 2. Il maintainer lascia che il webhook privato GitHub -> VPS lanci `sudo /opt/docmolder/app/deploy/update-vps.sh` quando il merge raggiunge `main`.
 3. La VPS applica installazione o aggiornamento locale senza fare `git pull`.
-4. Le verifiche operative si eseguono via SSH diretto o con i comandi locali del repo.
+4. Se la release automatica e abilitata in `/etc/docmolder/release.env`, la VPS crea bump, changelog, tag e GitHub Release senza usare Actions.
+5. Le verifiche operative si eseguono via SSH diretto o con i comandi locali del repo.
 
 ## Flusso consigliato da mobile
 
-Per deploy ordinari, il default operativo resta manuale, ma puoi riattivare l'automazione locale:
+Per deploy ordinari, il default operativo e il webhook privato GitHub -> VPS:
 
 1. fai lavorare Codex sul branch desiderato
 2. porta la modifica su `main` quando serve pubblicarla
@@ -40,6 +41,7 @@ Configura questi valori sulla VPS in `/etc/docmolder/github-webhook.env`:
 - `DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY`
 - `DOCMOLDER_GITHUB_WEBHOOK_BRANCH`
 - `DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT`
+- `DOCMOLDER_RELEASE_GITHUB_TOKEN`, solo in `/etc/docmolder/release.env` se vuoi release automatiche complete senza Actions
 
 Note operative:
 
@@ -47,12 +49,13 @@ Note operative:
 - `DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY` dovrebbe restare `max23468/DocMolder`
 - `DOCMOLDER_GITHUB_WEBHOOK_BRANCH` dovrebbe restare `main`
 - `DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT` dovrebbe restare `/opt/docmolder/app/deploy/update-vps.sh`
+- `DOCMOLDER_RELEASE_GITHUB_TOKEN` deve avere permessi sufficienti a pushare su `main`, creare tag e creare GitHub Release; non va mai committato
 
 ## Fallback locale
 
 Gli script `make cloud-prepare-ssh` e `make deploy-vps` restano utili per test locali o ambienti che abbiano connettivita diretta verso la VPS.
 
-Su `chatgpt.com`, pero, il percorso da considerare ufficiale e quello manuale sulla VPS; il webhook GitHub resta l'automazione principale quando la VPS e configurata.
+Su `chatgpt.com`, il percorso da considerare ufficiale e il webhook GitHub quando la VPS e configurata; il deploy manuale sulla VPS resta il fallback operativo.
 
 ## Verifiche post deploy
 
@@ -60,6 +63,7 @@ Il webhook GitHub esegue:
 
 - sincronizzazione del repository verso `/opt/docmolder/app`
 - installazione o aggiornamento locale con `deploy/update-vps.sh`
+- release automatica con `deploy/auto-release.sh`, solo se abilitata e se ci sono commit rilasciabili
 - controllo `systemctl status docmolder --no-pager`
 - controllo `systemctl status docmolder-db-backup.timer --no-pager`
 - stato operativo del listener nel journal di systemd

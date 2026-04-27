@@ -81,15 +81,18 @@ sudo cat /etc/docmolder/github-webhook.env
 
 Il listener webhook riceve gli eventi GitHub su `/webhooks/github/deploy`, verifica la firma HMAC e lancia `update-vps.sh` sul commit ricevuto. L'endpoint di health del listener e `/webhooks/github/healthz`.
 
+Dopo un deploy riuscito il listener lancia anche `deploy/auto-release.sh`. Se `/etc/docmolder/release.env` contiene `DOCMOLDER_AUTO_RELEASE_ENABLED=true` e un `DOCMOLDER_RELEASE_GITHUB_TOKEN` valido, la VPS crea automaticamente bump, changelog, tag e GitHub Release quando ci sono commit rilasciabili dal tag precedente. Se il file manca o la flag e disattivata, la fase release viene saltata senza interrompere il deploy.
+
 Per configurarlo:
 
 ```bash
 sudo /opt/docmolder/app/deploy/install-github-webhook.sh
 sudo nano /etc/docmolder/github-webhook.env
+sudo nano /etc/docmolder/release.env
 sudo systemctl restart docmolder-github-webhook.service
 ```
 
-Il file `/etc/docmolder/github-webhook.env` contiene il secret da copiare nel webhook GitHub.
+Il file `/etc/docmolder/github-webhook.env` contiene il secret da copiare nel webhook GitHub. Il file `/etc/docmolder/release.env` contiene invece il token GitHub per push/tag/release automatici e deve restare `root:root` con permessi `600`.
 
 Backup manuale SQLite:
 

@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| in corso | Codex vps-auto-release | codex/vps-auto-release | release automation VPS, webhook deploy/release, docs versioning/deploy | Implementazione opzione 1: release automatica senza GitHub Actions dopo deploy webhook riuscito. |
 | chiuso | Codex no-gh-actions-default | codex/no-gh-actions-default | `.github/workflows/*`, `scripts/publish_change.sh`, docs operativi GitHub/release/deploy | Trigger automatici GitHub Actions disattivati per operare con gate locali e deploy manuale; `bash scripts/preflight_publish.sh` e `git diff --check` OK. |
 | chiuso | Codex manual deploy | main / deploy manuale su VPS DocMolder | `docs/AGENTS.md`, `docs/VPS_RUNBOOK.md`, `docs/CODEX_CLOUD_DEPLOY.md`, `docs/AGENT_COORDINATION.md` | Deploy manuale completato sulla VPS DocMolder corretta (`ubuntu@docmolder.duckdns.org` / `130.110.9.94`); runtime bot aggiornato, sito statico e HTTPS ripristinati, verifiche HTTP/HTTPS e healthz OK. |
 | chiuso | Codex privacy-duckdns-completion | main / #85 | `deploy/static/docmolder-site/`, Duck DNS deploy assets, VPS docs | Pagina privacy/dati live, Duck DNS reso riproducibile da repo e deploy manuale completato; Actions evitate con `[skip ci]`, health/Telegram/Duck DNS verificati via SSH. |
