@@ -39,9 +39,8 @@ Policy del progetto:
 - il titolo della PR e parte del processo di versioning, non solo descrizione editoriale
 - ogni commit che entra su `main` deve provenire da una PR squashata
 - eccezione stretta: commit diretti `chore(docs):` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
-- il workflow `Main Commit Policy` e un guardrail di verifica, non un'alternativa al flusso PR
-- il workflow `Release Policy` blocca le PR normali che provano a fare bump versione o changelog manuali quando viene avviato esplicitamente
-- in modalita senza budget GitHub Actions, questi guardrail restano disattivati e i controlli locali (`publish_doctor`, `preflight`, `ci_verify`) diventano la verifica primaria
+- i guardrail GitHub Actions `Main Commit Policy` e `Release Policy` sono stati rimossi dai workflow attivi finche resta la modalita senza budget Actions
+- i controlli locali (`publish_doctor`, `preflight`, `ci_verify`) sono la verifica primaria per bloccare bump manuali, changelog fuori flusso e commit non coerenti con la policy
 
 Il titolo della PR squashata diventa il commit che il flusso di release usera per:
 

@@ -91,7 +91,8 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
-| in corso | Codex vps-auto-release | codex/vps-auto-release | release automation VPS, webhook deploy/release, docs versioning/deploy | Implementazione opzione 1: release automatica senza GitHub Actions dopo deploy webhook riuscito. |
+| in corso | Codex remove-disabled-workflows | codex/remove-disabled-workflows | `.github/workflows/*`, docs GitHub/versioning | Rimozione workflow disattivati con `on: []` che generano run fallite senza job; verifiche locali in corso. |
+| chiuso | Codex vps-auto-release | codex/vps-auto-release | release automation VPS, webhook deploy/release, docs versioning/deploy | Release automatica senza GitHub Actions pubblicata con #88; webhook deploy/release attivo sulla VPS. |
 | chiuso | Codex no-gh-actions-default | codex/no-gh-actions-default | `.github/workflows/*`, `scripts/publish_change.sh`, docs operativi GitHub/release/deploy | Trigger automatici GitHub Actions disattivati per operare con gate locali e deploy manuale; `bash scripts/preflight_publish.sh` e `git diff --check` OK. |
 | chiuso | Codex favicon Mac | codex/favicon-mac-fix / ../DocMolder-favicon-mac | `deploy/static/docmolder-site/`, favicon e meta tag del sito statico | Fallback `.ico` aggiunto al root del sito statico e referenziato anche su `privacy.html`; deploy su VPS applicato, `https://docmolder.duckdns.org/favicon.ico` risponde 200 e healthcheck servizio `ok`. |
 | chiuso | Codex manual deploy | main / deploy manuale su VPS DocMolder | `docs/AGENTS.md`, `docs/VPS_RUNBOOK.md`, `docs/CODEX_CLOUD_DEPLOY.md`, `docs/AGENT_COORDINATION.md` | Deploy manuale completato sulla VPS DocMolder corretta (`ubuntu@docmolder.duckdns.org` / `130.110.9.94`); runtime bot aggiornato, sito statico e HTTPS ripristinati, verifiche HTTP/HTTPS e healthz OK. |
