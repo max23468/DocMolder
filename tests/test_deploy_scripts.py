@@ -14,11 +14,11 @@ class DeployScriptsTest(unittest.TestCase):
         self.assertIn('APP_USER="${DOCMOLDER_APP_USER:-docmolder}"', script)
         self.assertIn('sudo -E -u "${APP_USER}"', script)
 
-    def test_webhook_install_restarts_listener_after_updating_unit_and_scripts(self) -> None:
+    def test_webhook_install_does_not_restart_listener_from_deploy_hook(self) -> None:
         script = (ROOT / "deploy" / "install-github-webhook.sh").read_text(encoding="utf-8")
 
         self.assertIn("systemctl enable --now docmolder-github-webhook.service", script)
-        self.assertIn("systemctl restart docmolder-github-webhook.service", script)
+        self.assertNotIn("systemctl restart docmolder-github-webhook.service", script)
 
 
 if __name__ == "__main__":
