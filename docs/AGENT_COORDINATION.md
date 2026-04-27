@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| in corso | Codex privacy-duckdns-completion | codex/privacy-duckdns-completion | `deploy/static/docmolder-site/`, Duck DNS deploy assets, VPS docs | Aggiunge pagina privacy/dati live e rende Duck DNS riproducibile da repo; GH Actions attualmente bloccate da billing/spending limit. |
 | chiuso | Codex duckdns-static-site | codex/duckdns-https-ops | `deploy/static/docmolder-site/`, `deploy/install-static-site.sh`, deploy VPS static site, docs ops | Mini sito statico DocMolder pubblicato su HTTPS e aggiornato per bot pubblico `@docmolder_bot`; verifiche desktop/mobile, asset brand e healthz OK; niente proxy runtime DocMolder. |
 | chiuso | Codex duckdns-https-ops | codex/duckdns-https-ops | `docs/VPS_RUNBOOK.md`, `docs/DECISIONS.md`, `scripts/ops_report.py`, VPS nginx/certbot DocMolder vhost | HTTPS statico attivo su `docmolder.duckdns.org`, rinnovo Certbot e VPS Check verificati; nessun proxy runtime DocMolder. |
 | chiuso | Codex latest-bot-comments | codex/fix-manual-ci-base | `.github/workflows/ci.yml` | Corretto commento bot tardivo su PR #78: base diff workflow_dispatch allineata a merge-base main; verificato con static/preflight mirati. |

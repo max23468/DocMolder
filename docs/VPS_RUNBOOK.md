@@ -150,8 +150,25 @@ Il dominio operativo e `docmolder.duckdns.org`; il bot pubblico e raggiungibile 
 Duck DNS e mantenuto dalla VPS con:
 
 - config root-only: `/etc/docmolder/duckdns.env`
-- updater: `/opt/docmolder/bin/update-duckdns.sh`
+- updater versionato: `deploy/update-duckdns.sh`, installato come `/opt/docmolder/bin/update-duckdns.sh`
 - timer: `docmolder-duckdns.timer`
+
+Config minima:
+
+```bash
+sudo install -d -m 755 /etc/docmolder
+sudo nano /etc/docmolder/duckdns.env
+sudo chown root:root /etc/docmolder/duckdns.env
+sudo chmod 600 /etc/docmolder/duckdns.env
+```
+
+Valori:
+
+```dotenv
+DUCKDNS_DOMAIN=docmolder
+DUCKDNS_TOKEN=<token-duckdns>
+# opzionale: DUCKDNS_IP=<ip-statico>
+```
 
 Il timer aggiorna periodicamente il record Duck DNS verso l'IP pubblico della VPS. Per verifica:
 

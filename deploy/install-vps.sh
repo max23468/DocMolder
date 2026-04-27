@@ -15,17 +15,17 @@ PYTHON_BIN=""
 install_packages() {
   if command -v apt >/dev/null 2>&1; then
     sudo apt update
-    sudo apt install -y python3.11 python3.11-venv python3-pip git ghostscript || sudo apt install -y python3 python3-venv python3-pip git ghostscript
+    sudo apt install -y python3.11 python3.11-venv python3-pip git ghostscript curl || sudo apt install -y python3 python3-venv python3-pip git ghostscript curl
     return
   fi
 
   if command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y python3.11 python3.11-pip git ghostscript || sudo dnf install -y python3 python3-pip git ghostscript
+    sudo dnf install -y python3.11 python3.11-pip git ghostscript curl || sudo dnf install -y python3 python3-pip git ghostscript curl
     return
   fi
 
   if command -v yum >/dev/null 2>&1; then
-    sudo yum install -y python3.11 python3.11-pip git ghostscript || sudo yum install -y python3 python3-pip git ghostscript
+    sudo yum install -y python3.11 python3.11-pip git ghostscript curl || sudo yum install -y python3 python3-pip git ghostscript curl
     return
   fi
 
@@ -117,6 +117,9 @@ sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.service" /etc/systemd/system/doc
 sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.timer" /etc/systemd/system/docmolder-alertcheck.timer
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.service" /etc/systemd/system/docmolder-reconcile.service
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.timer" /etc/systemd/system/docmolder-reconcile.timer
+sudo cp "${APP_DIR}/deploy/docmolder-duckdns.service" /etc/systemd/system/docmolder-duckdns.service
+sudo cp "${APP_DIR}/deploy/docmolder-duckdns.timer" /etc/systemd/system/docmolder-duckdns.timer
+sudo install -D -m 755 "${APP_DIR}/deploy/update-duckdns.sh" /opt/docmolder/bin/update-duckdns.sh
 sudo mkdir -p /etc/systemd/journald.conf.d
 sudo cp "${APP_DIR}/deploy/docmolder-journald.conf" /etc/systemd/journald.conf.d/docmolder.conf
 sudo bash "${APP_DIR}/deploy/install-static-site.sh"
@@ -125,6 +128,11 @@ sudo systemctl try-restart systemd-journald.service || true
 sudo systemctl enable --now docmolder-db-backup.timer
 sudo systemctl enable --now docmolder-alertcheck.timer
 sudo systemctl enable --now docmolder-reconcile.timer
+if [ -f /etc/docmolder/duckdns.env ]; then
+  sudo systemctl enable --now docmolder-duckdns.timer
+else
+  echo "Duck DNS config missing at /etc/docmolder/duckdns.env; timer not enabled."
+fi
 
 if sudo grep -q '^DOCMOLDER_TELEGRAM_TOKEN=changeme$' "${ENV_FILE}" || sudo grep -q '^DOCMOLDER_TELEGRAM_TOKEN=$' "${ENV_FILE}"; then
   echo "Environment file created at ${ENV_FILE}. Set DOCMOLDER_TELEGRAM_TOKEN before starting docmolder."
@@ -139,3 +147,4 @@ sudo systemctl is-active docmolder
 sudo systemctl is-active docmolder-db-backup.timer
 sudo systemctl is-active docmolder-alertcheck.timer
 sudo systemctl is-active docmolder-reconcile.timer
+sudo systemctl is-active docmolder-duckdns.timer || true

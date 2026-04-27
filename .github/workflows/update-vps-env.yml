@@ -36,6 +36,7 @@ jobs:
       DOCMOLDER_ADMIN_USER_IDS: ${{ inputs.admin_user_ids }}
       DOCMOLDER_ALLOWED_USER_IDS: ${{ inputs.allowed_user_ids }}
       DOCMOLDER_DEFAULT_LANGUAGE: ${{ inputs.default_language }}
+      DOCMOLDER_TELEGRAM_TOKEN: ${{ secrets.DOCMOLDER_TELEGRAM_TOKEN }}
       DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED: ${{ inputs.telegram_brand_sync_enabled }}
 
     steps:
@@ -104,6 +105,7 @@ jobs:
             "sudo DOCMOLDER_ADMIN_USER_IDS='${DOCMOLDER_ADMIN_USER_IDS}' \
               DOCMOLDER_ALLOWED_USER_IDS='${DOCMOLDER_ALLOWED_USER_IDS}' \
               DOCMOLDER_DEFAULT_LANGUAGE='${DOCMOLDER_DEFAULT_LANGUAGE}' \
+              DOCMOLDER_TELEGRAM_TOKEN='${DOCMOLDER_TELEGRAM_TOKEN}' \
               DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED='${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}' \
               bash -s" <<'REMOTE'
           set -euo pipefail
@@ -128,6 +130,9 @@ jobs:
           upsert_env "DOCMOLDER_ADMIN_USER_IDS" "${DOCMOLDER_ADMIN_USER_IDS}"
           upsert_env "DOCMOLDER_ALLOWED_USER_IDS" "${DOCMOLDER_ALLOWED_USER_IDS}"
           upsert_env "DOCMOLDER_DEFAULT_LANGUAGE" "${DOCMOLDER_DEFAULT_LANGUAGE}"
+          if [ -n "${DOCMOLDER_TELEGRAM_TOKEN:-}" ] && [ "${DOCMOLDER_TELEGRAM_TOKEN}" != "changeme" ]; then
+            upsert_env "DOCMOLDER_TELEGRAM_TOKEN" "${DOCMOLDER_TELEGRAM_TOKEN}"
+          fi
           upsert_env "DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED" "${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}"
 
           chown root:root "${ENV_FILE}"
