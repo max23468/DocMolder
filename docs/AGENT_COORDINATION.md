@@ -91,7 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
-| bloccato | Codex manual deploy | main / workflow_dispatch | Deploy VPS, verifica servizio, timer e smoke post-deploy | Deploy manuale richiesto dall'utente; workflow dispatch lanciato ma fermo alla coda runner e concluso con failure. |
+| chiuso | Codex manual deploy | main / deploy manuale su VPS DocMolder | `docs/AGENTS.md`, `docs/VPS_RUNBOOK.md`, `docs/CODEX_CLOUD_DEPLOY.md`, `docs/AGENT_COORDINATION.md` | Deploy manuale completato sulla VPS DocMolder corretta (`ubuntu@docmolder.duckdns.org` / `130.110.9.94`); runtime bot aggiornato, sito statico e HTTPS ripristinati, verifiche HTTP/HTTPS e healthz OK. |
 | chiuso | Codex privacy-duckdns-completion | main / #85 | `deploy/static/docmolder-site/`, Duck DNS deploy assets, VPS docs | Pagina privacy/dati live, Duck DNS reso riproducibile da repo e deploy manuale completato; Actions evitate con `[skip ci]`, health/Telegram/Duck DNS verificati via SSH. |
 | chiuso | Codex duckdns-static-site | codex/duckdns-https-ops | `deploy/static/docmolder-site/`, `deploy/install-static-site.sh`, deploy VPS static site, docs ops | Mini sito statico DocMolder pubblicato su HTTPS e aggiornato per bot pubblico `@docmolder_bot`; verifiche desktop/mobile, asset brand e healthz OK; niente proxy runtime DocMolder. |
 | chiuso | Codex duckdns-https-ops | codex/duckdns-https-ops | `docs/VPS_RUNBOOK.md`, `docs/DECISIONS.md`, `scripts/ops_report.py`, VPS nginx/certbot DocMolder vhost | HTTPS statico attivo su `docmolder.duckdns.org`, rinnovo Certbot e VPS Check verificati; nessun proxy runtime DocMolder. |
