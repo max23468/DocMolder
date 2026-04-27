@@ -91,7 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
-| in corso | Codex remove-disabled-workflows | codex/remove-disabled-workflows | `.github/workflows/*`, docs GitHub/versioning | Rimozione workflow disattivati con `on: []` che generano run fallite senza job; verifiche locali in corso. |
+| chiuso | Codex remove-disabled-workflows | codex/remove-disabled-workflows / #90 | `.github/workflows/*`, docs GitHub/versioning | Rimossi i workflow disattivati con `on: []` che generavano run fallite senza job; PR #90 mergiata, nessuna nuova run Actions sul branch. |
 | chiuso | Codex vps-auto-release | codex/vps-auto-release | release automation VPS, webhook deploy/release, docs versioning/deploy | Release automatica senza GitHub Actions pubblicata con #88; webhook deploy/release attivo sulla VPS. |
 | chiuso | Codex no-gh-actions-default | codex/no-gh-actions-default | `.github/workflows/*`, `scripts/publish_change.sh`, docs operativi GitHub/release/deploy | Trigger automatici GitHub Actions disattivati per operare con gate locali e deploy manuale; `bash scripts/preflight_publish.sh` e `git diff --check` OK. |
 | chiuso | Codex favicon Mac | codex/favicon-mac-fix / ../DocMolder-favicon-mac | `deploy/static/docmolder-site/`, favicon e meta tag del sito statico | Fallback `.ico` aggiunto al root del sito statico e referenziato anche su `privacy.html`; deploy su VPS applicato, `https://docmolder.duckdns.org/favicon.ico` risponde 200 e healthcheck servizio `ok`. |
