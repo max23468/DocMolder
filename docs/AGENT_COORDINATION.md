@@ -91,7 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
-| in corso | Codex preserve-custom-release-git-token | codex/preserve-custom-release-git-token | `deploy/auto-release.sh`, docs VPS, test deploy script | Follow-up bot #94: preserva anche il nome env custom indicato da `DOCMOLDER_RELEASE_GIT_TOKEN_ENV` quando passa a utente `docmolder`. |
+| chiuso | Codex preserve-custom-release-git-token | codex/preserve-custom-release-git-token / #96 | `deploy/auto-release.sh`, docs VPS, test deploy script | PR #96 mergiata; `docmolder-v0.11.4` generata manualmente sulla VPS dopo che il restart differito del listener ha interrotto l'autorelease del deploy. |
 | chiuso | Codex defer-webhook-restart | codex/defer-webhook-restart / #95 | `deploy/install-github-webhook.sh`, docs VPS, test deploy script | PR #95 mergiata; `docmolder-v0.11.3` generata automaticamente dalla VPS. Thread bot #92 risolto. |
 | chiuso | Codex fix-release-sudo-env-and-hooks | codex/fix-release-sudo-env-and-hooks / #94 | `scripts/auto_release.py`, `deploy/auto-release.sh`, tests, release VPS | PR #94 mergiata; `docmolder-v0.11.2` generata automaticamente dalla VPS con autorelease OK. |
 | chiuso | Codex fix-release-token-split | codex/fix-release-token-split / #93 | `scripts/auto_release.py`, `deploy/auto-release.sh`, release env/docs, VPS release token split | PR #93 mergiata; split token pubblicato. `docmolder-v0.11.1` sistemata con commit/tag/GitHub Release corretti. |
