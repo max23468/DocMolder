@@ -13,9 +13,12 @@ from typing import Any
 
 SERVICES = (
     "docmolder.service",
+    "nginx.service",
     "docmolder-db-backup.timer",
     "docmolder-alertcheck.timer",
     "docmolder-reconcile.timer",
+    "docmolder-duckdns.timer",
+    "certbot-renew.timer",
 )
 
 
@@ -75,6 +78,8 @@ def collect_report(*, check_service: bool) -> dict[str, object]:
             "health": "sudo /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name docmolder",
             "reconcile": "sudo -u docmolder /opt/docmolder/venv/bin/docmolder-reconcile",
             "smoke": "sudo /opt/docmolder/app/deploy/smoke-check.sh",
+            "duckdns": "sudo /opt/docmolder/bin/update-duckdns.sh",
+            "certificates": "sudo certbot certificates",
         },
     }
     report["ok"] = health is not None and bool(health.get("ok"))

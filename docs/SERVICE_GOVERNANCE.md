@@ -1,6 +1,6 @@
 # Governance del Servizio
 
-Regole minime di esercizio di `DocMolder` come bot Telegram-first con accesso controllato.
+Regole minime di esercizio di `DocMolder` come bot Telegram-first pubblico, con controlli admin e limiti operativi.
 
 ## Scopo
 
@@ -19,8 +19,10 @@ Descrive il servizio reale corrente, non un assetto futuro teorico.
 Il bot e oggi:
 
 - servizio Telegram-first
+- pubblico e raggiungibile da `https://t.me/docmolder_bot`
 - pensato per chat private con il bot
-- utilizzabile dagli utenti ammessi via configurazione o approvati tramite flusso admin in chat
+- utilizzabile senza allow-list quando `DOCMOLDER_ALLOWED_USER_IDS` non e configurata
+- restringibile agli utenti ammessi via configurazione o approvati tramite flusso admin in chat
 - amministrabile dagli user id in `DOCMOLDER_ADMIN_USER_IDS`
 - ospitabile su singola VPS Linux con `systemd`
 - best-effort, senza SLA formale
@@ -150,7 +152,7 @@ Retention:
 Percorsi correnti:
 
 - `/reset` pulisce la sessione utente corrente
-- `/request_access` registra una richiesta di accesso; l'admin puo approvare, rifiutare, sospendere o riattivare
+- `/request_access` registra una richiesta di accesso quando il bot viene eseguito in modalita ristretta; l'admin puo approvare, rifiutare, sospendere o riattivare
 - `/policy` mostra in chat limiti, retention e regole operative sintetiche
 - cleanup job rimuove file temporanei
 - restore o manutenzione SQLite restano operazioni amministrative

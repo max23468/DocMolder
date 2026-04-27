@@ -2,6 +2,8 @@
 
 Panoramica pratica delle capacità operative Telegram introdotte nel bot.
 
+Il bot e pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_bot). Se `DOCMOLDER_ALLOWED_USER_IDS` non e configurata, i nuovi utenti possono usarlo senza richiesta di abilitazione; il flusso `/request_access` resta disponibile per eventuali modalita ristrette future.
+
 ## Comandi utente
 
 - `/history`: mostra gli ultimi job personali, con dettaglio e rilancio.

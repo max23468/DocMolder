@@ -1,14 +1,15 @@
 # DocMolder
 
-`DocMolder` è un bot Telegram-first per trasformazioni documentali semplici e guidate.
+`DocMolder` è un bot Telegram-first pubblico per trasformazioni documentali semplici e guidate.
 
 Posizionamento sintetico: utility professionale, smart e amichevole per PDF, scansioni e immagini direttamente in chat.
 
-L'utente invia file al bot, sceglie l'azione desiderata e riceve l'output direttamente in chat.
+L'utente apre [`@docmolder_bot`](https://t.me/docmolder_bot), invia file al bot, sceglie l'azione desiderata e riceve l'output direttamente in chat.
 
 ## Obiettivi del progetto
 
 - Esperienza molto semplice via Telegram
+- Bot raggiungibile pubblicamente da Telegram
 - Supporto multiutente
 - Elaborazione asincrona delle operazioni
 - Retention breve dei file temporanei

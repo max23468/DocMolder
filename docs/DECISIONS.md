@@ -31,16 +31,20 @@ Conseguenze:
 
 Decisione:
 - il bot gira in polling
+- il bot e considerato pubblico e raggiungibile da `https://t.me/docmolder_bot`
+- `docmolder.duckdns.org` puo essere predisposto con DNS, HTTPS e reverse proxy minimale per operativita e future evoluzioni, senza trasformare automaticamente il bot in un servizio web
 
 Motivazione:
 - riduce complessita operativa
-- evita dominio pubblico, reverse proxy e endpoint HTTP esposti
+- evita dipendenza funzionale da endpoint HTTP esposti
 - e coerente con un tool Telegram-first a carico contenuto
+- permette di pubblicare il servizio senza introdurre webhook o un runtime web applicativo
 
 Conseguenze:
 - il deploy e piu semplice
 - il bot non dipende da ingress pubblici
-- eventuali evoluzioni API-first richiederebbero una decisione nuova
+- il vhost pubblico resta un sito statico di presentazione e ingresso verso Telegram finche non viene deciso un endpoint DocMolder specifico
+- eventuali evoluzioni API-first, webhook Telegram o UI web richiederebbero una decisione nuova
 
 ## Retention breve dei file temporanei
 
