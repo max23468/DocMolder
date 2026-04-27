@@ -20,6 +20,7 @@ Assetto previsto:
 Segreti principali:
 
 - `DOCMOLDER_TELEGRAM_TOKEN`
+- `DUCKDNS_TOKEN` in `/etc/docmolder/duckdns.env`, se Duck DNS e gestito dalla VPS
 - eventuali credenziali o token di deploy/VPS fuori repo
 
 Regole:

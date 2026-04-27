@@ -6,7 +6,9 @@ SITE_SOURCE="${APP_DIR}/deploy/static/docmolder-site"
 SITE_ROOT="${DOCMOLDER_STATIC_SITE_ROOT:-/usr/share/nginx/docmolder}"
 NGINX_CONF="${DOCMOLDER_STATIC_NGINX_CONF:-/etc/nginx/conf.d/docmolder.conf}"
 
-SITE_ROOT="${SITE_ROOT%/}"
+while [ "${SITE_ROOT}" != "/" ] && [ "${SITE_ROOT%/}" != "${SITE_ROOT}" ]; do
+  SITE_ROOT="${SITE_ROOT%/}"
+done
 
 if [ ! -d "${SITE_SOURCE}" ]; then
   echo "Missing static site source: ${SITE_SOURCE}" >&2

@@ -1,0 +1,8 @@
+[Unit]
+Description=Update DocMolder Duck DNS record
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/docmolder/bin/update-duckdns.sh
