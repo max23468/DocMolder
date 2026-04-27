@@ -4,7 +4,7 @@ Questa guida serve per usare `chatgpt.com` come postazione di lavoro e release s
 
 ## Stato attuale
 
-Il deploy SSH diretto dal runtime Codex cloud verso la VPS non e affidabile, perche l'ambiente cloud non ha connettivita garantita verso `79.72.45.89:22`.
+La VPS corretta di DocMolder e `docmolder.duckdns.org` (host operativo della macchina), non altri host del perimetro personale. Il deploy SSH diretto dal runtime Codex cloud verso la VPS non e affidabile, perche l'ambiente cloud non ha connettivita garantita verso la macchina.
 
 Il percorso consigliato quindi e:
 
