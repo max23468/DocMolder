@@ -63,11 +63,13 @@ Restart:
 sudo systemctl restart docmolder
 ```
 
-Aggiornamento codice dopo push:
+Aggiornamento codice dopo push, percorso di default per i deploy manuali:
 
 ```bash
 sudo /opt/docmolder/app/deploy/update-vps.sh
 ```
+
+Usa `Deploy VPS` in GitHub Actions solo se lo chiedi esplicitamente o se non hai accesso diretto alla VPS.
 
 Backup manuale SQLite:
 

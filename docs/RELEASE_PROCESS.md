@@ -101,10 +101,10 @@ Il flusso GitHub/Codex per lavorare senza Mac locale e in [docs/CODEX_CLOUD_DEPL
 In breve:
 
 1. verificare che la release da deployare esista su GitHub con tag coerente
-2. per deploy standard da remoto, portare su `main` una modifica deploy-relevant e lasciare che GitHub Actions esegua il workflow `Deploy VPS`
-3. per controlli senza deploy, usare il workflow `VPS Check`
-4. per ripristino esplicito, usare `Rollback VPS` con tag o SHA precedente
-5. in alternativa, per interventi manuali sulla macchina, aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
+2. per deploy standard da remoto, aggiornare la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
+3. usare `Deploy VPS` in GitHub Actions solo se lo chiedi esplicitamente o se il canale manuale non e disponibile
+4. per controlli senza deploy, usare il workflow `VPS Check`
+5. per ripristino esplicito, usare `Rollback VPS` con tag o SHA precedente
 6. controllare stato servizio, timer backup SQLite, log recenti e revisione live
 7. verificare che i backup SQLite siano attivi o lanciare almeno un backup manuale se hai toccato persistenza o runbook
 8. eseguire almeno uno smoke test coerente con il tipo di modifica:

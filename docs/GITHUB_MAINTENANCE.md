@@ -17,7 +17,7 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
 - Ownership: `.github/CODEOWNERS`
 
-`Deploy VPS` non parte per ogni push su `main`: il trigger automatico usa una allowlist di path deploy-relevant (`src/**`, `deploy/**`, packaging e lock/requirements). Per cambi solo docs, test, release note, istruzioni agent, template o workflow GitHub, usare `workflow_dispatch` solo se serve davvero aggiornare la VPS.
+`Deploy VPS` non parte per ogni push su `main`: il trigger automatico usa una allowlist di path deploy-relevant (`src/**`, `deploy/**`, packaging e lock/requirements). Per cambi solo docs, test, release note, istruzioni agent, template o workflow GitHub, il default resta l'aggiornamento manuale della VPS; usa `workflow_dispatch` solo se mi chiedi esplicitamente di passare da GitHub Actions o se il canale manuale non e disponibile.
 
 ## Pubblicazione più fluida
 

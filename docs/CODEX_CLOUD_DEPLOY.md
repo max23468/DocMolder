@@ -15,20 +15,20 @@ Il percorso consigliato quindi e:
 
 ## Flusso consigliato da mobile
 
-Per deploy ordinari:
+Per deploy ordinari, il default operativo e manuale:
 
 1. fai lavorare Codex sul branch desiderato
-2. porta la modifica su `main`
-3. il workflow GitHub `Deploy VPS` parte automaticamente solo se il push tocca file rilevanti per la VPS
+2. porta la modifica su `main` quando serve pubblicarla
+3. aggiorna la VPS con `sudo /opt/docmolder/app/deploy/update-vps.sh`
 
-Per deploy manuali o di una revisione specifica:
+Per deploy tramite GitHub Actions o di una revisione specifica:
 
-- usa il workflow `Deploy VPS` in GitHub Actions con `workflow_dispatch`
+- usa il workflow `Deploy VPS` in GitHub Actions con `workflow_dispatch` solo se lo chiedi esplicitamente o se il canale manuale non e disponibile
 - passa `target_ref` se vuoi deployare un commit o ref specifico
 - usa `VPS Check` se vuoi solo verificare stato servizio, timer, disco e healthcheck senza copiare file
-- usa `Rollback VPS` con un tag o SHA precedente se devi ripristinare una revisione già nota
+- usa `Rollback VPS` con un tag o SHA precedente se devi ripristinare una revisione gia nota
 
-Il deploy automatico su `main` e limitato a codice applicativo, packaging e asset operativi applicati alla macchina (`src/**`, `deploy/**`, `pyproject.toml`, lock/requirements). Cambi solo documentali, test, changelog, issue template, istruzioni agent o workflow GitHub non attivano deploy; se serve comunque aggiornare la VPS dopo uno di quei cambi, usa `workflow_dispatch`.
+Il deploy automatico su `main` e limitato a codice applicativo, packaging e asset operativi applicati alla macchina (`src/**`, `deploy/**`, `pyproject.toml`, lock/requirements). Cambi solo documentali, test, changelog, issue template, istruzioni agent o workflow GitHub non attivano deploy; se serve comunque aggiornare la VPS dopo uno di quei cambi, usa il percorso manuale sulla VPS oppure `workflow_dispatch` solo se lo chiedi esplicitamente.
 
 Questo flusso non richiede accesso dal runtime Codex cloud alla rete privata della VPS: il ponte lo fa GitHub Actions.
 
