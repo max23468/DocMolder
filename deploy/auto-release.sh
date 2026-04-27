@@ -36,7 +36,20 @@ args=(
 )
 
 if [ "$(id -u)" -eq 0 ] && id "${APP_USER}" >/dev/null 2>&1; then
-  exec sudo --preserve-env=DOCMOLDER_RELEASE_GITHUB_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN_ENV -u "${APP_USER}" "${args[@]}"
+  preserve_env="DOCMOLDER_RELEASE_GITHUB_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN_ENV"
+  custom_git_token_env="${DOCMOLDER_RELEASE_GIT_TOKEN_ENV:-}"
+  if [ -n "${custom_git_token_env}" ] && [ "${custom_git_token_env}" != "DOCMOLDER_RELEASE_GIT_TOKEN" ]; then
+    case "${custom_git_token_env}" in
+      *[!A-Za-z0-9_]*)
+        echo "Invalid DOCMOLDER_RELEASE_GIT_TOKEN_ENV: ${custom_git_token_env}" >&2
+        exit 2
+        ;;
+      *)
+        preserve_env="${preserve_env},${custom_git_token_env}"
+        ;;
+    esac
+  fi
+  exec sudo --preserve-env="${preserve_env}" -u "${APP_USER}" "${args[@]}"
 fi
 
 exec "${args[@]}"
