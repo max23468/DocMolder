@@ -36,7 +36,7 @@ args=(
 )
 
 if [ "$(id -u)" -eq 0 ] && id "${APP_USER}" >/dev/null 2>&1; then
-  exec sudo -E -u "${APP_USER}" "${args[@]}"
+  exec sudo --preserve-env=DOCMOLDER_RELEASE_GITHUB_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN_ENV -u "${APP_USER}" "${args[@]}"
 fi
 
 exec "${args[@]}"

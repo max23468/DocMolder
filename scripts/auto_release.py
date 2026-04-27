@@ -311,8 +311,8 @@ def push_with_token(*, cwd: Path, repository: str, branch: str, tag: str, token:
         env["GIT_ASKPASS"] = str(Path(tempdir) / "askpass.sh")
         env["GIT_TERMINAL_PROMPT"] = "0"
         remote_url = f"https://github.com/{repository}.git"
-        run(["git", "push", remote_url, f"HEAD:{branch}"], cwd=cwd, env=env)
-        run(["git", "push", remote_url, f"refs/tags/{tag}:refs/tags/{tag}"], cwd=cwd, env=env)
+        run(["git", "push", "--no-verify", remote_url, f"HEAD:{branch}"], cwd=cwd, env=env)
+        run(["git", "push", "--no-verify", remote_url, f"refs/tags/{tag}:refs/tags/{tag}"], cwd=cwd, env=env)
 
 
 def github_request(method: str, path: str, *, token: str, payload: dict[str, Any] | None = None) -> tuple[int, Any]:

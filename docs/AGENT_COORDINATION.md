@@ -91,7 +91,8 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
-| in corso | Codex fix-release-token-split | codex/fix-release-token-split | `scripts/auto_release.py`, `deploy/auto-release.sh`, release env/docs, VPS release token split | Follow-up: separa token API GitHub e token Git push per completare autorelease end-to-end dopo #92. |
+| in corso | Codex fix-release-sudo-env-and-hooks | codex/fix-release-sudo-env-and-hooks | `scripts/auto_release.py`, `deploy/auto-release.sh`, tests, release VPS | Follow-up: preserva esplicitamente i token release via sudo e bypassa hook locali per il solo push del commit/tag release. |
+| chiuso | Codex fix-release-token-split | codex/fix-release-token-split / #93 | `scripts/auto_release.py`, `deploy/auto-release.sh`, release env/docs, VPS release token split | PR #93 mergiata; split token pubblicato. `docmolder-v0.11.1` sistemata con commit/tag/GitHub Release corretti. |
 | chiuso | Codex fix-auto-release-followup | codex/fix-auto-release-followup / #92 | `deploy/install-github-webhook.sh`, test deploy script, release VPS | PR #92 mergiata; rilievo bot #91 risolto. Deploy ha creato release locale 0.11.1 ma serve split token per completare GitHub Release automatica. |
 | chiuso | Codex fix-vps-auto-release-user | codex/fix-vps-auto-release-user / #91 | `deploy/auto-release.sh`, `deploy/install-github-webhook.sh`, test deploy script, release VPS | PR #91 mergiata; `docmolder-v0.11.0` pubblicata manualmente dopo correzione runtime user. Commento bot tardivo gestito nel follow-up dedicato. |
 | chiuso | Codex remove-disabled-workflows | codex/remove-disabled-workflows / #90 | `.github/workflows/*`, docs GitHub/versioning | Rimossi i workflow disattivati con `on: []` che generavano run fallite senza job; PR #90 mergiata, nessuna nuova run Actions sul branch. |

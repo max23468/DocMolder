@@ -12,7 +12,7 @@ class DeployScriptsTest(unittest.TestCase):
         script = (ROOT / "deploy" / "auto-release.sh").read_text(encoding="utf-8")
 
         self.assertIn('APP_USER="${DOCMOLDER_APP_USER:-docmolder}"', script)
-        self.assertIn('sudo -E -u "${APP_USER}"', script)
+        self.assertIn("sudo --preserve-env=DOCMOLDER_RELEASE_GITHUB_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN", script)
         self.assertIn('--git-token-env "${DOCMOLDER_RELEASE_GIT_TOKEN_ENV:-DOCMOLDER_RELEASE_GIT_TOKEN}"', script)
 
     def test_webhook_install_does_not_restart_listener_from_deploy_hook(self) -> None:

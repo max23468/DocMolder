@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from scripts import auto_release
 
@@ -96,6 +96,32 @@ class AutoReleaseTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(apply_release.call_args.kwargs["api_token"], "api-token")
         self.assertEqual(apply_release.call_args.kwargs["git_token"], "api-token")
+
+    def test_push_with_token_bypasses_local_publish_hooks(self):
+        calls: list[list[str]] = []
+
+        def fake_run(args, *, cwd, env=None, capture=True):
+            calls.append(args)
+
+        with (
+            patch.object(auto_release, "run", side_effect=fake_run),
+            patch.object(auto_release, "write_askpass") as write_askpass,
+        ):
+            tempdir = MagicMock()
+            tempdir.__enter__.return_value = "/tmp/release-token"
+            tempdir.__exit__.return_value = None
+            write_askpass.return_value = tempdir
+
+            auto_release.push_with_token(
+                cwd=auto_release.Path("."),
+                repository="max23468/DocMolder",
+                branch="main",
+                tag="docmolder-v0.11.2",
+                token="git-token",
+            )
+
+        self.assertIn("--no-verify", calls[0])
+        self.assertIn("--no-verify", calls[1])
 
 
 if __name__ == "__main__":
