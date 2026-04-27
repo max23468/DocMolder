@@ -94,6 +94,12 @@ jobs:
         run: |
           set -euo pipefail
 
+          admin_user_ids_quoted="$(printf '%q' "${DOCMOLDER_ADMIN_USER_IDS}")"
+          allowed_user_ids_quoted="$(printf '%q' "${DOCMOLDER_ALLOWED_USER_IDS}")"
+          default_language_quoted="$(printf '%q' "${DOCMOLDER_DEFAULT_LANGUAGE}")"
+          telegram_token_quoted="$(printf '%q' "${DOCMOLDER_TELEGRAM_TOKEN}")"
+          telegram_brand_sync_enabled_quoted="$(printf '%q' "${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}")"
+
           ssh \
             -i "${HOME}/.ssh/docmolder_vps" \
             -p "${DOCMOLDER_VPS_PORT}" \
@@ -102,41 +108,41 @@ jobs:
             -o ServerAliveInterval=30 \
             -o StrictHostKeyChecking="${SSH_STRICT}" \
             "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
-            "sudo DOCMOLDER_ADMIN_USER_IDS='${DOCMOLDER_ADMIN_USER_IDS}' \
-              DOCMOLDER_ALLOWED_USER_IDS='${DOCMOLDER_ALLOWED_USER_IDS}' \
-              DOCMOLDER_DEFAULT_LANGUAGE='${DOCMOLDER_DEFAULT_LANGUAGE}' \
-              DOCMOLDER_TELEGRAM_TOKEN='${DOCMOLDER_TELEGRAM_TOKEN}' \
-              DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED='${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}' \
-              bash -s" <<'REMOTE'
+            "sudo bash -s" <<REMOTE
           set -euo pipefail
+          DOCMOLDER_ADMIN_USER_IDS=${admin_user_ids_quoted}
+          DOCMOLDER_ALLOWED_USER_IDS=${allowed_user_ids_quoted}
+          DOCMOLDER_DEFAULT_LANGUAGE=${default_language_quoted}
+          DOCMOLDER_TELEGRAM_TOKEN=${telegram_token_quoted}
+          DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED=${telegram_brand_sync_enabled_quoted}
 
           ENV_FILE="/etc/docmolder/docmolder.env"
 
-          if [ ! -f "${ENV_FILE}" ]; then
-            echo "Missing ${ENV_FILE} on VPS." >&2
+          if [ ! -f "\${ENV_FILE}" ]; then
+            echo "Missing \${ENV_FILE} on VPS." >&2
             exit 1
           fi
 
           upsert_env() {
-            key="$1"
-            value="$2"
-            if grep -q "^${key}=" "${ENV_FILE}"; then
-              sed -i "s#^${key}=.*#${key}=${value}#" "${ENV_FILE}"
+            key="\$1"
+            value="\$2"
+            if grep -q "^\${key}=" "\${ENV_FILE}"; then
+              sed -i "s#^\${key}=.*#\${key}=\${value}#" "\${ENV_FILE}"
             else
-              printf '%s=%s\n' "${key}" "${value}" >> "${ENV_FILE}"
+              printf '%s=%s\n' "\${key}" "\${value}" >> "\${ENV_FILE}"
             fi
           }
 
-          upsert_env "DOCMOLDER_ADMIN_USER_IDS" "${DOCMOLDER_ADMIN_USER_IDS}"
-          upsert_env "DOCMOLDER_ALLOWED_USER_IDS" "${DOCMOLDER_ALLOWED_USER_IDS}"
-          upsert_env "DOCMOLDER_DEFAULT_LANGUAGE" "${DOCMOLDER_DEFAULT_LANGUAGE}"
-          if [ -n "${DOCMOLDER_TELEGRAM_TOKEN:-}" ] && [ "${DOCMOLDER_TELEGRAM_TOKEN}" != "changeme" ]; then
-            upsert_env "DOCMOLDER_TELEGRAM_TOKEN" "${DOCMOLDER_TELEGRAM_TOKEN}"
+          upsert_env "DOCMOLDER_ADMIN_USER_IDS" "\${DOCMOLDER_ADMIN_USER_IDS}"
+          upsert_env "DOCMOLDER_ALLOWED_USER_IDS" "\${DOCMOLDER_ALLOWED_USER_IDS}"
+          upsert_env "DOCMOLDER_DEFAULT_LANGUAGE" "\${DOCMOLDER_DEFAULT_LANGUAGE}"
+          if [ -n "\${DOCMOLDER_TELEGRAM_TOKEN:-}" ] && [ "\${DOCMOLDER_TELEGRAM_TOKEN}" != "changeme" ]; then
+            upsert_env "DOCMOLDER_TELEGRAM_TOKEN" "\${DOCMOLDER_TELEGRAM_TOKEN}"
           fi
-          upsert_env "DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED" "${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}"
+          upsert_env "DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED" "\${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}"
 
-          chown root:root "${ENV_FILE}"
-          chmod 600 "${ENV_FILE}"
+          chown root:root "\${ENV_FILE}"
+          chmod 600 "\${ENV_FILE}"
 
           systemctl restart docmolder
           systemctl status docmolder --no-pager
