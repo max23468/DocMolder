@@ -81,7 +81,7 @@ Il workflow è diviso in gate indipendenti:
 - `Python 3.11/3.12/3.13`: test completi solo per cambi runtime/test; coverage solo su Python 3.12.
 - `package-build`: build del pacchetto solo per cambi a `src/**`, packaging o dipendenze.
 
-`CodeQL` resta disponibile solo su avvio esplicito con `workflow_dispatch`. `Dependency Review`, `Main Commit Policy`, `Release Policy` e `PR Title` sono disattivati finche la modalita senza budget Actions resta attiva.
+`CodeQL` resta disponibile solo su avvio esplicito con `workflow_dispatch`. `Dependency Review`, `Main Commit Policy`, `Release Policy` e `PR Title` sono stati rimossi dai workflow attivi: con GitHub Actions senza budget, lasciarli come file `.yml` disattivati produce run fallite senza job.
 
 ## Release automatica senza Actions
 
