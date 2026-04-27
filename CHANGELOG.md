@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.10.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.10.0...docmolder-v0.10.1) (2026-04-27)
+
+
+### Correzioni
+
+* **deploy:** guard static site install root ([#82](https://github.com/max23468/DocMolder/issues/82)) ([495ffa3](https://github.com/max23468/DocMolder/commit/495ffa3b48ce295164661b2d9df8fe262391dd05))
+
 ## [0.10.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.9.1...docmolder-v0.10.0) (2026-04-27)
 
 
