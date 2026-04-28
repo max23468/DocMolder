@@ -19,6 +19,7 @@ Contiene:
 - token Telegram
 - utenti ammessi e admin
 - limiti sessione, file, burst upload e job concorrenti
+- retention live dello storico job
 - runtime dir e database path
 - backup SQLite
 - soglie alert admin
@@ -152,6 +153,22 @@ Uso:
 - audit leggero di azioni admin sensibili
 - diagnosi operativa senza loggare contenuti documento
 
+### `UserDataDeletionReport`
+
+Contiene:
+
+- sessioni eliminate
+- job eliminati
+- usage events eliminati
+- utente noto eliminato
+- metadati `app_meta` eliminati
+- voci audit anonimizzate
+
+Uso:
+
+- esito strutturato della cancellazione self-service dei dati live da `/reset`
+- log operativo sintetico senza includere contenuti documento o identificativi utente nel messaggio finale
+
 ## Tabelle SQLite
 
 Il database corrente e gestito da `SQLiteSessionStore`.
@@ -217,6 +234,7 @@ Uso:
 - flag operativi come manutenzione o alert recenti
 - accesso dinamico utente con chiavi `access:<telegram_user_id>:status`
 - stato anti-burst upload con chiavi `upload_burst:<telegram_user_id>`, contenente solo timestamp recenti della finestra di rate limit
+- preferenze rapide e preset con chiavi utente come `user_pref:<telegram_user_id>:*` e `user_preset:<telegram_user_id>:*`
 
 ### `jobs`
 
@@ -243,7 +261,7 @@ Campi principali:
 Uso:
 
 - coda asincrona
-- storico
+- storico personale live
 - health e queue admin
 - retry
 
@@ -261,9 +279,10 @@ Campi principali:
 
 Uso:
 
-- traccia append-only minimale per cambio service mode, retry admin, richieste/revisioni accesso e future azioni admin sensibili
+- traccia append-only minimale per cambio service mode, retry admin, richieste/revisioni accesso, cancellazioni self-service e future azioni admin sensibili
 - supporto a diagnosi e incident response
 - non deve contenere payload completi, documenti o contenuti utente
+- in caso di cancellazione dati utente, le voci che riferiscono quell'utente vengono anonimizzate azzerando actor/target pertinente e dettaglio
 
 ## Stati
 
@@ -292,11 +311,18 @@ Non sono prodotto persistente:
 
 Questi asset devono restare nel runtime temporaneo e sotto cleanup.
 
+## Retention e cancellazione
+
+Regole correnti:
+
+- lo storico job live dei record conclusi viene potato da `docmolder-reconcile` oltre `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`, default 30 giorni
+- la cancellazione completa da `/reset` rimuove i dati live dell'utente: sessione, file di sessione, storico job personale, usage events, known user e metadati utente in `app_meta`
+- i backup SQLite gia creati non vengono riscritti retroattivamente dalla cancellazione self-service; scadono tramite la retention breve dei backup
+- audit e log devono restare sintetici e non contenere documenti, payload completi o contenuti utente
+
 ## Evoluzioni possibili
 
 Decisioni aperte:
 
-- pruning automatico dello storico job
-- cancellazione completa self-service dei dati utente
 - metriche admin stabili da mantenere nel tempo
 - eventuale migrazione fuori da SQLite se carico o retention crescono

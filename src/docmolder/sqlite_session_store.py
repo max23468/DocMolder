@@ -15,6 +15,7 @@ from docmolder.models import (
     SessionFile,
     SessionStatus,
     SupportedActionValue,
+    UserDataDeletionReport,
     UserSession,
 )
 
@@ -117,6 +118,7 @@ class SQLiteSessionStore:
 
     def delete(self, user_id: int) -> None:
         with self._lock, self._connect() as connection:
+            connection.execute("DELETE FROM session_files WHERE user_id = ?", (user_id,))
             connection.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
             connection.commit()
 
@@ -207,6 +209,57 @@ class SQLiteSessionStore:
                 (f"user_pref:{user_id}:%",),
             )
             connection.commit()
+
+    def delete_user_data(self, user_id: int) -> UserDataDeletionReport:
+        with self._lock, self._connect() as connection:
+            connection.execute("DELETE FROM session_files WHERE user_id = ?", (user_id,))
+            sessions_deleted = _delete_count(connection, "DELETE FROM sessions WHERE user_id = ?", (user_id,))
+            jobs_deleted = _delete_count(connection, "DELETE FROM jobs WHERE user_id = ?", (user_id,))
+            usage_events_deleted = _delete_count(
+                connection,
+                "DELETE FROM usage_events WHERE user_id = ?",
+                (user_id,),
+            )
+            known_users_deleted = _delete_count(
+                connection,
+                "DELETE FROM known_users WHERE user_id = ?",
+                (user_id,),
+            )
+            meta_deleted = _delete_count(
+                connection,
+                """
+                DELETE FROM app_meta
+                WHERE key IN (?, ?)
+                   OR key LIKE ?
+                   OR key LIKE ?
+                """,
+                (
+                    f"access:{user_id}:status",
+                    f"upload_burst:{user_id}",
+                    f"user_pref:{user_id}:%",
+                    f"user_preset:{user_id}:%",
+                ),
+            )
+            audit_cursor = connection.execute(
+                """
+                UPDATE audit_log
+                SET
+                    actor_user_id = CASE WHEN actor_user_id = ? THEN NULL ELSE actor_user_id END,
+                    target_user_id = CASE WHEN target_user_id = ? THEN NULL ELSE target_user_id END,
+                    detail = ''
+                WHERE actor_user_id = ? OR target_user_id = ?
+                """,
+                (user_id, user_id, user_id, user_id),
+            )
+            connection.commit()
+            return UserDataDeletionReport(
+                sessions_deleted=sessions_deleted,
+                jobs_deleted=jobs_deleted,
+                usage_events_deleted=usage_events_deleted,
+                known_users_deleted=known_users_deleted,
+                meta_deleted=meta_deleted,
+                audit_entries_scrubbed=int(audit_cursor.rowcount),
+            )
 
     def build_admin_stats(self) -> AdminStats:
         with self._lock, self._connect() as connection:
@@ -776,6 +829,11 @@ def _audit_entry_from_row(row: sqlite3.Row) -> AuditLogEntry:
         detail=row["detail"],
         created_at=_from_sqlite_datetime(row["created_at"]),
     )
+
+
+def _delete_count(connection: sqlite3.Connection, query: str, params: tuple[SQLiteParameter, ...]) -> int:
+    cursor = connection.execute(query, params)
+    return int(cursor.rowcount)
 
 
 def _safe_average(values) -> int:

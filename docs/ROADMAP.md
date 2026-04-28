@@ -12,6 +12,7 @@ funzioni.
 
 - [Storico completato](#storico-completato)
 - [Principi 1.x](#principi-1x)
+- [Decisioni confermate per la linea 1.x](#decisioni-confermate-per-la-linea-1x)
 - [Fase 9: Privacy, retention e lifecycle dati](#fase-9-privacy-retention-e-lifecycle-dati)
 - [Fase 10: UX pubblica e trust](#fase-10-ux-pubblica-e-trust)
 - [Fase 11: Preset e automazioni leggere](#fase-11-preset-e-automazioni-leggere)
@@ -56,9 +57,50 @@ Priorita di sequenza:
 5. rafforzare osservabilita e guardrail prima di una promozione pubblica piu
    ampia
 
+## Decisioni confermate per la linea 1.x
+
+- Postura pubblica: soft launch pubblico. Il bot resta raggiungibile, ma senza
+  promozione ampia finche privacy/retention, UX trust e osservabilita minima
+  non sono chiuse.
+- Lingua prodotto: italiano-first per la 1.x iniziale, senza localizzazione
+  inglese nel perimetro corrente.
+- Privacy pubblica: rafforzare sia i testi del bot sia il sito statico; il bot
+  usa messaggi brevi, il sito contiene il testo piu completo su dati, retention
+  e limiti.
+- Onboarding: `/start` deve includere una frase breve sul fatto che i file sono
+  usati per la lavorazione e non archiviati permanentemente; i dettagli stanno
+  in `/help` o nella pagina privacy.
+- Cancellazione dati: esporre la cancellazione completa dentro `/reset`, con
+  conferma inline obbligatoria. La cancellazione self-service riguarda dati
+  live, non backup storici.
+- Backup: i backup SQLite non vengono riscritti retroattivamente per cancellare
+  il singolo utente; restano coperti da retention breve e la policy va
+  dichiarata.
+- Preset: automatici ma leggeri, derivati dalle ultime scelte frequenti,
+  cancellabili con `/reset` o cancellazione dati, senza salvare contenuti o nomi
+  file.
+- Retry con stesse impostazioni: solo per job recenti e compatibili. Se i file
+  temporanei non sono piu disponibili, il bot chiede di reinviare il file.
+- Qualita scansioni: evolvere dentro l'azione "Raddrizza foto documento", con
+  opzioni leggere come piu leggibile, mantieni colore e bianco/nero pulito.
+- OCR: fuori dalla roadmap 1.x iniziale. Sono ammesse solo esplorazioni
+  tecniche non pubbliche, senza promesse utente.
+- Osservabilita: `/admin` e il centro di diagnosi rapida; shell e runbook
+  restano il percorso per interventi operativi veri.
+- Soglie di crescita: definire soglie prudenziali iniziali in Fase 13 su
+  job/giorno, utenti attivi, dimensione DB, failure rate e coda, poi rivederle
+  con dati reali.
+- Promozione pubblica: mini-promozione controllata possibile dopo Fase 10 solo
+  se Fase 9 e chiusa; promozione piu ampia solo dopo Fase 13.
+- Canali: nessun nuovo canale oltre Telegram e sito statico nella 1.x iniziale.
+  Niente web app e niente API pubbliche.
+- Release strategy: ogni fase puo uscire come release propria; le feature
+  utente vere, in particolare da Fase 11, usano commit/PR rilasciabili coerenti
+  con [VERSIONING.md](./VERSIONING.md).
+
 ## Fase 9: Privacy, retention e lifecycle dati
 
-Stato: prossima fase.
+Stato: completata.
 
 Obiettivo:
 
@@ -66,22 +108,21 @@ Obiettivo:
 
 Deliverable principali:
 
-- policy formale per retention massima dello storico job in SQLite
-- pruning automatico dei job vecchi, integrato nel reconcile esistente
-- cancellazione completa self-service dei dati utente, distinta da `/reset`
+- policy formale per retention massima dello storico job live in SQLite
+- pruning automatico dei job conclusi vecchi, integrato nel reconcile esistente
+- cancellazione completa self-service dei dati utente, esposta dentro `/reset`
 - conferma inline esplicita per cancellazione completa
-- rimozione coerente di sessione, preferenze rapide, preset futuri e storico
-  personale quando l'utente chiede cancellazione completa
-- documentazione aggiornata su dati salvati, dati non salvati, retention e
-  cancellazione
+- rimozione coerente di sessione, preferenze rapide, preset, storico personale
+  e metadati utente quando l'utente chiede cancellazione completa
+- documentazione aggiornata su dati salvati, dati non salvati, retention,
+  backup e cancellazione
 
-Criteri di done:
+Criteri soddisfatti:
 
-- l'utente puo cancellare i propri dati persistenti senza intervento admin
+- l'utente puo cancellare i propri dati live senza intervento admin
 - `/reset` resta un reset leggero di sessione e preferenze rapide, senza
-  ambiguita con cancellazione completa
-- reconcile e health/report amministrativi espongono pruning eseguito o
-  anomalie rilevanti
+  ambiguita con cancellazione completa nello stesso percorso
+- reconcile espone pruning eseguito e retention applicata
 - log e audit registrano solo eventi sintetici, senza contenuti documentali
 - governance, modello dati e operations Telegram sono coerenti con il
   comportamento implementato
@@ -107,6 +148,8 @@ Deliverable principali:
   link essenziale
 - sito statico allineato allo stato 1.x: CTA Telegram, privacy sintetica,
   limiti file e perimetro del servizio
+- testo breve gia in `/start` sul fatto che i file non sono archiviati
+  permanentemente
 - messaggi piu pratici per file troppo grandi, coda piena, manutenzione, job
   fallito e retry
 - smoke pubblico minimo post-deploy: start, help, status, upload minimo,
@@ -139,6 +182,8 @@ Deliverable principali:
   dati
 - preferenze iniziali per immagini verso PDF, livello compressione e formato
   split
+- salvataggio automatico leggero basato sulle ultime scelte frequenti, senza
+  contenuti documento o nomi file
 - scorciatoie inline contestuali basate sui preset, senza pannelli complessi
 - opzione "ripeti con stesse impostazioni" quando il job recente e compatibile
 - policy chiara su quali preferenze diventano persistenti e quali restano
@@ -168,8 +213,8 @@ Deliverable principali:
 
 - feedback piu chiaro quando una foto documento e sfocata, buia, senza bordo
   leggibile o con prospettiva incerta
-- opzioni leggere per output scansione, come leggibilita, mantenimento colore o
-  resa piu pulita
+- opzioni leggere dentro "Raddrizza foto documento", come piu leggibile,
+  mantieni colore o bianco/nero pulito
 - feedback pratico sulla compressione, inclusi casi in cui riduce poco o non
   conviene
 - test sintetici piu rappresentativi per foto documento e PDF problematici
@@ -204,6 +249,8 @@ Deliverable principali:
   backup, failure rate e job running stale
 - alert Telegram admin piu orientati all'azione, con indicazione del runbook o
   comando utile
+- soglie prudenziali iniziali su job/giorno, utenti attivi, dimensione DB,
+  failure rate e coda
 - criterio scritto per capire quando SQLite o VPS singola non bastano piu
 - runbook di emergenza per manutenzione, allow-list temporanea, pruning manuale
   e rollback

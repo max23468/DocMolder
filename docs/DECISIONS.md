@@ -5,6 +5,7 @@ Questo file raccoglie decisioni architetturali e di prodotto gia prese, in forma
 ## Indice
 
 - [Perimetro prodotto: utility documentale chat-first](#perimetro-prodotto-utility-documentale-chat-first)
+- [Roadmap 1.x: soft launch prima, feature dopo](#roadmap-1x-soft-launch-prima-feature-dopo)
 - [Polling invece di webhook pubblici](#polling-invece-di-webhook-pubblici)
 - [Webhook privato per deploy e hook locali](#webhook-privato-per-deploy-e-hook-locali)
 - [Retention breve dei file temporanei](#retention-breve-dei-file-temporanei)
@@ -27,6 +28,27 @@ Conseguenze:
 - vanno invece trattate con molta prudenza feature che aprono mondi nuovi come document management, OCR esteso, workflow troppo complessi o automazioni poco controllabili
 - la roadmap deve essere letta dentro questo perimetro: meglio poche evoluzioni coerenti che accumulo di funzioni eterogenee
 - salvo decisione esplicita futura, consideriamo `bloat` o `too much` tutte le proposte che spingono il prodotto verso editor PDF generalista, piattaforma documentale ampia o assistente conversazionale troppo aperto
+
+## Roadmap 1.x: soft launch prima, feature dopo
+
+Decisione:
+- la linea `1.x` resta in soft launch pubblico: il bot e raggiungibile, ma non viene spinto con promozione ampia prima di privacy/retention, UX trust e osservabilita minima
+- la lingua prodotto resta italiano-first nella 1.x iniziale
+- le prime feature dopo il consolidamento sono preset e automazioni leggere, non nuove superfici web/API o OCR esteso
+- `/admin` resta il centro di diagnosi rapida, mentre shell e runbook restano il percorso per gli interventi operativi veri
+
+Motivazione:
+- il bot e gia pubblico, quindi la priorita e rendere chiari dati, limiti e cancellazione prima di aumentare esposizione
+- preset e automazioni leggere riducono attrito sui flussi esistenti senza allargare troppo il perimetro
+- OCR, API pubbliche e web app creerebbero aspettative e complessita non coerenti con la fase iniziale della 1.x
+
+Conseguenze:
+- Fase 9 ha chiuso retention live, pruning e cancellazione completa self-service dentro `/reset`
+- Fase 10 rafforza onboarding, privacy pubblica e sito statico senza introdurre una web app
+- Fase 11 introduce preset automatici leggeri e cancellabili, senza salvare contenuti o nomi file
+- Fase 12 migliora scansioni dentro "Raddrizza foto documento", lasciando OCR fuori dal perimetro pubblico
+- Fase 13 definisce soglie prudenziali di crescita e criteri per rivalutare VPS singola e SQLite
+- una mini-promozione controllata e possibile solo dopo Fase 10 e con Fase 9 chiusa; una promozione piu ampia richiede anche Fase 13
 
 ## Polling invece di webhook pubblici
 

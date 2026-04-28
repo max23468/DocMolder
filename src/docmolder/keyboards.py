@@ -181,6 +181,23 @@ def build_access_review_keyboard(user_id: int) -> InlineKeyboardMarkup:
     )
 
 
+def build_delete_data_request_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Cancella tutti i miei dati", callback_data="delete_data:request")],
+        ]
+    )
+
+
+def build_delete_data_confirmation_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Conferma cancellazione", callback_data="delete_data:confirm")],
+            [InlineKeyboardButton("Annulla", callback_data="delete_data:cancel")],
+        ]
+    )
+
+
 def build_main_menu_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         [[KeyboardButton(left), KeyboardButton(right)] for left, right in MAIN_MENU_ROWS],

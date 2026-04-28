@@ -80,7 +80,7 @@ Non e:
 - `src/docmolder/healthcheck.py`
   - healthcheck CLI con output testo/JSON ed exit code
 - `src/docmolder/reconcile.py`
-  - manutenzione one-shot di job stale e runtime temporaneo
+  - manutenzione one-shot di job stale, pruning dello storico job concluso e runtime temporaneo
 - `src/docmolder/logging_utils.py` e `src/docmolder/retry.py`
   - logging strutturato leggero e retry/backoff condiviso
 - `src/docmolder/errors.py` e `src/docmolder/git_utils.py`
@@ -116,9 +116,18 @@ Non e:
 
 ### Storico e retry
 
-1. I job conclusi restano come storico leggero nel database.
+1. I job conclusi restano come storico leggero nel database entro la retention live configurata.
 2. `/history` risolve solo job dell'utente corrente e permette il rilancio tramite callback.
 3. I retry mantengono il riferimento al job di origine tramite `rerun_of_job_id`.
+4. `docmolder-reconcile` pota lo storico concluso oltre `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`, default 30 giorni.
+
+### Cancellazione dati live
+
+1. `/reset` resta il percorso per azzerare sessione e preferenze rapide.
+2. Lo stesso flusso espone una cancellazione completa con conferma inline obbligatoria.
+3. La cancellazione completa rimuove dati live dell'utente: sessione, preferenze, preset, storico job personale, usage events e metadati utente.
+4. Le voci audit che riferiscono l'utente vengono anonimizzate; i log restano sintetici.
+5. I backup SQLite gia creati non vengono riscritti retroattivamente e scadono secondo la retention dei backup.
 
 ### Admin e operativita
 
@@ -143,7 +152,7 @@ Asset principali:
 Regole:
 
 - i file utente sono temporanei e non sono prodotto permanente
-- lo storico persistente riguarda job, metadati e metriche leggere, non il contenuto dei documenti
+- lo storico persistente riguarda job, metadati e metriche leggere, non il contenuto dei documenti, ed e soggetto a pruning
 - SQLite e il target corrente per singola VPS e carico controllato
 - una crescita rilevante di concorrenza o retention richiede una nuova decisione architetturale
 

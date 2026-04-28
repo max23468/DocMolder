@@ -133,6 +133,72 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertIsNone(self.store.get_user_preference(55, "compression_preset"))
         self.assertIsNone(self.store.get_user_preference(55, "image_pdf_layout"))
 
+    def test_delete_removes_session_files(self) -> None:
+        from docmolder.action_catalog import build_session_file
+        from docmolder.models import FileKind, UserSession
+
+        self.store.save(
+            UserSession(
+                user_id=55,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+
+        self.store.delete(55)
+
+        with self.store._connect() as connection:
+            row = connection.execute("SELECT COUNT(*) AS total FROM session_files WHERE user_id = 55").fetchone()
+        self.assertEqual(int(row["total"]), 0)
+
+    def test_delete_user_data_removes_live_user_records_and_scrubs_audit(self) -> None:
+        from docmolder.action_catalog import build_session_file
+        from docmolder.models import FileKind, UserSession
+
+        self.store.save(
+            UserSession(
+                user_id=55,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        self.store.register_user(55, "mario", "Mario", None)
+        self.store.record_completed_action(55, "pdf_compress")
+        self.store.set_user_preference(55, "compression_preset", "medium")
+        self.store.set_meta("access:55:status", "approved")
+        self.store.set_meta("upload_burst:55", "[1,2]")
+        job = self.store.create_job(
+            user_id=55,
+            chat_id=99,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_succeeded(job.id, "ok")
+        self.store.append_audit_log_entry(
+            "access_review",
+            actor_user_id=7,
+            target_user_id=55,
+            outcome="approved",
+            detail="callback:access:approve",
+        )
+
+        report = self.store.delete_user_data(55)
+
+        self.assertEqual(report.sessions_deleted, 1)
+        self.assertEqual(report.jobs_deleted, 1)
+        self.assertEqual(report.usage_events_deleted, 1)
+        self.assertEqual(report.known_users_deleted, 1)
+        self.assertEqual(report.meta_deleted, 3)
+        self.assertEqual(report.audit_entries_scrubbed, 1)
+        self.assertIsNone(self.store.get(55))
+        self.assertIsNone(self.store.get_job(job.id))
+        self.assertIsNone(self.store.get_user_preference(55, "compression_preset"))
+        self.assertIsNone(self.store.get_meta("access:55:status"))
+        self.assertIsNone(self.store.get_meta("upload_burst:55"))
+        audit_entry = self.store.list_audit_log_entries(limit=1)[0]
+        self.assertEqual(audit_entry.actor_user_id, 7)
+        self.assertIsNone(audit_entry.target_user_id)
+        self.assertEqual(audit_entry.detail, "")
+
     def test_session_pending_action_roundtrip(self) -> None:
         from docmolder.models import UserSession
 
@@ -330,6 +396,50 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
 
         self.assertEqual([item.id for item in requeued], [job.id])
         self.assertEqual(self.store.get_job(job.id).status, JobStatus.QUEUED)
+
+    def test_prune_finished_jobs_removes_only_old_finished_jobs(self) -> None:
+        old_job = self.store.create_job(
+            user_id=7,
+            chat_id=70,
+            reply_to_message_id=None,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_succeeded(old_job.id, "old")
+        recent_job = self.store.create_job(
+            user_id=7,
+            chat_id=70,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_failed(recent_job.id, "recent")
+        running_job = self.store.create_job(
+            user_id=7,
+            chat_id=70,
+            reply_to_message_id=None,
+            action="pdf_merge",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_running(running_job.id)
+        old_timestamp = (datetime.now(timezone.utc) - timedelta(days=40)).strftime("%Y-%m-%d %H:%M:%S")
+        with self.store._connect() as connection:
+            connection.execute(
+                "UPDATE jobs SET created_at = ?, finished_at = ? WHERE id = ?",
+                (old_timestamp, old_timestamp, old_job.id),
+            )
+            connection.execute(
+                "UPDATE jobs SET created_at = ?, started_at = ? WHERE id = ?",
+                (old_timestamp, old_timestamp, running_job.id),
+            )
+            connection.commit()
+
+        pruned = self.store.prune_finished_jobs(retention_days=30)
+
+        self.assertEqual(pruned, 1)
+        self.assertIsNone(self.store.get_job(old_job.id))
+        self.assertIsNotNone(self.store.get_job(recent_job.id))
+        self.assertIsNotNone(self.store.get_job(running_job.id))
 
 
 if __name__ == "__main__":

@@ -10,6 +10,7 @@ from docmolder.models import (
     JobRecord,
     JobStatus,
     SupportedActionValue,
+    UserDataDeletionReport,
     UserSession,
 )
 
@@ -84,6 +85,45 @@ class InMemorySessionStore:
         with self._lock:
             for meta_key in [meta_key for meta_key in self._meta if meta_key.startswith(prefix)]:
                 self._meta.pop(meta_key, None)
+
+    def delete_user_data(self, user_id: int) -> UserDataDeletionReport:
+        with self._lock:
+            meta_prefixes = (f"user_pref:{user_id}:", f"user_preset:{user_id}:")
+            meta_keys = [
+                key
+                for key in self._meta
+                if key in {f"access:{user_id}:status", f"upload_burst:{user_id}"}
+                or any(key.startswith(prefix) for prefix in meta_prefixes)
+            ]
+            sessions_deleted = 1 if user_id in self._sessions else 0
+            self._sessions.pop(user_id, None)
+            jobs_deleted = sum(1 for job in self._jobs.values() if job.user_id == user_id)
+            self._jobs = {job_id: job for job_id, job in self._jobs.items() if job.user_id != user_id}
+            usage_events_deleted = sum(1 for event_user_id, _action in self._completed_actions if event_user_id == user_id)
+            self._completed_actions = [
+                (event_user_id, action)
+                for event_user_id, action in self._completed_actions
+                if event_user_id != user_id
+            ]
+            known_users_deleted = 1 if user_id in self._known_user_ids else 0
+            self._known_user_ids.discard(user_id)
+            for meta_key in meta_keys:
+                self._meta.pop(meta_key, None)
+            audit_entries_scrubbed = 0
+            for entry in self._audit_entries:
+                if entry.actor_user_id == user_id or entry.target_user_id == user_id:
+                    entry.actor_user_id = None if entry.actor_user_id == user_id else entry.actor_user_id
+                    entry.target_user_id = None if entry.target_user_id == user_id else entry.target_user_id
+                    entry.detail = ""
+                    audit_entries_scrubbed += 1
+            return UserDataDeletionReport(
+                sessions_deleted=sessions_deleted,
+                jobs_deleted=jobs_deleted,
+                usage_events_deleted=usage_events_deleted,
+                known_users_deleted=known_users_deleted,
+                meta_deleted=len(meta_keys),
+                audit_entries_scrubbed=audit_entries_scrubbed,
+            )
 
     def build_admin_stats(self) -> AdminStats:
         with self._lock:

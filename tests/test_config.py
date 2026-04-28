@@ -49,6 +49,19 @@ class SettingsEnvParsingTest(unittest.TestCase):
         self.assertEqual(settings.allowed_user_ids, [1, 2, 3])
         self.assertEqual(settings.admin_user_ids, [7])
 
+    def test_job_history_retention_defaults_to_30_days_and_is_configurable(self) -> None:
+        self._set_base_env()
+
+        default_settings = Settings()
+
+        self.assertEqual(default_settings.job_history_retention_days, 30)
+
+        os.environ["DOCMOLDER_JOB_HISTORY_RETENTION_DAYS"] = "14"
+
+        custom_settings = Settings()
+
+        self.assertEqual(custom_settings.job_history_retention_days, 14)
+
 
 if __name__ == "__main__":
     unittest.main()
