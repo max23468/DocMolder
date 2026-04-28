@@ -3,7 +3,7 @@
 Questo file e un handoff rapido: descrive il minimo contesto utile e punta alla documentazione specialistica.
 
 Ultimo aggiornamento del contesto:
-- data di riferimento: `2026-04-23`
+- data di riferimento: `2026-04-28`
 
 ## Cos'e DocMolder
 
@@ -73,3 +73,5 @@ Ultimo aggiornamento del contesto:
 - il flusso immagini verso PDF scrive PDF intermedi per pagina e li unisce, riducendo il picco di memoria sui batch; le foto documento chiudono prima le immagini trasformate dopo l'impaginazione
 - il limite anti-burst degli upload conserva in `app_meta` solo le timestamp recenti della finestra operativa, cosi sopravvive a un riavvio senza diventare storico permanente
 - lo storico job mostra anche riepilogo file sorgente e nome output base derivato dal catalogo, allineando file restituiti e dettaglio utente
+- `DocMolder` e stato promosso alla linea stabile `1.x`: `docmolder-v1.0.0` ha dichiarato stabile il perimetro corrente e `docmolder-v1.0.1` e il follow-up live verificato sulla VPS
+- l'uso pubblico previsto per la 1.x e un soft launch Telegram-first: bot raggiungibile pubblicamente, best-effort, basso volume atteso, retention breve, nessuno storage documentale permanente e possibilita di restringere accesso o mettere in manutenzione se carico o abuso lo richiedono

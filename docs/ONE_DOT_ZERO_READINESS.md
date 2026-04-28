@@ -1,21 +1,28 @@
 # Readiness 1.0
 
-Questo documento definisce quando `DocMolder` puo essere promosso a `1.0.0`.
+Questo documento definisce quando `DocMolder` puo essere promosso a `1.0.0` e
+conserva il record della promozione eseguita.
 
 La 1.0 non aggiunge automaticamente nuove feature: serve a dichiarare stabile il perimetro attuale del prodotto, il flusso operativo e le aspettative minime per utenti e maintainer.
 
+## Stato della promozione
+
+La promozione a `1.0.0` e stata completata il 2026-04-28. La linea stabile
+corrente e `1.x`; dopo un follow-up documentale sul cleanup del target release,
+la versione live e `docmolder-v1.0.1`.
+
 ## Baseline corrente
 
-- release stabile corrente: `docmolder-v0.12.2`
+- release stabile corrente: `docmolder-v1.0.1`
 - canale ordinario: PR su `main`, deploy via webhook privato GitHub -> VPS, auto-release VPS
 - perimetro prodotto: utility documentale Telegram-first, non storage permanente, non editor PDF generalista
 
 ## Stato audit corrente
 
 Verifica del 2026-04-28 sulla VPS `docmolder.duckdns.org`, aggiornata dopo la
-preparazione release:
+release `1.0.1`:
 
-- tag live: `docmolder-v0.12.2`
+- tag live: `docmolder-v1.0.1`
 - healthcheck con env VPS: `status: ok`
 - smoke tecnico VPS: `DocMolder smoke check OK`
 - log `docmolder` ultimi 10 minuti: nessun warning/error
@@ -24,9 +31,9 @@ preparazione release:
   - job `images_to_pdf` riuscito
   - job `pdf_grayscale` riuscito sul PDF generato
 
-Questa baseline conferma che `0.12.2` e un punto di partenza valido per la
-promozione. Dopo il bump effettivo a `1.0.0` resta necessario ripetere health,
-smoke tecnico e controllo log post-release.
+Questa baseline conferma che la promozione e il follow-up `1.0.1` sono stati
+pubblicati e verificati. Il target temporaneo `DOCMOLDER_RELEASE_TARGET_VERSION`
+deve restare assente da `/etc/docmolder/release.env` dopo la release.
 
 ## Criteri per dire "1.0"
 
@@ -77,9 +84,9 @@ smoke tecnico e controllo log post-release.
 - non ci sono commenti Codex connector aperti sulla PR di preparazione 1.0
 - non ci sono run fallite sul branch o SHA corrente
 
-## Smoke test richiesti
+## Smoke test richiesti per una promozione major
 
-Prima della PR che promuove a `1.0.0`:
+Prima di una PR che promuove a una major `X.0.0`:
 
 1. Smoke tecnico VPS:
    - servizio `docmolder` active
@@ -95,7 +102,7 @@ Prima della PR che promuove a `1.0.0`:
 
 Se Telegram Desktop non e disponibile nell'ambiente corrente, la PR 1.0 deve dirlo esplicitamente e lasciare il smoke funzionale come pre-merge manuale.
 
-## Meccanica release 1.0
+## Meccanica release major esplicita
 
 La 1.0 segue il criterio generale per le major release definito in
 [VERSIONING.md](./VERSIONING.md#criterio-per-release-major-x00), con una
@@ -108,18 +115,21 @@ Il flusso SemVer normale pre-1.0 porta:
 - `feat:` a minor
 - breaking change a minor finche il major corrente e `0`
 
-Per promuovere intenzionalmente `0.x` a `1.0.0`, serve quindi un percorso esplicito di graduation release. Il percorso atteso e:
+Per promuovere intenzionalmente `0.x` a `1.0.0`, o una futura linea stabile a
+una nuova major `X.0.0`, serve quindi un percorso esplicito di graduation
+release. Il percorso atteso e:
 
-1. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder 1.0`
+1. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder X.0`
 2. includere in PR il risultato della checklist di questo documento
 3. includere nel corpo PR la sezione `Major release rationale`
-4. impostare temporaneamente `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0` sulla VPS
+4. impostare temporaneamente `DOCMOLDER_RELEASE_TARGET_VERSION=X.0.0` sulla VPS
 5. mergeare la PR su `main`, lasciando che il webhook esegua deploy e auto-release con target
-6. attendere conferma di auto-release completata, tag `docmolder-v1.0.0` e deploy del commit release
+6. attendere conferma di auto-release completata, tag `docmolder-vX.0.0` e deploy del commit release
 7. rimuovere il target temporaneo dalla VPS
 8. verificare GitHub Release, health, smoke tecnico e log post-release
 
-La 1.0 non va ottenuta con bump manuali casuali dei file release-owned dentro una feature PR ordinaria.
+Una major non va ottenuta con bump manuali casuali dei file release-owned dentro
+una feature PR ordinaria.
 
 ## Major release rationale
 

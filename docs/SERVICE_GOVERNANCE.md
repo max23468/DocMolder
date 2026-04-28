@@ -29,6 +29,30 @@ Il bot e oggi:
 
 Il bot non offre storage documentale permanente: riceve file, li trasforma e restituisce l'output.
 
+## Uso pubblico 1.x
+
+Dalla linea `1.x`, il bot puo essere considerato pubblicamente utilizzabile su
+Telegram, ma con un perimetro intenzionalmente prudente:
+
+- accesso pubblico tramite `@docmolder_bot` e sito statico di ingresso
+- uso consigliato in chat privata, per trasformazioni documentali puntuali
+- servizio best-effort, senza SLA, piano commerciale o promessa di
+  disponibilita continua
+- carico atteso basso o moderato, protetto da limiti su file, sessioni, burst
+  upload e job concorrenti
+- possibilita di passare temporaneamente a modalita ristretta con
+  `DOCMOLDER_ALLOWED_USER_IDS` o manutenzione se abuso, carico o incidenti lo
+  richiedono
+
+La 1.x stabilizza il contratto attuale, non apre automaticamente una fase di
+promozione pubblica ampia. Prima di campagne, onboarding massivo o uso con dati
+sensibili ricorrenti servono almeno:
+
+- testo pubblico piu esplicito su privacy, retention e limiti del servizio
+- procedura chiara per richieste di cancellazione completa dei dati utente
+- pruning automatico o policy formale per lo storico job
+- monitoraggio operativo sufficiente a capire saturazione, errori e abuso
+
 ## Perimetro prodotto
 
 Il prodotto e:

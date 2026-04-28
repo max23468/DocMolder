@@ -214,7 +214,7 @@ Per il versioning ordinario, feature PR e fix PR non devono aggiornare manualmen
 
 In sintesi, la priorità attuale è:
 
-- Fase 8: ottimizzazione del funzionamento interno e delle raccomandazioni utente
+- linea 1.x: mantenere stabile il bot pubblico Telegram-first, correggere regressioni emerse dall'uso reale e rafforzare privacy, retention e osservabilita senza uscire dal perimetro di utility documentale
 
 ## Gerarchia comandi Telegram
 
