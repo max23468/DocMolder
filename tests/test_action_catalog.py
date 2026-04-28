@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.keyboards import build_actions_keyboard
+from docmolder.keyboards import build_actions_keyboard, build_session_actions_keyboard
 from docmolder.models import FileKind, SupportedAction, UserSession
 from docmolder.action_catalog import (
     build_next_step_hint,
@@ -67,6 +67,24 @@ class ActionCatalogHelpersTest(unittest.TestCase):
         self.assertIsNotNone(keyboard)
         labels = [row[0].text for row in keyboard.inline_keyboard]
         self.assertEqual(labels, [get_action_label(SupportedAction.PDF_GRAYSCALE), "Aggiungi watermark"])
+
+    def test_session_actions_keyboard_groups_recommended_and_advanced_actions(self) -> None:
+        session = UserSession(
+            user_id=7,
+            files=[build_session_file("pdf-1", "Contratto.pdf", FileKind.PDF)],
+        )
+
+        compact_keyboard = build_session_actions_keyboard(session)
+        expanded_keyboard = build_session_actions_keyboard(session, expanded=True)
+
+        self.assertIsNotNone(compact_keyboard)
+        self.assertIsNotNone(expanded_keyboard)
+        compact_labels = [button.text for row in compact_keyboard.inline_keyboard for button in row]
+        expanded_labels = [button.text for row in expanded_keyboard.inline_keyboard for button in row]
+        self.assertIn("Altre azioni (5)", compact_labels)
+        self.assertIn("Meno azioni", expanded_labels)
+        self.assertIn("Aggiungi watermark", expanded_labels)
+        self.assertNotIn("Aggiungi watermark", compact_labels)
 
     def test_build_session_recap_highlights_recommended_action_for_multi_pdf_session(self) -> None:
         session = UserSession(

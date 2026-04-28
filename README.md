@@ -47,9 +47,9 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 - Storico ultimi job con dettaglio essenziale e possibilità di rilanciare un'elaborazione
-- Self-service rapido con `/history`, `/last`, `/access`, `/request_access`, `/policy`, `/status` e `/reset`
-- Deep link Telegram per scorciatoie contestuali e rilancio rapido di job
-- Console admin Telegram con queue, health, metrics, manutenzione, access review, pause/resume e scorciatoie inline
+- Self-service essenziale con `/start`, `/help`, `/history`, `/status` e `/reset`
+- Deep link Telegram essenziali per guida, storico e stato
+- Console admin Telegram accorpata in `/admin`, con queue, health, metrics, manutenzione, access review, pause/resume e scorciatoie inline
 - Metriche Telegram leggere e alert admin meno rumorosi
 - Nomi output più leggibili, derivati dal file sorgente e dall'azione eseguita
 
@@ -91,8 +91,9 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - correzione automatica dell'orientamento PDF nei flussi compatibili
 - correzione orientamento immagini
 - storico lavori utente con recupero rapido del job via rilancio
-- self-service utente con `/history`, `/last`, `/access`, `/request_access`, `/policy`, `/status` e `/reset`
-- console admin Telegram live con `/queue`, `/health`, `/maintenance_overview`, `/metrics`, `/job`, `/retry`, access review, `/pause`, `/resume`
+- self-service utente con `/start`, `/help`, `/history`, `/status` e `/reset`
+- tastiere inline contestuali: azioni consigliate in evidenza, azioni avanzate dietro espansione
+- console admin Telegram live accorpata in `/admin`, con dashboard inline per queue, health, maintenance, metrics, access review, pause/resume e ultimi job disponibili
 - metriche e retry Bot API per i flussi Telegram più sensibili
 
 ## Nota sul motore PDF attuale
@@ -214,26 +215,18 @@ In sintesi, la priorità attuale è:
 
 - Fase 8: ottimizzazione del funzionamento interno e delle raccomandazioni utente
 
-## Monitoraggio admin
+## Gerarchia comandi Telegram
 
-Se configuri `DOCMOLDER_ADMIN_USER_IDS`, l'admin può usare anche:
+Comandi utente:
 
-- `/admin` per vedere un riepilogo rapido di utenti, nuovi accessi, operazioni completate, stato coda, utenti più attivi e ultimi job riusciti o falliti
-- `/queue` per vedere backlog, job queued/running e ultimi falliti
-- `/health` per controllare runtime, SQLite, backup e worker
-- `/maintenance_overview` per backlog operativo, accessi pending, running stale e audit recente
-- `/metrics` per vedere le metriche Telegram aggregate
-- `/job <selector>` per aprire rapidamente il dettaglio di un job
-- `/retry <selector>` per rilanciare un job esistente
-- `/approve_user <id>`, `/reject_user <id>`, `/suspend_user <id>`, `/reactivate_user <id>` per gestire accessi dinamici
-- `/pause` e `/resume` per mettere il bot in manutenzione o riattivarlo
-
-Comandi utente utili:
-
+- `/start` per aprire DocMolder
+- `/help` per la guida rapida
 - `/history` per vedere gli ultimi job personali, aprirne i dettagli essenziali o rilanciarli
-- `/last` per rilanciare l'ultimo job personale
-- `/access` per controllare accesso, sessione e coda personale
-- `/request_access` per chiedere abilitazione quando il bot è ristretto
-- `/policy` o `/privacy` per limiti, retention e regole operative sintetiche
-- `/status` per vedere il riepilogo della sessione corrente
+- `/status` per vedere accesso, service mode, sessione corrente, coda personale e ultimo job
 - `/reset` per azzerare sessione e ultime scelte rapide
+
+Comando admin nascosto dalla lista pubblica:
+
+- `/admin` per aprire la console inline con panoramica, coda, health, metriche, manutenzione, pausa/ripresa servizio, access review e ultimi job.
+
+In modalita ristretta, il primo messaggio di un utente non autorizzato genera una richiesta accesso pending per gli admin.

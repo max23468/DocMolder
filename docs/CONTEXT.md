@@ -64,5 +64,7 @@ Ultimo aggiornamento del contesto:
 - la Fase 4 ha aggiunto lo split PDF in un file per pagina, con scelta tra archivio ZIP e PDF separati
 - la Fase 5 ha rafforzato i riferimenti contestuali in chat: pronomi come "questo PDF"/"quello", frasi come "giralo" o "alleggeriscilo" e "ripeti l'ultimo job" sono gestiti in modo piu esplicito
 - la Fase 6 ha aggiunto "Raddrizza foto documento": una trasformazione automatica per foto di fogli, con rilevamento contorno, correzione prospettica, normalizzazione leggibilita e fallback conservativi
-- l'allineamento operativo ha introdotto healthcheck/reconcile CLI, timer alert/reconcile, audit admin, access request in chat, `/policy`, helper retry/logging/messaging e tool git-safe locale
+- l'allineamento operativo ha introdotto healthcheck/reconcile CLI, timer alert/reconcile, audit admin, access request in chat, helper retry/logging/messaging e tool git-safe locale
+- la gerarchia comandi Telegram e stata semplificata: utenti su `/start`, `/help`, `/history`, `/status`, `/reset`; admin su `/admin` nascosto e dashboard inline
+- le tastiere inline sono contestuali: azioni consigliate in vista breve, azioni avanzate dietro `Altre azioni`, scorciatoie admin job mostrate solo per stati disponibili
 - la Fase 7 ha chiuso il rafforzamento VPS/performance: healthcheck con soglie su servizio, SQLite, backup, runtime, disco, load e RAM; backup/reconcile/alert timer; retention journald; downscale preventivo delle immagini enormi; profiler locale dei flussi pesanti

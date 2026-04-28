@@ -62,7 +62,7 @@ Esempi validi:
 - `docs(smoke): clarify post-deploy smoke levels`
 - `feat(api)!: rename admin report payload`
 
-Il titolo PR è anche la frase che finirà nel changelog: deve descrivere il cambiamento rilasciabile, non l'attività interna. Evita titoli come `fix: address review comments`; preferisci `fix(bot): keep retry_latest scoped to the current user`.
+Il titolo PR è anche la frase che finirà nel changelog: deve descrivere il cambiamento rilasciabile, non l'attività interna. Evita titoli come `fix: address review comments`; preferisci `fix(bot): keep history retry scoped to the current user`.
 
 Quando una PR produce una release, aggiungi nel corpo PR una sezione `Release note` con 1-3 frasi in linguaggio naturale. Deve spiegare cosa cambia per utenti, admin o manutentori, senza ripetere la lista file.
 

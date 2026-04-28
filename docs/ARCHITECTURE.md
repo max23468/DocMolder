@@ -105,18 +105,25 @@ Non e:
 4. `DocumentProcessor` produce output in una directory temporanea del job.
 5. Il bot invia il risultato, registra metriche essenziali e pulisce i temporanei.
 
+### Tastiere inline contestuali
+
+1. La tastiera azioni deriva dalla sessione corrente e mostra prima un set breve di azioni consigliate.
+2. Le azioni compatibili ma meno frequenti restano dietro `Altre azioni`, senza cambiare i callback storici delle singole azioni.
+3. I wizard di dettaglio mostrano solo le opzioni del passo corrente, ad esempio compressione, split, rotazione o impaginazione A4.
+4. La tastiera admin mostra scorciatoie agli ultimi job solo per gli stati presenti nel database.
+
 ### Storico e retry
 
 1. I job conclusi restano come storico leggero nel database.
-2. `/history` e `/last` risolvono solo job dell'utente corrente.
-3. I retry e i deep link di retry mantengono il riferimento al job di origine tramite `rerun_of_job_id`.
+2. `/history` risolve solo job dell'utente corrente e permette il rilancio tramite callback.
+3. I retry mantengono il riferimento al job di origine tramite `rerun_of_job_id`.
 
 ### Admin e operativita
 
-1. Gli admin configurati con `DOCMOLDER_ADMIN_USER_IDS` usano comandi dedicati.
-2. `/admin`, `/queue`, `/health`, `/metrics` e `/maintenance_overview` leggono stato runtime, SQLite, worker, accessi pending e metriche leggere.
-3. `/pause` e `/resume` governano la modalita manutenzione.
-4. `/request_access` e i comandi admin `/approve_user`, `/reject_user`, `/suspend_user`, `/reactivate_user` gestiscono accesso dinamico persistito in `app_meta`.
+1. Gli admin configurati con `DOCMOLDER_ADMIN_USER_IDS` usano `/admin` come ingresso unico.
+2. La dashboard inline legge stato runtime, SQLite, worker, accessi pending, ultimi job e metriche leggere.
+3. I callback della dashboard governano la modalita manutenzione.
+4. Le richieste accesso automatiche e i callback admin di review gestiscono accesso dinamico persistito in `app_meta`.
 
 ## Persistenza e runtime
 
@@ -152,7 +159,7 @@ Canali attuali:
 - log `systemd` del servizio `docmolder`
 - log `systemd` del listener `docmolder-github-webhook`
 - comando CLI `docmolder-healthcheck`
-- comandi admin Telegram `/health`, `/queue` e `/metrics`
+- console admin Telegram `/admin` con health, queue e metriche via dashboard inline
 - metriche job in `jobs`
 - metriche Telegram aggregate in `app_meta`
 - backup giornaliero verificato tramite timer `docmolder-db-backup.timer`

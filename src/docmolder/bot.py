@@ -34,7 +34,6 @@ from docmolder.branding import (
     build_telegram_commands,
 )
 from docmolder.keyboards import (
-    build_actions_keyboard,
     build_access_review_keyboard,
     build_admin_dashboard_keyboard,
     build_compression_keyboard,
@@ -44,6 +43,7 @@ from docmolder.keyboards import (
     build_main_menu_keyboard,
     build_rotate_keyboard,
     build_result_pdf_keyboard,
+    build_session_actions_keyboard,
     build_split_output_keyboard,
 )
 from docmolder.job_flow import (
@@ -96,7 +96,6 @@ from docmolder.action_catalog import (
     build_session_file,
     build_session_recap,
     get_action_label,
-    infer_exposed_actions,
     infer_result_followup_actions,
     infer_supported_actions,
     sanitize_filename,
@@ -716,7 +715,7 @@ def _build_missing_context_reference_message(deps: BotDependencies, user_id: int
     if latest_jobs:
         return (
             "Ho capito il riferimento, ma non ho una sessione attiva con un PDF sicuro su cui lavorare.\n"
-            "Se vuoi ripetere l'ultimo job, scrivi /last. Se invece vuoi modificare un PDF preciso, reinviamelo e riparto da quello."
+            "Apri /history per recuperare un job recente oppure reinviami il PDF preciso e riparto da quello."
         )
     return (
         "Ho capito il riferimento, ma non ho ancora un PDF attivo in questa chat.\n"
@@ -724,8 +723,8 @@ def _build_missing_context_reference_message(deps: BotDependencies, user_id: int
     )
 
 
-def _filter_keyboard_for_session(session: UserSession) -> InlineKeyboardMarkup | None:
-    return build_actions_keyboard(infer_exposed_actions(session))
+def _filter_keyboard_for_session(session: UserSession, *, expanded: bool = False) -> InlineKeyboardMarkup | None:
+    return build_session_actions_keyboard(session, expanded=expanded)
 
 
 def _is_image_pdf_action(action: SupportedAction) -> bool:
@@ -735,6 +734,18 @@ def _is_image_pdf_action(action: SupportedAction) -> bool:
         SupportedAction.IMAGES_TO_PDF_GRAYSCALE,
         SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE,
     }
+
+
+def _build_admin_keyboard(deps: BotDependencies) -> InlineKeyboardMarkup:
+    available_statuses = {
+        status
+        for status in (JobStatus.FAILED, JobStatus.RUNNING, JobStatus.QUEUED, JobStatus.SUCCEEDED)
+        if deps.session_store.list_recent_jobs(limit=1, statuses=(status,))
+    }
+    return build_admin_dashboard_keyboard(
+        service_paused=_is_service_paused(deps),
+        available_job_statuses=available_statuses,
+    )
 
 
 async def _prepare_message_handler(
@@ -753,7 +764,10 @@ async def _prepare_message_handler(
 
     is_allowed = _is_admin(user.id, deps.settings) if require_admin else _is_authorized_for_deps(user.id, deps)
     if not is_allowed:
-        await message.reply_text(ADMIN_ONLY_MESSAGE if require_admin else UNAUTHORIZED_MESSAGE)
+        if require_admin:
+            await message.reply_text(ADMIN_ONLY_MESSAGE)
+        else:
+            await _handle_unauthorized_access_attempt(user, context, deps, message)
         return None
 
     if not require_admin and _is_service_paused(deps) and not _is_admin(user.id, deps.settings):
@@ -762,6 +776,38 @@ async def _prepare_message_handler(
 
     await _maybe_notify_admins_about_new_user(user, context)
     return deps, user, message
+
+
+async def _handle_unauthorized_access_attempt(
+    user: User,
+    context: ContextTypes.DEFAULT_TYPE,
+    deps: BotDependencies,
+    message: Message,
+) -> None:
+    deps.session_store.register_user(user.id, user.username, user.first_name, user.last_name)
+    current_status = _get_dynamic_access_status(deps, user.id)
+    if current_status == _ACCESS_STATUS_BLOCKED:
+        await message.reply_text(
+            "Il tuo accesso è sospeso. Contatta l'admin del bot per una riattivazione.",
+            reply_markup=build_main_menu_keyboard(),
+        )
+        return
+    if current_status == _ACCESS_STATUS_REJECTED:
+        await message.reply_text(UNAUTHORIZED_MESSAGE, reply_markup=build_main_menu_keyboard())
+        return
+    if current_status != _ACCESS_STATUS_PENDING:
+        _set_dynamic_access_status(deps, user.id, _ACCESS_STATUS_PENDING)
+        _append_audit_log(deps, "request_access", actor_user_id=user.id, outcome="pending", target_user_id=user.id)
+        await _notify_admins_about_access_request(user, context, deps)
+        await message.reply_text(
+            "Accesso non ancora attivo. Ho inviato una richiesta all'admin: quando viene approvata potrai usare il bot.",
+            reply_markup=build_main_menu_keyboard(),
+        )
+        return
+    await message.reply_text(
+        "Accesso non ancora attivo. La richiesta è già in attesa di approvazione admin.",
+        reply_markup=build_main_menu_keyboard(),
+    )
 
 
 def _validate_session_for_upload(session: UserSession, kind: FileKind, max_session_files: int) -> str | None:
@@ -938,7 +984,7 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
     await message.reply_text(
         _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs),
-        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+        reply_markup=_build_admin_keyboard(deps),
     )
 
 
@@ -950,7 +996,7 @@ async def queue_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     _record_command_metric(deps, "queue")
     await message.reply_text(
         _build_admin_queue_report(deps),
-        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+        reply_markup=_build_admin_keyboard(deps),
     )
 
 
@@ -962,7 +1008,7 @@ async def health_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     _record_command_metric(deps, "health")
     await message.reply_text(
         _build_admin_health_report(deps),
-        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+        reply_markup=_build_admin_keyboard(deps),
     )
 
 
@@ -974,7 +1020,7 @@ async def maintenance_overview_command(update: Update, context: ContextTypes.DEF
     _record_command_metric(deps, "maintenance_overview")
     await message.reply_text(
         _build_admin_maintenance_overview(deps),
-        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+        reply_markup=_build_admin_keyboard(deps),
     )
 
 
@@ -989,7 +1035,7 @@ async def pause_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     log_event(logger, logging.INFO, "admin_service_mode_changed", actor_user_id=user.id, service_mode="maintenance")
     await message.reply_text(
         "Servizio messo in modalità manutenzione. I nuovi comandi utente vengono bloccati finché non riattivi il servizio.",
-        reply_markup=build_admin_dashboard_keyboard(service_paused=True),
+        reply_markup=_build_admin_keyboard(deps),
     )
 
 
@@ -1004,7 +1050,7 @@ async def resume_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     log_event(logger, logging.INFO, "admin_service_mode_changed", actor_user_id=user.id, service_mode="normal")
     await message.reply_text(
         "Servizio riattivato. Il bot accetta di nuovo richieste utente normali.",
-        reply_markup=build_admin_dashboard_keyboard(service_paused=False),
+        reply_markup=_build_admin_keyboard(deps),
     )
 
 
@@ -1016,7 +1062,7 @@ async def metrics_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     _record_command_metric(deps, "metrics")
     await message.reply_text(
         _build_telegram_metrics_report(deps),
-        reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+        reply_markup=_build_admin_keyboard(deps),
     )
 
 
@@ -1218,7 +1264,7 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
     try:
         await query.edit_message_text(
             body,
-            reply_markup=build_admin_dashboard_keyboard(service_paused=_is_service_paused(deps)),
+            reply_markup=_build_admin_keyboard(deps),
         )
     except BadRequest as exc:
         if "message is not modified" in str(exc).lower():
@@ -1284,19 +1330,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     deps, user, message = prepared
     _record_command_metric(deps, "status")
 
-    session = deps.session_store.get(user.id)
-    if session is None or not session.files:
-        await message.reply_text(
-            SESSION_EMPTY_MESSAGE,
-            reply_markup=build_main_menu_keyboard(),
-        )
-        return
-
-    extra_note = f"\nSto aspettando il tuo input per {_action_label(session.pending_action)}." if session.pending_action else ""
-    await message.reply_text(
-        f"{build_session_recap(session)}{extra_note}",
-        reply_markup=_filter_keyboard_for_session(session),
-    )
+    await message.reply_text(_build_access_status_message(deps, user.id), reply_markup=build_main_menu_keyboard())
 
 
 async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -1407,6 +1441,12 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     action = (query.data or "").removeprefix("action:")
     _record_callback_metric(deps, f"action:{action}")
+    if action in {"more", "less"}:
+        await query.edit_message_text(
+            build_session_recap(session),
+            reply_markup=_filter_keyboard_for_session(session, expanded=action == "more"),
+        )
+        return
     try:
         resolved_action = SupportedAction(action)
     except ValueError:
@@ -2338,7 +2378,7 @@ def _build_access_status_message(deps: BotDependencies, user_id: int) -> str:
         )
     else:
         lines.append("- Ultimo job: nessuno")
-    lines.append("- Self-service rapido: usa /last per rilanciare l'ultimo job e /history per vedere i dettagli recenti.")
+    lines.append("- Storico: usa /history per vedere dettagli recenti e rilanciare un job.")
     return "\n".join(lines)
 
 
@@ -2359,8 +2399,8 @@ def _build_policy_message(deps: BotDependencies) -> str:
         f"- job attivi per utente: {deps.settings.max_active_jobs_per_user}\n"
         f"- upload rapido: {deps.settings.upload_burst_limit} file in {deps.settings.upload_burst_window_seconds} secondi\n\n"
         "Accesso:\n"
-        "- se il bot è ristretto, usa /request_access per chiedere l'abilitazione\n"
-        "- in manutenzione i nuovi job utente sono sospesi, ma restano disponibili policy e richiesta accesso"
+        "- se il bot è ristretto, la richiesta accesso parte dal primo messaggio inviato al bot\n"
+        "- in manutenzione i nuovi job utente sono sospesi, mentre gli admin possono usare /admin"
     )
 
 
@@ -2537,44 +2577,6 @@ async def _handle_start_payload(
                 reply_markup=_filter_keyboard_for_session(session),
             )
         return True
-    if payload == "access":
-        await message.reply_text(_build_access_status_message(deps, user_id), reply_markup=build_main_menu_keyboard())
-        return True
-    if payload == "last":
-        recent_jobs = deps.session_store.list_user_jobs(user_id, limit=1)
-        if not recent_jobs:
-            await message.reply_text(
-                "Non ho ancora un job da rilanciare per te. Inviami immagini o PDF e poi potrò ripetere l'ultimo flusso.",
-                reply_markup=build_main_menu_keyboard(),
-            )
-            return True
-        if not _has_capacity_for_new_job(user_id, deps):
-            await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
-            return True
-        source_job = recent_jobs[0]
-        rerun_job = await _enqueue_job_from_existing_payload(
-            context=context,
-            source_job=source_job,
-            reply_to_message_id=message.message_id,
-        )
-        await message.reply_text(_build_history_rerun_message(source_job, rerun_job.id))
-        return True
-    if payload.startswith("retry_"):
-        selector = payload.removeprefix("retry_")
-        source_job = _resolve_user_job_selector(deps, user_id, selector)
-        if source_job is None:
-            await message.reply_text("Non riesco a trovare quel job da rilanciare.")
-            return True
-        if not _has_capacity_for_new_job(user_id, deps):
-            await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
-            return True
-        rerun_job = await _enqueue_job_from_existing_payload(
-            context=context,
-            source_job=source_job,
-            reply_to_message_id=message.message_id,
-        )
-        await message.reply_text(_build_history_rerun_message(source_job, rerun_job.id))
-        return True
     return False
 
 
@@ -2639,26 +2641,9 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("history", history_command))
-    application.add_handler(CommandHandler("last", last_command))
-    application.add_handler(CommandHandler("access", access_command))
-    application.add_handler(CommandHandler("policy", policy_command))
-    application.add_handler(CommandHandler("privacy", policy_command))
-    application.add_handler(CommandHandler("request_access", request_access_command))
-    application.add_handler(CommandHandler("admin", admin_command))
-    application.add_handler(CommandHandler("queue", queue_command))
-    application.add_handler(CommandHandler("health", health_command))
-    application.add_handler(CommandHandler("maintenance_overview", maintenance_overview_command))
-    application.add_handler(CommandHandler("pause", pause_command))
-    application.add_handler(CommandHandler("resume", resume_command))
-    application.add_handler(CommandHandler("metrics", metrics_command))
-    application.add_handler(CommandHandler("job", job_command))
-    application.add_handler(CommandHandler("retry", retry_command))
-    application.add_handler(CommandHandler("approve_user", access_review_command))
-    application.add_handler(CommandHandler("reject_user", access_review_command))
-    application.add_handler(CommandHandler("suspend_user", access_review_command))
-    application.add_handler(CommandHandler("reactivate_user", access_review_command))
-    application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(CommandHandler("status", status_command))
+    application.add_handler(CommandHandler("reset", reset_command))
+    application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CallbackQueryHandler(handle_access_review_callback, pattern=r"^access:"))
     application.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^admin:"))
     application.add_handler(CallbackQueryHandler(handle_history_callback, pattern=r"^history:"))
@@ -2911,13 +2896,13 @@ def _build_result_delivery_message(result: ProcessingResult, source_action: Supp
 
     followup_actions = infer_result_followup_actions(source_action)
     if not followup_actions:
-        return f"{result.message}\n\nPuoi anche usare /last per ripetere il flusso o /access per vedere stato e sessione."
+        return f"{result.message}\n\nPuoi usare /history per ripetere un job recente o /status per vedere stato e sessione."
 
     quick_labels = ", ".join(get_action_label(action) for action in followup_actions[:3])
     return (
         f"{result.message}\n\n"
         f"Se vuoi, puoi continuare su questo PDF con: {quick_labels}.\n"
-        "Self-service rapido: /last per ripetere l'ultimo job, /access per vedere stato e sessione."
+        "Self-service rapido: /history per ripetere un job recente, /status per vedere stato e sessione."
     )
 
 

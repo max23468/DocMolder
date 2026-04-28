@@ -34,8 +34,7 @@ class BrandAssetsTest(unittest.TestCase):
         self.assertEqual(MAIN_MENU_ROWS[0][0], "Guida rapida")
         self.assertEqual(MAIN_MENU_ROWS[0][1], "Crea PDF")
         commands = build_telegram_commands()
-        self.assertEqual(commands[0].command, "start")
-        self.assertEqual(commands[1].command, "help")
+        self.assertEqual([command.command for command in commands], ["start", "help", "history", "status", "reset"])
 
 
 if __name__ == "__main__":
