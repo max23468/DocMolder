@@ -11,6 +11,7 @@ funzioni.
 ## Indice
 
 - [Storico completato](#storico-completato)
+- [Stato post-1.5](#stato-post-15)
 - [Principi 1.x](#principi-1x)
 - [Decisioni confermate per la linea 1.x](#decisioni-confermate-per-la-linea-1x)
 - [Fase 9: Privacy, retention e lifecycle dati](#fase-9-privacy-retention-e-lifecycle-dati)
@@ -38,6 +39,37 @@ La readiness 1.0 e completata. `DocMolder` e stato promosso a `1.0.0` il
 GitHub Releases. Il documento
 [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md) resta come record della
 decisione, dei criteri e degli smoke eseguiti.
+
+## Stato post-1.5
+
+La roadmap operativa 1.x iniziale e completata con `docmolder-v1.5.0`.
+
+Stato corrente:
+
+- nessuna nuova fase di sviluppo e attiva
+- lo sviluppo feature resta in pausa finche non emergono bugfix, priorita
+  prodotto, segnali operativi o novita esterne rilevanti
+- il focus passa a stabilizzazione prudente, osservazione del soft launch e
+  manutenzione ordinaria
+
+Priorita operative immediate:
+
+- monitorare `/admin`, healthcheck, log recenti, alert Telegram admin e soglie
+  Fase 13
+- eseguire smoke Telegram `public-trust` quando serve una verifica funzionale
+  reale dopo deploy, correzioni o cambi operativi
+- raccogliere eventuali frizioni UX o failure ricorrenti prima di definire una
+  nuova fase
+- mantenere aggiornate roadmap e decisioni solo quando cambia davvero
+  perimetro, comportamento o priorita
+
+Condizioni per riaprire sviluppo:
+
+- bug riproducibile o regressione utente
+- soglia operativa superata in modo ricorrente
+- feedback utente che indica attrito concreto in un flusso gia supportato
+- decisione esplicita di prodotto su una nuova fase, mantenendo il perimetro
+  Telegram-first e best-effort
 
 ## Principi 1.x
 

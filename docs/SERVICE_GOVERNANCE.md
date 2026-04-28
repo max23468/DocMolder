@@ -61,6 +61,8 @@ Sono gia presenti:
 Scelta operativa 1.x:
 
 - mantenere una postura di soft launch pubblico
+- tenere in pausa lo sviluppo feature dopo `docmolder-v1.5.0`, salvo bugfix,
+  priorita emerse dall'uso o decisioni esplicite
 - mini-promozioni controllate sono possibili dopo Fase 10, mantenendo basso il volume atteso
 - valutare una promozione piu ampia solo se le soglie prudenziali della Fase 13 restano sotto controllo con dati reali
 - mantenere l'italiano come lingua prodotto primaria nella 1.x iniziale
