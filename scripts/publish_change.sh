@@ -11,6 +11,8 @@ BASE_BRANCH="${2:-main}"
 BASE_REF="origin/${BASE_BRANCH}"
 BRANCH="$(git branch --show-current)"
 USE_GH_ACTIONS="${DOCMOLDER_USE_GH_ACTIONS:-0}"
+PUBLISH_DRAFT="${DOCMOLDER_PUBLISH_DRAFT:-0}"
+PUBLISH_MERGE="${DOCMOLDER_PUBLISH_MERGE:-0}"
 body_file=""
 
 cleanup() {
@@ -65,22 +67,38 @@ body_file="$(mktemp)"
 python3 scripts/generate_pr_body.py --base "${BASE_REF}" --output "${body_file}" --context "Pubblicazione automatizzata con scripts/publish_change.sh."
 
 if [ "$(gh pr list --head "${BRANCH}" --json number --jq 'length')" = "0" ]; then
-  gh pr create --draft --base "${BASE_BRANCH}" --head "${BRANCH}" --title "${TITLE}" --body-file "${body_file}"
+  create_args=(--base "${BASE_BRANCH}" --head "${BRANCH}" --title "${TITLE}" --body-file "${body_file}")
+  if [ "${PUBLISH_DRAFT}" = "1" ] || [ "${USE_GH_ACTIONS}" = "1" ]; then
+    create_args=(--draft "${create_args[@]}")
+  fi
+  gh pr create "${create_args[@]}"
 fi
 rm -f "${body_file}"
 body_file=""
 
+PR_NUMBER="$(gh pr view --json number --jq '.number')"
+PR_URL="$(gh pr view --json url --jq '.url')"
+
 if [ "${USE_GH_ACTIONS}" != "1" ]; then
-  PR_URL="$(gh pr view --json url --jq '.url')"
-  echo "GitHub Actions disattivate di default: PR creata ma pubblicazione ferma qui."
-  echo "Completa i controlli locali e mergea manualmente quando sei pronto: ${PR_URL}"
+  python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail
+  if [ "${PUBLISH_MERGE}" = "1" ]; then
+    if [ "$(gh pr view "${PR_NUMBER}" --json isDraft --jq '.isDraft')" = "true" ]; then
+      gh pr ready "${PR_NUMBER}"
+    fi
+    gh pr merge "${PR_NUMBER}" --squash --delete-branch --subject "${TITLE} (#${PR_NUMBER})"
+    echo "PR #${PR_NUMBER} mergeata. Prossimo passo: verifica webhook VPS, deploy e auto-release."
+    exit 0
+  fi
+  echo "PR pronta: ${PR_URL}"
+  echo "Prossimo passo: review/merge PR; dopo il merge verifica webhook VPS, deploy e auto-release."
   exit 0
 fi
 
-PR_NUMBER="$(gh pr view --json number --jq '.number')"
 python3 scripts/publish_doctor.py --base "${BASE_BRANCH}" --fail
 python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail
 gh pr checks "${PR_NUMBER}" --watch --interval 10
 python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail
-gh pr ready "${PR_NUMBER}"
+if [ "$(gh pr view "${PR_NUMBER}" --json isDraft --jq '.isDraft')" = "true" ]; then
+  gh pr ready "${PR_NUMBER}"
+fi
 gh pr merge "${PR_NUMBER}" --auto --squash --delete-branch --subject "${TITLE} (#${PR_NUMBER})"

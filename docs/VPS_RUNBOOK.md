@@ -63,13 +63,28 @@ Restart:
 sudo systemctl restart docmolder
 ```
 
-Aggiornamento codice dopo push, percorso di default per i deploy manuali:
+Deploy ordinario dopo merge su `main`:
+
+```bash
+sudo systemctl status docmolder-github-webhook.service
+sudo journalctl -u docmolder-github-webhook.service -n 50 --no-pager
+sudo journalctl -u docmolder -n 50 --no-pager
+sudo -u docmolder git -C /opt/docmolder/app rev-parse --short HEAD
+```
+
+Il percorso standard e il webhook privato GitHub -> VPS: riceve il push su
+`main`, verifica firma/repository/branch e lancia `update-vps.sh`. Dopo un
+deploy riuscito puo lanciare anche `deploy/auto-release.sh`.
+
+Deploy manuale mirato, solo come fallback esplicito:
 
 ```bash
 sudo /opt/docmolder/app/deploy/update-vps.sh
 ```
 
-Usa `Deploy VPS` in GitHub Actions solo se lo chiedi esplicitamente; il percorso normale resta il deploy manuale diretto sulla VPS.
+Usa `Deploy VPS` in GitHub Actions solo se lo chiedi esplicitamente; il
+percorso normale resta webhook VPS, con deploy manuale diretto sulla VPS come
+fallback operativo.
 
 Deploy automatico senza Actions:
 

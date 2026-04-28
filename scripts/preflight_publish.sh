@@ -77,7 +77,7 @@ fi
 
 if [ "${release_owned}" = "true" ]; then
   echo "Errore: il diff tocca file riservati a release-please." >&2
-  echo "Rimuovi version bump/changelog manuali oppure usa la Release PR automatica." >&2
+  echo "Rimuovi version bump/changelog manuali oppure usa il flusso release automatico VPS." >&2
   exit 1
 fi
 

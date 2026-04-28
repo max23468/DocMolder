@@ -58,7 +58,7 @@ Quando piu chat, agenti o istanze Codex lavorano sul progetto nello stesso perio
 - Per un briefing iniziale standard usa `python3 scripts/agent_start.py --area <area> --owner <owner>`.
 - Prima di toccare aree potenzialmente condivise usa `python3 scripts/agent_parallel_safe.py --owner <owner>`.
 - Se trovi un'altra istanza attiva sulla stessa area, non sovrascrivere ne normalizzare le sue modifiche: integra, ribasa o segnala il conflitto in modo esplicito.
-- Per lavori non minuscoli, apri una branch o una draft PR appena possibile: la PR diventa la fonte di verita per diff, check, review e handoff.
+- Per lavori non minuscoli, apri una branch o una PR appena possibile: la PR diventa la fonte di verita per diff, check, review e handoff. Usa PR draft solo quando vuoi segnalare esplicitamente che il cambio non e pronto.
 - A fine lavoro lascia un handoff sintetico nel registro o nella PR: cosa e stato fatto, cosa resta aperto, quali check sono stati eseguiti e quali aree non vanno toccate senza rilettura. Per generarlo puoi usare `python3 scripts/agent_handoff.py`.
 
 ## 5) Logging, errori e UX operativa
@@ -111,7 +111,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Messaggi commit chiari, in forma imperativa, con scope quando utile.
 - Per operazioni GitHub usa dove possibile il tool/plugin GitHub come canale primario per repository, PR, issue, commenti, review, metadata e creazione PR; ricorri a `gh`/git locali solo quando il plugin non copre bene l'operazione, ad esempio branch/commit/push locali, stato auth, log GitHub Actions o inspect di run CI.
 - Per togliere una PR dallo stato draft usa `gh pr ready <numero>` invece del tool GitHub connector `mark_pull_request_ready_for_review`: il connector attuale inciampa su `PullRequest.htmlUrl`, campo non valido nello schema GraphQL GitHub, mentre `gh` usa il percorso affidabile.
-- Il flusso ufficiale è branch dedicato, PR verso `main`, CI verde e squash merge.
+- Il flusso ufficiale è branch dedicato, PR verso `main`, gate locali rilevanti e squash merge. La CI remota si avvia solo come fallback esplicito.
 - Il titolo PR deve seguire Conventional Commits perché guida `release-please`; scrivilo come frase da changelog, orientata al cambiamento rilasciabile e non all'attività interna.
 - Prima di aprire o mergiare una PR, usa `scripts/preflight_publish.sh` o `make preflight-publish` per classificare il diff, bloccare tocchi accidentali ai file release-owned e capire se il deploy VPS è davvero atteso.
 - Quando l'utente chiede di "caricare", "pubblicare", "pubblica" o formule simili una modifica, considera incluso l'intero flusso GitHub: branch/commit mirato, push, PR, controlli locali, merge e verifica post-merge, salvo richiesta esplicita di fermarsi a push o PR. Per i deploy, il default operativo e il webhook privato GitHub -> VPS; la procedura manuale sulla VPS (`sudo /opt/docmolder/app/deploy/update-vps.sh`) resta fallback. Usa `Deploy VPS` via GitHub Actions solo se l'utente lo chiede esplicitamente. In ogni caso segui `docs/VPS_RUNBOOK.md` e riporta comandi, esito e verifiche. Dove possibile usa `scripts/publish_change.sh "<titolo conventional>"`.
@@ -127,7 +127,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Non lasciare commenti bot su GitHub per la review salvo richiesta esplicita dell'utente; riporta eventuali rilievi in chat.
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi, classificazione del cambio, impatto deploy/release e test effettuati.
 - Se una PR deve produrre una release, includi una sezione `Release note` di 1-3 frasi in linguaggio naturale; se è solo manutenzione interna, usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`). Usa `skip-changelog` solo per escludere la PR dalle release note generate da GitHub, non come sostituto del tipo PR per `release-please`.
-- Se apri una PR come draft per far partire i check, monitora i check della PR e rimuovi automaticamente lo stato draft appena i check richiesti sono verdi, salvo richiesta esplicita contraria o dubbi residui da risolvere prima della review.
+- Se apri una PR come draft, fallo per review anticipata o dubbi residui espliciti; il percorso standard crea PR gia pronte e non usa lo stato draft solo per far partire check.
 - Per il versioning, la repository resta compatibile con `release-please` ma in modalita senza budget Actions la strada normale e locale/manuale:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
   - il bump versione e il changelog di release spettano al flusso release automatico sulla VPS quando `/etc/docmolder/release.env` lo abilita;
@@ -137,7 +137,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 
 ## 10) Deploy e operazioni
 
-- La VPS corretta di DocMolder e quella dietro `docmolder.duckdns.org`: usa sempre questo host per deploy e verifiche, non host diversi del perimetro personale. La combinazione SSH da ricordare e `ssh -i ~/.ssh/docmolder_oracle ubuntu@docmolder.duckdns.org`. Il workflow `Deploy VPS` automatico deve restare path-aware: parte su `main` solo per file deploy-relevant. Per verifiche senza deploy usa `VPS Check`; per ripristinare una revisione usa `Rollback VPS`. Per i deploy ordinari, il default e il deploy manuale sulla VPS; GitHub Actions si usa solo su richiesta esplicita o quando il canale manuale non e praticabile.
+- La VPS corretta di DocMolder e quella dietro `docmolder.duckdns.org`: usa sempre questo host per deploy e verifiche, non host diversi del perimetro personale. La combinazione SSH da ricordare e `ssh -i ~/.ssh/docmolder_oracle ubuntu@docmolder.duckdns.org`. Per i deploy ordinari, il default e il webhook privato GitHub -> VPS; il deploy manuale sulla VPS (`sudo /opt/docmolder/app/deploy/update-vps.sh`) resta fallback. Per verifiche senza deploy usa `VPS Check`; per ripristinare una revisione usa `Rollback VPS`; GitHub Actions si usa solo su richiesta esplicita o quando il canale webhook/manuale non e praticabile.
 - Non fare deploy inutili: prima di mergeare o avviare workflow che possono deployare, verifica che il diff sia davvero deploy-relevant e che il deploy sia coerente con la richiesta corrente.
 - Se target, rischio, intento o consenso operativo sono ambigui, fermati e chiedi conferma prima di procedere.
 - Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.

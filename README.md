@@ -135,10 +135,11 @@ Per usare Codex su `chatgpt.com` come postazione di lavoro e deploy senza dipend
 Il flusso consigliato da remoto e:
 
 - Codex o GitHub preparano il codice fino a `main`
-- GitHub Actions esegue il deploy verso la VPS
+- il webhook privato GitHub -> VPS riceve il push su `main`
 - la VPS applica il deploy standard con `deploy/update-vps.sh`
+- se abilitata, la VPS crea anche release/tag dopo il deploy
 
-Per gli aggiornamenti successivi sulla VPS, il flusso standard e:
+Per gli aggiornamenti manuali sulla VPS, fallback esplicito:
 
 ```bash
 sudo /opt/docmolder/app/deploy/update-vps.sh
@@ -209,7 +210,7 @@ Documenti utili:
 La roadmap corrente del progetto è in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 Le modifiche rilevanti vengono annotate in [`CHANGELOG.md`](CHANGELOG.md), mentre policy e bump versioni sono descritte in [`docs/VERSIONING.md`](docs/VERSIONING.md).
 
-Per il versioning ordinario, il repository e `release-please`-first: le feature PR e le fix PR non devono aggiornare manualmente versione o changelog di release. Quei file vengono gestiti dalla Release PR automatica.
+Per il versioning ordinario, feature PR e fix PR non devono aggiornare manualmente versione o changelog di release. Quei file vengono gestiti dalla release automatica sulla VPS dopo il deploy; `release-please` resta un fallback manuale esplicito.
 
 In sintesi, la priorità attuale è:
 
