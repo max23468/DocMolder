@@ -62,6 +62,7 @@ from docmolder.bot import (
     admin_command,
     build_application,
     handle_access_review_callback,
+    handle_delete_data_callback,
     history_command,
     handle_images_pdf_layout_callback,
     handle_images_pdf_margin_callback,
@@ -2866,12 +2867,54 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         await handle_menu_text(update, context)
 
-        message.reply_text.assert_awaited_once()
-        self.assertIn("Sessione azzerata", message.reply_text.await_args.args[0])
-        self.assertIn("ultime scelte rapide", message.reply_text.await_args.args[0])
-        self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
+        self.assertEqual(message.reply_text.await_count, 2)
+        self.assertIn("Sessione azzerata", message.reply_text.await_args_list[0].args[0])
+        self.assertIn("ultime scelte rapide", message.reply_text.await_args_list[0].args[0])
+        self.assertIsNotNone(message.reply_text.await_args_list[0].kwargs["reply_markup"])
+        self.assertIn("Cancella tutti i miei dati", str(message.reply_text.await_args_list[1].kwargs["reply_markup"]))
         self.assertIsNone(self.store.get(7))
         self.assertIsNone(self.store.get_user_preference(7, "compression_preset"))
+
+    async def test_delete_data_callback_requires_confirmation_then_deletes_live_data(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        self.store.set_user_preference(7, "compression_preset", "medium")
+        self.store.set_meta("access:7:status", "approved")
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_succeeded(job.id, "ok")
+        query = SimpleNamespace(
+            data="delete_data:request",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_delete_data_callback(update, context)
+
+        self.assertIn("Confermi", query.edit_message_text.await_args.args[0])
+        self.assertIn("Conferma cancellazione", str(query.edit_message_text.await_args.kwargs["reply_markup"]))
+
+        query.data = "delete_data:confirm"
+        await handle_delete_data_callback(update, context)
+
+        self.assertIn("Dati live cancellati", query.edit_message_text.await_args.args[0])
+        self.assertIsNone(self.store.get(7))
+        self.assertIsNone(self.store.get_user_preference(7, "compression_preset"))
+        self.assertIsNone(self.store.get_meta("access:7:status"))
+        self.assertIsNone(self.store.get_job(job.id))
+        self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "user_data_deleted")
 
     def test_detect_admin_anomaly_alerts_reports_failure_rate_and_repeated_action(self) -> None:
         self.deps.settings.admin_alert_window_minutes = 30

@@ -125,6 +125,16 @@ class JobRecord:
 
 
 @dataclass(slots=True)
+class UserDataDeletionReport:
+    sessions_deleted: int = 0
+    jobs_deleted: int = 0
+    usage_events_deleted: int = 0
+    known_users_deleted: int = 0
+    meta_deleted: int = 0
+    audit_entries_scrubbed: int = 0
+
+
+@dataclass(slots=True)
 class JobPayloadFile:
     telegram_file_id: str
     file_name: str

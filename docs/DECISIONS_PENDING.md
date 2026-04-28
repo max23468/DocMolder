@@ -6,24 +6,19 @@ Questo documento non e una checklist di task: raccoglie scelte da chiarire prima
 
 ## Dati e retention
 
-- decidere retention massima dello storico job in SQLite
-- decidere se introdurre pruning automatico per job riusciti, falliti e molto vecchi
-- decidere se offrire una cancellazione self-service completa dei dati utente oltre a `/reset`
-- decidere quanto rendere visibile all'utente lo storico dei file, restando nel vincolo di non conservare i documenti
 - decidere se i backup SQLite debbano avere un percorso di export o restore piu guidato per manutenzione
 
 ## Prodotto
 
-- decidere quanto spingere OCR e comprensione documento senza trasformare il bot in suite documentale generalista
-- decidere se introdurre preset utente persistenti oltre alle preferenze rapide attuali
-- decidere quali scorciatoie conversazionali meritino stato persistente e quali debbano restare inferenze momentanee
+- decidere se e quando trasformare eventuali esplorazioni OCR non pubbliche in una feature utente dichiarata
+- decidere se in futuro introdurre localizzazione inglese o altre lingue oltre all'italiano-first della 1.x iniziale
 
 ## Operativita
 
-- decidere eventuali soglie piu restrittive per coda troppo lunga, job stuck, failure rate, runtime dir, disco, load e RAM dopo osservazione in produzione
 - decidere se introdurre alert esterni oltre agli alert Telegram admin
 - decidere il livello minimo di smoke test post-deploy da considerare bloccante
-- decidere quando SQLite smette di essere accettabile per volume, concorrenza o retention
+- decidere eventuali soglie definitive per coda, job stuck, failure rate, runtime dir, disco, load, RAM, job/giorno, utenti attivi e dimensione DB dopo osservazione in produzione
+- decidere quando SQLite smette di essere accettabile per volume, concorrenza o retention sulla base delle soglie iniziali della Fase 13
 
 ## Sicurezza
 

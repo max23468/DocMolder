@@ -10,6 +10,7 @@ from docmolder.models import (
     JobRecord,
     JobStatus,
     SupportedActionValue,
+    UserDataDeletionReport,
     UserSession,
 )
 
@@ -38,6 +39,8 @@ class SessionStore(Protocol):
     def set_user_preference(self, user_id: int, key: str, value: str) -> None: ...
 
     def clear_user_preferences(self, user_id: int) -> None: ...
+
+    def delete_user_data(self, user_id: int) -> UserDataDeletionReport: ...
 
     def build_admin_stats(self) -> AdminStats: ...
 

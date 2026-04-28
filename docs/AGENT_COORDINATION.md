@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| chiuso | Codex current chat | codex/phase-9-data-lifecycle | Fase 9: retention job, pruning reconcile, cancellazione dati utente in `/reset`, docs/test/deploy | Implementata cancellazione dati live self-service, retention job configurabile e pruning reconcile; gate locale `bash scripts/ci_verify.sh` e preflight publish OK. |
 | chiuso | Codex current chat | main / docs-only direct publish | Documentazione 1.x e uso pubblico bot | Allineata roadmap/readiness/contesto dopo release `1.0.1`; esplicitato soft launch pubblico best-effort in `SERVICE_GOVERNANCE.md`. Verificato `git diff --check`; cambio solo documentale, nessun deploy/release atteso. |
 | chiuso | Codex current chat | codex/fix-1-0-target-cleanup / #106 | Follow-up commento Codex #105 su cleanup target `DOCMOLDER_RELEASE_TARGET_VERSION` | PR #106 mergiata; release `docmolder-v1.0.1` creata e deploy VPS verificato. Thread Codex #105 risolto; target temporaneo assente da `release.env`. |
 | chiuso | Codex current chat | codex/prepare-1-0-release / #105 | Preparazione finale release `1.0.0`: readiness, rationale, target release, smoke e verifica VPS | PR #105 mergiata; `docmolder-v1.0.0` creata e deploy VPS verificato. Target temporaneo rimosso da `/etc/docmolder/release.env`; health/smoke post-release OK. |

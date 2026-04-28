@@ -21,6 +21,7 @@ def run_reconciliation(
     *,
     stale_running_age_seconds: int | None = None,
     prune_finished_days: int | None = None,
+    prune_finished: bool = True,
     cleanup_runtime: bool = True,
 ) -> dict[str, Any]:
     store = SQLiteSessionStore(settings.database_path)
@@ -39,11 +40,12 @@ def run_reconciliation(
         if cleanup_runtime
         else 0
     )
-    pruned_finished_jobs = (
-        store.prune_finished_jobs(retention_days=prune_finished_days)
-        if prune_finished_days is not None
-        else 0
-    )
+    effective_prune_finished_days = prune_finished_days
+    if effective_prune_finished_days is None and prune_finished:
+        effective_prune_finished_days = settings.job_history_retention_days
+    pruned_finished_jobs = 0
+    if effective_prune_finished_days is not None:
+        pruned_finished_jobs = store.prune_finished_jobs(retention_days=effective_prune_finished_days)
     health = build_health_report(settings)
     report: dict[str, Any] = {
         "ok": True,
@@ -51,6 +53,7 @@ def run_reconciliation(
         "requeued_job_ids": [job.id for job in requeued_jobs],
         "removed_job_dirs": removed_job_dirs,
         "pruned_finished_jobs": pruned_finished_jobs,
+        "prune_finished_days": effective_prune_finished_days,
         "health_status": health["status"],
         "health_warnings": health["warnings"],
     }
@@ -61,6 +64,7 @@ def run_reconciliation(
         requeued_stale_running_jobs=len(requeued_jobs),
         removed_job_dirs=removed_job_dirs,
         pruned_finished_jobs=pruned_finished_jobs,
+        prune_finished_days=effective_prune_finished_days if effective_prune_finished_days is not None else "disabled",
         health_status=health["status"],
     )
     return report
@@ -72,6 +76,7 @@ def render_text_report(report: dict[str, Any]) -> str:
         f" requeued_stale_running_jobs={report['requeued_stale_running_jobs']}"
         f" removed_job_dirs={report['removed_job_dirs']}"
         f" pruned_finished_jobs={report['pruned_finished_jobs']}"
+        f" prune_finished_days={report['prune_finished_days']}"
         f" health_status={report['health_status']}"
     )
 
@@ -88,8 +93,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--prune-finished-days",
         type=int,
-        help="Rimuove job succeeded/failed piu vecchi di N giorni. Se omesso non pruna.",
+        help="Rimuove job succeeded/failed piu vecchi di N giorni. Se omesso usa la configurazione.",
     )
+    parser.add_argument("--no-prune-finished", action="store_true", help="Disattiva pruning job conclusi per questa run.")
     parser.add_argument("--no-cleanup-runtime", action="store_true", help="Non pulire directory job stale.")
     return parser
 
@@ -109,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         settings,
         stale_running_age_seconds=stale_age,
         prune_finished_days=args.prune_finished_days,
+        prune_finished=not args.no_prune_finished,
         cleanup_runtime=not args.no_cleanup_runtime,
     )
     if args.json:

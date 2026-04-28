@@ -134,5 +134,4 @@ In caso di incidente:
 
 - SQLite locale e adatto al perimetro corrente ma non a crescita importante
 - alerting esterno non e ancora formalizzato
-- pruning completo dei vecchi job non e ancora definito come policy prodotto
-- cancellazione completa self-service dei dati utente e ancora decisione aperta
+- le soglie definitive di crescita e saturazione vanno ancora validate con dati reali di produzione

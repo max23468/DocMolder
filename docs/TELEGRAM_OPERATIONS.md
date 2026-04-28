@@ -10,7 +10,7 @@ Il bot e pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_b
 - `/help`: mostra guida rapida e flussi consigliati.
 - `/history`: mostra gli ultimi job personali, con dettaglio e rilancio.
 - `/status`: mostra accesso, service mode, sessione corrente, coda personale e ultimo job.
-- `/reset`: azzera sessione e preferenze rapide.
+- `/reset`: azzera sessione e preferenze rapide; da qui l'utente puo anche chiedere la cancellazione completa dei propri dati live con conferma inline.
 
 ## Deep link supportati
 
@@ -120,6 +120,7 @@ docmolder-healthcheck
 
 In produzione il timer `docmolder-alertcheck.timer` richiama `deploy/alert-check.sh` ogni 5 minuti.
 Il timer `docmolder-reconcile.timer` richiama `deploy/reconcile.sh` ogni 15 minuti per recuperare job stale e pulire runtime temporaneo.
+Lo stesso reconcile applica anche il pruning dei job conclusi oltre `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`, default 30 giorni.
 
 Segnali da verificare:
 
@@ -142,6 +143,7 @@ Soglie configurabili:
 - eta massima dell'ultimo backup SQLite: `DOCMOLDER_HEALTH_MAX_BACKUP_AGE_SECONDS`
 - spazio disco minimo: `DOCMOLDER_HEALTH_MIN_DISK_FREE_BYTES` e `DOCMOLDER_HEALTH_MIN_DISK_FREE_PERCENT`
 - carico e memoria minimi per VPS: `DOCMOLDER_HEALTH_MAX_LOAD_PER_CPU` e `DOCMOLDER_HEALTH_MIN_MEMORY_AVAILABLE_BYTES`
+- retention storico job live: `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`
 
 ## Manutenzione one-shot
 
@@ -155,4 +157,5 @@ riallinea il runtime operativo:
 
 - rimette in coda job `running` rimasti stale
 - pulisce directory temporanee oltre retention
-- puo prunare job conclusi vecchi se invocato con `--prune-finished-days`
+- pruna job conclusi vecchi secondo `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`
+- puo usare una retention diversa per una singola run con `--prune-finished-days`, oppure saltare il pruning con `--no-prune-finished`

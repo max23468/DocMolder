@@ -35,6 +35,7 @@ class ReconcileTest(unittest.TestCase):
             database_path=self.database_path,
             sqlite_backup_dir=self.backup_dir,
             stale_job_retention_hours=1,
+            job_history_retention_days=30,
             ghostscript_timeout_seconds=120,
         )
 
@@ -64,6 +65,56 @@ class ReconcileTest(unittest.TestCase):
         self.assertEqual(report["requeued_stale_running_jobs"], 1)
         self.assertFalse(stale_dir.exists())
         self.assertEqual(self.store.get_job(job.id).status, JobStatus.QUEUED)
+
+    def test_reconciliation_prunes_finished_jobs_using_settings_by_default(self) -> None:
+        old_job = self.store.create_job(
+            user_id=7,
+            chat_id=8,
+            reply_to_message_id=None,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_succeeded(old_job.id, "old")
+        old_timestamp = (datetime.now(timezone.utc) - timedelta(days=40)).strftime("%Y-%m-%d %H:%M:%S")
+        with sqlite3.connect(self.database_path) as connection:
+            connection.execute(
+                "UPDATE jobs SET created_at = ?, finished_at = ? WHERE id = ?",
+                (old_timestamp, old_timestamp, old_job.id),
+            )
+            connection.commit()
+
+        report = run_reconciliation(self.settings, stale_running_age_seconds=None, cleanup_runtime=False)
+
+        self.assertEqual(report["pruned_finished_jobs"], 1)
+        self.assertEqual(report["prune_finished_days"], 30)
+        self.assertIsNone(self.store.get_job(old_job.id))
+
+    def test_reconciliation_can_disable_finished_job_pruning(self) -> None:
+        old_job = self.store.create_job(
+            user_id=7,
+            chat_id=8,
+            reply_to_message_id=None,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_succeeded(old_job.id, "old")
+        old_timestamp = (datetime.now(timezone.utc) - timedelta(days=40)).strftime("%Y-%m-%d %H:%M:%S")
+        with sqlite3.connect(self.database_path) as connection:
+            connection.execute(
+                "UPDATE jobs SET created_at = ?, finished_at = ? WHERE id = ?",
+                (old_timestamp, old_timestamp, old_job.id),
+            )
+            connection.commit()
+
+        report = run_reconciliation(
+            self.settings,
+            stale_running_age_seconds=None,
+            prune_finished=False,
+            cleanup_runtime=False,
+        )
+
+        self.assertEqual(report["pruned_finished_jobs"], 0)
+        self.assertIsNotNone(self.store.get_job(old_job.id))
 
 
 if __name__ == "__main__":

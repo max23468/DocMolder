@@ -30,6 +30,7 @@ Variabili minime:
 - limiti runtime (`SESSION_TTL`, `MAX_SESSION_FILES`, burst upload, job concorrenti)
 - soglie alert admin (`DOCMOLDER_ADMIN_ALERT_*`) se vuoi renderle piu o meno sensibili
 - soglie health (`DOCMOLDER_HEALTH_*`) per coda, job stale, runtime dir, backup, disco, load e RAM
+- `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS` per retention live dello storico job, default 30 giorni
 - `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX` per controllare il downscale preventivo delle immagini molto grandi
 
 Avvia servizio:

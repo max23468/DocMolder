@@ -46,12 +46,23 @@ Telegram, ma con un perimetro intenzionalmente prudente:
 
 La 1.x stabilizza il contratto attuale, non apre automaticamente una fase di
 promozione pubblica ampia. Prima di campagne, onboarding massivo o uso con dati
-sensibili ricorrenti servono almeno:
+sensibili ricorrenti servono ancora:
 
 - testo pubblico piu esplicito su privacy, retention e limiti del servizio
-- procedura chiara per richieste di cancellazione completa dei dati utente
-- pruning automatico o policy formale per lo storico job
 - monitoraggio operativo sufficiente a capire saturazione, errori e abuso
+
+Sono gia presenti:
+
+- procedura self-service per cancellazione completa dei dati live da `/reset`
+- pruning automatico e policy formale per lo storico job live
+
+Scelta operativa 1.x:
+
+- mantenere una postura di soft launch pubblico
+- valutare solo mini-promozioni controllate dopo la chiusura della Fase 9 e
+  degli interventi UX/trust della Fase 10
+- rimandare una promozione piu ampia a dopo l'osservabilita minima della Fase 13
+- mantenere l'italiano come lingua prodotto primaria nella 1.x iniziale
 
 ## Perimetro prodotto
 
@@ -161,7 +172,9 @@ Retention:
 
 - storico leggero dei job nel database finche utile a `/history`, console admin e diagnosi
 - nessuna promessa di conservazione permanente
-- se la retention job diventa lunga, va definita esplicitamente in roadmap o decisione
+
+- retention massima live predefinita di 30 giorni per job conclusi, configurabile via env
+- pruning automatico dei job vecchi tramite reconcile
 
 ### Backup SQLite
 
@@ -170,21 +183,23 @@ Retention:
 - backup giornalieri verificati quando il timer VPS e abilitato
 - retention breve secondo `DOCMOLDER_SQLITE_BACKUP_RETENTION_DAYS`
 - i backup possono contenere metadati utente e job, quindi vanno trattati come dati sensibili
+- la cancellazione self-service dei dati live non riscrive retroattivamente i backup gia creati; i dati eventualmente presenti nei backup scadono tramite la retention breve dei backup
 
 ## Cancellazione dati
 
 Percorsi correnti:
 
 - `/reset` pulisce la sessione utente corrente
+- la cancellazione completa self-service e esposta dentro `/reset`, con conferma inline obbligatoria, e rimuove dati live dell'utente come sessione, preferenze rapide, preset, storico job personale e metadati utente noti
 - in modalita ristretta il primo messaggio di un utente non autorizzato registra una richiesta di accesso; l'admin puo approvare o rifiutare dalla console inline
 - cleanup job rimuove file temporanei
 - restore o manutenzione SQLite restano operazioni amministrative
 
-Decisioni ancora aperte:
+Regole:
 
-- cancellazione completa self-service dello storico utente
-- pruning automatico dei vecchi job riusciti o falliti
-- retention massima formale dello storico job
+- la cancellazione completa riguarda i dati live, non i backup storici gia creati
+- log e audit devono registrare solo eventi sintetici, senza contenuti documentali
+- `/reset` deve distinguere il reset leggero dalla cancellazione completa dei dati
 
 ## Limiti operativi dichiarati
 
@@ -195,6 +210,7 @@ Limiti principali configurabili:
 - `DOCMOLDER_UPLOAD_BURST_LIMIT`
 - `DOCMOLDER_UPLOAD_BURST_WINDOW_SECONDS`
 - `DOCMOLDER_MAX_ACTIVE_JOBS_PER_USER`
+- `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`
 - `DOCMOLDER_GHOSTSCRIPT_TIMEOUT_SECONDS`
 - `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX`
 - `DOCMOLDER_HEALTH_*` per soglie operative di VPS, coda, disco, load, RAM, backup e runtime

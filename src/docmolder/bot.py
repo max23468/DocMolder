@@ -38,6 +38,8 @@ from docmolder.keyboards import (
     build_access_review_keyboard,
     build_admin_dashboard_keyboard,
     build_compression_keyboard,
+    build_delete_data_confirmation_keyboard,
+    build_delete_data_request_keyboard,
     build_history_keyboard,
     build_images_pdf_layout_keyboard,
     build_images_pdf_margin_keyboard,
@@ -1383,6 +1385,63 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "Sessione azzerata. Ho dimenticato anche le ultime scelte rapide salvate. Puoi inviarmi nuovi file quando vuoi.",
         reply_markup=build_main_menu_keyboard(),
     )
+    await message.reply_text(
+        "Vuoi cancellare anche storico, preferenze e metadati live collegati al tuo account? "
+        "I backup tecnici gia creati non vengono riscritti, ma scadono con la loro retention breve.",
+        reply_markup=build_delete_data_request_keyboard(),
+    )
+
+
+async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    query = update.callback_query
+    await _safe_answer_callback(query)
+    user = query.from_user
+    if user is None:
+        await query.edit_message_text(_invalid_callback_message())
+        return
+
+    action = (query.data or "").removeprefix("delete_data:")
+    _record_callback_metric(deps, f"delete_data:{action or 'unknown'}")
+    if action == "request":
+        await query.edit_message_text(
+            "Confermi la cancellazione completa dei tuoi dati live?\n\n"
+            "Verranno rimossi sessione, preferenze, storico job e metadati utente. "
+            "I backup tecnici gia creati non vengono riscritti retroattivamente.",
+            reply_markup=build_delete_data_confirmation_keyboard(),
+        )
+        return
+    if action == "cancel":
+        await query.edit_message_text("Cancellazione completa annullata. La sessione leggera era gia stata azzerata.")
+        return
+    if action != "confirm":
+        await query.edit_message_text(_invalid_callback_message())
+        return
+
+    _cancel_pending_image_notification(user.id, deps)
+    report = deps.session_store.delete_user_data(user.id)
+    _append_audit_log(
+        deps,
+        "user_data_deleted",
+        actor_user_id=None,
+        target_user_id=None,
+        outcome="self_service",
+        detail="source:/reset",
+    )
+    log_event(
+        logger,
+        logging.INFO,
+        "user_data_deleted",
+        outcome="self_service",
+        jobs_deleted=report.jobs_deleted,
+        usage_events_deleted=report.usage_events_deleted,
+        meta_deleted=report.meta_deleted,
+        audit_entries_scrubbed=report.audit_entries_scrubbed,
+    )
+    await query.edit_message_text(
+        "Dati live cancellati. Ho rimosso sessione, preferenze, storico job e metadati utente collegati al tuo account.\n\n"
+        "Nota: i backup tecnici gia creati non vengono riscritti, ma restano coperti dalla retention breve."
+    )
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2718,6 +2777,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CommandHandler("admin", admin_command))
     application.add_handler(CallbackQueryHandler(handle_access_review_callback, pattern=r"^access:"))
     application.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^admin:"))
+    application.add_handler(CallbackQueryHandler(handle_delete_data_callback, pattern=r"^delete_data:"))
     application.add_handler(CallbackQueryHandler(handle_history_callback, pattern=r"^history:"))
     application.add_handler(CallbackQueryHandler(handle_rotate_callback, pattern=r"^rotate:"))
     application.add_handler(CallbackQueryHandler(handle_result_action_callback, pattern=r"^result:"))
@@ -3645,6 +3705,9 @@ async def _process_job(application: Application, job_id: int) -> None:
         try:
             result = await _run_job_payload(application, job, job_dir)
         except ProcessingUserError as exc:
+            if deps.session_store.get_job(job.id) is None:
+                log_event(logger, logging.INFO, "job_discarded_after_user_data_deleted", job_id=job.id, action=job.action)
+                return
             deps.session_store.mark_job_failed(job.id, str(exc))
             log_event(
                 logger,
@@ -3664,6 +3727,9 @@ async def _process_job(application: Application, job_id: int) -> None:
             )
             return
         except Exception:
+            if deps.session_store.get_job(job.id) is None:
+                log_event(logger, logging.INFO, "job_discarded_after_user_data_deleted", job_id=job.id, action=job.action)
+                return
             logger.exception("Errore durante il job %s", job.id)
             deps.session_store.mark_job_failed(job.id, GENERIC_ERROR_MESSAGE)
             log_event(
@@ -3688,6 +3754,9 @@ async def _process_job(application: Application, job_id: int) -> None:
         input_bytes = _sum_file_sizes(input_dir.iterdir()) if input_dir.exists() else 0
         output_bytes = _sum_processing_result_sizes(result)
         duration_ms = int((perf_counter() - started_monotonic) * 1000)
+        if deps.session_store.get_job(job.id) is None:
+            log_event(logger, logging.INFO, "job_discarded_after_user_data_deleted", job_id=job.id, action=job.action)
+            return
         deps.session_store.mark_job_succeeded_with_metrics(
             job.id,
             result.message,
