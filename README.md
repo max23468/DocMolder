@@ -46,7 +46,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Watermark testuale su PDF
 - Correzione automatica dell'orientamento dei PDF quando serve, con possibilità di rifare il file senza auto-rotazione
 - Correzione automatica orientamento per immagini
-- Raddrizzamento foto documento con profili `Piu leggibile`, `Mantieni colore` e `Bianco/nero pulito`
+- Raddrizzamento foto documento con profili `Più leggibile`, `Mantieni colore` e `Bianco/nero pulito`
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 - Storico ultimi job con dettaglio essenziale e possibilità di rilanciare un'elaborazione
 - Preset leggeri per scelte ricorrenti di compressione, split e immagini verso PDF, senza salvare contenuti o nomi file
@@ -92,7 +92,7 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - watermark testuale PDF
 - conversione PDF in scala di grigi
 - compressione PDF con livelli semplici
-- feedback compressione quando la riduzione e minima o non conviene
+- feedback compressione quando la riduzione è minima o non conviene
 - correzione automatica dell'orientamento PDF nei flussi compatibili
 - correzione orientamento immagini
 - raddrizzamento foto documento con feedback su foto scure, sfocate o bordo incerto
@@ -138,7 +138,7 @@ Per setup e gestione operativa su Oracle VPS con Ubuntu, vedi [`docs/VPS_RUNBOOK
 
 Per usare Codex su `chatgpt.com` come postazione di lavoro e deploy senza dipendere dal Mac, vedi [`docs/CODEX_CLOUD_DEPLOY.md`](docs/CODEX_CLOUD_DEPLOY.md).
 
-Il flusso consigliato da remoto e:
+Il flusso consigliato da remoto è:
 
 - Codex o GitHub preparano il codice fino a `main`
 - il webhook privato GitHub -> VPS riceve il push su `main`
@@ -227,7 +227,7 @@ Per il versioning ordinario, feature PR e fix PR non devono aggiornare manualmen
 
 In sintesi, la priorità attuale è:
 
-- linea 1.x: mantenere stabile il bot pubblico Telegram-first, correggere regressioni emerse dall'uso reale e rafforzare UX pubblica, privacy, retention e osservabilita senza uscire dal perimetro di utility documentale
+- linea 1.x: mantenere stabile il bot pubblico Telegram-first, correggere regressioni emerse dall'uso reale e rafforzare UX pubblica, privacy, retention e osservabilità senza uscire dal perimetro di utility documentale
 
 ## Gerarchia comandi Telegram
 
@@ -247,4 +247,4 @@ Comando admin nascosto dalla lista pubblica:
 
 - `/admin` per aprire la console inline con panoramica, coda, health, metriche, manutenzione, pausa/ripresa servizio, access review e ultimi job.
 
-In modalita ristretta, il primo messaggio di un utente non autorizzato genera una richiesta accesso pending per gli admin.
+In modalità ristretta, il primo messaggio di un utente non autorizzato genera una richiesta accesso pending per gli admin.

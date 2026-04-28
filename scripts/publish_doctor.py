@@ -213,7 +213,7 @@ def collect_report(*, base_branch: str, skip_fetch: bool, skip_github: bool) -> 
 
     auth = gh(["auth", "status"])
     if auth.returncode != 0:
-        add_issue(issues, "blocker", "gh non e autenticato correttamente.")
+        add_issue(issues, "blocker", "gh non è autenticato correttamente.")
         details["gh_auth_error"] = auth.stderr.strip()
         return issues, details
 
@@ -247,7 +247,7 @@ def print_text(issues: list[Issue], details: dict[str, object]) -> None:
             "Diff: "
             f"{details['changed_count']} file, "
             f"tipo consigliato {details.get('recommended_type')}, "
-            f"deploy {'si' if details.get('deploy_relevant') else 'no'}"
+            f"deploy {'sì' if details.get('deploy_relevant') else 'no'}"
         )
     blockers = [issue for issue in issues if issue.level == "blocker"]
     notices = [issue for issue in issues if issue.level == "notice"]
@@ -261,7 +261,7 @@ def print_text(issues: list[Issue], details: dict[str, object]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Controlla se la branch e pronta per il publish DocMolder.")
+    parser = argparse.ArgumentParser(description="Controlla se la branch è pronta per il publish DocMolder.")
     parser.add_argument("--base", default="main", help="Branch base remota. Default: main.")
     parser.add_argument("--skip-fetch", action="store_true", help="Non eseguire git fetch origin <base>.")
     parser.add_argument("--skip-github", action="store_true", help="Salta controlli gh, run failed e commenti bot.")

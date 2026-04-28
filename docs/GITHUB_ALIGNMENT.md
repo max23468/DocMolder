@@ -24,13 +24,13 @@ Configura da **Settings**:
    - abilita "Automatically delete head branches".
 2. **Branches → Branch protection (main)**
    - se disponibile sul piano/account, richiedi PR prima del merge e linear history.
-   - evita di rendere obbligatori i workflow Actions: in modalita senza budget il controllo locale con hook Git resta la fonte di verita.
+   - evita di rendere obbligatori i workflow Actions: in modalità senza budget il controllo locale con hook Git resta la fonte di verità.
 3. **Actions → General**
    - consenti solo actions verificate (GitHub + verified creators) per ridurre rischio supply-chain.
 4. **Security → Code security and analysis**
    - abilita secret scanning e Dependabot alerts.
 
-Se branch protection non e disponibile, considera questi workflow come guardrail operativi e non come enforcement assoluto: aiutano a intercettare errori, ma non sostituiscono la disciplina del flusso PR.
+Se branch protection non è disponibile, considera questi workflow come guardrail operativi e non come enforcement assoluto: aiutano a intercettare errori, ma non sostituiscono la disciplina del flusso PR.
 
 ## 3) Flusso operativo consigliato (solo maintainer)
 
@@ -44,7 +44,7 @@ Anche da solo conviene mantenere un mini-flusso PR:
 6. usare `Release Please` e i workflow deploy solo come fallback manuali espliciti
 
 Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre con branch dedicato + PR + squash merge.
-Eccezione operativa: per modifiche minuscole, solo documentali e a basso rischio (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`), il maintainer puo pubblicare direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR.
+Eccezione operativa: per modifiche minuscole, solo documentali e a basso rischio (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`), il maintainer può pubblicare direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR.
 
 Vantaggi principali:
 
@@ -53,7 +53,7 @@ Vantaggi principali:
 - minor rischio di rompere deploy con commit diretti su `main`;
 - versioni e GitHub Releases allineate senza doppia manutenzione manuale.
 
-Questa non e una preferenza soft: per DocMolder il flusso ufficiale resta PR squashate verso `main`, salvo la scorciatoia documentale esplicita descritta sopra. In modalita senza budget GitHub Actions, i guardrail automatici restano spenti e non vanno considerati una dipendenza del flusso base.
+Questa non è una preferenza soft: per DocMolder il flusso ufficiale resta PR squashate verso `main`, salvo la scorciatoia documentale esplicita descritta sopra. In modalità senza budget GitHub Actions, i guardrail automatici restano spenti e non vanno considerati una dipendenza del flusso base.
 
 Regola aggiuntiva fondamentale:
 

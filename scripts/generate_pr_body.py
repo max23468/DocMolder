@@ -46,7 +46,7 @@ Modifica focalizzata sui file elencati sotto.
 
 ## Release impact
 - Tipo consigliato: `{release_type}`
-- File release-owned toccati: `{"si" if release_owned else "no"}`
+- File release-owned toccati: `{"sì" if release_owned else "no"}`
 
 ## File modificati
 {changed}

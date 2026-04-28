@@ -9,9 +9,9 @@ Questa guida definisce la policy ufficiale di versionamento di `DocMolder`.
 - rendere prevedibile il tipo di bump versione a partire dal titolo della PR
 - produrre changelog leggibili per chi usa o gestisce il bot, non solo per chi ha letto la PR
 
-## Fonte di verita
+## Fonte di verità
 
-La fonte di verita della release e composta da:
+La fonte di verità della release è composta da:
 
 - tag Git `docmolder-vX.Y.Z`
 - [CHANGELOG.md](../CHANGELOG.md) in root
@@ -36,12 +36,12 @@ Policy del progetto:
 
 - niente push diretti su `main`
 - ogni modifica destinata a release passa da PR
-- il titolo della PR e parte del processo di versioning, non solo descrizione editoriale
+- il titolo della PR è parte del processo di versioning, non solo descrizione editoriale
 - ogni commit che entra su `main` deve provenire da una PR squashata
 - eccezione stretta: commit diretti `chore(docs):` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
-- i guardrail GitHub Actions `Main Commit Policy` e `Release Policy` sono stati rimossi dai workflow attivi finche resta la modalita senza budget Actions
+- i guardrail GitHub Actions `Main Commit Policy` e `Release Policy` sono stati rimossi dai workflow attivi finché resta la modalità senza budget Actions
 - i controlli locali (`publish_doctor`, `preflight`, test mirati o `ci_verify`) sono la verifica primaria per bloccare bump manuali, changelog fuori flusso e commit non coerenti con la policy
-- `scripts/publish_change.sh` e il percorso standard per commit, push e PR pronta; draft, merge assistito e follow-up Actions richiedono variabili esplicite
+- `scripts/publish_change.sh` è il percorso standard per commit, push e PR pronta; draft, merge assistito e follow-up Actions richiedono variabili esplicite
 
 Il titolo della PR squashata diventa il commit che il flusso di release usera per:
 
@@ -76,9 +76,9 @@ DocMolder segue Semantic Versioning con una regola pre-`1.0.0` esplicita:
 - usa `fix:` per correzioni operative o di sicurezza che devono produrre un **patch bump**
 - `ops:` e `security:` non sono tipi ammessi nel flusso di merge: restano concetti utili per label o testo release, ma non vanno usati come prefisso Conventional Commit in questa repository
 - `deps:` produce un **patch bump**
-- `docs:` produce un **patch bump** solo quando la modifica documenta un comportamento operativo o utente gia effettivo
+- `docs:` produce un **patch bump** solo quando la modifica documenta un comportamento operativo o utente già effettivo
 - qualunque tipo con `!` o footer `BREAKING CHANGE:` produce:
-  - **minor bump** finche il progetto e in `0.x`
+  - **minor bump** finché il progetto è in `0.x`
   - **major bump** da `1.0.0` in poi
 
 Tipi che non devono generare una release autonoma:
@@ -89,16 +89,16 @@ Tipi che non devono generare una release autonoma:
 - `build:`
 - `ci:`
 
-Usali quando la modifica non cambia il comportamento rilasciabile del prodotto o dell'operativita.
+Usali quando la modifica non cambia il comportamento rilasciabile del prodotto o dell'operatività.
 
 ## Criterio per release major `X.0.0`
 
-Una release `X.0.0` non e una release "piu grande" in senso generico. E una
+Una release `X.0.0` non è una release "più grande" in senso generico. È una
 soglia di contratto: dichiara che il modo corretto di usare, mantenere o
 integrare DocMolder cambia in modo sostanziale oppure diventa stabile per una
 nuova fase del progetto.
 
-Una major release e appropriata quando almeno una di queste condizioni e vera:
+Una major release è appropriata quando almeno una di queste condizioni è vera:
 
 - cambia il contratto utente principale: comandi pubblici, flussi Telegram,
   significato delle azioni o aspettative sui risultati dei documenti;
@@ -108,28 +108,28 @@ Una major release e appropriata quando almeno una di queste condizioni e vera:
   log, accessi admin o gestione dei file utente assumono garanzie diverse;
 - cambia il perimetro prodotto deciso in [DECISIONS.md](./DECISIONS.md), ad
   esempio da utility Telegram-first verso una superficie web/API o verso uno
-  storage documentale piu ampio;
-- una o piu breaking change non sono solo dettagli tecnici interni, ma
+  storage documentale più ampio;
+- una o più breaking change non sono solo dettagli tecnici interni, ma
   richiedono migrazione, comunicazione esplicita o aggiornamento dei runbook.
 
-Una major release non e appropriata solo per:
+Una major release non è appropriata solo per:
 
 - accumulo di molte patch o feature compatibili;
 - refactor interni, pulizia codice o miglioramenti di performance senza cambio
   di contratto;
-- aggiornamenti documentali che chiariscono cio che e gia vero;
-- desiderio di avere un numero versione piu ordinato.
+- aggiornamenti documentali che chiariscono ciò che è già vero;
+- desiderio di avere un numero versione più ordinato.
 
 Ogni PR che prepara una major deve includere nel corpo PR una sezione
 `Major release rationale` con:
 
-1. perche il cambio merita `X.0.0`;
+1. perché il cambio merita `X.0.0`;
 2. quali contratti cambiano o vengono dichiarati stabili;
 3. quali smoke, rollback e note operative sono richiesti;
 4. quali limiti o migrazioni restano dichiarati.
 
 Il target esplicito `DOCMOLDER_RELEASE_TARGET_VERSION=X.0.0` va usato solo dopo
-questa decisione. Non sostituisce il criterio: e solo il meccanismo operativo
+questa decisione. Non sostituisce il criterio: è solo il meccanismo operativo
 per applicarlo.
 
 ## Quando usare ogni tipo
@@ -138,13 +138,13 @@ Usa `feat:` per:
 
 - nuove azioni disponibili all'utente
 - nuovi flussi end-to-end
-- nuove capacita operative o admin percepibili
+- nuove capacità operative o admin percepibili
 
 Usa `fix:` per:
 
 - regressioni
 - bug funzionali
-- correzioni di comportamento atteso gia esistente
+- correzioni di comportamento atteso già esistente
 
 Usa `fix(ops):` o un altro scope `fix(...)` esplicito per:
 
@@ -170,7 +170,7 @@ Usa `chore:` o `ci:` per:
 - workflow e tooling che non meritano una release annotata per gli utilizzatori del progetto
 - aggiornamenti documentali rapidi e non rilasciabili, in particolare con `chore(docs):`
 
-Usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`) per modifiche interne che non devono produrre una release autonoma, per esempio aggiornamenti alle sole istruzioni agent senza impatto sul prodotto o sull'operativita del maintainer. La label `skip-changelog` resta utile per le release note generate da GitHub, ma il flusso principale dipende dal tipo del commit/PR.
+Usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`) per modifiche interne che non devono produrre una release autonoma, per esempio aggiornamenti alle sole istruzioni agent senza impatto sul prodotto o sull'operatività del maintainer. La label `skip-changelog` resta utile per le release note generate da GitHub, ma il flusso principale dipende dal tipo del commit/PR.
 
 ## Sezioni del changelog
 
@@ -196,18 +196,18 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 5. la release automatica aggiorna versione, changelog, manifest, tag `docmolder-vX.Y.Z` e GitHub Release
 6. il commit di release viene redeployato dal webhook e poi viene ignorato dal generatore di release, evitando loop
 
-Non usare `main` per commit manuali o push diretti. Se una modifica e urgente,
+Non usare `main` per commit manuali o push diretti. Se una modifica è urgente,
 si apre comunque una PR piccola e la si squash-mergea dopo i gate locali
-rilevanti. La CI remota e un fallback manuale, non un passaggio ordinario.
+rilevanti. La CI remota è un fallback manuale, non un passaggio ordinario.
 
 ## Promozione esplicita a 1.0
 
-Finche il progetto e in `0.x`, anche una breaking change produce un minor bump.
+Finché il progetto è in `0.x`, anche una breaking change produce un minor bump.
 Per promuovere intenzionalmente DocMolder a `1.0.0` serve quindi un target
 esplicito, non un effetto collaterale di un commit ordinario.
 
-`1.0.0` e una major particolare: non richiede per forza una breaking change.
-Serve a dichiarare stabile il perimetro attuale se la checklist di readiness e
+`1.0.0` è una major particolare: non richiede per forza una breaking change.
+Serve a dichiarare stabile il perimetro attuale se la checklist di readiness è
 chiusa e se accettiamo esplicitamente i limiti dichiarati del servizio.
 
 La promozione 1.0 deve passare da [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md):
@@ -215,14 +215,14 @@ La promozione 1.0 deve passare da [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_REA
 1. completare checklist prodotto, smoke e operations;
 2. documentare nel corpo PR la `Major release rationale`;
 3. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder 1.0`;
-4. se la release automatica VPS e abilitata, impostare temporaneamente
+4. se la release automatica VPS è abilitata, impostare temporaneamente
    `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0` prima del merge della PR finale;
 5. mergeare la PR e lasciare che webhook deploy e auto-release consumino quel
    commit con target esplicito;
 6. rimuovere il target esplicito da `/etc/docmolder/release.env` solo dopo aver
    verificato tag `docmolder-v1.0.0`, GitHub Release e deploy del commit release.
 
-Il target esplicito e accettato solo se e maggiore della versione corrente e non
+Il target esplicito è accettato solo se è maggiore della versione corrente e non
 inferiore al bump naturale calcolato dal changelog. Non va usato per forzare
 patch/minor ordinarie o per aggirare la policy dei commit conventional.
 
@@ -230,13 +230,13 @@ patch/minor ordinarie o per aggirare la policy dei commit conventional.
 
 Per evitare i disallineamenti visti nei tentativi precedenti:
 
-- non fare mai bump manuali "gia dentro" una feature PR;
+- non fare mai bump manuali "già dentro" una feature PR;
 - non aggiornare il changelog di release dentro una feature PR;
 - non riallineare a mano manifest o version file salvo manutenzione eccezionale del flusso release;
 - se serve una release, si mergea la PR funzionale e si lascia lavorare la release automatica VPS;
 - `release-please` resta solo come fallback esplicito quando vuoi consumare Actions.
 
-Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR e da considerare sbagliata e va corretta prima del merge.
+Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR è da considerare sbagliata e va corretta prima del merge.
 
 ## Baseline attuale
 

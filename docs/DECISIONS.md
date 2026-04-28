@@ -1,6 +1,6 @@
 # Decisioni Progetto
 
-Questo file raccoglie decisioni architetturali e di prodotto gia prese, in forma breve.
+Questo file raccoglie decisioni architetturali e di prodotto già prese, in forma breve.
 
 ## Indice
 
@@ -19,12 +19,12 @@ Decisione:
 - `DocMolder` resta una utility documentale chat-first, semplice, guidata e affidabile, focalizzata su trasformazioni pratiche di PDF e foto di documenti
 
 Motivazione:
-- il valore del prodotto oggi e nella rapidita, chiarezza e affidabilita del flusso via Telegram
-- allargare troppo il perimetro rischia di trasformarlo in un editor PDF generalista o in un sistema documentale molto piu complesso
-- mantenere un'operazione chiara per volta aiuta UX, manutenzione e qualita del risultato
+- il valore del prodotto oggi e nella rapidità, chiarezza e affidabilità del flusso via Telegram
+- allargare troppo il perimetro rischia di trasformarlo in un editor PDF generalista o in un sistema documentale molto più complesso
+- mantenere un'operazione chiara per volta aiuta UX, manutenzione e qualità del risultato
 
 Conseguenze:
-- le nuove feature vanno accettate solo se rafforzano semplicita, qualita del risultato, chiarezza UX o affidabilita operativa
+- le nuove feature vanno accettate solo se rafforzano semplicità, qualità del risultato, chiarezza UX o affidabilità operativa
 - vanno invece trattate con molta prudenza feature che aprono mondi nuovi come document management, OCR esteso, workflow troppo complessi o automazioni poco controllabili
 - la roadmap deve essere letta dentro questo perimetro: meglio poche evoluzioni coerenti che accumulo di funzioni eterogenee
 - salvo decisione esplicita futura, consideriamo `bloat` o `too much` tutte le proposte che spingono il prodotto verso editor PDF generalista, piattaforma documentale ampia o assistente conversazionale troppo aperto
@@ -32,15 +32,15 @@ Conseguenze:
 ## Roadmap 1.x: soft launch prima, feature dopo
 
 Decisione:
-- la linea `1.x` resta in soft launch pubblico: il bot e raggiungibile, ma non viene spinto con promozione ampia prima di privacy/retention, UX trust e osservabilita minima
+- la linea `1.x` resta in soft launch pubblico: il bot è raggiungibile, ma non viene spinto con promozione ampia prima di privacy/retention, UX trust e osservabilità minima
 - la lingua prodotto resta italiano-first nella 1.x iniziale
 - le prime feature dopo il consolidamento sono preset e automazioni leggere, non nuove superfici web/API o OCR esteso
 - `/admin` resta il centro di diagnosi rapida, mentre shell e runbook restano il percorso per gli interventi operativi veri
 
 Motivazione:
-- il bot e gia pubblico, quindi la priorita e rendere chiari dati, limiti e cancellazione prima di aumentare esposizione
+- il bot è già pubblico, quindi la priorità è rendere chiari dati, limiti e cancellazione prima di aumentare esposizione
 - preset e automazioni leggere riducono attrito sui flussi esistenti senza allargare troppo il perimetro
-- OCR, API pubbliche e web app creerebbero aspettative e complessita non coerenti con la fase iniziale della 1.x
+- OCR, API pubbliche e web app creerebbero aspettative e complessità non coerenti con la fase iniziale della 1.x
 
 Conseguenze:
 - Fase 9 ha chiuso retention live, pruning e cancellazione completa self-service dentro `/reset`
@@ -48,25 +48,25 @@ Conseguenze:
 - Fase 11 ha introdotto preset automatici leggeri e cancellabili, senza salvare contenuti o nomi file
 - Fase 12 ha migliorato scansioni dentro "Raddrizza foto documento", lasciando OCR fuori dal perimetro pubblico
 - Fase 13 ha definito soglie prudenziali di crescita e criteri per rivalutare VPS singola e SQLite
-- una mini-promozione controllata e possibile solo dopo Fase 10 e con Fase 9 chiusa; una promozione piu ampia richiede soglie Fase 13 sotto controllo con dati reali
+- una mini-promozione controllata è possibile solo dopo Fase 10 e con Fase 9 chiusa; una promozione più ampia richiede soglie Fase 13 sotto controllo con dati reali
 
 ## Polling invece di webhook pubblici
 
 Decisione:
 - il bot gira in polling
-- il bot e considerato pubblico e raggiungibile da `https://t.me/docmolder_bot`
-- `docmolder.duckdns.org` puo essere predisposto con DNS, HTTPS e reverse proxy minimale per operativita e future evoluzioni, senza trasformare automaticamente il bot in un servizio web
+- il bot è considerato pubblico e raggiungibile da `https://t.me/docmolder_bot`
+- `docmolder.duckdns.org` può essere predisposto con DNS, HTTPS e reverse proxy minimale per operatività e future evoluzioni, senza trasformare automaticamente il bot in un servizio web
 
 Motivazione:
-- riduce complessita operativa
+- riduce complessità operativa
 - evita dipendenza funzionale da endpoint HTTP esposti
-- e coerente con un tool Telegram-first a carico contenuto
+- è coerente con un tool Telegram-first a carico contenuto
 - permette di pubblicare il servizio senza introdurre webhook o un runtime web applicativo
 
 Conseguenze:
-- il deploy e piu semplice
+- il deploy è più semplice
 - il bot non dipende da ingress pubblici
-- il vhost pubblico resta un sito statico di presentazione e ingresso verso Telegram finche non viene deciso un endpoint DocMolder specifico
+- il vhost pubblico resta un sito statico di presentazione e ingresso verso Telegram finché non viene deciso un endpoint DocMolder specifico
 - eventuali evoluzioni API-first, webhook Telegram o UI web richiederebbero una decisione nuova
 
 ## Webhook privato per deploy, release e hook locali
@@ -74,7 +74,7 @@ Conseguenze:
 Decisione:
 - l'automazione senza GitHub Actions usa webhook privati GitHub -> VPS per il deploy su `main` e, se abilitato, per la release automatica successiva
 - il listener webhook gira sulla VPS dietro Nginx e verifica firma HMAC, repository e branch prima di lanciare `deploy/update-vps.sh`
-- dopo un deploy riuscito, il listener puo lanciare `deploy/auto-release.sh`, che crea bump, changelog, commit di release, tag e GitHub Release quando trova commit rilasciabili dal tag precedente
+- dopo un deploy riuscito, il listener può lanciare `deploy/auto-release.sh`, che crea bump, changelog, commit di release, tag e GitHub Release quando trova commit rilasciabili dal tag precedente
 - i controlli di qualità locale vivono in hook `git` installabili con `make install-hooks`
 - il token GitHub usato per scrivere release vive solo sulla VPS in `/etc/docmolder/release.env`, con permessi root-only
 
@@ -98,13 +98,13 @@ Decisione:
 - niente storage permanente dei file utente nel perimetro attuale
 
 Motivazione:
-- riduce rischio operativo e responsabilita sui dati
+- riduce rischio operativo e responsabilità sui dati
 - mantiene il prodotto focalizzato su trasformazioni rapide
 - semplifica manutenzione e costi
 
 Conseguenze:
-- il recupero storico dei file non e disponibile di default
-- la pulizia automatica dei job e parte essenziale del sistema
+- il recupero storico dei file non è disponibile di default
+- la pulizia automatica dei job è parte essenziale del sistema
 
 ## Auto-orientamento PDF come scelta raccomandata
 
@@ -114,13 +114,13 @@ Decisione:
 
 Motivazione:
 - semplifica la UX
-- riduce la necessita di una scelta tecnica esplicita da parte dell'utente
+- riduce la necessità di una scelta tecnica esplicita da parte dell'utente
 - copre meglio il caso pratico di PDF con poche pagine fuori orientamento
 - mantiene una via manuale utile per casi particolari che l'auto-orientamento non deve indovinare
 
 Conseguenze:
-- l'auto-orientamento e il comportamento raccomandato nei flussi compatibili
-- la rotazione manuale puo essere esposta come azione avanzata, ma non deve diventare il percorso consigliato di default
+- l'auto-orientamento è il comportamento raccomandato nei flussi compatibili
+- la rotazione manuale può essere esposta come azione avanzata, ma non deve diventare il percorso consigliato di default
 - quando l'auto-rotazione interviene, il bot deve permettere di rifare il job senza correzione automatica
 
 ## Fallback conservativi nella pipeline PDF
@@ -133,8 +133,8 @@ Motivazione:
 - `Ghostscript` e i fallback nativi offrono risultati migliori nei casi compatibili
 
 Conseguenze:
-- la pipeline ha piu rami e va osservata bene
-- servono test e metriche per capire quando entra in gioco il fallback piu invasivo
+- la pipeline ha più rami e va osservata bene
+- servono test e metriche per capire quando entra in gioco il fallback più invasivo
 
 ## Catalogo centrale delle azioni
 
@@ -143,7 +143,7 @@ Decisione:
 
 Motivazione:
 - riduce il rischio che una nuova azione venga supportata dalla pipeline ma non compaia in tastiera, o viceversa
-- rende piu semplice verificare l'allineamento tra modello interno e UI Telegram
+- rende più semplice verificare l'allineamento tra modello interno e UI Telegram
 
 Conseguenze:
 - l'introduzione di una nuova azione passa prima dal catalogo in `action_catalog.py`

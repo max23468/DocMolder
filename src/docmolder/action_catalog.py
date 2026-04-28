@@ -284,7 +284,7 @@ def _build_next_step_hint(session: UserSession, inventory: SessionInventory) -> 
 
     if inventory.kinds == frozenset({FileKind.IMAGE}):
         if inventory.image_count == 1:
-            return "puoi inviarmi altre immagini oppure scegliere gia un'azione qui sotto."
+            return "puoi inviarmi altre immagini oppure scegliere già un'azione qui sotto."
         return "scegli se creare un PDF unico, ritagliare i bordi o correggere l'orientamento."
     if inventory.kinds == frozenset({FileKind.PDF}):
         if inventory.pdf_count > 1:

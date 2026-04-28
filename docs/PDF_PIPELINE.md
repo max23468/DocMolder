@@ -16,7 +16,7 @@ La pipeline cerca di:
 
 - produrre un risultato sempre utilizzabile
 - preservare il PDF nativo quando possibile
-- usare fallback piu invasivi solo quando necessario
+- usare fallback più invasivi solo quando necessario
 
 ## Flussi principali
 
@@ -32,7 +32,7 @@ Ordine logico:
 Tradeoff:
 
 - i primi percorsi preservano meglio struttura e testo
-- il fallback raster privilegia la compatibilita, ma puo perdere testo ricercabile, layer o metadati
+- il fallback raster privilegia la compatibilità, ma può perdere testo ricercabile, layer o metadati
 
 ### Compressione PDF
 
@@ -46,19 +46,19 @@ Ordine logico:
 
 - `light`: ottimizzazione lossless della struttura
 - `medium`: compressione conservativa, poi eventuale fallback `Ghostscript`, poi lossless se serve
-- `strong`: compressione conservativa piu aggressiva, poi `Ghostscript`, poi raster se necessario
+- `strong`: compressione conservativa più aggressiva, poi `Ghostscript`, poi raster se necessario
 
 Tradeoff:
 
-- piu si forza la compressione, piu aumenta il rischio di cambiare la natura del PDF
-- il percorso raster e il piu invasivo
+- più si forza la compressione, più aumenta il rischio di cambiare la natura del PDF
+- il percorso raster è il più invasivo
 
 ### Unione PDF
 
 Per l'unione:
 
 - il bot richiede almeno due PDF
-- puo preparare i documenti con auto-orientamento prima della fusione
+- può preparare i documenti con auto-orientamento prima della fusione
 - produce un unico output PDF finale
 
 ### Operazioni native su singolo PDF
@@ -75,7 +75,7 @@ Per un singolo PDF il bot supporta anche:
 Questi flussi:
 
 - restano nativi, senza passare da rasterizzazione
-- quando producono piu output, possono raccoglierli in un unico ZIP oppure inviarli come file separati se l'utente lo preferisce
+- quando producono più output, possono raccoglierli in un unico ZIP oppure inviarli come file separati se l'utente lo preferisce
 - chiedono in chat solo il minimo input necessario, per esempio `1,3,5-7` oppure un testo semplice
 - validano in modo esplicito selezioni pagina, ordine completo o gradi ammessi
 
@@ -83,15 +83,15 @@ Questi flussi:
 
 Per le immagini:
 
-- il bot puo creare un PDF mantenendo il formato originale delle immagini
-- oppure puo impaginarle in A4
+- il bot può creare un PDF mantenendo il formato originale delle immagini
+- oppure può impaginarle in A4
 - se usa A4, chiede anche il tipo di bordo
-- in alcuni flussi puo applicare ritaglio bordi e conversione in scala di grigi
-- per foto di fogli puo usare "Raddrizza foto documento", con rilevamento contorno, correzione prospettica, profili `Piu leggibile`, `Mantieni colore` e `Bianco/nero pulito`, piu fallback conservativo se il foglio non e chiaro
-- il feedback della compressione segnala quando la riduzione e minima o quando il PDF sembra gia ottimizzato
-- quando il risultato richiesto e un PDF in scala di grigi da immagini, il bot lo genera direttamente in grigio invece di creare prima un PDF a colori e riconvertirlo dopo
+- in alcuni flussi può applicare ritaglio bordi e conversione in scala di grigi
+- per foto di fogli può usare "Raddrizza foto documento", con rilevamento contorno, correzione prospettica, profili `Più leggibile`, `Mantieni colore` e `Bianco/nero pulito`, più fallback conservativo se il foglio non è chiaro
+- il feedback della compressione segnala quando la riduzione è minima o quando il PDF sembra già ottimizzato
+- quando il risultato richiesto è un PDF in scala di grigi da immagini, il bot lo genera direttamente in grigio invece di creare prima un PDF a colori e riconvertirlo dopo
 - le immagini con lato molto grande vengono ridotte prima della conversione, entro `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX`, per proteggere RAM e CPU della VPS
-- nei batch, ogni immagine preparata viene scritta come PDF temporaneo di una pagina e poi unita nel PDF finale, cosi il processo evita di tenere tutte le pagine rasterizzate in memoria contemporaneamente
+- nei batch, ogni immagine preparata viene scritta come PDF temporaneo di una pagina e poi unita nel PDF finale, così il processo evita di tenere tutte le pagine rasterizzate in memoria contemporaneamente
 
 ## Auto-orientamento PDF
 
@@ -100,7 +100,7 @@ Quando il flusso lo supporta:
 - il sistema osserva l'orientamento dominante delle pagine
 - ruota solo le pagine che risultano fuori direzione rispetto alla maggioranza
 - se interviene, il messaggio finale lo esplicita
-- il bot puo offrire un rerun senza auto-rotazione
+- il bot può offrire un rerun senza auto-rotazione
 
 Scopo:
 
@@ -112,7 +112,7 @@ Scopo:
 
 Serve soprattutto per:
 
-- scala di grigi piu fedele su alcuni PDF
+- scala di grigi più fedele su alcuni PDF
 - compressione PDF nativa in alcuni preset
 
 Per evitare job troppo lunghi:
@@ -124,15 +124,15 @@ Se fallisce o non esiste:
 
 - la pipeline non si ferma subito
 - prova altre strategie
-- i messaggi utente cercano di anticipare che, nei casi complessi, il risultato potrebbe richiedere piu tempo o passare a un fallback compatibile
+- i messaggi utente cercano di anticipare che, nei casi complessi, il risultato potrebbe richiedere più tempo o passare a un fallback compatibile
 
 ## Quando entra in gioco il raster fallback
 
-Il fallback raster viene usato quando i tentativi piu conservativi non bastano.
+Il fallback raster viene usato quando i tentativi più conservativi non bastano.
 
 Implicazioni:
 
 - il risultato visivo viene mantenuto
-- il PDF puo perdere caratteristiche native utili
-- per questo e importante tracciare bene quanto spesso accade
+- il PDF può perdere caratteristiche native utili
+- per questo è importante tracciare bene quanto spesso accade
 - quando questo succede, i messaggi finali cercano di esplicitare meglio il compromesso fatto sul PDF nativo

@@ -68,7 +68,7 @@ def _parse_document_photo_mode_choice(text: str) -> DocumentPhotoMode | None:
         ("bianco e nero", "bianco nero", "b/n", "bn", "black white", "bw", "monocromatico"),
     ):
         return DocumentPhotoMode.BW
-    if _contains_any(normalized, ("piu leggibile", "più leggibile", "leggibile", "contrasto", "pulito")):
+    if _contains_any(normalized, ("piu leggibile", "leggibile", "contrasto", "pulito")):
         return DocumentPhotoMode.READABLE
     return None
 
@@ -183,7 +183,7 @@ def _infer_split_output_zip(text: str, tokens: list[str]) -> bool | None:
 def _build_page_action_clarification(page_selection: str | None) -> str:
     selection_suffix = f" ({page_selection})" if page_selection else ""
     return (
-        "Ho capito che stai parlando di pagine, ma non mi e ancora chiaro cosa vuoi fare"
+        "Ho capito che stai parlando di pagine, ma non mi è ancora chiaro cosa vuoi fare"
         f"{selection_suffix}.\n"
         "Posso fare una cosa per volta: `estrai pagine`, `elimina pagine` oppure `riordina pagine`."
     )
@@ -191,7 +191,7 @@ def _build_page_action_clarification(page_selection: str | None) -> str:
 
 def _build_multi_action_clarification(actions: tuple[str, str]) -> str:
     return (
-        "In questa frase vedo piu operazioni insieme.\n"
+        "In questa frase vedo più operazioni insieme.\n"
         f"Posso eseguire una cosa per volta: `{actions[0]}` oppure `{actions[1]}`.\n"
         "Dimmi quale vuoi fare adesso e la prendo subito in carico."
     )
@@ -500,9 +500,9 @@ def _build_quick_action_guidance(session: UserSession | None, text: str) -> str 
 
     if text in {"Crea PDF", "Crea PDF da immagini"}:
         if session is None or not session.files:
-            return "Inviami una o piu immagini e creerò un PDF unico. Se vuoi, puoi mandarne diverse nella stessa sessione."
+            return "Inviami una o più immagini e creerò un PDF unico. Se vuoi, puoi mandarne diverse nella stessa sessione."
         if {item.kind for item in session.files} == {FileKind.PDF}:
-            return "Per creare un PDF da immagini devo partire da foto o scansioni. Usa /reset e inviami una o piu immagini."
+            return "Per creare un PDF da immagini devo partire da foto o scansioni. Usa /reset e inviami una o più immagini."
 
     if text == "Comprimi PDF":
         if session is None or not session.files:
@@ -514,7 +514,7 @@ def _build_quick_action_guidance(session: UserSession | None, text: str) -> str 
 
     if text == "Unisci PDF":
         if session is None or not session.files:
-            return "Inviami due o piu PDF nella stessa sessione e li unirò in un file unico."
+            return "Inviami due o più PDF nella stessa sessione e li unirò in un file unico."
         if {item.kind for item in session.files} == {FileKind.IMAGE}:
             return "Per unire servono PDF, non immagini. Se vuoi, posso prima creare un PDF dalle immagini che hai inviato."
         if len(session.files) == 1:
@@ -522,7 +522,7 @@ def _build_quick_action_guidance(session: UserSession | None, text: str) -> str 
 
     if "foto in a4" in normalized or "immagini in a4" in normalized:
         if session is None or not session.files:
-            return "Inviami una o piu immagini e ti guidero subito verso un PDF impaginato in A4."
+            return "Inviami una o più immagini e ti guiderò subito verso un PDF impaginato in A4."
         if {item.kind for item in session.files} == {FileKind.IMAGE}:
             return "Perfetto: scegli 'PDF da immagini' e poi conferma l'impaginazione A4. Se vuoi, puoi anche aggiungere altre foto prima."
         return "Per il template 'foto in A4' devo partire da immagini o foto, non da PDF."
@@ -530,7 +530,7 @@ def _build_quick_action_guidance(session: UserSession | None, text: str) -> str 
     if "scansiona e comprimi" in normalized or ("scansiona" in normalized and "comprimi" in normalized):
         if session is None or not session.files:
             return (
-                "Inviami una o piu foto del documento. Ti conviene partire con un PDF da immagini, meglio ancora con ritaglio bordi, "
+                "Inviami una o più foto del documento. Ti conviene partire con un PDF da immagini, meglio ancora con ritaglio bordi, "
                 "e poi comprimere il risultato finale con un secondo passaggio guidato."
             )
         if {item.kind for item in session.files} == {FileKind.IMAGE}:
@@ -539,6 +539,6 @@ def _build_quick_action_guidance(session: UserSession | None, text: str) -> str 
                 "2) comprimere il PDF finale dal messaggio risultato, senza ricaricarlo."
             )
         if {item.kind for item in session.files} == {FileKind.PDF}:
-            return "Se hai gia un PDF, puoi saltare la parte scansione e comprimere direttamente il file corrente."
+            return "Se hai già un PDF, puoi saltare la parte scansione e comprimere direttamente il file corrente."
 
     return None

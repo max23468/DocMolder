@@ -4,30 +4,30 @@ Questa guida serve per usare `chatgpt.com` come postazione di lavoro e release s
 
 ## Stato attuale
 
-La VPS corretta di DocMolder e `docmolder.duckdns.org` (host operativo della macchina), non altri host del perimetro personale. Il deploy SSH diretto dal runtime Codex cloud verso la VPS non e affidabile, perche l'ambiente cloud non ha connettivita garantita verso la macchina.
+La VPS corretta di DocMolder è `docmolder.duckdns.org` (host operativo della macchina), non altri host del perimetro personale. Il deploy SSH diretto dal runtime Codex cloud verso la VPS non è affidabile, perché l'ambiente cloud non ha connettività garantita verso la macchina.
 
-In modalita standard senza GitHub Actions, il percorso consigliato e:
+In modalità standard senza GitHub Actions, il percorso consigliato è:
 
 1. Codex cloud prepara e pubblica il codice su GitHub.
 2. Il maintainer lascia che il webhook privato GitHub -> VPS lanci `sudo /opt/docmolder/app/deploy/update-vps.sh` quando il merge raggiunge `main`.
 3. La VPS applica installazione o aggiornamento locale senza fare `git pull`.
-4. Se la release automatica e abilitata in `/etc/docmolder/release.env`, la VPS crea bump, changelog, tag e GitHub Release senza usare Actions.
+4. Se la release automatica è abilitata in `/etc/docmolder/release.env`, la VPS crea bump, changelog, tag e GitHub Release senza usare Actions.
 5. Le verifiche operative si eseguono via SSH diretto o con i comandi locali del repo.
 
 ## Flusso consigliato da mobile
 
-Per deploy ordinari, il default operativo e il webhook privato GitHub -> VPS:
+Per deploy ordinari, il default operativo è il webhook privato GitHub -> VPS:
 
 1. fai lavorare Codex sul branch desiderato
 2. porta la modifica su `main` quando serve pubblicarla
-3. lascia che il webhook GitHub esegua il deploy, oppure aggiorna la VPS manualmente con `sudo /opt/docmolder/app/deploy/update-vps.sh` se il webhook non e disponibile
+3. lascia che il webhook GitHub esegua il deploy, oppure aggiorna la VPS manualmente con `sudo /opt/docmolder/app/deploy/update-vps.sh` se il webhook non è disponibile
 
 Per deploy di una revisione specifica:
 
 - usa il webhook privato o il deploy manuale sulla VPS per un commit o ref specifico
 - passa `target_ref` a `update-vps.sh` se vuoi deployare un commit o ref specifico
 - usa `VPS Check` solo se vuoi verificare stato servizio, timer, disco e healthcheck senza copiare file
-- usa `Rollback VPS` solo se devi ripristinare una revisione gia nota
+- usa `Rollback VPS` solo se devi ripristinare una revisione già nota
 
 Il deploy automatico su `main` non usa GitHub Actions. I cambi solo documentali, test, changelog, issue template, istruzioni agent o workflow GitHub non attivano deploy; se serve comunque aggiornare la VPS dopo uno di quei cambi, usa il percorso manuale sulla VPS.
 
@@ -53,9 +53,9 @@ Note operative:
 
 ## Fallback locale
 
-Gli script `make cloud-prepare-ssh` e `make deploy-vps` restano utili per test locali o ambienti che abbiano connettivita diretta verso la VPS.
+Gli script `make cloud-prepare-ssh` e `make deploy-vps` restano utili per test locali o ambienti che abbiano connettività diretta verso la VPS.
 
-Su `chatgpt.com`, il percorso da considerare ufficiale e il webhook GitHub quando la VPS e configurata; il deploy manuale sulla VPS resta il fallback operativo.
+Su `chatgpt.com`, il percorso da considerare ufficiale è il webhook GitHub quando la VPS è configurata; il deploy manuale sulla VPS resta il fallback operativo.
 
 ## Verifiche post deploy
 

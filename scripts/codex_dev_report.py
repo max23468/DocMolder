@@ -65,7 +65,7 @@ def risk_notes(branch: str, report: dict[str, object]) -> list[str]:
     if report.get("deploy_relevant"):
         notes.append("Diff deploy-relevant: aspettati Deploy VPS dopo merge su main.")
     if report.get("dependency_relevant"):
-        notes.append("Diff dipendenze: controlla dependency review e compatibilita runtime.")
+        notes.append("Diff dipendenze: controlla dependency review e compatibilità runtime.")
     if not report.get("changed_count"):
         notes.append("Nessun cambio rilevato rispetto alla base.")
     return notes
@@ -81,9 +81,9 @@ def print_text(branch: str, sha: str, report: dict[str, object], *, base: str) -
     print("\n## Impatto")
     print(f"- File cambiati: {report.get('changed_count', 0)}")
     print(f"- Tipo consigliato: {report.get('recommended_release_type')}")
-    print(f"- Deploy relevant: {'si' if report.get('deploy_relevant') else 'no'}")
-    print(f"- Runtime/code relevant: {'si' if report.get('code_relevant') else 'no'}")
-    print(f"- Release-owned: {'si' if report.get('release_owned') else 'no'}")
+    print(f"- Deploy relevant: {'sì' if report.get('deploy_relevant') else 'no'}")
+    print(f"- Runtime/code relevant: {'sì' if report.get('code_relevant') else 'no'}")
+    print(f"- Release-owned: {'sì' if report.get('release_owned') else 'no'}")
 
     changed = report.get("changed_files", [])
     if changed:
@@ -108,7 +108,7 @@ def print_text(branch: str, sha: str, report: dict[str, object], *, base: str) -
     print("- Usa `python3 scripts/agent_parallel_safe.py --owner <owner>` prima di editare aree condivise.")
     print("- Usa `python3 scripts/generate_pr_body.py --base <base>` prima di aprire la PR.")
     print("- Usa `python3 scripts/github_maintenance_report.py` per manutenzione/release GitHub.")
-    print("- Usa `python3 scripts/ops_report.py` per osservabilita locale/VPS.")
+    print("- Usa `python3 scripts/ops_report.py` per osservabilità locale/VPS.")
 
 
 def main() -> int:

@@ -363,7 +363,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertTrue(result.output_path.exists())
         self.assertEqual(result.processing_mode, "opencv")
         self.assertIn("Correzione prospettica applicata a 1", result.message)
-        self.assertIn("foglio e vicino ai bordi", result.message)
+        self.assertIn("foglio è vicino ai bordi", result.message)
 
     def test_document_photo_fix_handles_realistic_synthetic_batch(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_realistic_document_batch" / "input"
@@ -592,7 +592,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         result = self.processor.compress_pdf(pdf_path, "already_small_light", CompressionPreset.LIGHT)
 
         self.assertTrue(result.output_path.exists())
-        self.assertIn("non lo rende piu leggero", result.message)
+        self.assertIn("non lo rende più leggero", result.message)
 
     def test_auto_rotate_pdf_to_dominant_orientation_rotates_outlier_pages(self) -> None:
         pdf_path = self.runtime_dir / "mostly_portrait.pdf"

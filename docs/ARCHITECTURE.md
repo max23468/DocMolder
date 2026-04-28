@@ -8,7 +8,7 @@ Panoramica rapida dell'architettura corrente di `DocMolder`.
 - moduli principali
 - flussi principali
 - persistenza e runtime
-- osservabilita minima
+- osservabilità minima
 - limiti da tenere presenti
 
 Documenti collegati:
@@ -22,7 +22,7 @@ Documenti collegati:
 
 ## Scopo
 
-`DocMolder` e un bot Telegram-first per trasformazioni guidate di PDF e immagini.
+`DocMolder` è un bot Telegram-first per trasformazioni guidate di PDF e immagini.
 
 Il prodotto resta:
 
@@ -31,7 +31,7 @@ Il prodotto resta:
 - best-effort, senza SLA formale
 - focalizzato su output immediato e retention breve dei file temporanei
 
-Non e:
+Non è:
 
 - un gestionale documentale completo
 - uno storage permanente di file utente
@@ -52,7 +52,7 @@ Non e:
 - `src/docmolder/bot.py`
   - handler Telegram, wizard utente, admin console, queue worker e messaggi
 - `src/docmolder/action_catalog.py`
-  - catalogo centrale di azioni, analisi sessione, naming output e compatibilita tra file e operazioni
+  - catalogo centrale di azioni, analisi sessione, naming output e compatibilità tra file e operazioni
 - `src/docmolder/telegram_messaging.py`
   - chunking messaggi lunghi e fallback parse-mode per invii Telegram gestiti
 - limiti leggeri per upload e job utente
@@ -127,13 +127,13 @@ Non e:
 2. Lo stesso flusso espone una cancellazione completa con conferma inline obbligatoria.
 3. La cancellazione completa rimuove dati live dell'utente: sessione, preferenze, preset, storico job personale, usage events e metadati utente.
 4. Le voci audit che riferiscono l'utente vengono anonimizzate; i log restano sintetici.
-5. I backup SQLite gia creati non vengono riscritti retroattivamente e scadono secondo la retention dei backup.
+5. I backup SQLite già creati non vengono riscritti retroattivamente e scadono secondo la retention dei backup.
 
-### Admin e operativita
+### Admin e operatività
 
 1. Gli admin configurati con `DOCMOLDER_ADMIN_USER_IDS` usano `/admin` come ingresso unico.
 2. La dashboard inline legge stato runtime, SQLite, worker, accessi pending, ultimi job e metriche leggere.
-3. I callback della dashboard governano la modalita manutenzione.
+3. I callback della dashboard governano la modalità manutenzione.
 4. Le richieste accesso automatiche e i callback admin di review gestiscono accesso dinamico persistito in `app_meta`.
 
 ## Persistenza e runtime
@@ -152,8 +152,8 @@ Asset principali:
 Regole:
 
 - i file utente sono temporanei e non sono prodotto permanente
-- lo storico persistente riguarda job, metadati e metriche leggere, non il contenuto dei documenti, ed e soggetto a pruning
-- SQLite e il target corrente per singola VPS e carico controllato
+- lo storico persistente riguarda job, metadati e metriche leggere, non il contenuto dei documenti, ed è soggetto a pruning
+- SQLite è il target corrente per singola VPS e carico controllato
 - una crescita rilevante di concorrenza o retention richiede una nuova decisione architetturale
 
 ## Path operativi stabili
@@ -163,7 +163,7 @@ Regole:
 - `scripts/` resta il percorso degli strumenti locali, CI e publishing richiamati da Makefile, workflow e runbook
 - eventuali riorganizzazioni future di questi percorsi devono introdurre prima wrapper compatibili nei path storici, poi aggiornare workflow e documentazione
 
-## Osservabilita minima
+## Osservabilità minima
 
 Canali attuali:
 
@@ -190,9 +190,9 @@ Eventi e log devono permettere di correlare almeno:
 ## Limiti da tenere presenti
 
 - il bot usa polling Telegram, non webhook pubblici
-- l'automazione deploy puo usare un webhook GitHub privato sulla VPS, ma non espone il bot come servizio web generale
-- il runtime e pensato per un singolo nodo applicativo
+- l'automazione deploy può usare un webhook GitHub privato sulla VPS, ma non espone il bot come servizio web generale
+- il runtime è pensato per un singolo nodo applicativo
 - i file temporanei devono restare sotto cleanup attivo
 - i log non devono contenere contenuti dei documenti
 - i fallback raster possono produrre output meno ricchi del PDF nativo
-- Ghostscript e opzionale ma utile per alcuni flussi PDF
+- Ghostscript è opzionale ma utile per alcuni flussi PDF

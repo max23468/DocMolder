@@ -1,6 +1,6 @@
 # Roadmap Prodotto
 
-Questa roadmap raccoglie le priorita attuali di `DocMolder` dopo la
+Questa roadmap raccoglie le priorità attuali di `DocMolder` dopo la
 promozione alla linea stabile `1.x`.
 
 Va letta dentro il perimetro definito in [docs/DECISIONS.md](./DECISIONS.md):
@@ -17,8 +17,8 @@ funzioni.
 - [Fase 9: Privacy, retention e lifecycle dati](#fase-9-privacy-retention-e-lifecycle-dati)
 - [Fase 10: UX pubblica e trust](#fase-10-ux-pubblica-e-trust)
 - [Fase 11: Preset e automazioni leggere](#fase-11-preset-e-automazioni-leggere)
-- [Fase 12: Qualita output e scansioni](#fase-12-qualita-output-e-scansioni)
-- [Fase 13: Osservabilita e scala prudente](#fase-13-osservabilita-e-scala-prudente)
+- [Fase 12: Qualità output e scansioni](#fase-12-qualità-output-e-scansioni)
+- [Fase 13: Osservabilità e scala prudente](#fase-13-osservabilità-e-scala-prudente)
 - [Fuori perimetro 1.x iniziale](#fuori-perimetro-1x-iniziale)
 
 ## Storico completato
@@ -26,7 +26,7 @@ funzioni.
 Le Fasi 1-8 sono completate:
 
 - rifinitura prodotto
-- affidabilita operativa avanzata
+- affidabilità operativa avanzata
 - comprensione linguaggio naturale
 - estensioni PDF mirate
 - evoluzione esperienza utente
@@ -34,7 +34,7 @@ Le Fasi 1-8 sono completate:
 - robustezza VPS e performance
 - ottimizzazione del funzionamento
 
-La readiness 1.0 e completata. `DocMolder` e stato promosso a `1.0.0` il
+La readiness 1.0 è completata. `DocMolder` è stato promosso a `1.0.0` il
 2026-04-28; la linea stabile corrente e documentata nel changelog e nelle
 GitHub Releases. Il documento
 [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md) resta come record della
@@ -42,17 +42,17 @@ decisione, dei criteri e degli smoke eseguiti.
 
 ## Stato post-1.5
 
-La roadmap operativa 1.x iniziale e completata con `docmolder-v1.5.0`.
+La roadmap operativa 1.x iniziale è completata con `docmolder-v1.5.0`.
 
 Stato corrente:
 
-- nessuna nuova fase di sviluppo e attiva
-- lo sviluppo feature resta in pausa finche non emergono bugfix, priorita
-  prodotto, segnali operativi o novita esterne rilevanti
+- nessuna nuova fase di sviluppo è attiva
+- lo sviluppo feature resta in pausa finché non emergono bugfix, priorità
+  prodotto, segnali operativi o novità esterne rilevanti
 - il focus passa a stabilizzazione prudente, osservazione del soft launch e
   manutenzione ordinaria
 
-Priorita operative immediate:
+Priorità operative immediate:
 
 - monitorare `/admin`, healthcheck, log recenti, alert Telegram admin e soglie
   Fase 13
@@ -61,13 +61,13 @@ Priorita operative immediate:
 - raccogliere eventuali frizioni UX o failure ricorrenti prima di definire una
   nuova fase
 - mantenere aggiornate roadmap e decisioni solo quando cambia davvero
-  perimetro, comportamento o priorita
+  perimetro, comportamento o priorità
 
 Condizioni per riaprire sviluppo:
 
 - bug riproducibile o regressione utente
 - soglia operativa superata in modo ricorrente
-- feedback utente che indica attrito concreto in un flusso gia supportato
+- feedback utente che indica attrito concreto in un flusso già supportato
 - decisione esplicita di prodotto su una nuova fase, mantenendo il perimetro
   Telegram-first e best-effort
 
@@ -77,27 +77,27 @@ La linea 1.x non cambia il perimetro prodotto: `DocMolder` resta una utility
 documentale Telegram-first, pubblica ma best-effort, con retention breve dei
 file utente e senza storage documentale permanente.
 
-Priorita di sequenza:
+Priorità di sequenza:
 
 1. chiudere privacy, retention e cancellazione dati prima di nuove feature
    rilevanti
-2. rendere piu chiaro l'uso pubblico prudente del bot
-3. introdurre solo automazioni leggere che riducono attrito nei flussi gia
+2. rendere più chiaro l'uso pubblico prudente del bot
+3. introdurre solo automazioni leggere che riducono attrito nei flussi già
    supportati
-4. migliorare qualita e diagnosi degli output senza promettere comprensione
+4. migliorare qualità e diagnosi degli output senza promettere comprensione
    documentale generale
-5. rafforzare osservabilita e guardrail prima di una promozione pubblica piu
+5. rafforzare osservabilità e guardrail prima di una promozione pubblica più
    ampia
 
 ## Decisioni confermate per la linea 1.x
 
 - Postura pubblica: soft launch pubblico. Il bot resta raggiungibile, ma senza
-  promozione ampia finche privacy/retention, UX trust e osservabilita minima
+  promozione ampia finché privacy/retention, UX trust e osservabilità minima
   non sono chiuse.
 - Lingua prodotto: italiano-first per la 1.x iniziale, senza localizzazione
   inglese nel perimetro corrente.
 - Privacy pubblica: rafforzare sia i testi del bot sia il sito statico; il bot
-  usa messaggi brevi, il sito contiene il testo piu completo su dati, retention
+  usa messaggi brevi, il sito contiene il testo più completo su dati, retention
   e limiti.
 - Onboarding: `/start` deve includere una frase breve sul fatto che i file sono
   usati per la lavorazione e non archiviati permanentemente; i dettagli stanno
@@ -112,22 +112,22 @@ Priorita di sequenza:
   cancellabili con `/reset` o cancellazione dati, senza salvare contenuti o nomi
   file.
 - Retry con stesse impostazioni: solo per job recenti e compatibili. Se i file
-  temporanei non sono piu disponibili, il bot chiede di reinviare il file.
-- Qualita scansioni: evolvere dentro l'azione "Raddrizza foto documento", con
-  opzioni leggere come piu leggibile, mantieni colore e bianco/nero pulito.
+  temporanei non sono più disponibili, il bot chiede di reinviare il file.
+- Qualità scansioni: evolvere dentro l'azione "Raddrizza foto documento", con
+  opzioni leggere come più leggibile, mantieni colore e bianco/nero pulito.
 - OCR: fuori dalla roadmap 1.x iniziale. Sono ammesse solo esplorazioni
   tecniche non pubbliche, senza promesse utente.
-- Osservabilita: `/admin` e il centro di diagnosi rapida; shell e runbook
+- Osservabilità: `/admin` è il centro di diagnosi rapida; shell e runbook
   restano il percorso per interventi operativi veri.
 - Soglie di crescita: definire soglie prudenziali iniziali in Fase 13 su
   job/giorno, utenti attivi, dimensione DB, failure rate e coda, poi rivederle
   con dati reali.
 - Promozione pubblica: mini-promozione controllata possibile dopo Fase 10 solo
-  se Fase 9 e chiusa; promozione piu ampia solo se le soglie Fase 13 restano
+  se Fase 9 è chiusa; promozione più ampia solo se le soglie Fase 13 restano
   sotto controllo con dati reali.
 - Canali: nessun nuovo canale oltre Telegram e sito statico nella 1.x iniziale.
   Niente web app e niente API pubbliche.
-- Release strategy: ogni fase puo uscire come release propria; le feature
+- Release strategy: ogni fase può uscire come release propria; le feature
   utente vere, in particolare da Fase 11, usano commit/PR rilasciabili coerenti
   con [VERSIONING.md](./VERSIONING.md).
 
@@ -137,7 +137,7 @@ Stato: completata.
 
 Obiettivo:
 
-- rendere il bot pubblico piu difendibile prima di aumentare uso e funzioni
+- rendere il bot pubblico più difendibile prima di aumentare uso e funzioni
 
 Deliverable principali:
 
@@ -152,9 +152,9 @@ Deliverable principali:
 
 Criteri soddisfatti:
 
-- l'utente puo cancellare i propri dati live senza intervento admin
+- l'utente può cancellare i propri dati live senza intervento admin
 - `/reset` resta un reset leggero di sessione e preferenze rapide, senza
-  ambiguita con cancellazione completa nello stesso percorso
+  ambiguità con cancellazione completa nello stesso percorso
 - reconcile espone pruning eseguito e retention applicata
 - log e audit registrano solo eventi sintetici, senza contenuti documentali
 - governance, modello dati e operations Telegram sono coerenti con il
@@ -176,21 +176,21 @@ Obiettivo:
 
 Deliverable principali:
 
-- messaggi `/start` e `/help` piu chiari su cosa fa il bot e quali limiti ha
+- messaggi `/start` e `/help` più chiari su cosa fa il bot e quali limiti ha
 - ingresso semplice a privacy, retention e limiti tramite help, status o deep
   link essenziale
 - sito statico allineato allo stato 1.x: CTA Telegram, privacy sintetica,
   limiti file e perimetro del servizio
-- testo breve gia in `/start` sul fatto che i file non sono archiviati
+- testo breve già in `/start` sul fatto che i file non sono archiviati
   permanentemente
-- messaggi piu pratici per file troppo grandi, coda piena, manutenzione, job
+- messaggi più pratici per file troppo grandi, coda piena, manutenzione, job
   fallito e retry
 - smoke pubblico minimo post-deploy: start, help, status, upload minimo,
   output e cancellazione dati
 
 Criteri soddisfatti:
 
-- un nuovo utente capisce rapidamente cosa puo fare e cosa non deve aspettarsi
+- un nuovo utente capisce rapidamente cosa può fare e cosa non deve aspettarsi
 - privacy e limiti sono visibili prima o durante il primo uso reale
 - i messaggi di errore indicano un prossimo passo utile
 - il sito resta statico e non introduce una superficie applicativa web
@@ -198,7 +198,7 @@ Criteri soddisfatti:
 Note di perimetro:
 
 - niente dashboard web-first
-- niente SLA o promessa di disponibilita continua
+- niente SLA o promessa di disponibilità continua
 
 ## Fase 11: Preset e automazioni leggere
 
@@ -224,7 +224,7 @@ Deliverable principali:
 
 Criteri soddisfatti:
 
-- l'utente ricorrente riduce i passaggi nei flussi piu frequenti
+- l'utente ricorrente riduce i passaggi nei flussi più frequenti
 - ogni preset resta opzionale e non impedisce la scelta manuale
 - preset e preferenze non salvano contenuti documento o dati sensibili
 - `/reset` e cancellazione completa rimuovono preferenze e preset
@@ -236,27 +236,27 @@ Note di perimetro:
 - i preset riguardano impostazioni operative, non profili documentali o
   archivi di file
 
-## Fase 12: Qualita output e scansioni
+## Fase 12: Qualità output e scansioni
 
 Stato: completata.
 
 Obiettivo:
 
-- migliorare i risultati documentali nei flussi gia coerenti con il prodotto
+- migliorare i risultati documentali nei flussi già coerenti con il prodotto
 
 Deliverable principali:
 
-- feedback piu chiaro quando una foto documento e sfocata, buia, senza bordo
+- feedback più chiaro quando una foto documento e sfocata, buia, senza bordo
   leggibile o con prospettiva incerta
-- opzioni leggere dentro "Raddrizza foto documento", come piu leggibile,
+- opzioni leggere dentro "Raddrizza foto documento", come più leggibile,
   mantieni colore o bianco/nero pulito
 - feedback pratico sulla compressione, inclusi casi in cui riduce poco o non
   conviene
-- test sintetici piu rappresentativi per foto documento e PDF problematici
+- test sintetici più rappresentativi per foto documento e PDF problematici
 
 Criteri soddisfatti:
 
-- gli output da foto reali diventano piu prevedibili
+- gli output da foto reali diventano più prevedibili
 - fallback ed errori spiegano il limite senza colpevolizzare l'utente
 - il bot suggerisce come riprovare quando input o risultato non sono ideali
 - i miglioramenti non degradano i percorsi nativi PDF quando disponibili
@@ -269,7 +269,7 @@ Note di perimetro:
 - eventuali prove OCR devono restare esplorazioni tecniche non promesse agli
   utenti
 
-## Fase 13: Osservabilita e scala prudente
+## Fase 13: Osservabilità e scala prudente
 
 Stato: completata.
 
@@ -280,15 +280,15 @@ Obiettivo:
 
 Deliverable principali:
 
-- dashboard admin piu utile per uso pubblico: utenti attivi recenti, failure
+- dashboard admin più utile per uso pubblico: utenti attivi recenti, failure
   rate per azione, job lenti, pruning e cancellazioni dati
 - soglie health riviste dopo osservazione reale su coda, RAM, runtime dir,
   backup, failure rate e job running stale
-- alert Telegram admin piu orientati all'azione, con indicazione del runbook o
+- alert Telegram admin più orientati all'azione, con indicazione del runbook o
   comando utile
 - soglie prudenziali iniziali su job/giorno, utenti attivi, dimensione DB,
   failure rate e coda
-- criterio scritto per capire quando SQLite o VPS singola non bastano piu
+- criterio scritto per capire quando SQLite o VPS singola non bastano più
 - runbook di emergenza per manutenzione, allow-list temporanea, pruning manuale
   e rollback
 
@@ -298,7 +298,7 @@ Criteri soddisfatti:
   runbook senza interrogare manualmente SQLite
 - esiste un criterio chiaro per fermare crescita, restringere accesso o
   rivalutare architettura
-- il servizio resta coerente con VPS singola e bot Telegram in polling finche i
+- il servizio resta coerente con VPS singola e bot Telegram in polling finché i
   limiti sono rispettati
 - gli alert admin indicano un controllo successivo utile invece di limitarsi al
   sintomo
@@ -320,4 +320,4 @@ Restano fuori dalla roadmap iniziale 1.x, salvo decisione esplicita:
 - OCR esteso o comprensione documento generalista
 
 Questi temi possono essere rivalutati solo dopo aver chiuso privacy/retention,
-uso pubblico prudente e osservabilita minima della linea 1.x.
+uso pubblico prudente e osservabilità minima della linea 1.x.

@@ -53,11 +53,11 @@ Ma non puoi:
 - impersonare un utente reale che scrive al bot
 - coprire da sola un flusso end-to-end chat-first
 
-Per i veri smoke test dei flussi utente, il canale giusto e una automazione della chat utente, oggi tramite Telegram Desktop.
+Per i veri smoke test dei flussi utente, il canale giusto è una automazione della chat utente, oggi tramite Telegram Desktop.
 
 ### Script disponibile
 
-E disponibile lo script:
+È disponibile lo script:
 
 - [scripts/smoke_telegram_desktop.py](../scripts/smoke_telegram_desktop.py)
 
@@ -73,7 +73,7 @@ Oppure:
 .venv/bin/python scripts/smoke_telegram_desktop.py --plan full
 ```
 
-Modalita utili:
+Modalità utili:
 
 ```bash
 .venv/bin/python scripts/smoke_telegram_desktop.py --list-plans
@@ -104,8 +104,8 @@ Lo script:
 
 ### Prerequisiti
 
-- Telegram Desktop aperto e gia autenticato
-- permessi Accessibilita abilitati per Terminale / app che esegue lo script
+- Telegram Desktop aperto e già autenticato
+- permessi Accessibilità abilitati per Terminale / app che esegue lo script
 - virtualenv del progetto disponibile
 
 ### Vantaggio pratico
@@ -200,9 +200,9 @@ Suggerimento:
 - usare 2 immagini semplici e 1 PDF minimo
 - evitare file reali utente nei test manuali
 
-Gli asset vengono gia creati automaticamente dallo script desktop in `tmp/manual-test-assets/`.
+Gli asset vengono già creati automaticamente dallo script desktop in `tmp/manual-test-assets/`.
 
-Se in futuro servira un livello ancora piu forte, la strada giusta non e la Bot API ma un client utente dedicato via MTProto, con credenziali separate di test.
+Se in futuro servirà un livello ancora più forte, la strada giusta non è la Bot API ma un client utente dedicato via MTProto, con credenziali separate di test.
 
 ## Raccomandazione Operativa
 

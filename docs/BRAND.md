@@ -2,12 +2,12 @@
 
 ## Sintesi
 
-`DocMolder` e una utility documentale Telegram-first per privati, freelance e professionisti.
+`DocMolder` è una utility documentale Telegram-first per privati, freelance e professionisti.
 
-La direzione scelta per il brand e:
+La direzione scelta per il brand è:
 
-- professionale, per comunicare affidabilita sul lavoro con documenti
-- smart, per far percepire velocita e fluidita
+- professionale, per comunicare affidabilità sul lavoro con documenti
+- smart, per far percepire velocità e fluidità
 - amichevole, per mantenere il bot semplice e vicino all'utente
 
 Tagline guida:
@@ -27,7 +27,7 @@ Messaggio chiave:
 
 - `Manda il file, scegli l'azione, ricevi il risultato.`
 
-## Identita visiva
+## Identità visiva
 
 ### Idea del logo
 
@@ -81,7 +81,7 @@ Il marchio combina:
 ### Sistema
 
 - `marchio`: simbolo circolare con documento e badge corallo, per avatar, icone e contesti compatti
-- `wordmark`: scritta `DocMolder`, per header, materiali editoriali e casi in cui il nome deve pesare di piu
+- `wordmark`: scritta `DocMolder`, per header, materiali editoriali e casi in cui il nome deve pesare di più
 - `logo orizzontale`: marchio + nome + tagline, per share card, presentazioni e materiali promozionali
 
 ### Clear space
@@ -100,20 +100,20 @@ Il marchio combina:
 ### Sfondi
 
 - su sfondi chiari, usa il `wordmark` ink oppure il `marchio` completo
-- su sfondi scuri, preferisci il `marchio` completo o il `logo orizzontale` gia esportato
-- evita sfondi troppo vicini al `coral` o al `teal` se riducono contrasto e leggibilita
+- su sfondi scuri, preferisci il `marchio` completo o il `logo orizzontale` già esportato
+- evita sfondi troppo vicini al `coral` o al `teal` se riducono contrasto e leggibilità
 
 ### Da evitare
 
 - non deformare il marchio in orizzontale o verticale
 - non cambiare i colori del badge, della barra teal o del fondo slate
 - non ricostruire il logo da pezzi separati in tool esterni
-- non usare vecchie proposte o varianti non piu presenti in repository
+- non usare vecchie proposte o varianti non più presenti in repository
 
 ### Pattern di microcopy
 
 - bene: `Ti propongo solo le azioni compatibili con i file ricevuti.`
-- bene: `Ti invio il PDF appena e pronto.`
+- bene: `Ti invio il PDF appena è pronto.`
 - bene: `Se preferisci, uso un fallback compatibile.`
 
 Da evitare:

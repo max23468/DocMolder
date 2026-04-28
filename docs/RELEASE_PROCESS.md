@@ -22,7 +22,7 @@ Percorso standard:
 4. fai review/merge della PR pronta
 5. dopo il merge, verifica webhook VPS, deploy e auto-release
 
-`publish_change.sh` esegue gia `publish_doctor`, `preflight_publish`, commit
+`publish_change.sh` esegue già `publish_doctor`, `preflight_publish`, commit
 se necessario, push, generazione body PR e controllo commenti Codex connector.
 Non aspettare GitHub Actions nel flusso ordinario.
 
@@ -45,7 +45,7 @@ Regole operative essenziali:
 - usa `DOCMOLDER_PUBLISH_DRAFT=1` solo quando vuoi aprire una PR draft esplicita
 - usa `DOCMOLDER_PUBLISH_MERGE=1` solo quando vuoi un merge assistito dopo gate locali e controllo commenti bot
 - usa `DOCMOLDER_USE_GH_ACTIONS=1` solo come fallback legacy raro per watch/check/ready/auto-merge basato su Actions
-- prima di aprire o aggiornare una PR puoi usare `scripts/publish_doctor.py --fail`, ma il comando di publish lo esegue gia automaticamente
+- prima di aprire o aggiornare una PR puoi usare `scripts/publish_doctor.py --fail`, ma il comando di publish lo esegue già automaticamente
 - prima di inseguire una run failed, controllare solo branch e SHA correnti con `scripts/current_failed_runs.py`
 - i dettagli della policy vivono in [VERSIONING.md](./VERSIONING.md)
 
@@ -67,7 +67,7 @@ policy resta [VERSIONING.md](./VERSIONING.md).
 
 ## Release
 
-Il flusso ufficiale senza GitHub Actions e:
+Il flusso ufficiale senza GitHub Actions è:
 
 1. merge della PR su `main`
 2. il webhook privato GitHub -> VPS esegue il deploy
@@ -77,7 +77,7 @@ Il flusso ufficiale senza GitHub Actions e:
 
 Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 
-Non usare piu il vecchio flusso di aggiornamento manuale del changelog per ogni modifica ordinaria.
+Non usare più il vecchio flusso di aggiornamento manuale del changelog per ogni modifica ordinaria.
 Non fare bump versione manuali nelle PR normali.
 
 ### Release major `X.0.0`
@@ -90,27 +90,27 @@ In pratica:
 1. apri o usa una PR dedicata alla preparazione della major;
 2. aggiungi nel corpo PR una sezione `Major release rationale`;
 3. chiarisci quali contratti cambiano o vengono dichiarati stabili: UX utente,
-   dati/sicurezza, operativita, deploy/release o perimetro prodotto;
+   dati/sicurezza, operatività, deploy/release o perimetro prodotto;
 4. completa smoke e rollback coerenti con il rischio della major;
-5. se la release automatica VPS e abilitata, imposta
+5. se la release automatica VPS è abilitata, imposta
    `DOCMOLDER_RELEASE_TARGET_VERSION=X.0.0` prima del merge della PR finale;
 6. rimuovi il target esplicito solo dopo aver verificato che auto-release abbia
    creato il tag `X.0.0` e che il commit di release sia stato deployato.
 
-Se la motivazione e solo "abbiamo accumulato abbastanza feature", resta una
-minor release. Se il cambio e solo interno e compatibile, resta patch/minor
+Se la motivazione è solo "abbiamo accumulato abbastanza feature", resta una
+minor release. Se il cambio è solo interno e compatibile, resta patch/minor
 secondo il tipo Conventional Commit.
 
 ### Promozione 1.0
 
-La promozione da `0.x` a `1.0.0` e un'eccezione intenzionale al bump naturale
+La promozione da `0.x` a `1.0.0` è un'eccezione intenzionale al bump naturale
 pre-1.0. Prima va completata la checklist in
 [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md).
 
-Per `1.0.0`, la `Major release rationale` puo essere una dichiarazione di
-stabilita del perimetro attuale, non necessariamente una breaking change.
+Per `1.0.0`, la `Major release rationale` può essere una dichiarazione di
+stabilità del perimetro attuale, non necessariamente una breaking change.
 
-Quando la decisione e confermata, l'auto-release puo ricevere un target esplicito.
+Quando la decisione è confermata, l'auto-release può ricevere un target esplicito.
 Nel percorso VPS automatico va impostato prima del merge della PR finale:
 
 ```bash
@@ -119,7 +119,7 @@ printf '\nDOCMOLDER_RELEASE_TARGET_VERSION=1.0.0\n' | sudo tee -a /etc/docmolder
 ```
 
 Dopo che il journal del webhook mostra `Released docmolder-v1.0.0.`, il tag o la
-GitHub Release esistono e il commit di release e stato deployato, rimuovere la
+GitHub Release esistono e il commit di release è stato deployato, rimuovere la
 riga:
 
 ```bash
@@ -134,11 +134,11 @@ DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0 .venv/bin/python scripts/auto_release.py 
 
 Il target va rimosso solo dopo questa conferma per tornare al normale SemVer
 automatico. Rimuoverlo subito dopo il merge, prima che il worker arrivi ad
-auto-release, puo far consumare il commit con il bump naturale `0.x`.
+auto-release, può far consumare il commit con il bump naturale `0.x`.
 
 `Release Please` non parte automaticamente. Resta eseguibile manualmente con
 `workflow_dispatch` solo come fallback esplicito se vuoi consumare Actions; il
-percorso automatico normale e quello VPS senza Actions.
+percorso automatico normale è quello VPS senza Actions.
 
 ## Verifica locale
 
@@ -165,9 +165,9 @@ quotidiano.
 
 ## Deploy
 
-La procedura operativa completa e in [docs/VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
-La strategia di smoke test post-deploy e in [docs/SMOKE_TESTS.md](./SMOKE_TESTS.md).
-Il flusso GitHub/Codex per lavorare senza Mac locale e in [docs/CODEX_CLOUD_DEPLOY.md](./CODEX_CLOUD_DEPLOY.md).
+La procedura operativa completa è in [docs/VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
+La strategia di smoke test post-deploy è in [docs/SMOKE_TESTS.md](./SMOKE_TESTS.md).
+Il flusso GitHub/Codex per lavorare senza Mac locale è in [docs/CODEX_CLOUD_DEPLOY.md](./CODEX_CLOUD_DEPLOY.md).
 
 In breve:
 

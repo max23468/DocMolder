@@ -164,7 +164,7 @@ def print_text(report: dict[str, object]) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Report osservabilita/operations per DocMolder.")
+    parser = argparse.ArgumentParser(description="Report osservabilità/operations per DocMolder.")
     parser.add_argument("--check-service", action="store_true", help="Controlla anche systemd nel healthcheck.")
     parser.add_argument("--json", action="store_true", help="Stampa JSON.")
     args = parser.parse_args()

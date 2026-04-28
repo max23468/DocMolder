@@ -1,16 +1,16 @@
 # Coordinamento Agenti
 
-Questo documento e il registro operativo leggero per coordinare piu chat, agenti o istanze Codex sullo stesso repository.
+Questo documento è il registro operativo leggero per coordinare più chat, agenti o istanze Codex sullo stesso repository.
 
-Non sostituisce roadmap, issue o PR. Serve a evitare conflitti, doppio lavoro e modifiche sovrapposte quando piu istanze lavorano in parallelo.
+Non sostituisce roadmap, issue o PR. Serve a evitare conflitti, doppio lavoro e modifiche sovrapposte quando più istanze lavorano in parallelo.
 
 ## Principi
 
 - Una chat principale dovrebbe fare da coordinatore quando il lavoro e ampio o distribuito.
-- Ogni agente parallelo deve avere un sotto-task circoscritto, con ownership chiara su file, moduli o responsabilita.
+- Ogni agente parallelo deve avere un sotto-task circoscritto, con ownership chiara su file, moduli o responsabilità.
 - Ogni filone non banale dovrebbe vivere su una branch o worktree dedicato, preferibilmente `codex/<tema>`.
-- La PR, appena esiste, diventa la fonte di verita per diff, check e review.
-- Il registro deve restare breve: aggiorna solo cio che aiuta un'altra istanza a capire cosa non rompere.
+- La PR, appena esiste, diventa la fonte di verità per diff, check e review.
+- Il registro deve restare breve: aggiorna solo ciò che aiuta un'altra istanza a capire cosa non rompere.
 
 ## Protocollo di avvio
 
@@ -20,11 +20,11 @@ Prima di modifiche non banali, una nuova chat o istanza deve:
 2. leggere questo documento;
 3. controllare branch o PR aperte rilevanti per l'area toccata;
 4. dichiarare o annotare l'ownership del lavoro;
-5. evitare file e flussi gia presidiati da un'altra istanza, salvo coordinamento esplicito.
+5. evitare file e flussi già presidiati da un'altra istanza, salvo coordinamento esplicito.
 
-Se la nuova chat implica modifiche ai file e il worktree corrente e gia sporco
+Se la nuova chat implica modifiche ai file e il worktree corrente è già sporco
 per modifiche non collegate alla richiesta, non continuare nello stesso
-worktree. Considera quel diff gia posseduto da un altro filone, crea
+worktree. Considera quel diff già posseduto da un altro filone, crea
 automaticamente una branch/worktree dedicata `codex/<tema>` da una base pulita e
 lavora li, mantenendo branch e PR separate. Non usare un semplice
 `git switch -c` sopra modifiche non tue: gli uncommitted changes seguirebbero la
@@ -38,13 +38,13 @@ python3 scripts/agent_start.py --area "<area>" --owner "<owner/chat>"
 
 ## Uso degli agenti
 
-Usa agenti paralleli solo quando il coordinatore puo assegnare lavori indipendenti.
+Usa agenti paralleli solo quando il coordinatore può assegnare lavori indipendenti.
 
 Buoni esempi:
 
 - esplorare una zona del codice e riportare evidenze;
 - implementare una patch circoscritta su file assegnati;
-- aggiungere test mirati per un comportamento gia deciso;
+- aggiungere test mirati per un comportamento già deciso;
 - fare review del diff o controllare impatto docs/deploy.
 
 Evita agenti paralleli per decisioni di prodotto ambigue, modifiche sullo stesso handler o refactor trasversali senza ownership esplicita.
@@ -60,8 +60,8 @@ Se un'altra istanza sta lavorando sulla stessa area:
 
 - non sovrascrivere le sue modifiche;
 - non fare cleanup o refactor opportunistici nei file che possiede;
-- integra o ribasa solo quando e necessario e comprendi il diff;
-- segnala il conflitto nel registro, nella PR o in chat se il coordinamento non e chiaro.
+- integra o ribasa solo quando è necessario  e comprendi il diff;
+- segnala il conflitto nel registro, nella PR o in chat se il coordinamento non è chiaro.
 
 Comando consigliato:
 
@@ -91,8 +91,9 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
-| chiuso | Codex current chat | codex/phase-13-observability-scale | Fase 13: osservabilita admin, soglie crescita prudente, alert azionabili, runbook/docs/test/deploy | Implementate metriche admin 24h/7g, soglie health crescita, alert piu azionabili e criteri runbook per soft launch; verificati test mirati, `bash scripts/ci_verify.sh`, `git diff --check`. |
-| chiuso | Codex current chat | codex/phase-12-output-quality-scans | Fase 12: qualita output, feedback foto documento, opzioni scansione, feedback compressione, docs/test/deploy | Implementati profili scansione foto documento, feedback qualita/fallback, feedback compressione e test sintetici rappresentativi. Verificati test mirati, `bash scripts/ci_verify.sh`, `git diff --check`. |
+| chiuso | Codex current chat | codex/fix-accenti-italiani | Normalizzazione accenti/apostrofi in testi repo, messaggi bot, docs e sito statico | Corrette forme italiane senza accento e verificata assenza di accenti resi con apostrofo; lasciati intenzionalmente alias parser senza accento per input utente. Verificati `git diff --check`, `make compile`, test mirati bot/pipeline e `make test`. |
+| chiuso | Codex current chat | codex/phase-13-observability-scale | Fase 13: osservabilità admin, soglie crescita prudente, alert azionabili, runbook/docs/test/deploy | Implementate metriche admin 24h/7g, soglie health crescita, alert più azionabili e criteri runbook per soft launch; verificati test mirati, `bash scripts/ci_verify.sh`, `git diff --check`. |
+| chiuso | Codex current chat | codex/phase-12-output-quality-scans | Fase 12: qualità output, feedback foto documento, opzioni scansione, feedback compressione, docs/test/deploy | Implementati profili scansione foto documento, feedback qualità/fallback, feedback compressione e test sintetici rappresentativi. Verificati test mirati, `bash scripts/ci_verify.sh`, `git diff --check`. |
 | chiuso | Codex current chat | codex/phase-11-presets-light-automation | Fase 11: preset utente minimali, automazioni leggere, scorciatoie contestuali, docs/test/deploy | Implementati preset leggeri per compressione, split e immagini verso PDF; reset/cancellazione dati li rimuovono. Verificati test mirati, `bash scripts/ci_verify.sh`, `git diff --check`. |
 | chiuso | Codex current chat | codex/phase-10-public-ux-trust | Fase 10: UX pubblica, trust, testi bot/sito, errori operativi, docs/test/deploy | Testi `/start`/`/help`/`/status`, deep link `/start privacy`, sito statico e smoke plan pubblico allineati; `bash scripts/ci_verify.sh`, `git diff --check` e smoke dry-run OK. |
 | chiuso | Codex current chat | codex/phase-9-data-lifecycle | Fase 9: retention job, pruning reconcile, cancellazione dati utente in `/reset`, docs/test/deploy | Implementata cancellazione dati live self-service, retention job configurabile e pruning reconcile; gate locale `bash scripts/ci_verify.sh` e preflight publish OK. |
@@ -106,7 +107,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 | chiuso | Codex repo realignment | codex/repo-realignment-audit-fixes | `scripts/auto_release.py`, webhook deploy/restart, GitHub maintenance reports, Telegram command docs/site, tests | Implementato piano riallineamento: gate locale ripristinato, commenti Codex #88/#95/#97 corretti localmente, report GitHub meno rumoroso, docs/sito comandi allineati. Verificati `bash scripts/ci_verify.sh`, smoke VPS read-only, GitHub maintenance e controlli branch/PR. Nessun deploy eseguito. |
 | chiuso | Codex harden auto release secrets | codex/harden-auto-release-secrets | `deploy/auto-release.sh`, `scripts/auto_release.py`, test deploy/release, docs VPS | Fix leak token auto-release nei log sudo: segreti passati via env-file temporaneo invece di `sudo --preserve-env`; verificati test auto-release/deploy, ruff mirato, bash -n, py_compile e diff check. |
 | chiuso | Codex simplify release deploy | codex/simplify-release-deploy | `scripts/publish_change.sh`, docs release/versioning/VPS, coordinamento agenti | Publish local-first: PR ready di default, draft/merge/Actions solo via variabili esplicite; docs allineate a webhook VPS come default. Verificati test publish, ruff mirato, preflight, publish doctor, bash -n, py_compile e diff check. |
-| chiuso | Codex simplify telegram commands | codex/simplify-telegram-commands | `src/docmolder/bot.py`, `src/docmolder/keyboards.py`, branding/messaggi Telegram, docs operative, test comandi | Superficie pubblica ridotta a `/start`, `/help`, `/history`, `/status`, `/reset`; `/status` accorpa accesso/sessione/coda, `/admin` resta handler nascosto e riservato, `ping` non e registrato. Tastiere inline rese contestuali con azioni consigliate/avanzate e admin job shortcut dinamiche. Verificati `make test`, `make compile`, `git diff --check`. |
+| chiuso | Codex simplify telegram commands | codex/simplify-telegram-commands | `src/docmolder/bot.py`, `src/docmolder/keyboards.py`, branding/messaggi Telegram, docs operative, test comandi | Superficie pubblica ridotta a `/start`, `/help`, `/history`, `/status`, `/reset`; `/status` accorpa accesso/sessione/coda, `/admin` resta handler nascosto e riservato, `ping` non è registrato. Tastiere inline rese contestuali con azioni consigliate/avanzate e admin job shortcut dinamiche. Verificati `make test`, `make compile`, `git diff --check`. |
 | chiuso | Codex preserve-custom-release-git-token | codex/preserve-custom-release-git-token / #96 | `deploy/auto-release.sh`, docs VPS, test deploy script | PR #96 mergiata; `docmolder-v0.11.4` generata manualmente sulla VPS dopo che il restart differito del listener ha interrotto l'autorelease del deploy. |
 | chiuso | Codex defer-webhook-restart | codex/defer-webhook-restart / #95 | `deploy/install-github-webhook.sh`, docs VPS, test deploy script | PR #95 mergiata; `docmolder-v0.11.3` generata automaticamente dalla VPS. Thread bot #92 risolto. |
 | chiuso | Codex fix-release-sudo-env-and-hooks | codex/fix-release-sudo-env-and-hooks / #94 | `scripts/auto_release.py`, `deploy/auto-release.sh`, tests, release VPS | PR #94 mergiata; `docmolder-v0.11.2` generata automaticamente dalla VPS con autorelease OK. |
@@ -125,10 +126,10 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 | chiuso | Codex manual-ci-only | codex/manual-ci-only | `.github/workflows/ci.yml`, docs GitHub/release | CI resa manuale-only con input `full_tests`; verificato con `bash scripts/ci_static_verify.sh origin/main`, classificatore e `git diff --check`. |
 | chiuso | Codex late review comments | codex/address-late-review-comments / #74 | Commenti Codex tardivi su PR #67/#70/#71: `processing.py`, publish/preflight scripts, test mirati | Fix pubblicato con #74, release `docmolder-v0.9.1` e Deploy VPS completati; post-merge bot check puliti su #74/#75. |
 | chiuso | Codex phase-7 | codex/phase-7-robustness-performance | Fase 7 robustezza VPS e performance: health/monitoring, cleanup, batch pesanti, performance immagini, docs operative | Fase chiusa con `bash scripts/ci_verify.sh`; diff deploy-relevant, al publish seguire preflight/PR/deploy VPS. |
-| chiuso | Codex gestione commenti bot | codex/codex-github-ops-integrations | review bot aperte: CI/publish, deploy wrapper, bot rerun, processing foto, Telegram messaging, git utils | Fix locali applicati e verificati con `bash scripts/ci_verify.sh`; thread GitHub storici restano aperti finche non vengono risolti su GitHub. |
+| chiuso | Codex gestione commenti bot | codex/codex-github-ops-integrations | review bot aperte: CI/publish, deploy wrapper, bot rerun, processing foto, Telegram messaging, git utils | Fix locali applicati e verificati con `bash scripts/ci_verify.sh`; thread GitHub storici restano aperti finché non vengono risolti su GitHub. |
 
 ## Template nuova riga
 
 ```markdown
-| in corso | <chat/owner> | <branch o worktree> | <file/moduli/responsabilita> | <stato, check, rischi, PR> |
+| in corso | <chat/owner> | <branch o worktree> | <file/moduli/responsabilità> | <stato, check, rischi, PR> |
 ```
