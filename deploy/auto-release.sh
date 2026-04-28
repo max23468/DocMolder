@@ -43,6 +43,10 @@ args=(
   --author-email "${DOCMOLDER_RELEASE_GIT_AUTHOR_EMAIL:-docmolder-release-bot@users.noreply.github.com}"
 )
 
+if [ -n "${DOCMOLDER_RELEASE_TARGET_VERSION:-}" ]; then
+  args+=(--target-version "${DOCMOLDER_RELEASE_TARGET_VERSION}")
+fi
+
 if [ "$(id -u)" -eq 0 ] && id "${APP_USER}" >/dev/null 2>&1; then
   custom_git_token_env="${DOCMOLDER_RELEASE_GIT_TOKEN_ENV:-}"
   if [ -n "${custom_git_token_env}" ] && [ "${custom_git_token_env}" != "DOCMOLDER_RELEASE_GIT_TOKEN" ]; then

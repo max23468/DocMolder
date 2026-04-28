@@ -99,6 +99,11 @@ Quando il deploy aggiorna unit o script del listener gia attivo, `install-github
 
 Dopo un deploy riuscito il listener lancia anche `deploy/auto-release.sh`. Se `/etc/docmolder/release.env` contiene `DOCMOLDER_AUTO_RELEASE_ENABLED=true`, un `DOCMOLDER_RELEASE_GITHUB_TOKEN` valido per le API GitHub e, quando diverso, un `DOCMOLDER_RELEASE_GIT_TOKEN` valido per push Git HTTPS, la VPS crea automaticamente bump, changelog, tag e GitHub Release quando ci sono commit rilasciabili dal tag precedente. Per usare un nome diverso da `DOCMOLDER_RELEASE_GIT_TOKEN`, imposta `DOCMOLDER_RELEASE_GIT_TOKEN_ENV` al nome della variabile custom. Quando lo script parte da root, i token non vengono passati a `sudo --preserve-env`: vengono letti da una copia temporanea `600` del file release env, rimossa a fine esecuzione, cosi non compaiono nella riga comando del journal. Se il file manca o la flag e disattivata, la fase release viene saltata senza interrompere il deploy.
 
+Per una promozione intenzionale a `1.0.0`, dopo aver completato la checklist
+1.0 puoi aggiungere temporaneamente `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0` a
+`/etc/docmolder/release.env`. Rimuovilo subito dopo la release per tornare al
+bump automatico standard.
+
 Per configurarlo:
 
 ```bash

@@ -80,6 +80,27 @@ Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 Non usare piu il vecchio flusso di aggiornamento manuale del changelog per ogni modifica ordinaria.
 Non fare bump versione manuali nelle PR normali.
 
+### Promozione 1.0
+
+La promozione da `0.x` a `1.0.0` e un'eccezione intenzionale al bump naturale
+pre-1.0. Prima va completata la checklist in
+[ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md).
+
+Quando la decisione e confermata, l'auto-release puo ricevere un target esplicito:
+
+```bash
+DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0 deploy/auto-release.sh
+```
+
+oppure, per una prova locale senza effetti:
+
+```bash
+DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0 .venv/bin/python scripts/auto_release.py --dry-run
+```
+
+Se il target viene inserito in `/etc/docmolder/release.env`, va rimosso subito
+dopo la release `docmolder-v1.0.0` per tornare al normale SemVer automatico.
+
 `Release Please` non parte automaticamente. Resta eseguibile manualmente con
 `workflow_dispatch` solo come fallback esplicito se vuoi consumare Actions; il
 percorso automatico normale e quello VPS senza Actions.

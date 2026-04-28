@@ -17,6 +17,7 @@ class DeployScriptsTest(unittest.TestCase):
         self.assertIn('sudo -u "${APP_USER}" "${args[@]}" --secrets-env-file "${SECRETS_ENV_FILE}"', script)
         self.assertNotIn("--preserve-env", script)
         self.assertIn('--git-token-env "${DOCMOLDER_RELEASE_GIT_TOKEN_ENV:-DOCMOLDER_RELEASE_GIT_TOKEN}"', script)
+        self.assertIn('args+=(--target-version "${DOCMOLDER_RELEASE_TARGET_VERSION}")', script)
 
     def test_webhook_install_defers_listener_restart_outside_deploy_hook(self) -> None:
         script = (ROOT / "deploy" / "install-github-webhook.sh").read_text(encoding="utf-8")

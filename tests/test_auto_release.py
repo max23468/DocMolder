@@ -42,6 +42,20 @@ class AutoReleaseTests(unittest.TestCase):
         self.assertEqual(auto_release.highest_bump([fix_commit, feat_commit], "0.10.1"), "minor")
         self.assertEqual(auto_release.highest_bump([breaking_commit], "0.10.1"), "minor")
 
+    def test_target_version_can_promote_pre_one_release(self):
+        self.assertEqual(
+            auto_release.resolve_next_version("0.12.0", "patch", target_version="1.0.0"),
+            "1.0.0",
+        )
+
+    def test_target_version_must_be_greater_than_current(self):
+        with self.assertRaises(RuntimeError):
+            auto_release.resolve_next_version("0.12.0", "patch", target_version="0.12.0")
+
+    def test_target_version_cannot_undercut_natural_bump(self):
+        with self.assertRaises(RuntimeError):
+            auto_release.resolve_next_version("0.12.0", "minor", target_version="0.12.1")
+
     def test_changelog_entry_groups_commits(self):
         fix_commit = auto_release.parse_subject("a" * 40, "fix(deploy): repair webhook release (#91)")
         feat_commit = auto_release.parse_subject("b" * 40, "feat(bot): add a useful shortcut (#92)")
@@ -194,6 +208,7 @@ class AutoReleaseTests(unittest.TestCase):
                         "DOCMOLDER_RELEASE_GIT_TOKEN_ENV=DOCMOLDER_RELEASE_CUSTOM_GIT_TOKEN",
                         "DOCMOLDER_RELEASE_CUSTOM_GIT_TOKEN='git-token'",
                         "DOCMOLDER_RELEASE_REPOSITORY=max23468/DocMolder",
+                        "DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0",
                         "IGNORED_TOKEN=not-loaded",
                     ]
                 ),
@@ -211,6 +226,7 @@ class AutoReleaseTests(unittest.TestCase):
         self.assertEqual(apply_release.call_args.kwargs["api_token"], "api-token")
         self.assertEqual(apply_release.call_args.kwargs["git_token"], "git-token")
         self.assertEqual(apply_release.call_args.kwargs["repository"], "max23468/DocMolder")
+        self.assertEqual(apply_release.call_args.kwargs["target_version"], "1.0.0")
 
     def test_push_with_token_bypasses_local_publish_hooks(self):
         calls: list[list[str]] = []
