@@ -80,11 +80,33 @@ Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 Non usare piu il vecchio flusso di aggiornamento manuale del changelog per ogni modifica ordinaria.
 Non fare bump versione manuali nelle PR normali.
 
+### Release major `X.0.0`
+
+Prima di pianificare una release `X.0.0`, applica il criterio in
+[VERSIONING.md](./VERSIONING.md#criterio-per-release-major-x00).
+
+In pratica:
+
+1. apri o usa una PR dedicata alla preparazione della major;
+2. aggiungi nel corpo PR una sezione `Major release rationale`;
+3. chiarisci quali contratti cambiano o vengono dichiarati stabili: UX utente,
+   dati/sicurezza, operativita, deploy/release o perimetro prodotto;
+4. completa smoke e rollback coerenti con il rischio della major;
+5. usa `DOCMOLDER_RELEASE_TARGET_VERSION=X.0.0` solo dopo merge e decisione
+   esplicita.
+
+Se la motivazione e solo "abbiamo accumulato abbastanza feature", resta una
+minor release. Se il cambio e solo interno e compatibile, resta patch/minor
+secondo il tipo Conventional Commit.
+
 ### Promozione 1.0
 
 La promozione da `0.x` a `1.0.0` e un'eccezione intenzionale al bump naturale
 pre-1.0. Prima va completata la checklist in
 [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md).
+
+Per `1.0.0`, la `Major release rationale` puo essere una dichiarazione di
+stabilita del perimetro attuale, non necessariamente una breaking change.
 
 Quando la decisione e confermata, l'auto-release puo ricevere un target esplicito:
 
