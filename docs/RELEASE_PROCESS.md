@@ -94,7 +94,8 @@ In pratica:
 4. completa smoke e rollback coerenti con il rischio della major;
 5. se la release automatica VPS e abilitata, imposta
    `DOCMOLDER_RELEASE_TARGET_VERSION=X.0.0` prima del merge della PR finale;
-6. rimuovi il target esplicito subito dopo la release.
+6. rimuovi il target esplicito solo dopo aver verificato che auto-release abbia
+   creato il tag `X.0.0` e che il commit di release sia stato deployato.
 
 Se la motivazione e solo "abbiamo accumulato abbastanza feature", resta una
 minor release. Se il cambio e solo interno e compatibile, resta patch/minor
@@ -117,8 +118,9 @@ sudo cp /etc/docmolder/release.env /etc/docmolder/release.env.bak-$(date +%Y%m%d
 printf '\nDOCMOLDER_RELEASE_TARGET_VERSION=1.0.0\n' | sudo tee -a /etc/docmolder/release.env >/dev/null
 ```
 
-Dopo la release `docmolder-v1.0.0`, rimuovere la riga e lasciare che il webhook
-redeployi il commit di release:
+Dopo che il journal del webhook mostra `Released docmolder-v1.0.0.`, il tag o la
+GitHub Release esistono e il commit di release e stato deployato, rimuovere la
+riga:
 
 ```bash
 sudo sed -i '/^DOCMOLDER_RELEASE_TARGET_VERSION=/d' /etc/docmolder/release.env
@@ -130,8 +132,9 @@ Per una prova locale senza effetti:
 DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0 .venv/bin/python scripts/auto_release.py --dry-run
 ```
 
-Il target va rimosso subito dopo la release `docmolder-v1.0.0` per tornare al
-normale SemVer automatico.
+Il target va rimosso solo dopo questa conferma per tornare al normale SemVer
+automatico. Rimuoverlo subito dopo il merge, prima che il worker arrivi ad
+auto-release, puo far consumare il commit con il bump naturale `0.x`.
 
 `Release Please` non parte automaticamente. Resta eseguibile manualmente con
 `workflow_dispatch` solo come fallback esplicito se vuoi consumare Actions; il

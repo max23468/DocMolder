@@ -115,8 +115,9 @@ Per promuovere intenzionalmente `0.x` a `1.0.0`, serve quindi un percorso esplic
 3. includere nel corpo PR la sezione `Major release rationale`
 4. impostare temporaneamente `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0` sulla VPS
 5. mergeare la PR su `main`, lasciando che il webhook esegua deploy e auto-release con target
-6. rimuovere subito il target temporaneo dalla VPS
-7. verificare tag, GitHub Release, deploy del commit release e smoke post-release
+6. attendere conferma di auto-release completata, tag `docmolder-v1.0.0` e deploy del commit release
+7. rimuovere il target temporaneo dalla VPS
+8. verificare GitHub Release, health, smoke tecnico e log post-release
 
 La 1.0 non va ottenuta con bump manuali casuali dei file release-owned dentro una feature PR ordinaria.
 

@@ -103,8 +103,10 @@ Per una promozione intenzionale a `1.0.0`, dopo aver completato la checklist
 1.0 puoi aggiungere temporaneamente `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0` a
 `/etc/docmolder/release.env`. Se la release automatica VPS e abilitata, aggiungi
 il target prima del merge della PR finale, cosi il commit rilasciabile viene
-consumato direttamente come `1.0.0`. Rimuovilo subito dopo la release per
-tornare al bump automatico standard.
+consumato direttamente come `1.0.0`. Rimuovilo solo dopo che il webhook ha
+stampato `Released docmolder-v1.0.0.`, il tag/GitHub Release esistono e il
+commit di release e stato deployato; rimuoverlo subito dopo il merge puo far
+partire il bump naturale `0.x`.
 
 Per configurarlo:
 
