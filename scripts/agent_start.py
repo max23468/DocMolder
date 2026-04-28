@@ -9,7 +9,6 @@ import sys
 from pathlib import Path
 
 
-COORDINATION_PATH = Path("docs/AGENT_COORDINATION.md")
 AREA_DOCS = {
     "telegram": ["docs/TELEGRAM_OPERATIONS.md", "docs/BRAND.md"],
     "bot": ["docs/TELEGRAM_OPERATIONS.md", "docs/ARCHITECTURE.md"],
@@ -47,7 +46,7 @@ def status_short() -> str:
 
 
 def recommended_docs(area: str | None) -> list[str]:
-    docs = ["docs/CONTEXT.md", "docs/DECISIONS.md", "docs/ROADMAP.md", "docs/AGENT_COORDINATION.md"]
+    docs = ["AGENTS.md", "docs/CONTEXT.md", "docs/DECISIONS.md", "docs/ROADMAP.md"]
     if area:
         area_lower = area.lower()
         for key, paths in AREA_DOCS.items():
@@ -82,26 +81,6 @@ def open_pr(branch: str) -> str | None:
         return result.stdout.strip()
     draft = "draft" if data.get("isDraft") else "ready"
     return f"#{data.get('number')} {draft}: {data.get('title')} {data.get('url')}"
-
-
-def print_coordination() -> None:
-    print("\n## Coordinamento")
-    if not COORDINATION_PATH.exists():
-        print("- docs/AGENT_COORDINATION.md non trovato.")
-        return
-    lines = COORDINATION_PATH.read_text(encoding="utf-8").splitlines()
-    in_table = False
-    printed = False
-    for line in lines:
-        if line.startswith("| Stato |"):
-            in_table = True
-        if in_table and line.startswith("|"):
-            print(line)
-            printed = True
-        elif in_table and printed:
-            break
-    if not printed:
-        print("- Registro presente, ma tabella attiva non trovata.")
 
 
 def print_classification(base: str) -> None:
@@ -154,7 +133,9 @@ def main() -> int:
     print("\n## Worktree")
     print(status or "pulito")
 
-    print_coordination()
+    print("\n## Coordinamento")
+    print("- Fonte unica: AGENTS.md.")
+    print("- Per lavori paralleli verifica branch/PR/worktree rilevanti e segnala l'handoff in chat o PR.")
 
     print("\n## Documenti da leggere")
     for path in recommended_docs(args.area):

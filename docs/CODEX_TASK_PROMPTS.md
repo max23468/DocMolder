@@ -8,7 +8,7 @@ Sostituisci i placeholder tra `<...>` prima di usarli.
 
 ```text
 Repo: /Users/Matteo/Documents/DocMolder.
-Leggi AGENTS.md e docs/AGENT_COORDINATION.md. Esplora solo <area/moduli>.
+Leggi AGENTS.md. Esplora solo <area/moduli>.
 Obiettivo: rispondere a <domanda concreta>.
 Non modificare file. Riporta evidenze con path e funzioni rilevanti, rischi e test suggeriti.
 ```
@@ -17,7 +17,7 @@ Non modificare file. Riporta evidenze con path e funzioni rilevanti, rischi e te
 
 ```text
 Repo: /Users/Matteo/Documents/DocMolder.
-Leggi AGENTS.md, docs/CONTEXT.md, docs/DECISIONS.md e docs/AGENT_COORDINATION.md.
+Leggi AGENTS.md, docs/CONTEXT.md e docs/DECISIONS.md.
 Task: <obiettivo>.
 Ownership: puoi modificare solo <file/moduli>. Non toccare <file/moduli esclusi>.
 Implementa direttamente, segui le convenzioni esistenti, non introdurre dipendenze.
