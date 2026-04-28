@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, patch
 
 from scripts import auto_release
@@ -96,6 +98,34 @@ class AutoReleaseTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         self.assertEqual(apply_release.call_args.kwargs["api_token"], "api-token")
         self.assertEqual(apply_release.call_args.kwargs["git_token"], "api-token")
+
+    def test_main_loads_tokens_from_secrets_env_file(self):
+        with TemporaryDirectory() as temp_dir:
+            env_file = Path(temp_dir) / "release.env"
+            env_file.write_text(
+                "\n".join(
+                    [
+                        "DOCMOLDER_RELEASE_GITHUB_TOKEN=api-token",
+                        "DOCMOLDER_RELEASE_GIT_TOKEN_ENV=DOCMOLDER_RELEASE_CUSTOM_GIT_TOKEN",
+                        "DOCMOLDER_RELEASE_CUSTOM_GIT_TOKEN='git-token'",
+                        "DOCMOLDER_RELEASE_REPOSITORY=max23468/DocMolder",
+                        "IGNORED_TOKEN=not-loaded",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            with (
+                patch.dict(auto_release.os.environ, {}, clear=True),
+                patch.object(auto_release.sys, "argv", ["auto_release.py", "--secrets-env-file", str(env_file)]),
+                patch.object(auto_release, "apply_release", return_value="ok") as apply_release,
+                patch("builtins.print"),
+            ):
+                exit_code = auto_release.main()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(apply_release.call_args.kwargs["api_token"], "api-token")
+        self.assertEqual(apply_release.call_args.kwargs["git_token"], "git-token")
+        self.assertEqual(apply_release.call_args.kwargs["repository"], "max23468/DocMolder")
 
     def test_push_with_token_bypasses_local_publish_hooks(self):
         calls: list[list[str]] = []

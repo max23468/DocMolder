@@ -21,6 +21,7 @@ Segreti principali:
 
 - `DOCMOLDER_TELEGRAM_TOKEN`
 - `DUCKDNS_TOKEN` in `/etc/docmolder/duckdns.env`, se Duck DNS e gestito dalla VPS
+- token release GitHub in `/etc/docmolder/release.env`, se auto-release VPS e abilitata
 - eventuali credenziali o token di deploy/VPS fuori repo
 
 Regole:
@@ -30,6 +31,7 @@ Regole:
 - limitare permessi del file env in produzione
 - ruotare il token Telegram in caso di sospetto leak
 - non salvare copie superflue del file env fuori dai backup amministrativi controllati
+- non passare token release a `sudo --preserve-env` o in argomenti CLI: usare il flusso `deploy/auto-release.sh` con env-file temporaneo
 
 ## Dati utente
 

@@ -27,6 +27,7 @@ SECTION_TITLES = {
 }
 VERSION_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 TAG_RE = re.compile(r"^docmolder-v(\d+\.\d+\.\d+)$")
+ENV_KEY_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 SUBJECT_RE = re.compile(
     r"^(?P<type>feat|fix|docs|deps|refactor|test|chore|build|ci)"
     r"(?:\((?P<scope>[a-z0-9._/-]+)\))?"
@@ -289,6 +290,28 @@ def configure_git_identity(*, cwd: Path, name: str, email: str) -> None:
     run(["git", "config", "user.email", email], cwd=cwd)
 
 
+def trim_env_value(value: str) -> str:
+    value = re.sub(r"\s+#.*$", "", value)
+    return value.strip()
+
+
+def load_secrets_env_file(path: Path) -> None:
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not ENV_KEY_RE.match(key) or not key.startswith("DOCMOLDER_"):
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        else:
+            value = trim_env_value(value)
+        os.environ[key] = value
+
+
 def write_askpass(token: str) -> tempfile.TemporaryDirectory[str]:
     tempdir = tempfile.TemporaryDirectory(prefix="docmolder-release-")
     script = Path(tempdir.name) / "askpass.sh"
@@ -410,35 +433,46 @@ def apply_release(
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create DocMolder release commits, tags, and GitHub Releases without GitHub Actions.")
     parser.add_argument("--repo-dir", default=".", help="Repository directory.")
-    parser.add_argument("--repository", default=os.getenv("DOCMOLDER_RELEASE_REPOSITORY", "max23468/DocMolder"))
-    parser.add_argument("--branch", default=os.getenv("DOCMOLDER_RELEASE_BRANCH", "main"))
+    parser.add_argument("--repository", default=None)
+    parser.add_argument("--branch", default=None)
     parser.add_argument("--token-env", default="DOCMOLDER_RELEASE_GITHUB_TOKEN")
-    parser.add_argument("--git-token-env", default=os.getenv("DOCMOLDER_RELEASE_GIT_TOKEN_ENV", "DOCMOLDER_RELEASE_GIT_TOKEN"))
-    parser.add_argument("--author-name", default=os.getenv("DOCMOLDER_RELEASE_GIT_AUTHOR_NAME", "docmolder-release-bot"))
-    parser.add_argument("--author-email", default=os.getenv("DOCMOLDER_RELEASE_GIT_AUTHOR_EMAIL", "docmolder-release-bot@users.noreply.github.com"))
+    parser.add_argument("--git-token-env", default=None)
+    parser.add_argument("--author-name", default=None)
+    parser.add_argument("--author-email", default=None)
+    parser.add_argument("--secrets-env-file", type=Path)
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.secrets_env_file is not None:
+        load_secrets_env_file(args.secrets_env_file)
+    repository = args.repository or os.getenv("DOCMOLDER_RELEASE_REPOSITORY", "max23468/DocMolder")
+    branch = args.branch or os.getenv("DOCMOLDER_RELEASE_BRANCH", "main")
+    git_token_env = args.git_token_env or os.getenv("DOCMOLDER_RELEASE_GIT_TOKEN_ENV", "DOCMOLDER_RELEASE_GIT_TOKEN")
+    author_name = args.author_name or os.getenv("DOCMOLDER_RELEASE_GIT_AUTHOR_NAME", "docmolder-release-bot")
+    author_email = args.author_email or os.getenv(
+        "DOCMOLDER_RELEASE_GIT_AUTHOR_EMAIL",
+        "docmolder-release-bot@users.noreply.github.com",
+    )
     api_token = os.getenv(args.token_env, "").strip()
-    git_token = os.getenv(args.git_token_env, "").strip() or api_token
+    git_token = os.getenv(git_token_env, "").strip() or api_token
     if not api_token and not args.dry_run:
         print(f"Missing {args.token_env}; cannot create GitHub Release.", file=sys.stderr)
         return 2
     if not git_token and not args.dry_run:
-        print(f"Missing {args.git_token_env}; cannot push release commit or tag.", file=sys.stderr)
+        print(f"Missing {git_token_env}; cannot push release commit or tag.", file=sys.stderr)
         return 2
     try:
         message = apply_release(
             cwd=Path(args.repo_dir).resolve(),
-            repository=args.repository,
-            branch=args.branch,
+            repository=repository,
+            branch=branch,
             api_token=api_token,
             git_token=git_token,
-            author_name=args.author_name,
-            author_email=args.author_email,
+            author_name=author_name,
+            author_email=author_email,
             dry_run=args.dry_run,
         )
     except Exception as exc:
