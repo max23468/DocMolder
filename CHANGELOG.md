@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.1.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.0.1...docmolder-v1.1.0) (2026-04-28)
+
+
+### Funzionalità
+
+* **data:** add self-service data deletion and job retention ([#107](https://github.com/max23468/DocMolder/issues/107)) ([045565d](https://github.com/max23468/DocMolder/commit/045565d9fee985b9494c85f65ca3c9763d08cfc7))
+
 ## [1.0.1](https://github.com/max23468/DocMolder/compare/docmolder-v1.0.0...docmolder-v1.0.1) (2026-04-28)
 
 
