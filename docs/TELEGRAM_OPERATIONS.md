@@ -2,83 +2,59 @@
 
 Panoramica pratica delle capacità operative Telegram introdotte nel bot.
 
-Il bot e pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_bot). Se `DOCMOLDER_ALLOWED_USER_IDS` non e configurata, i nuovi utenti possono usarlo senza richiesta di abilitazione; il flusso `/request_access` resta disponibile per eventuali modalita ristrette future.
+Il bot e pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_bot). Se `DOCMOLDER_ALLOWED_USER_IDS` non e configurata, i nuovi utenti possono usarlo senza richiesta di abilitazione. In modalita ristretta, il primo messaggio di un utente non autorizzato crea una richiesta accesso pending per gli admin.
 
 ## Comandi utente
 
+- `/start`: apre DocMolder e mostra le azioni principali.
+- `/help`: mostra guida rapida e flussi consigliati.
 - `/history`: mostra gli ultimi job personali, con dettaglio e rilancio.
-- `/last`: rilancia l'ultimo job personale senza dover reinviare i file.
-- `/access`: mostra stato accesso, sessione corrente e coda personale.
-- `/request_access`: invia una richiesta di abilitazione all'admin quando il bot è ristretto.
-- `/policy` o `/privacy`: mostra limiti, retention e regole operative del servizio.
-- `/status`: riepilogo rapido della sessione corrente.
+- `/status`: mostra accesso, service mode, sessione corrente, coda personale e ultimo job.
 - `/reset`: azzera sessione e preferenze rapide.
 
 ## Deep link supportati
 
-Il bot supporta anche payload su `/start <payload>` per scorciatoie contestuali:
+Il bot supporta solo payload essenziali su `/start <payload>`:
 
 - `/start help`
 - `/start history`
 - `/start status`
-- `/start access`
-- `/start last`
-- `/start retry_<id>`
-- `/start retry_latest`
 
-I deep link di retry sono limitati ai job dell'utente che li apre.
+## Tastiere inline utente
+
+Le tastiere inline sono contestuali alla sessione:
+
+- con immagini mostra solo le azioni consigliate per quel set di file, con le azioni meno frequenti dietro `Altre azioni`
+- con un singolo PDF mette davanti le azioni piu comuni e lascia modifica pagine, rotazione e watermark nella vista espansa
+- con piu PDF espone come scelta primaria l'unione
+- quando un flusso richiede un dettaglio, come compressione, split, rotazione o impaginazione A4, mostra solo le opzioni di quel passo
+
+Il pulsante `Altre azioni` espande tutte le azioni compatibili con la sessione corrente; `Meno azioni` torna alla vista breve.
 
 ## Console admin
 
-Se `DOCMOLDER_ADMIN_USER_IDS` è configurata, gli admin possono usare:
+Se `DOCMOLDER_ADMIN_USER_IDS` è configurata, gli admin usano `/admin` come ingresso unico nascosto dalla lista comandi pubblica. La dashboard inline espone:
 
-- `/admin`: panoramica generale.
-- `/queue`: stato coda, job queued/running e ultimi falliti.
-- `/health`: stato runtime, SQLite, backup e worker.
-- `/maintenance_overview`: backlog operativo, running stale, accessi pending e audit recente.
-- `/metrics`: metriche Telegram aggregate da `app_meta`.
-- `/job <selector>`: dettaglio rapido di un job.
-- `/retry <selector>`: rilancia un job esistente.
-- `/approve_user <id>`, `/reject_user <id>`, `/suspend_user <id>`, `/reactivate_user <id>`: gestiscono accesso dinamico persistito in `app_meta`.
-- `/pause`: mette il bot in modalità manutenzione.
-- `/resume`: riattiva il servizio.
+- panoramica generale
+- coda e ultimi job
+- health runtime, SQLite, backup e worker
+- manutenzione, running stale, accessi pending e audit recente
+- metriche Telegram aggregate da `app_meta`
+- pausa e ripresa servizio
+- dettaglio rapido degli ultimi job per stato, solo quando esiste almeno un job in quello stato
 
 Le azioni admin sensibili scrivono anche un audit log minimale in SQLite:
 
-- cambio service mode tramite `/pause`, `/resume` o dashboard inline
-- retry admin di un job esistente
+- cambio service mode tramite dashboard inline
 - richieste e revisioni accesso utente
-
-Selector supportati per `/job` e `/retry`:
-
-- id numerico
-- `latest`
-- `failed`
-- `running`
-- `queued`
-- `succeeded`
-
-Per `/retry` è disponibile anche:
-
-- `--no-auto-rotate`
-
-utile per rilanciare un job disabilitando la correzione automatica dell'orientamento PDF.
 
 ## Dashboard inline admin
 
-La dashboard inline permette scorciatoie veloci per:
+La dashboard inline mantiene sempre le scorciatoie operative principali e aggiunge le scorciatoie ai job solo quando sono utili:
 
-- panoramica
-- coda
-- health
-- metriche
-- manutenzione
-- pausa/ripresa servizio
-- ultimo fallito
-- ultimo running
-- ultimo queued
-- ultimo succeeded
-- ultimo job in assoluto
+- panoramica, coda, health, metriche e manutenzione restano sempre raggiungibili
+- pausa/ripresa servizio cambia in base al service mode corrente
+- ultimo job e ultimi job per stato compaiono solo se il database contiene job pertinenti
 
 ## Resilienza Bot API
 

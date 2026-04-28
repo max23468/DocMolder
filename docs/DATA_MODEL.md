@@ -260,7 +260,7 @@ Campi principali:
 
 Uso:
 
-- traccia append-only minimale per `/pause`, `/resume`, `/retry`, richieste/revisioni accesso e future azioni admin sensibili
+- traccia append-only minimale per cambio service mode, retry admin, richieste/revisioni accesso e future azioni admin sensibili
 - supporto a diagnosi e incident response
 - non deve contenere payload completi, documenti o contenuti utente
 

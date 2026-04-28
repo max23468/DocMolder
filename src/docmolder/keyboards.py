@@ -3,8 +3,10 @@ from __future__ import annotations
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 from docmolder.branding import MAIN_MENU_PLACEHOLDER, MAIN_MENU_ROWS
-from docmolder.models import SupportedAction
-from docmolder.action_catalog import get_action_label
+from docmolder.models import JobStatus, SupportedAction, UserSession
+from docmolder.action_catalog import get_action_label, infer_exposed_actions, infer_recommended_actions
+
+_DEFAULT_ACTION_BUTTON_LIMIT = 3
 
 
 def _build_action_button_label(action: SupportedAction) -> str:
@@ -17,6 +19,25 @@ def build_actions_keyboard(actions: list[SupportedAction]) -> InlineKeyboardMark
         rows.append([InlineKeyboardButton(_build_action_button_label(action), callback_data=f"action:{action.value}")])
     if not rows:
         return None
+    return InlineKeyboardMarkup(rows)
+
+
+def build_session_actions_keyboard(session: UserSession, *, expanded: bool = False) -> InlineKeyboardMarkup | None:
+    all_actions = infer_exposed_actions(session)
+    if not all_actions:
+        return None
+
+    recommended_actions = infer_recommended_actions(session)
+    primary_actions = recommended_actions[:_DEFAULT_ACTION_BUTTON_LIMIT] or all_actions[:_DEFAULT_ACTION_BUTTON_LIMIT]
+    visible_actions = all_actions if expanded else primary_actions
+    rows = [[InlineKeyboardButton(_build_action_button_label(action), callback_data=f"action:{action.value}")] for action in visible_actions]
+
+    hidden_actions = [action for action in all_actions if action not in primary_actions]
+    if hidden_actions:
+        if expanded:
+            rows.append([InlineKeyboardButton("Meno azioni", callback_data="action:less")])
+        else:
+            rows.append([InlineKeyboardButton(f"Altre azioni ({len(hidden_actions)})", callback_data="action:more")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -102,37 +123,45 @@ def build_rotate_keyboard() -> InlineKeyboardMarkup:
     )
 
 
-def build_admin_dashboard_keyboard(*, service_paused: bool) -> InlineKeyboardMarkup:
+def build_admin_dashboard_keyboard(
+    *,
+    service_paused: bool,
+    available_job_statuses: set[JobStatus] | None = None,
+) -> InlineKeyboardMarkup:
     service_button = "Riprendi servizio" if service_paused else "Pausa servizio"
     service_action = "resume" if service_paused else "pause"
-    return InlineKeyboardMarkup(
+    statuses = available_job_statuses
+    rows = [
         [
-            [
-                InlineKeyboardButton("Panoramica", callback_data="admin:overview"),
-                InlineKeyboardButton("Coda", callback_data="admin:queue"),
-            ],
-            [
-                InlineKeyboardButton("Health", callback_data="admin:health"),
-                InlineKeyboardButton(service_button, callback_data=f"admin:{service_action}"),
-            ],
-            [
-                InlineKeyboardButton("Metriche", callback_data="admin:metrics"),
-                InlineKeyboardButton("Manutenzione", callback_data="admin:maintenance"),
-            ],
-            [
-                InlineKeyboardButton("Ultimo fallito", callback_data="admin:failed"),
-                InlineKeyboardButton("In esecuzione", callback_data="admin:running"),
-            ],
-            [
-                InlineKeyboardButton("Ultimo queued", callback_data="admin:queued"),
-                InlineKeyboardButton("Ultimo riuscito", callback_data="admin:succeeded"),
-            ],
-            [
-                InlineKeyboardButton("Ultimo job", callback_data="admin:latest"),
-                InlineKeyboardButton("Aggiorna", callback_data="admin:refresh"),
-            ],
-        ]
-    )
+            InlineKeyboardButton("Panoramica", callback_data="admin:overview"),
+            InlineKeyboardButton("Coda", callback_data="admin:queue"),
+        ],
+        [
+            InlineKeyboardButton("Health", callback_data="admin:health"),
+            InlineKeyboardButton(service_button, callback_data=f"admin:{service_action}"),
+        ],
+        [
+            InlineKeyboardButton("Metriche", callback_data="admin:metrics"),
+            InlineKeyboardButton("Manutenzione", callback_data="admin:maintenance"),
+        ],
+    ]
+
+    job_buttons: list[InlineKeyboardButton] = []
+    if statuses is None or statuses:
+        job_buttons.append(InlineKeyboardButton("Ultimo job", callback_data="admin:latest"))
+    if statuses is None or JobStatus.FAILED in statuses:
+        job_buttons.append(InlineKeyboardButton("Ultimo fallito", callback_data="admin:failed"))
+    if statuses is None or JobStatus.RUNNING in statuses:
+        job_buttons.append(InlineKeyboardButton("In esecuzione", callback_data="admin:running"))
+    if statuses is None or JobStatus.QUEUED in statuses:
+        job_buttons.append(InlineKeyboardButton("Ultimo queued", callback_data="admin:queued"))
+    if statuses is None or JobStatus.SUCCEEDED in statuses:
+        job_buttons.append(InlineKeyboardButton("Ultimo riuscito", callback_data="admin:succeeded"))
+
+    for index in range(0, len(job_buttons), 2):
+        rows.append(job_buttons[index : index + 2])
+    rows.append([InlineKeyboardButton("Aggiorna", callback_data="admin:refresh")])
+    return InlineKeyboardMarkup(rows)
 
 
 def build_access_review_keyboard(user_id: int) -> InlineKeyboardMarkup:

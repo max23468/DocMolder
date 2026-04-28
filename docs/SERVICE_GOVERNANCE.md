@@ -135,7 +135,7 @@ Retention:
 
 Retention:
 
-- storico leggero dei job nel database finche utile a `/history`, `/last`, admin e diagnosi
+- storico leggero dei job nel database finche utile a `/history`, console admin e diagnosi
 - nessuna promessa di conservazione permanente
 - se la retention job diventa lunga, va definita esplicitamente in roadmap o decisione
 
@@ -152,8 +152,7 @@ Retention:
 Percorsi correnti:
 
 - `/reset` pulisce la sessione utente corrente
-- `/request_access` registra una richiesta di accesso quando il bot viene eseguito in modalita ristretta; l'admin puo approvare, rifiutare, sospendere o riattivare
-- `/policy` mostra in chat limiti, retention e regole operative sintetiche
+- in modalita ristretta il primo messaggio di un utente non autorizzato registra una richiesta di accesso; l'admin puo approvare o rifiutare dalla console inline
 - cleanup job rimuove file temporanei
 - restore o manutenzione SQLite restano operazioni amministrative
 
@@ -184,7 +183,7 @@ In caso di problema:
 
 1. verificare `systemctl status docmolder`
 2. leggere log recenti con `journalctl`
-3. controllare `/health`, `/queue` e `/metrics` se Telegram e raggiungibile
+3. controllare la console `/admin` se Telegram e raggiungibile
 4. verificare spazio disco, permessi runtime e backup
 5. se sono coinvolti dati utente, evitare copie non necessarie e non condividere contenuti documento
 6. ripristinare da backup solo se necessario e dopo aver conservato una copia amministrativa dello stato corrente

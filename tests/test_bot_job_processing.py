@@ -15,6 +15,7 @@ from telegram.error import NetworkError, RetryAfter
 
 from docmolder.bot import (
     BotDependencies,
+    ADMIN_ONLY_MESSAGE,
     SensitiveLogFilter,
     SESSION_EMPTY_MESSAGE,
     _build_access_status_message,
@@ -60,6 +61,8 @@ from docmolder.bot import (
     _process_job,
     access_command,
     access_review_command,
+    admin_command,
+    build_application,
     handle_access_review_callback,
     history_command,
     handle_images_pdf_layout_callback,
@@ -78,6 +81,7 @@ from docmolder.bot import (
     resume_command,
     last_command,
     start_command,
+    status_command,
 )
 from docmolder.config import Settings
 from docmolder.branding import TELEGRAM_NAME, build_telegram_commands
@@ -122,6 +126,14 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def test_build_application_registers_reduced_command_surface(self) -> None:
+        application = build_application(self.settings)
+
+        commands = [next(iter(handler.commands)) for handler in application.handlers[0] if hasattr(handler, "commands")]
+
+        self.assertEqual(commands, ["start", "help", "history", "status", "reset", "admin"])
+        self.assertNotIn("ping", commands)
 
     async def test_process_job_cleans_up_only_after_result_is_sent(self) -> None:
         job = self.store.create_job(
@@ -383,8 +395,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("continuare su questo PDF", message)
         self.assertIn("Comprimi PDF", message)
-        self.assertIn("/last", message)
-        self.assertIn("/access", message)
+        self.assertIn("/history", message)
+        self.assertIn("/status", message)
 
     def test_build_compression_prompt_mentions_saved_preference(self) -> None:
         self.store.set_user_preference(7, "compression_preset", "medium")
@@ -687,6 +699,35 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         query.edit_message_text.assert_awaited_once()
         self.assertIn("modalità manutenzione", query.edit_message_text.await_args.args[0])
 
+    async def test_admin_command_rejects_non_admin_user(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=55, username=None, first_name="Mario", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await admin_command(update, context)
+
+        message.reply_text.assert_awaited_once_with(ADMIN_ONLY_MESSAGE)
+
+    async def test_admin_callback_rejects_non_admin_user(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        query = SimpleNamespace(
+            data="admin:queue",
+            from_user=SimpleNamespace(id=55, username=None, first_name="Mario", last_name=None),
+            message=SimpleNamespace(message_id=54),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_admin_callback(update, context)
+
+        query.edit_message_text.assert_awaited_once_with(ADMIN_ONLY_MESSAGE)
+
     async def test_admin_callback_replay_is_blocked(self) -> None:
         self.deps.settings.admin_user_ids = [7]
         query = SimpleNamespace(
@@ -727,8 +768,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Coda operativa", message.reply_text.await_args_list[0].args[0])
         self.assertIn("Health operativo", message.reply_text.await_args_list[1].args[0])
 
-    async def test_policy_command_is_available_without_access(self) -> None:
+    async def test_unauthorized_user_attempt_creates_pending_access_request(self) -> None:
         self.deps.settings.allowed_user_ids = [7]
+        self.deps.settings.admin_user_ids = [999]
+        self.bot.send_message = AsyncMock()
         message = SimpleNamespace(reply_text=AsyncMock())
         update = SimpleNamespace(
             effective_user=SimpleNamespace(id=55, username="mario", first_name="Mario", last_name=None),
@@ -736,11 +779,11 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        await request_access_command(update, context)
-        await policy_command(update, context)
+        await start_command(update, context)
 
         self.assertEqual(self.store.get_meta("access:55:status"), "pending")
-        self.assertIn("Policy sintetica", message.reply_text.await_args_list[-1].args[0])
+        self.bot.send_message.assert_awaited_once()
+        self.assertIn("richiesta all'admin", message.reply_text.await_args.args[0])
 
     async def test_access_review_command_approves_dynamic_user(self) -> None:
         self.deps.settings.allowed_user_ids = [7]
@@ -810,10 +853,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("file)", health_report)
         self.assertIn("Worker job", health_report)
         self.assertIn("Stato accesso DocMolder", access_report)
-        self.assertIn("/last", access_report)
+        self.assertIn("/history", access_report)
         self.assertIn("Metriche Telegram", metrics_report)
 
-    async def test_access_command_returns_access_summary(self) -> None:
+    async def test_status_command_returns_access_summary(self) -> None:
         self.store.save(
             UserSession(
                 user_id=7,
@@ -828,32 +871,11 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        await access_command(update, context)
+        await status_command(update, context)
 
         self.assertIn("Accesso account: consentito", message.reply_text.await_args.args[0])
         self.assertIn("Input atteso: Watermark testuale", message.reply_text.await_args.args[0])
-        self.assertIn("/last", message.reply_text.await_args.args[0])
-
-    async def test_last_command_reruns_last_personal_job(self) -> None:
-        source_job = self.store.create_job(
-            user_id=7,
-            chat_id=99,
-            reply_to_message_id=123,
-            action="pdf_grayscale",
-            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":null}',
-        )
-        message = SimpleNamespace(reply_text=AsyncMock(), message_id=500)
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await last_command(update, context)
-
-        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
-        self.assertEqual(len(queued_jobs), 1)
-        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+        self.assertIn("/history", message.reply_text.await_args.args[0])
 
     async def test_text_request_can_rerun_latest_job_with_context_phrase(self) -> None:
         source_job = self.store.create_job(
@@ -1235,7 +1257,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn(f"Dettaglio Job #{latest_job.id}", query.edit_message_text.await_args.args[0])
 
-    async def test_start_deep_link_retry_reruns_own_job(self) -> None:
+    async def test_start_deep_link_retry_is_no_longer_a_shortcut(self) -> None:
         source_job = self.store.create_job(
             user_id=7,
             chat_id=99,
@@ -1253,10 +1275,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         await start_command(update, context)
 
         queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
-        self.assertEqual(len(queued_jobs), 1)
-        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+        self.assertEqual(len(queued_jobs), 0)
+        self.assertIn("DocMolder", message.reply_text.await_args.args[0])
 
-    async def test_start_deep_link_retry_latest_reruns_latest_job(self) -> None:
+    async def test_start_deep_link_retry_latest_is_no_longer_a_shortcut(self) -> None:
         source_job = self.store.create_job(
             user_id=7,
             chat_id=99,
@@ -1274,10 +1296,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         await start_command(update, context)
 
         queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
-        self.assertEqual(len(queued_jobs), 1)
-        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+        self.assertEqual(len(queued_jobs), 0)
+        self.assertIn("DocMolder", message.reply_text.await_args.args[0])
 
-    async def test_start_deep_link_retry_latest_ignores_other_users_newer_job(self) -> None:
+    async def test_start_deep_link_retry_latest_does_not_resolve_user_jobs(self) -> None:
         own_job = self.store.create_job(
             user_id=7,
             chat_id=99,
@@ -1302,9 +1324,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         await start_command(update, context)
 
         queued_jobs = [job for job in self.store._jobs.values() if job.id not in {own_job.id, other_job.id}]
-        self.assertEqual(len(queued_jobs), 1)
-        self.assertEqual(queued_jobs[0].user_id, 7)
-        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+        self.assertEqual(len(queued_jobs), 0)
+        self.assertIn("DocMolder", message.reply_text.await_args.args[0])
 
     async def test_retry_command_help_mentions_supported_selectors(self) -> None:
         self.deps.settings.admin_user_ids = [7]
@@ -1319,7 +1340,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("latest|failed|running|queued|succeeded", message.reply_text.await_args.args[0])
 
-    async def test_start_deep_link_access_shows_access_status(self) -> None:
+    async def test_start_deep_link_access_is_no_longer_a_shortcut(self) -> None:
         message = SimpleNamespace(reply_text=AsyncMock(), message_id=778)
         update = SimpleNamespace(
             effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
@@ -1329,9 +1350,9 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         await start_command(update, context)
 
-        self.assertIn("Stato accesso DocMolder", message.reply_text.await_args.args[0])
+        self.assertIn("DocMolder", message.reply_text.await_args.args[0])
 
-    async def test_start_deep_link_last_reruns_latest_job(self) -> None:
+    async def test_start_deep_link_last_is_no_longer_a_shortcut(self) -> None:
         source_job = self.store.create_job(
             user_id=7,
             chat_id=99,
@@ -1349,8 +1370,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         await start_command(update, context)
 
         queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
-        self.assertEqual(len(queued_jobs), 1)
-        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
+        self.assertEqual(len(queued_jobs), 0)
+        self.assertIn("DocMolder", message.reply_text.await_args.args[0])
 
     async def test_invalid_action_callback_returns_expired_message(self) -> None:
         self.store.save(
@@ -1372,6 +1393,29 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         await handle_action_callback(update, context)
 
         query.edit_message_text.assert_awaited_once_with(_invalid_callback_message())
+
+    async def test_action_more_callback_expands_contextual_keyboard(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        query = SimpleNamespace(
+            data="action:more",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=700),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_action_callback(update, context)
+
+        labels = [button.text for row in query.edit_message_text.await_args.kwargs["reply_markup"].inline_keyboard for button in row]
+        self.assertIn("Meno azioni", labels)
+        self.assertIn("Aggiungi watermark", labels)
 
     async def test_invalid_compression_callback_returns_expired_message(self) -> None:
         self.store.save(
@@ -2762,7 +2806,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         await handle_menu_text(update, context)
 
         message.reply_text.assert_awaited_once()
-        self.assertEqual(message.reply_text.await_args.args[0], SESSION_EMPTY_MESSAGE)
+        self.assertIn("Stato accesso DocMolder", message.reply_text.await_args.args[0])
+        self.assertIn("Sessione corrente: vuota", message.reply_text.await_args.args[0])
         self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
 
     async def test_new_status_button_works_and_refreshes_keyboard(self) -> None:
@@ -2781,7 +2826,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         await handle_menu_text(update, context)
 
         message.reply_text.assert_awaited_once()
-        self.assertEqual(message.reply_text.await_args.args[0], SESSION_EMPTY_MESSAGE)
+        self.assertIn("Stato accesso DocMolder", message.reply_text.await_args.args[0])
+        self.assertIn("Sessione corrente: vuota", message.reply_text.await_args.args[0])
         self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
 
     async def test_legacy_reset_button_still_works_and_refreshes_keyboard(self) -> None:

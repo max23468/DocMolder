@@ -68,7 +68,7 @@ Deliverable principali:
 
 Stato:
 
-- stabile per il perimetro attuale: `/health`, `/queue`, `/metrics`, alert admin e healthcheck CLI includono soglie operative principali
+- stabile per il perimetro attuale: console `/admin`, alert admin e healthcheck CLI includono soglie operative principali
 
 ### M3 - Cleanup e lifecycle dati
 
