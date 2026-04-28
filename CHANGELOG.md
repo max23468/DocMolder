@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.2.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.1.0...docmolder-v1.2.0) (2026-04-28)
+
+
+### Funzionalità
+
+* **ux:** clarify public onboarding and trust signals ([#108](https://github.com/max23468/DocMolder/issues/108)) ([8077dad](https://github.com/max23468/DocMolder/commit/8077dad8504494ab64d53e00a0a1e3186136a7dd))
+
 ## [1.1.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.0.1...docmolder-v1.1.0) (2026-04-28)
 
 
