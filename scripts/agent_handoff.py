@@ -48,7 +48,7 @@ def print_list(title: str, items: list[str], fallback: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Genera un handoff markdown per lavori Codex/agent.")
     parser.add_argument("--owner", default="Codex", help="Owner/chat che lascia l'handoff.")
-    parser.add_argument("--summary", action="append", default=[], help="Cosa e stato fatto. Ripetibile o separabile con ;")
+    parser.add_argument("--summary", action="append", default=[], help="Cosa è stato fatto. Ripetibile o separabile con ;")
     parser.add_argument("--check", action="append", default=[], help="Check eseguito. Ripetibile o separabile con ;")
     parser.add_argument("--risk", action="append", default=[], help="Rischio residuo. Ripetibile o separabile con ;")
     parser.add_argument("--next-step", action="append", default=[], help="Prossimo passo. Ripetibile o separabile con ;")

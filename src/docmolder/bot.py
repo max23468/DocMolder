@@ -1483,7 +1483,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
     await message.reply_text(
         "Vuoi cancellare anche storico, preferenze, preset e metadati live collegati al tuo account? "
-        "I backup tecnici gia creati non vengono riscritti, ma scadono con la loro retention breve.",
+        "I backup tecnici già creati non vengono riscritti, ma scadono con la loro retention breve.",
         reply_markup=build_delete_data_request_keyboard(),
     )
 
@@ -1503,12 +1503,12 @@ async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFA
         await query.edit_message_text(
             "Confermi la cancellazione completa dei tuoi dati live?\n\n"
             "Verranno rimossi sessione, preferenze, preset, storico job e metadati utente. "
-            "I backup tecnici gia creati non vengono riscritti retroattivamente.",
+            "I backup tecnici già creati non vengono riscritti retroattivamente.",
             reply_markup=build_delete_data_confirmation_keyboard(),
         )
         return
     if action == "cancel":
-        await query.edit_message_text("Cancellazione completa annullata. La sessione leggera era gia stata azzerata.")
+        await query.edit_message_text("Cancellazione completa annullata. La sessione leggera era già stata azzerata.")
         return
     if action != "confirm":
         await query.edit_message_text(_invalid_callback_message())
@@ -1536,7 +1536,7 @@ async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFA
     )
     await query.edit_message_text(
         "Dati live cancellati. Ho rimosso sessione, preferenze, preset, storico job e metadati utente collegati al tuo account.\n\n"
-        "Nota: i backup tecnici gia creati non vengono riscritti, ma restano coperti dalla retention breve."
+        "Nota: i backup tecnici già creati non vengono riscritti, ma restano coperti dalla retention breve."
     )
 
 
@@ -2374,7 +2374,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
             action = text_request.action
             if action is None:
-                await message.reply_text("Non ho capito abbastanza bene la richiesta. Prova a riformularla in modo piu diretto.")
+                await message.reply_text("Non ho capito abbastanza bene la richiesta. Prova a riformularla in modo più diretto.")
                 return
             if not _has_capacity_for_new_job(user.id, deps):
                 await message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
@@ -2444,7 +2444,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             elif text_request.rotate_degrees is not None:
                 await message.reply_text(
                     f"Rotazione manuale presa in carico di {text_request.rotate_degrees} gradi. "
-                    f"Job #{job.id} in coda.\nTi invio il PDF appena e pronto."
+                    f"Job #{job.id} in coda.\nTi invio il PDF appena è pronto."
                 )
             else:
                 await message.reply_text(
@@ -2850,7 +2850,7 @@ def _build_policy_message(deps: BotDependencies) -> str:
         "Cancellazione:\n"
         "- /reset azzera sessione, preferenze rapide e preset leggeri\n"
         "- dallo stesso percorso puoi cancellare tutti i dati live con conferma inline\n"
-        "- i backup tecnici gia creati non vengono riscritti e scadono con la loro retention breve\n\n"
+        "- i backup tecnici già creati non vengono riscritti e scadono con la loro retention breve\n\n"
         "Preset:\n"
         "- salvo solo impostazioni operative ripetute, come compressione, layout immagini PDF e output split\n"
         "- non salvo contenuti dei documenti o nomi file dentro i preset\n\n"
@@ -3158,7 +3158,7 @@ def _build_file_too_large_message(max_file_size_mb: int) -> str:
 def _build_session_file_limit_message(max_session_files: int) -> str:
     return (
         "Hai raggiunto il numero massimo di file per questa sessione. "
-        f"Limite attuale: {max_session_files} file. Usa /reset per ricominciare oppure invia un gruppo piu piccolo."
+        f"Limite attuale: {max_session_files} file. Usa /reset per ricominciare oppure invia un gruppo più piccolo."
     )
 
 
@@ -3369,7 +3369,7 @@ def _build_compression_prompt(user_id: int, deps: BotDependencies) -> str:
         saved_note = ""
     return (
         "Hai scelto la compressione PDF. Seleziona il livello.\n"
-        "Leggera preserva di piu il file; Media e Forte cercano una riduzione piu evidente."
+        "Leggera preserva di più il file; Media e Forte cercano una riduzione più evidente."
         f"{saved_note}"
     )
 
@@ -3393,7 +3393,7 @@ def _build_split_output_prompt(user_id: int, deps: BotDependencies) -> str:
 def _build_document_photo_mode_prompt() -> str:
     return (
         "Come vuoi sistemare la foto del documento?\n"
-        "- Piu leggibile: migliora contrasto e pulizia generale.\n"
+        "- Più leggibile: migliora contrasto e pulizia generale.\n"
         "- Mantieni colore: conserva il colore del foglio.\n"
         "- Bianco/nero pulito: crea una scansione ad alto contrasto."
     )
@@ -3404,7 +3404,7 @@ def _document_photo_mode_label(mode: DocumentPhotoMode) -> str:
         return "Mantieni colore"
     if mode == DocumentPhotoMode.BW:
         return "Bianco/nero pulito"
-    return "Piu leggibile"
+    return "Più leggibile"
 
 
 def _build_image_pdf_layout_prompt(user_id: int, deps: BotDependencies) -> str:
@@ -3547,14 +3547,14 @@ async def _handle_pending_session_input(
             deps.session_store.delete(user_id)
             await update.effective_message.reply_text(
                 f"Rotazione manuale presa in carico di {rotate_degrees} gradi. "
-                f"Job #{job.id} in coda.\nTi invio il PDF appena e pronto."
+                f"Job #{job.id} in coda.\nTi invio il PDF appena è pronto."
             )
             return True
         elif pending_action == SupportedAction.PDF_WATERMARK:
             watermark_text = text.strip()
             if not watermark_text:
                 await update.effective_message.reply_text(
-                    "Il watermark testuale non puo essere vuoto. Scrivimi una parola o una frase breve, ad esempio BOZZA."
+                    "Il watermark testuale non può essere vuoto. Scrivimi una parola o una frase breve, ad esempio BOZZA."
                 )
                 return True
             enqueue_kwargs["watermark_text"] = watermark_text

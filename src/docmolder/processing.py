@@ -922,7 +922,7 @@ class DocumentProcessor:
             )
             return True
         except (RuntimeError, ValueError, OSError):
-            logger.exception("Compressione conservativa non riuscita, usero un fallback.")
+            logger.exception("Compressione conservativa non riuscita, userò un fallback.")
             return False
         finally:
             document.close()
@@ -936,10 +936,10 @@ class DocumentProcessor:
         if input_bytes <= 0 or output_bytes <= 0:
             return ""
         if output_bytes >= input_bytes:
-            return " Il PDF sembra gia ottimizzato: questo passaggio non lo rende piu leggero dell'originale."
+            return " Il PDF sembra già ottimizzato: questo passaggio non lo rende più leggero dell'originale."
         reduction_percent = round((1 - (output_bytes / input_bytes)) * 100)
         if reduction_percent < 5:
-            return " La riduzione e minima: il PDF era gia abbastanza ottimizzato."
+            return " La riduzione è minima: il PDF era già abbastanza ottimizzato."
         return f" Riduzione stimata: circa {reduction_percent}%."
 
     def _run_ghostscript_grayscale(self, pdf_path: Path, output_path: Path) -> bool:
@@ -1062,7 +1062,7 @@ class DocumentProcessor:
             )
             return True
         except (RuntimeError, ValueError, OSError):
-            logger.exception("Conversione nativa in scala di grigi non riuscita, usero un fallback.")
+            logger.exception("Conversione nativa in scala di grigi non riuscita, userò un fallback.")
             return False
         finally:
             document.close()
@@ -1499,7 +1499,7 @@ class DocumentProcessor:
         subject_label = "foto del documento" if total_images == 1 else "foto dei documenti"
         message = f"PDF pronto. Ho raddrizzato e pulito {total_images} {subject_label}."
         mode_messages = {
-            DocumentPhotoMode.READABLE: "Ho usato il profilo piu leggibile.",
+            DocumentPhotoMode.READABLE: "Ho usato il profilo più leggibile.",
             DocumentPhotoMode.COLOR: "Ho mantenuto il colore migliorando il contrasto.",
             DocumentPhotoMode.BW: "Ho creato una versione bianco/nero pulita.",
         }
@@ -1511,12 +1511,12 @@ class DocumentProcessor:
                 f" Per {fallback_count} ho usato un fallback conservativo: contorno del foglio o prospettiva non erano sicuri."
             )
         warning_messages = {
-            "foto_scura": "Alcune foto sembrano scure: se il testo resta poco leggibile, riprova con piu luce.",
+            "foto_scura": "Alcune foto sembrano scure: se il testo resta poco leggibile, riprova con più luce.",
             "foto_molto_chiara": "Alcune foto sono molto chiare: se il testo perde contrasto, riprova evitando riflessi.",
-            "contrasto_basso": "Alcune foto hanno poco contrasto: appoggia il foglio su uno sfondo piu diverso dal documento.",
+            "contrasto_basso": "Alcune foto hanno poco contrasto: appoggia il foglio su uno sfondo più diverso dal documento.",
             "foto_sfuocata": "Alcune foto sembrano sfocate: riprova tenendo il telefono fermo e mettendo bene a fuoco il testo.",
             "contorno_non_sicuro": "Non sempre ho visto un bordo leggibile del foglio: lascia spazio attorno al documento e usa uno sfondo uniforme.",
-            "foglio_vicino_ai_bordi": "In almeno una foto il foglio e vicino ai bordi: lascia un po' di spazio attorno al documento per un ritaglio migliore.",
+            "foglio_vicino_ai_bordi": "In almeno una foto il foglio è vicino ai bordi: lascia un po' di spazio attorno al documento per un ritaglio migliore.",
         }
         for warning_key, warning_message in warning_messages.items():
             if warning_key in warnings:

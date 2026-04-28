@@ -6,7 +6,7 @@ Scope corrente:
 
 - sviluppo Codex e PR workflow;
 - GitHub per manutenzione e release;
-- osservabilita e operations.
+- osservabilità e operations.
 
 Fuori scope per questa fase:
 
@@ -48,7 +48,7 @@ Regola pratica:
 
 - run failed del branch corrente: investigare prima con `scripts/current_failed_runs.py` e `gh run view`;
 - Release PR aperta: verificare versione, changelog e manifest prima del merge;
-- PR Dependabot/security: priorita alta se tocca runtime o CVE rilevanti.
+- PR Dependabot/security: priorità alta se tocca runtime o CVE rilevanti.
 
 ## 3) Observability e operations
 
@@ -61,7 +61,7 @@ Il report raccoglie:
 - warning e alert su runtime, backup e job;
 - comandi VPS utili per diagnosi.
 
-Non eseguire restart, deploy, restore o modifiche VPS solo perche il report li suggerisce: per azioni operative serve consenso esplicito e runbook VPS.
+Non eseguire restart, deploy, restore o modifiche VPS solo perché il report li suggerisce: per azioni operative serve consenso esplicito e runbook VPS.
 
 ## Cadence consigliata
 

@@ -124,10 +124,10 @@ def print_report(*, owner: str | None, fail_on_active: bool) -> int:
     conflicts = [item for item in items if not (owner and item.owner.lower() == owner.lower()) and item_matches_paths(item, paths)]
     if conflicts:
         blockers = True
-        print("BLOCKER: i cambi locali sembrano sovrapporsi ad aree gia presidiate nel registro.")
+        print("BLOCKER: i cambi locali sembrano sovrapporsi ad aree già presidiate nel registro.")
     elif items and fail_on_active:
         blockers = True
-        print("BLOCKER: esistono lavori attivi nel registro e --fail-on-active e abilitato.")
+        print("BLOCKER: esistono lavori attivi nel registro e --fail-on-active è abilitato.")
 
     return 1 if blockers else 0
 

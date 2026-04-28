@@ -62,7 +62,7 @@ Contiene:
 Uso:
 
 - riferimento ai file Telegram caricati
-- compatibilita tra file e azioni
+- compatibilità tra file e azioni
 - costruzione payload job
 
 ### `SupportedAction`
@@ -100,7 +100,7 @@ Contiene:
 - preferenze auto-rotate
 - layout immagini verso PDF
 - preferenza ZIP nello split
-- profilo foto documento, quando diverso dal default leggibilita
+- profilo foto documento, quando diverso dal default leggibilità
 
 Uso:
 
@@ -172,7 +172,7 @@ Uso:
 
 ## Tabelle SQLite
 
-Il database corrente e gestito da `SQLiteSessionStore`.
+Il database corrente è gestito da `SQLiteSessionStore`.
 
 ### `sessions`
 
@@ -209,7 +209,7 @@ Campi principali:
 - `last_name`
 - `first_seen_at`
 
-Serve a report admin e osservabilita leggera.
+Serve a report admin e osservabilità leggera.
 
 ### `usage_events`
 
@@ -331,7 +331,7 @@ Regole correnti:
 
 - lo storico job live dei record conclusi viene potato da `docmolder-reconcile` oltre `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`, default 30 giorni
 - la cancellazione completa da `/reset` rimuove i dati live dell'utente: sessione, file di sessione, preferenze, preset, storico job personale, usage events, known user e metadati utente in `app_meta`
-- i backup SQLite gia creati non vengono riscritti retroattivamente dalla cancellazione self-service; scadono tramite la retention breve dei backup
+- i backup SQLite già creati non vengono riscritti retroattivamente dalla cancellazione self-service; scadono tramite la retention breve dei backup
 - audit e log devono restare sintetici e non contenere documenti, payload completi o contenuti utente
 - le metriche admin includono utenti attivi recenti, job conclusi 24h, failure rate 24h e job lenti senza leggere contenuti documento
 

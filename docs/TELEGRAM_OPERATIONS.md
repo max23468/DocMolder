@@ -2,7 +2,7 @@
 
 Panoramica pratica delle capacità operative Telegram introdotte nel bot.
 
-Il bot e pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_bot). Se `DOCMOLDER_ALLOWED_USER_IDS` non e configurata, i nuovi utenti possono usarlo senza richiesta di abilitazione. In modalita ristretta, il primo messaggio di un utente non autorizzato crea una richiesta accesso pending per gli admin.
+Il bot è pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_bot). Se `DOCMOLDER_ALLOWED_USER_IDS` non è configurata, i nuovi utenti possono usarlo senza richiesta di abilitazione. In modalità ristretta, il primo messaggio di un utente non autorizzato crea una richiesta accesso pending per gli admin.
 
 ## Comandi utente
 
@@ -10,7 +10,7 @@ Il bot e pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_b
 - `/help`: mostra guida rapida, limiti pubblici, dati e flussi consigliati.
 - `/history`: mostra gli ultimi job personali, con dettaglio e rilancio.
 - `/status`: mostra accesso, service mode, sessione corrente, coda personale e ultimo job.
-- `/reset`: azzera sessione, preferenze rapide e preset leggeri; da qui l'utente puo anche chiedere la cancellazione completa dei propri dati live con conferma inline.
+- `/reset`: azzera sessione, preferenze rapide e preset leggeri; da qui l'utente può anche chiedere la cancellazione completa dei propri dati live con conferma inline.
 
 ## Deep link supportati
 
@@ -26,10 +26,10 @@ Il bot supporta solo payload essenziali su `/start <payload>`:
 Le tastiere inline sono contestuali alla sessione:
 
 - con immagini mostra solo le azioni consigliate per quel set di file, con le azioni meno frequenti dietro `Altre azioni`
-- con un singolo PDF mette davanti le azioni piu comuni e lascia modifica pagine, rotazione e watermark nella vista espansa
-- con piu PDF espone come scelta primaria l'unione
+- con un singolo PDF mette davanti le azioni più comuni e lascia modifica pagine, rotazione e watermark nella vista espansa
+- con più PDF espone come scelta primaria l'unione
 - quando un flusso richiede un dettaglio, come compressione, split, rotazione, impaginazione A4 o profilo foto documento, mostra solo le opzioni di quel passo
-- per compressione, split e immagini verso PDF puo mostrare una scorciatoia `Usa preset` quando l'utente ha ripetuto la stessa impostazione piu volte
+- per compressione, split e immagini verso PDF può mostrare una scorciatoia `Usa preset` quando l'utente ha ripetuto la stessa impostazione più volte
 
 Il pulsante `Altre azioni` espande tutte le azioni compatibili con la sessione corrente; `Meno azioni` torna alla vista breve.
 
@@ -43,18 +43,18 @@ Il bot conserva solo impostazioni operative ricorrenti:
 
 Il preset nasce da scelte ripetute, non da contenuti documento. I messaggi e i
 callback non salvano nomi file, testo estratto o profili documentali. La scelta
-manuale resta sempre disponibile e puo sovrascrivere il preset nel job corrente.
+manuale resta sempre disponibile e può sovrascrivere il preset nel job corrente.
 
-## Qualita foto documento
+## Qualità foto documento
 
 L'azione `Raddrizza foto documento` resta una trasformazione visiva guidata,
-senza OCR. Prima del job l'utente puo scegliere:
+senza OCR. Prima del job l'utente può scegliere:
 
-- `Piu leggibile`
+- `Più leggibile`
 - `Mantieni colore`
 - `Bianco/nero pulito`
 
-Il risultato puo includere avvisi pratici quando la foto sembra scura, sfocata,
+Il risultato può includere avvisi pratici quando la foto sembra scura, sfocata,
 con poco contrasto, senza bordo leggibile o con prospettiva incerta. Gli avvisi
 devono indicare come riprovare, senza far credere che il bot legga o comprenda
 il contenuto del documento.
@@ -143,7 +143,7 @@ Regole:
 
 Un controllo operativo del servizio non deve fermarsi al solo `systemctl active`.
 
-Da shell il controllo standard e:
+Da shell il controllo standard è:
 
 ```bash
 docmolder-healthcheck
@@ -158,7 +158,7 @@ Segnali da verificare:
 - servizio `docmolder` attivo
 - database SQLite leggibile
 - runtime dir scrivibile
-- backup recenti presenti quando il timer e abilitato
+- backup recenti presenti quando il timer è abilitato
 - worker job non bloccato
 - nessun accumulo anomalo di job `queued` o `running`
 - nessun job `running` oltre una soglia ragionevole per il tipo di lavorazione
@@ -170,10 +170,10 @@ Soglie configurabili:
 
 - numero massimo di job in coda: `DOCMOLDER_HEALTH_MAX_QUEUED_JOBS`
 - numero massimo di job in esecuzione: `DOCMOLDER_HEALTH_MAX_RUNNING_JOBS`
-- eta massima di un job `running`: `DOCMOLDER_HEALTH_MAX_RUNNING_JOB_AGE_SECONDS`
+- età massima di un job `running`: `DOCMOLDER_HEALTH_MAX_RUNNING_JOB_AGE_SECONDS`
 - dimensione massima accettabile del runtime dir: `DOCMOLDER_HEALTH_MAX_RUNTIME_DIR_BYTES`
 - dimensione massima accettabile del database SQLite: `DOCMOLDER_HEALTH_MAX_DATABASE_BYTES`
-- eta massima dell'ultimo backup SQLite: `DOCMOLDER_HEALTH_MAX_BACKUP_AGE_SECONDS`
+- età massima dell'ultimo backup SQLite: `DOCMOLDER_HEALTH_MAX_BACKUP_AGE_SECONDS`
 - volume prudenziale: `DOCMOLDER_HEALTH_MAX_FINISHED_JOBS_24H` e `DOCMOLDER_HEALTH_MAX_ACTIVE_USERS_7D`
 - failure rate prudenziale: `DOCMOLDER_HEALTH_MAX_FAILURE_RATE_PERCENT` dopo almeno `DOCMOLDER_HEALTH_FAILURE_RATE_MIN_FINISHED_JOBS`
 - spazio disco minimo: `DOCMOLDER_HEALTH_MIN_DISK_FREE_BYTES` e `DOCMOLDER_HEALTH_MIN_DISK_FREE_PERCENT`
@@ -196,4 +196,4 @@ riallinea il runtime operativo:
 - rimette in coda job `running` rimasti stale
 - pulisce directory temporanee oltre retention
 - pruna job conclusi vecchi secondo `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`
-- puo usare una retention diversa per una singola run con `--prune-finished-days`, oppure saltare il pruning con `--no-prune-finished`
+- può usare una retention diversa per una singola run con `--prune-finished-days`, oppure saltare il pruning con `--no-prune-finished`

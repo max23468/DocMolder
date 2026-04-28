@@ -28,7 +28,7 @@ Variabili minime:
 - `DOCMOLDER_DATABASE_PATH`
 - `DOCMOLDER_SQLITE_BACKUP_DIR`
 - limiti runtime (`SESSION_TTL`, `MAX_SESSION_FILES`, burst upload, job concorrenti)
-- soglie alert admin (`DOCMOLDER_ADMIN_ALERT_*`) se vuoi renderle piu o meno sensibili
+- soglie alert admin (`DOCMOLDER_ADMIN_ALERT_*`) se vuoi renderle più o meno sensibili
 - soglie health (`DOCMOLDER_HEALTH_*`) per coda, job stale, runtime dir, backup, disco, load, RAM, database, job/giorno, utenti attivi e failure rate
 - soglia job lenti admin (`DOCMOLDER_ADMIN_SLOW_JOB_THRESHOLD_MS`)
 - `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS` per retention live dello storico job, default 30 giorni
@@ -74,9 +74,9 @@ sudo journalctl -u docmolder -n 50 --no-pager
 sudo -u docmolder git -C /opt/docmolder/app rev-parse --short HEAD
 ```
 
-Il percorso standard e il webhook privato GitHub -> VPS: riceve il push su
+Il percorso standard è il webhook privato GitHub -> VPS: riceve il push su
 `main`, verifica firma/repository/branch e lancia `update-vps.sh`. Dopo un
-deploy riuscito puo lanciare anche `deploy/auto-release.sh`.
+deploy riuscito può lanciare anche `deploy/auto-release.sh`.
 
 Deploy manuale mirato, solo come fallback esplicito:
 
@@ -96,18 +96,18 @@ sudo journalctl -u docmolder-github-webhook.service -n 50 --no-pager
 sudo cat /etc/docmolder/github-webhook.env
 ```
 
-Il listener webhook riceve gli eventi GitHub su `/webhooks/github/deploy`, verifica la firma HMAC e lancia `update-vps.sh` sul commit ricevuto. L'endpoint di health del listener e `/webhooks/github/healthz`.
-Quando il deploy aggiorna unit o script del listener gia attivo, `install-github-webhook.sh` evita il restart dentro al processo che sta servendo il webhook: se gira nel worker scrive un marker in `/run/docmolder-github-webhook/restart-requested`, poi il listener lo consuma a fine job e pianifica il restart con `systemd-run --on-active=1s`. Fuori dal worker il restart e immediato.
+Il listener webhook riceve gli eventi GitHub su `/webhooks/github/deploy`, verifica la firma HMAC e lancia `update-vps.sh` sul commit ricevuto. L'endpoint di health del listener è `/webhooks/github/healthz`.
+Quando il deploy aggiorna unit o script del listener già attivo, `install-github-webhook.sh` evita il restart dentro al processo che sta servendo il webhook: se gira nel worker scrive un marker in `/run/docmolder-github-webhook/restart-requested`, poi il listener lo consuma a fine job e pianifica il restart con `systemd-run --on-active=1s`. Fuori dal worker il restart è immediato.
 
-Dopo un deploy riuscito il listener lancia anche `deploy/auto-release.sh`. Se `/etc/docmolder/release.env` contiene `DOCMOLDER_AUTO_RELEASE_ENABLED=true`, un `DOCMOLDER_RELEASE_GITHUB_TOKEN` valido per le API GitHub e, quando diverso, un `DOCMOLDER_RELEASE_GIT_TOKEN` valido per push Git HTTPS, la VPS crea automaticamente bump, changelog, tag e GitHub Release quando ci sono commit rilasciabili dal tag precedente. Per usare un nome diverso da `DOCMOLDER_RELEASE_GIT_TOKEN`, imposta `DOCMOLDER_RELEASE_GIT_TOKEN_ENV` al nome della variabile custom. Quando lo script parte da root, i token non vengono passati a `sudo --preserve-env`: vengono letti da una copia temporanea `600` del file release env, rimossa a fine esecuzione, cosi non compaiono nella riga comando del journal. Se il file manca o la flag e disattivata, la fase release viene saltata senza interrompere il deploy.
+Dopo un deploy riuscito il listener lancia anche `deploy/auto-release.sh`. Se `/etc/docmolder/release.env` contiene `DOCMOLDER_AUTO_RELEASE_ENABLED=true`, un `DOCMOLDER_RELEASE_GITHUB_TOKEN` valido per le API GitHub e, quando diverso, un `DOCMOLDER_RELEASE_GIT_TOKEN` valido per push Git HTTPS, la VPS crea automaticamente bump, changelog, tag e GitHub Release quando ci sono commit rilasciabili dal tag precedente. Per usare un nome diverso da `DOCMOLDER_RELEASE_GIT_TOKEN`, imposta `DOCMOLDER_RELEASE_GIT_TOKEN_ENV` al nome della variabile custom. Quando lo script parte da root, i token non vengono passati a `sudo --preserve-env`: vengono letti da una copia temporanea `600` del file release env, rimossa a fine esecuzione, così non compaiono nella riga comando del journal. Se il file manca o la flag è disattivata, la fase release viene saltata senza interrompere il deploy.
 
 Per una promozione intenzionale a `1.0.0`, dopo aver completato la checklist
 1.0 puoi aggiungere temporaneamente `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0` a
-`/etc/docmolder/release.env`. Se la release automatica VPS e abilitata, aggiungi
-il target prima del merge della PR finale, cosi il commit rilasciabile viene
+`/etc/docmolder/release.env`. Se la release automatica VPS è abilitata, aggiungi
+il target prima del merge della PR finale, così il commit rilasciabile viene
 consumato direttamente come `1.0.0`. Rimuovilo solo dopo che il webhook ha
 stampato `Released docmolder-v1.0.0.`, il tag/GitHub Release esistono e il
-commit di release e stato deployato; rimuoverlo subito dopo il merge puo far
+commit di release è stato deployato; rimuoverlo subito dopo il merge può far
 partire il bump naturale `0.x`.
 
 Per configurarlo:
@@ -199,8 +199,8 @@ sudo -u docmolder ls -lah /opt/docmolder/data/runtime/backups
 
 ## Dominio pubblico e HTTPS
 
-Il dominio operativo e `docmolder.duckdns.org`; il bot pubblico e raggiungibile da `https://t.me/docmolder_bot`.
-Questa e la VPS corretta di DocMolder: usare questo host/dominio per deploy e verifiche, non altri host del perimetro personale. La combinazione SSH da usare e `ssh -i ~/.ssh/docmolder_oracle ubuntu@docmolder.duckdns.org`.
+Il dominio operativo è `docmolder.duckdns.org`; il bot pubblico è raggiungibile da `https://t.me/docmolder_bot`.
+Questa è la VPS corretta di DocMolder: usare questo host/dominio per deploy e verifiche, non altri host del perimetro personale. La combinazione SSH da usare è `ssh -i ~/.ssh/docmolder_oracle ubuntu@docmolder.duckdns.org`.
 
 Duck DNS e mantenuto dalla VPS con:
 
@@ -253,7 +253,7 @@ Il deploy standard aggiorna il sito statico con:
 sudo /opt/docmolder/app/deploy/install-static-site.sh
 ```
 
-Se il certificato HTTPS e gia presente, lo stesso script genera anche il vhost con proxy al listener webhook locale.
+Se il certificato HTTPS è già presente, lo stesso script genera anche il vhost con proxy al listener webhook locale.
 
 Verifiche rapide:
 
@@ -290,18 +290,18 @@ Le soglie iniziali della Fase 13 servono a proteggere il soft launch:
 - `DOCMOLDER_HEALTH_MAX_FINISHED_JOBS_24H`: volume giornaliero prudenziale
 - `DOCMOLDER_HEALTH_MAX_ACTIVE_USERS_7D`: utenti attivi recenti
 - `DOCMOLDER_HEALTH_MAX_DATABASE_BYTES`: dimensione massima SQLite prima di rivalutare retention/pruning
-- `DOCMOLDER_HEALTH_MAX_FAILURE_RATE_PERCENT` con `DOCMOLDER_HEALTH_FAILURE_RATE_MIN_FINISHED_JOBS`: qualita minima del servizio
+- `DOCMOLDER_HEALTH_MAX_FAILURE_RATE_PERCENT` con `DOCMOLDER_HEALTH_FAILURE_RATE_MIN_FINISHED_JOBS`: qualità minima del servizio
 - `DOCMOLDER_HEALTH_MAX_QUEUED_JOBS` e `DOCMOLDER_HEALTH_MAX_RUNNING_JOBS`: saturazione coda
 
 Se una soglia viene superata:
 
 1. apri `/admin` e controlla `Manutenzione`, `Coda` e `Health`
 2. esegui `docmolder-healthcheck --check-service-active --service-name docmolder`
-3. se il problema e carico o abuso, metti il bot in manutenzione da `/admin` o abilita temporaneamente `DOCMOLDER_ALLOWED_USER_IDS`
+3. se il problema è carico o abuso, metti il bot in manutenzione da `/admin` o abilita temporaneamente `DOCMOLDER_ALLOWED_USER_IDS`
 4. se il problema e storico job/database, esegui una run mirata di reconcile o riduci temporaneamente `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`
 5. se il problema continua dopo mitigazione, sospendi promozione pubblica e valuta una decisione dedicata su VPS, SQLite o coda esterna
 
-La regola pratica: SQLite e VPS singola restano adeguati finche le soglie non
+La regola pratica: SQLite e VPS singola restano adeguati finché le soglie non
 sono superate in modo ricorrente e il recupero operativo resta possibile da
 `/admin`, healthcheck e runbook.
 

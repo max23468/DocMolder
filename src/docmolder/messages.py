@@ -28,12 +28,12 @@ HELP_MESSAGE = (
     "2. Ti proporrò solo le azioni compatibili con i file ricevuti.\n"
     "3. Se crei un PDF da immagini, ti chiederò anche se vuoi impaginarlo in A4 e con quali bordi.\n"
     "4. Ti restituirò il file finale qui in chat.\n\n"
-    "DocMolder e pensato per essere semplice: una richiesta chiara per volta, pochi tocchi e un risultato pronto. "
-    "Il servizio e pubblico ma best-effort: non e un archivio documentale, non offre SLA e puo limitare lavorazioni troppo pesanti.\n\n"
+    "DocMolder è pensato per essere semplice: una richiesta chiara per volta, pochi tocchi e un risultato pronto. "
+    "Il servizio è pubblico ma best-effort: non è un archivio documentale, non offre SLA e può limitare lavorazioni troppo pesanti.\n\n"
     "Dati e limiti:\n"
     "- i file servono alla lavorazione e non sono archiviati permanentemente\n"
     "- lo storico job live conserva metadati tecnici per /history e retry, poi viene potato\n"
-    "- /reset azzera sessione e preferenze; da li puoi cancellare anche tutti i tuoi dati live\n"
+    "- /reset azzera sessione e preferenze; da lì puoi cancellare anche tutti i tuoi dati live\n"
     f"- dettagli completi: {PUBLIC_PRIVACY_URL}\n\n"
     "Esempi:\n"
     "- più immagini -> un PDF unico\n"
@@ -66,7 +66,7 @@ HELP_MESSAGE = (
 )
 
 UNAUTHORIZED_MESSAGE = (
-    "Questo account non puo usare il bot in questo momento. "
+    "Questo account non può usare il bot in questo momento. "
     f"Contatta l'amministratore di {BRAND_NAME} per l'abilitazione."
 )
 
@@ -76,13 +76,13 @@ SESSION_EMPTY_MESSAGE = (
 )
 
 MIXED_SESSION_MESSAGE = (
-    "La sessione corrente contiene gia un tipo di file diverso. "
+    "La sessione corrente contiene già un tipo di file diverso. "
     "Per evitare combinazioni ambigue, usa /reset e riparti con soli PDF oppure sole immagini."
 )
 
 FILE_TOO_LARGE_MESSAGE = (
     "Questo file supera il limite consentito per il bot. "
-    "Prova a inviarne una versione piu leggera, riduci risoluzione/compressione oppure dividi il materiale in piu file."
+    "Prova a inviarne una versione più leggera, riduci risoluzione/compressione oppure dividi il materiale in più file."
 )
 
 UPLOAD_RATE_LIMIT_MESSAGE = (
@@ -91,8 +91,8 @@ UPLOAD_RATE_LIMIT_MESSAGE = (
 )
 
 JOB_QUEUE_LIMIT_MESSAGE = (
-    "Hai gia troppe operazioni in coda o in lavorazione. "
-    "Aspetta che il bot finisca i job gia presi in carico, controlla /status e poi inviane altri."
+    "Hai già troppe operazioni in coda o in lavorazione. "
+    "Aspetta che il bot finisca i job già presi in carico, controlla /status e poi inviane altri."
 )
 
 PROCESSING_MESSAGE = "Sto elaborando i file. Potrebbe volerci qualche secondo."

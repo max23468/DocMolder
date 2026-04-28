@@ -2,7 +2,7 @@
 
 Usa questo formato quando una chat coordinatore assegna lavoro a un sub-agente o a un'altra istanza Codex.
 
-Il packet deve essere breve, concreto e autosufficiente. Se il lavoro e ambiguo, chiarisci prima lo scope invece di delegare.
+Il packet deve essere breve, concreto e autosufficiente. Se il lavoro è ambiguo, chiarisci prima lo scope invece di delegare.
 
 ## Template
 
@@ -17,8 +17,8 @@ Il packet deve essere breve, concreto e autosufficiente. Se il lavoro e ambiguo,
 - Documenti da leggere: <docs rilevanti>
 
 ## Ownership
-- Puoi modificare: <file/moduli/responsabilita>
-- Non toccare: <file/moduli/responsabilita fuori scope>
+- Puoi modificare: <file/moduli/responsabilità>
+- Non toccare: <file/moduli/responsabilità fuori scope>
 - Altri agenti attivi: <righe rilevanti da docs/AGENT_COORDINATION.md>
 
 ## Vincoli
@@ -41,8 +41,8 @@ Il packet deve essere breve, concreto e autosufficiente. Se il lavoro e ambiguo,
 
 ## Checklist coordinatore
 
-- Il task e indipendente dal lavoro gia in corso.
-- L'ownership e disgiunta da quella di altri agenti.
-- Il sub-agente puo lavorare senza decisioni prodotto aperte.
-- Il formato di handoff e chiaro.
+- Il task è indipendente dal lavoro già in corso.
+- L'ownership è disgiunta da quella di altri agenti.
+- Il sub-agente può lavorare senza decisioni prodotto aperte.
+- Il formato di handoff è chiaro.
 - Il coordinatore resta responsabile dell'integrazione finale.

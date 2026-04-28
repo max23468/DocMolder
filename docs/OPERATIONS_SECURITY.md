@@ -20,8 +20,8 @@ Assetto previsto:
 Segreti principali:
 
 - `DOCMOLDER_TELEGRAM_TOKEN`
-- `DUCKDNS_TOKEN` in `/etc/docmolder/duckdns.env`, se Duck DNS e gestito dalla VPS
-- token release GitHub in `/etc/docmolder/release.env`, se auto-release VPS e abilitata
+- `DUCKDNS_TOKEN` in `/etc/docmolder/duckdns.env`, se Duck DNS è gestito dalla VPS
+- token release GitHub in `/etc/docmolder/release.env`, se auto-release VPS è abilitata
 - eventuali credenziali o token di deploy/VPS fuori repo
 
 Regole:
@@ -109,7 +109,7 @@ Ruotare `DOCMOLDER_TELEGRAM_TOKEN` quando:
 - viene esposto accidentalmente
 - cambia manutentore o accesso alla VPS
 - si sospetta compromissione del server
-- il token e stato usato in ambienti non controllati
+- il token è stato usato in ambienti non controllati
 
 Procedura minima:
 
@@ -124,14 +124,14 @@ Procedura minima:
 In caso di incidente:
 
 1. isolare se il problema riguarda deploy, configurazione, Telegram, pipeline o storage
-2. fermare il servizio se c'e rischio di leak o corruzione dati
+2. fermare il servizio se c’è rischio di leak o corruzione dati
 3. preservare log e database solo quanto necessario alla diagnosi
-4. ruotare segreti se c'e sospetto leak
+4. ruotare segreti se c’è sospetto leak
 5. ripristinare da backup solo dopo aver validato il backup scelto
 6. annotare la correzione in documentazione operativa se cambia il modo corretto di gestire il servizio
 
 ## Rischi aperti
 
 - SQLite locale e adatto al perimetro corrente ma non a crescita importante
-- alerting esterno non e ancora formalizzato
+- alerting esterno non è ancora formalizzato
 - le soglie definitive di crescita e saturazione vanno ancora validate con dati reali di produzione

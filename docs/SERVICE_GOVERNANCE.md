@@ -21,7 +21,7 @@ Il bot e oggi:
 - servizio Telegram-first
 - pubblico e raggiungibile da `https://t.me/docmolder_bot`
 - pensato per chat private con il bot
-- utilizzabile senza allow-list quando `DOCMOLDER_ALLOWED_USER_IDS` non e configurata
+- utilizzabile senza allow-list quando `DOCMOLDER_ALLOWED_USER_IDS` non è configurata
 - restringibile agli utenti ammessi via configurazione o approvati tramite flusso admin in chat
 - amministrabile dagli user id in `DOCMOLDER_ADMIN_USER_IDS`
 - ospitabile su singola VPS Linux con `systemd`
@@ -31,16 +31,16 @@ Il bot non offre storage documentale permanente: riceve file, li trasforma e res
 
 ## Uso pubblico 1.x
 
-Dalla linea `1.x`, il bot puo essere considerato pubblicamente utilizzabile su
+Dalla linea `1.x`, il bot può essere considerato pubblicamente utilizzabile su
 Telegram, ma con un perimetro intenzionalmente prudente:
 
 - accesso pubblico tramite `@docmolder_bot` e sito statico di ingresso
 - uso consigliato in chat privata, per trasformazioni documentali puntuali
 - servizio best-effort, senza SLA, piano commerciale o promessa di
-  disponibilita continua
+  disponibilità continua
 - carico atteso basso o moderato, protetto da limiti su file, sessioni, burst
   upload e job concorrenti
-- possibilita di passare temporaneamente a modalita ristretta con
+- possibilità di passare temporaneamente a modalità ristretta con
   `DOCMOLDER_ALLOWED_USER_IDS` o manutenzione se abuso, carico o incidenti lo
   richiedono
 
@@ -50,33 +50,33 @@ sensibili ricorrenti serve ancora:
 
 - monitoraggio operativo sufficiente a capire saturazione, errori e abuso
 
-Sono gia presenti:
+Sono già presenti:
 
 - procedura self-service per cancellazione completa dei dati live da `/reset`
 - pruning automatico e policy formale per lo storico job live
 - testi bot e sito statico allineati su privacy, retention, limiti e uso best-effort
 - preset automatici leggeri per impostazioni operative ricorrenti, cancellabili con `/reset`
-- osservabilita minima Fase 13 su utenti attivi, job/giorno, failure rate, job lenti, pruning, cancellazioni dati e soglie SQLite/VPS
+- osservabilità minima Fase 13 su utenti attivi, job/giorno, failure rate, job lenti, pruning, cancellazioni dati e soglie SQLite/VPS
 
 Scelta operativa 1.x:
 
 - mantenere una postura di soft launch pubblico
 - tenere in pausa lo sviluppo feature dopo `docmolder-v1.5.0`, salvo bugfix,
-  priorita emerse dall'uso o decisioni esplicite
+  priorità emerse dall'uso o decisioni esplicite
 - mini-promozioni controllate sono possibili dopo Fase 10, mantenendo basso il volume atteso
-- valutare una promozione piu ampia solo se le soglie prudenziali della Fase 13 restano sotto controllo con dati reali
+- valutare una promozione più ampia solo se le soglie prudenziali della Fase 13 restano sotto controllo con dati reali
 - mantenere l'italiano come lingua prodotto primaria nella 1.x iniziale
 
 ## Perimetro prodotto
 
-Il prodotto e:
+Il prodotto è:
 
 - utility documentale guidata
 - trasformazione rapida di PDF e immagini
 - esperienza conversazionale semplice
 - servizio operativo con coda, admin console e retention breve
 
-Il prodotto non e:
+Il prodotto non è:
 
 - archivio documentale
 - editor PDF generalista
@@ -88,7 +88,7 @@ Il prodotto non e:
 
 ### Dati Telegram
 
-Il servizio puo trattare:
+Il servizio può trattare:
 
 - `telegram_user_id`
 - `telegram_chat_id`
@@ -121,7 +121,7 @@ Regole:
 
 ### Dati job e metriche
 
-Il database puo conservare:
+Il database può conservare:
 
 - azione richiesta
 - payload tecnico del job
@@ -182,7 +182,7 @@ Retention:
 
 Retention:
 
-- storico leggero dei job nel database finche utile a `/history`, console admin e diagnosi
+- storico leggero dei job nel database finché utile a `/history`, console admin e diagnosi
 - nessuna promessa di conservazione permanente
 
 - retention massima live predefinita di 30 giorni per job conclusi, configurabile via env
@@ -192,24 +192,24 @@ Retention:
 
 Retention:
 
-- backup giornalieri verificati quando il timer VPS e abilitato
+- backup giornalieri verificati quando il timer VPS è abilitato
 - retention breve secondo `DOCMOLDER_SQLITE_BACKUP_RETENTION_DAYS`
 - i backup possono contenere metadati utente e job, quindi vanno trattati come dati sensibili
-- la cancellazione self-service dei dati live non riscrive retroattivamente i backup gia creati; i dati eventualmente presenti nei backup scadono tramite la retention breve dei backup
+- la cancellazione self-service dei dati live non riscrive retroattivamente i backup già creati; i dati eventualmente presenti nei backup scadono tramite la retention breve dei backup
 
 ## Cancellazione dati
 
 Percorsi correnti:
 
 - `/reset` pulisce la sessione utente corrente
-- la cancellazione completa self-service e esposta dentro `/reset`, con conferma inline obbligatoria, e rimuove dati live dell'utente come sessione, preferenze rapide, preset, storico job personale e metadati utente noti
-- in modalita ristretta il primo messaggio di un utente non autorizzato registra una richiesta di accesso; l'admin puo approvare o rifiutare dalla console inline
+- la cancellazione completa self-service è esposta dentro `/reset`, con conferma inline obbligatoria, e rimuove dati live dell'utente come sessione, preferenze rapide, preset, storico job personale e metadati utente noti
+- in modalità ristretta il primo messaggio di un utente non autorizzato registra una richiesta di accesso; l'admin può approvare o rifiutare dalla console inline
 - cleanup job rimuove file temporanei
 - restore o manutenzione SQLite restano operazioni amministrative
 
 Regole:
 
-- la cancellazione completa riguarda i dati live, non i backup storici gia creati
+- la cancellazione completa riguarda i dati live, non i backup storici già creati
 - log e audit devono registrare solo eventi sintetici, senza contenuti documentali
 - `/reset` deve distinguere il reset leggero dalla cancellazione completa dei dati
 - i preset restano opzionali: ogni wizard deve lasciare visibile la scelta manuale
@@ -229,11 +229,11 @@ Limiti principali configurabili:
 - `DOCMOLDER_ADMIN_SLOW_JOB_THRESHOLD_MS`
 - `DOCMOLDER_HEALTH_*` per soglie operative di VPS, coda, disco, load, RAM, backup, runtime, database, job/giorno, utenti attivi e failure rate
 
-Il servizio puo rifiutare o rimandare lavorazioni troppo pesanti per proteggere VPS, coda e utenti.
+Il servizio può rifiutare o rimandare lavorazioni troppo pesanti per proteggere VPS, coda e utenti.
 
 Le soglie prudenziali iniziali non autorizzano automaticamente crescita o
 campagne: se job/giorno, utenti attivi, database, failure rate o coda superano i
-limiti configurati, la scelta predefinita e fermare promozione, usare
+limiti configurati, la scelta predefinita è fermare promozione, usare
 manutenzione o allow-list temporanea e rivalutare architettura solo dopo diagnosi.
 
 ## Incident response minima
@@ -242,16 +242,16 @@ In caso di problema:
 
 1. verificare `systemctl status docmolder`
 2. leggere log recenti con `journalctl`
-3. controllare la console `/admin` se Telegram e raggiungibile
+3. controllare la console `/admin` se Telegram è raggiungibile
 4. verificare spazio disco, permessi runtime e backup
 5. se sono coinvolti dati utente, evitare copie non necessarie e non condividere contenuti documento
 6. ripristinare da backup solo se necessario e dopo aver conservato una copia amministrativa dello stato corrente
 
 ## Criterio di sufficienza della VPS
 
-La VPS corrente e considerata sufficiente finche:
+La VPS corrente e considerata sufficiente finché:
 
-- numero utenti e basso
+- numero utenti è basso
 - job concorrenti restano entro i limiti configurati
 - runtime dir non cresce in modo anomalo
 - backup giornalieri sono presenti

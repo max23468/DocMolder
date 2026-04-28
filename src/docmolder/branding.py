@@ -19,7 +19,7 @@ BRAND_COLORS: dict[str, str] = {
 
 TELEGRAM_NAME = BRAND_NAME
 TELEGRAM_DESCRIPTION = (
-    "DocMolder e la utility Telegram per sistemare PDF, scansioni e immagini senza passare "
+    "DocMolder è la utility Telegram per sistemare PDF, scansioni e immagini senza passare "
     "da editor complicati. Riceve file in chat, propone solo le azioni compatibili e restituisce "
     "un risultato pulito, rapido e guidato."
 )

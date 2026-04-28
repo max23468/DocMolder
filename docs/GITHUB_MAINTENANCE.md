@@ -16,9 +16,9 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
 - Ownership: `.github/CODEOWNERS`
 
-In modalita senza budget GitHub Actions, i workflow automatici sono disattivati per default. `CI`, `Deploy VPS`, `Release Please` e gli altri dispatch manuali restano disponibili solo come eccezione esplicita; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) diventano la fonte di verita operativa.
+In modalità senza budget GitHub Actions, i workflow automatici sono disattivati per default. `CI`, `Deploy VPS`, `Release Please` e gli altri dispatch manuali restano disponibili solo come eccezione esplicita; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) diventano la fonte di verità operativa.
 
-Il percorso realmente automatico senza Actions passa da `make install-hooks` sul repo locale e dal servizio `docmolder-github-webhook` sulla VPS. Dopo il deploy, il listener puo lanciare `deploy/auto-release.sh`: se `/etc/docmolder/release.env` abilita `DOCMOLDER_AUTO_RELEASE_ENABLED=true` e contiene un token GitHub valido, la VPS crea automaticamente commit di release, tag e GitHub Release.
+Il percorso realmente automatico senza Actions passa da `make install-hooks` sul repo locale e dal servizio `docmolder-github-webhook` sulla VPS. Dopo il deploy, il listener può lanciare `deploy/auto-release.sh`: se `/etc/docmolder/release.env` abilita `DOCMOLDER_AUTO_RELEASE_ENABLED=true` e contiene un token GitHub valido, la VPS crea automaticamente commit di release, tag e GitHub Release.
 
 ## Pubblicazione più fluida
 
@@ -26,7 +26,7 @@ Canale GitHub preferito:
 
 - usa dove possibile il tool/plugin GitHub come canale primario per repository, PR, issue, commenti, review, metadata e creazione PR;
 - usa `gh` e `git` locali solo per operazioni non coperte bene dal plugin, come branch/commit/push locali, stato auth, log GitHub Actions e inspect di run CI;
-- usa `gh pr ready <numero>` solo per PR create esplicitamente come draft; il percorso standard crea PR gia pronte;
+- usa `gh pr ready <numero>` solo per PR create esplicitamente come draft; il percorso standard crea PR già pronte;
 - quando passi da plugin a CLI, mantieni allineati branch locale, PR corrente e SHA monitorato.
 
 Strumenti locali:
@@ -48,7 +48,7 @@ Strumenti locali:
 
 La CI usa lo stesso classificatore, ma non parte automaticamente su push o PR: va avviata manualmente con `workflow_dispatch` solo quando serve un gate remoto. Per cambi senza impatto runtime mantiene i check richiesti ma salta install, test Python e package build pesanti.
 
-`Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `VPS Backup` crea un backup SQLite verificato senza deployare file; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente. `Update VPS Env` resta un fallback manuale Actions per piccoli cambi di configurazione quando non e pratico entrare sulla VPS; il percorso normale resta modifica controllata via SSH/runbook, senza consumare Actions.
+`Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `VPS Backup` crea un backup SQLite verificato senza deployare file; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente. `Update VPS Env` resta un fallback manuale Actions per piccoli cambi di configurazione quando non è pratico entrare sulla VPS; il percorso normale resta modifica controllata via SSH/runbook, senza consumare Actions.
 
 ### Corsie di pubblicazione
 
@@ -71,7 +71,7 @@ Se `publish_doctor` segnala branch indietro/divergente, detached HEAD, run faile
 
 ## CI manuale a consumo ridotto
 
-Il workflow `CI` resta disponibile solo manualmente per contenere il consumo di minuti Actions. Prima di aprire o mergiare una PR, esegui di norma i gate locali rilevanti (`make ci`, `make test` o suite mirate); avvia la CI remota solo per cambi rischiosi, release candidate o quando serve una verifica su runner GitHub. L'input manuale `full_tests` e attivo di default e forza quality gate, matrix test e package build anche quando il diff non li richiederebbe.
+Il workflow `CI` resta disponibile solo manualmente per contenere il consumo di minuti Actions. Prima di aprire o mergiare una PR, esegui di norma i gate locali rilevanti (`make ci`, `make test` o suite mirate); avvia la CI remota solo per cambi rischiosi, release candidate o quando serve una verifica su runner GitHub. L'input manuale `full_tests` è attivo di default e forza quality gate, matrix test e package build anche quando il diff non li richiederebbe.
 
 Il workflow è diviso in gate indipendenti:
 
@@ -87,9 +87,9 @@ Il workflow è diviso in gate indipendenti:
 
 Il listener VPS esegue la release automatica solo dopo un deploy riuscito. La release viene saltata quando:
 
-- `/etc/docmolder/release.env` manca o `DOCMOLDER_AUTO_RELEASE_ENABLED` non e `true`;
-- non ci sono commit rilasciabili dal tag `docmolder-vX.Y.Z` piu recente;
-- il commit ricevuto e solo una release commit `chore(main): release docmolder X.Y.Z`.
+- `/etc/docmolder/release.env` manca o `DOCMOLDER_AUTO_RELEASE_ENABLED` non è `true`;
+- non ci sono commit rilasciabili dal tag `docmolder-vX.Y.Z` più recente;
+- il commit ricevuto è solo una release commit `chore(main): release docmolder X.Y.Z`.
 
 Quando ci sono commit `feat:`, `fix:`, `deps:` o `docs:` rilasciabili, `scripts/auto_release.py` aggiorna `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` e `src/docmolder/__init__.py`, crea il tag `docmolder-vX.Y.Z`, pusha commit/tag e crea o aggiorna la GitHub Release corrispondente. Il token non deve stare nel repository: vive in `/etc/docmolder/release.env` con permessi `600`.
 
@@ -100,7 +100,7 @@ Quando ci sono commit `feat:`, `fix:`, `deps:` o `docs:` rilasciabili, `scripts/
 Richiedere almeno:
 
 - pull request prima del merge;
-- nessun status check Actions obbligatorio finche il progetto opera local-first;
+- nessun status check Actions obbligatorio finché il progetto opera local-first;
 - titolo PR convenzionale;
 - linear history;
 - disabilitazione force push e branch deletion.
@@ -133,7 +133,7 @@ Frequenza minima mensile:
 3. verificare PR Dependabot aperte;
 4. verificare alert Security e Dependabot;
 5. controllare che i ruleset di `main` siano coerenti con il flusso reale;
-6. controllare che `release-please` non abbia Release PR bloccate, se il workflow e stato riattivato esplicitamente;
+6. controllare che `release-please` non abbia Release PR bloccate, se il workflow è stato riattivato esplicitamente;
 7. verificare che i secret VPS e release siano ancora presenti e non scaduti.
 
 ## Fallback operativo

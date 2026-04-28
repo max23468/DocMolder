@@ -92,12 +92,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--stale-running-age-seconds",
         type=int,
         default=3600,
-        help="Requeue dei job running piu vecchi di questa soglia. Usa 0 per disattivare.",
+        help="Requeue dei job running più vecchi di questa soglia. Usa 0 per disattivare.",
     )
     parser.add_argument(
         "--prune-finished-days",
         type=int,
-        help="Rimuove job succeeded/failed piu vecchi di N giorni. Se omesso usa la configurazione.",
+        help="Rimuove job succeeded/failed più vecchi di N giorni. Se omesso usa la configurazione.",
     )
     parser.add_argument("--no-prune-finished", action="store_true", help="Disattiva pruning job conclusi per questa run.")
     parser.add_argument("--no-cleanup-runtime", action="store_true", help="Non pulire directory job stale.")

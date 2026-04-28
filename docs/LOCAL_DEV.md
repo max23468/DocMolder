@@ -103,7 +103,7 @@ Report GitHub manutenzione/release:
 make github-maintenance
 ```
 
-Report osservabilita/operations:
+Report osservabilità/operations:
 
 ```bash
 make ops-report
@@ -128,7 +128,7 @@ Publish readiness:
 make publish-doctor
 ```
 
-Il controllo blocca i casi che rendono rumorosa la pubblicazione: `HEAD detached`, branch indietro o divergente da `origin/main`, file riservati a `release-please`, run GitHub fallite sullo SHA corrente e commenti aperti del Codex connector bot. In modalita senza budget GitHub Actions questo resta il guardrail locale principale, perche i workflow automatici non sono piu parte del percorso standard.
+Il controllo blocca i casi che rendono rumorosa la pubblicazione: `HEAD detached`, branch indietro o divergente da `origin/main`, file riservati a `release-please`, run GitHub fallite sullo SHA corrente e commenti aperti del Codex connector bot. In modalità senza budget GitHub Actions questo resta il guardrail locale principale, perché i workflow automatici non sono più parte del percorso standard.
 
 Per riattivare i controlli automatici locali prima del push:
 

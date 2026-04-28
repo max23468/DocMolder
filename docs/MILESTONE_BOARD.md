@@ -1,6 +1,6 @@
 # Board Milestone Minima
 
-Board locale per mantenere visibili priorita, dipendenze e deliverable finche la roadmap resta leggera.
+Board locale per mantenere visibili priorità, dipendenze e deliverable finché la roadmap resta leggera.
 
 ## Milestone attive
 
@@ -26,11 +26,11 @@ Stato:
 
 - in consolidamento
 
-### M1 - Affidabilita VPS e recovery
+### M1 - Affidabilità VPS e recovery
 
 Obiettivo:
 
-- rendere il servizio recuperabile da incidenti semplici senza ambiguita operative
+- rendere il servizio recuperabile da incidenti semplici senza ambiguità operative
 
 Dipendenze:
 
@@ -40,7 +40,7 @@ Deliverable principali:
 
 - backup SQLite giornaliero verificato
 - restore documentato
-- health post-deploy piu forte del solo `active`
+- health post-deploy più forte del solo `active`
 - verifica spazio disco e runtime dir
 - criteri minimi per job stuck e coda anomala
 
@@ -48,7 +48,7 @@ Stato:
 
 - completata per il perimetro attuale: backup, restore, health/smoke, spazio disco, runtime dir e job stale sono coperti da CLI, timer e runbook
 
-### M2 - Osservabilita e alert
+### M2 - Osservabilità e alert
 
 Obiettivo:
 
@@ -82,7 +82,7 @@ Dipendenze:
 
 Deliverable principali:
 
-- cleanup runtime piu rigoroso
+- cleanup runtime più rigoroso
 - pruning job se deciso
 - retention backup confermata
 - policy cancellazione utente chiarita
@@ -99,13 +99,13 @@ Obiettivo:
 
 Dipendenze:
 
-- pipeline PDF e immagini stabile
+- pipeline per PDF e immagini stabile
 
 Deliverable principali:
 
 - rilevamento bordo foglio
 - correzione prospettica
-- controlli qualita input
+- controlli qualità input
 - fallback chiari
 - messaggi utente coerenti sui limiti
 
@@ -125,7 +125,7 @@ Dipendenze:
 
 Deliverable principali:
 
-- limiti batch piu intelligenti
+- limiti batch più intelligenti
 - downscale preventivo immagini enormi
 - profiling flussi costosi
 - test locali ripetibili di carico leggero
@@ -135,9 +135,9 @@ Stato:
 
 - completata per il perimetro VPS corrente: worker seriale, limiti per utente, downscale preventivo immagini enormi e profiler locale dei flussi pesanti
 
-## Priorita correnti
+## Priorità correnti
 
-Priorita raccomandate:
+Priorità raccomandate:
 
 - chiudere M0 documentale
 - rafforzare M1 con health post-deploy e backup/restore verificabili

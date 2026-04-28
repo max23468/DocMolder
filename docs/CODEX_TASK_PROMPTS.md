@@ -39,7 +39,7 @@ Esegui i test mirati e riporta output essenziale, failure e rischio residuo.
 Repo: /Users/Matteo/Documents/DocMolder.
 Fai review del diff corrente con stance da code review: bug, regressioni, rischi dati utente, test mancanti.
 Non modificare file.
-Ordina i findings per severita e cita file/linea. Se non trovi problemi, dichiaralo e indica eventuali test gap.
+Ordina i findings per severità e cita file/linea. Se non trovi problemi, dichiaralo e indica eventuali test gap.
 ```
 
 ## Deploy impact
@@ -48,7 +48,7 @@ Ordina i findings per severita e cita file/linea. Se non trovi problemi, dichiar
 Repo: /Users/Matteo/Documents/DocMolder.
 Valuta solo impatto deploy/release del diff corrente.
 Leggi docs/VERSIONING.md, docs/RELEASE_PROCESS.md e docs/VPS_RUNBOOK.md.
-Riporta: deploy relevant si/no, release type consigliato, check pre-merge, check post-deploy, rischi residui.
+Riporta: deploy relevant sì/no, release type consigliato, check pre-merge, check post-deploy, rischi residui.
 Non modificare file.
 ```
 
@@ -58,7 +58,7 @@ Non modificare file.
 Repo: /Users/Matteo/Documents/DocMolder.
 Esegui make github-maintenance e interpreta il report.
 Concentrati solo su PR aperte, Release PR, PR Dependabot, alert Dependabot leggibili e run Actions fallite recenti.
-Non modificare file senza un task separato; riporta priorita, rischio e prossimo passo.
+Non modificare file senza un task separato; riporta priorità, rischio e prossimo passo.
 ```
 
 ## Observability operations

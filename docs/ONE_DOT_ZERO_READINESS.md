@@ -1,13 +1,13 @@
 # Readiness 1.0
 
-Questo documento definisce quando `DocMolder` puo essere promosso a `1.0.0` e
+Questo documento definisce quando `DocMolder` può essere promosso a `1.0.0` e
 conserva il record della promozione eseguita.
 
 La 1.0 non aggiunge automaticamente nuove feature: serve a dichiarare stabile il perimetro attuale del prodotto, il flusso operativo e le aspettative minime per utenti e maintainer.
 
 ## Stato della promozione
 
-La promozione a `1.0.0` e stata completata il 2026-04-28. La linea stabile
+La promozione a `1.0.0` è stata completata il 2026-04-28. La linea stabile
 corrente e `1.x`; dopo un follow-up documentale sul cleanup del target release,
 la versione live e `docmolder-v1.0.1`.
 
@@ -52,13 +52,13 @@ deve restare assente da `/etc/docmolder/release.env` dopo la release.
   - storico e rilancio job
 - la superficie pubblica resta essenziale: `/start`, `/help`, `/history`, `/status`, `/reset`
 - `/admin` resta nascosto agli utenti comuni e coerente con il modello operativo corrente
-- non ci sono feature critiche gia decise ma non implementate
+- non ci sono feature critiche già decise ma non implementate
 
 ### UX Telegram
 
 - i messaggi principali sono comprensibili senza leggere la documentazione
 - le tastiere inline mostrano azioni compatibili e non propongono operazioni impossibili
-- gli errori utente piu comuni suggeriscono un prossimo passo pratico
+- gli errori utente più comuni suggeriscono un prossimo passo pratico
 - `/status` e `/history` aiutano davvero a recuperare il contesto
 
 ### Dati e sicurezza
@@ -68,7 +68,7 @@ deve restare assente da `/etc/docmolder/release.env` dopo la release.
 - backup SQLite, runtime dir e file env restano confinati alla VPS
 - le decisioni ancora aperte su cancellazione completa e pruning job sono note e non bloccano la 1.0 se dichiarate come limite del servizio
 
-### Operativita
+### Operatività
 
 - deploy standard via webhook VPS funzionante
 - auto-release VPS funzionante
@@ -77,7 +77,7 @@ deve restare assente da `/etc/docmolder/release.env` dopo la release.
 - runbook VPS aggiornato rispetto al comportamento reale
 - rollback documentato come fallback operativo
 
-### Qualita
+### Qualità
 
 - gate locale completo passa
 - smoke Telegram funzionale rapido passa almeno sui flussi principali
@@ -98,26 +98,26 @@ Prima di una PR che promuove a una major `X.0.0`:
    - verifica che il bot risponda in chat privata
    - verifica PDF da immagini, compressione/follow-up e storico
 3. Verifica UI mirata:
-   - controllo manuale rapido di leggibilita messaggi e pulsanti inline su almeno un risultato PDF
+   - controllo manuale rapido di leggibilità messaggi e pulsanti inline su almeno un risultato PDF
 
-Se Telegram Desktop non e disponibile nell'ambiente corrente, la PR 1.0 deve dirlo esplicitamente e lasciare il smoke funzionale come pre-merge manuale.
+Se Telegram Desktop non è disponibile nell'ambiente corrente, la PR 1.0 deve dirlo esplicitamente e lasciare il smoke funzionale come pre-merge manuale.
 
 ## Meccanica release major esplicita
 
 La 1.0 segue il criterio generale per le major release definito in
 [VERSIONING.md](./VERSIONING.md#criterio-per-release-major-x00), con una
-particolarita: puo essere motivata dalla stabilizzazione del perimetro attuale,
+particolarità: può essere motivata dalla stabilizzazione del perimetro attuale,
 anche senza introdurre breaking change.
 
 Il flusso SemVer normale pre-1.0 porta:
 
 - `fix:` a patch
 - `feat:` a minor
-- breaking change a minor finche il major corrente e `0`
+- breaking change a minor finché il major corrente e `0`
 
 Per promuovere intenzionalmente `0.x` a `1.0.0`, o una futura linea stabile a
 una nuova major `X.0.0`, serve quindi un percorso esplicito di graduation
-release. Il percorso atteso e:
+release. Il percorso atteso è:
 
 1. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder X.0`
 2. includere in PR il risultato della checklist di questo documento
@@ -154,7 +154,7 @@ breaking change.
 
 Prima di impostare il target `1.0.0`, sono confermati:
 
-- il nome e posizionamento pubblico restano quelli correnti
+- nome e posizionamento pubblici restano quelli correnti
 - non vogliamo introdurre nuove feature prima della 1.0
 - accettiamo come limiti dichiarati: best-effort, retention breve, storico job non permanente, cancellazione completa self-service non ancora presente
-- il maintainer e pronto a considerare i cambi successivi alla 1.0 come contratti piu stabili, soprattutto per UX, runbook e dati
+- il maintainer è pronto a considerare i cambi successivi alla 1.0 come contratti più stabili, soprattutto per UX, runbook e dati
