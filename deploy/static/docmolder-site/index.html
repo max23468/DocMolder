@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="DocMolder e un bot Telegram pubblico per rendere PDF e scansioni pronti, in pochi tocchi.">
+  <meta name="description" content="DocMolder e un bot Telegram pubblico per rendere PDF e scansioni pronti, in pochi tocchi, senza archivio permanente dei file.">
   <meta name="theme-color" content="#132836">
   <link rel="canonical" href="https://docmolder.duckdns.org/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="DocMolder">
   <meta property="og:title" content="DocMolder - PDF e scansioni pronti">
-  <meta property="og:description" content="Bot Telegram pubblico per sistemare PDF, scansioni e immagini senza passare da editor complicati.">
+  <meta property="og:description" content="Bot Telegram pubblico per sistemare PDF, scansioni e immagini con retention breve e limiti dichiarati.">
   <meta property="og:url" content="https://docmolder.duckdns.org/">
   <meta property="og:image" content="https://docmolder.duckdns.org/assets/brand/docmolder-share-card.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="DocMolder - PDF e scansioni pronti">
-  <meta name="twitter:description" content="Apri @docmolder_bot, manda il file, scegli l'azione, ricevi il risultato.">
+  <meta name="twitter:description" content="Apri @docmolder_bot, manda il file, scegli l'azione, ricevi il risultato. I file non diventano un archivio permanente.">
   <meta name="twitter:image" content="https://docmolder.duckdns.org/assets/brand/docmolder-share-card.png">
   <title>DocMolder - PDF e scansioni pronti</title>
   <link rel="icon" href="/favicon.ico" sizes="any">
@@ -548,10 +548,11 @@
         <div class="hero-copy">
           <p class="eyebrow">Bot Telegram pubblico per documenti veloci</p>
           <h1 id="hero-title">DocMolder</h1>
-          <p class="lead">PDF e scansioni pronti, in pochi tocchi. Apri il bot su Telegram, manda il file in chat e ricevi un risultato pulito.</p>
+          <p class="lead">PDF e scansioni pronti, in pochi tocchi. Apri il bot su Telegram, manda il file in chat e ricevi un risultato pulito, con limiti e retention dichiarati.</p>
           <div class="actions" aria-label="Azioni principali">
             <a class="button primary" href="https://t.me/docmolder_bot" rel="noopener">Apri @docmolder_bot</a>
             <a class="button secondary" href="#azioni">Scopri le azioni</a>
+            <a class="button secondary" href="/privacy.html">Dati e limiti</a>
           </div>
         </div>
 
@@ -651,11 +652,13 @@
         <div class="privacy-band">
           <div>
             <h2 id="privacy-title">Pensato per restare leggero.</h2>
-            <p>DocMolder e pubblico su Telegram, ma resta leggero: la VPS esegue le trasformazioni, non diventa un archivio permanente di file personali.</p>
+            <p>DocMolder e pubblico su Telegram, ma resta leggero e best-effort: la VPS esegue le trasformazioni, non diventa un archivio permanente di file personali.</p>
             <p><a href="/privacy.html">Leggi la pagina privacy e dati</a></p>
           </div>
           <ul class="privacy-list" aria-label="Principi operativi">
             <li>File temporanei con retention breve.</li>
+            <li>Storico job live potato dopo 30 giorni, salvo configurazione diversa.</li>
+            <li>Cancellazione dati live disponibile da /reset.</li>
             <li>Bot pubblico raggiungibile da @docmolder_bot.</li>
             <li>Flusso principale via Telegram polling.</li>
             <li>Nessun editor web o dashboard documentale.</li>

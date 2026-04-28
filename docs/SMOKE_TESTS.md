@@ -78,6 +78,7 @@ Modalita utili:
 ```bash
 .venv/bin/python scripts/smoke_telegram_desktop.py --list-plans
 .venv/bin/python scripts/smoke_telegram_desktop.py --plan wizard-a4 --pause
+.venv/bin/python scripts/smoke_telegram_desktop.py --plan public-trust --pause
 .venv/bin/python scripts/smoke_telegram_desktop.py --plan full --cleanup-assets
 ```
 
@@ -86,6 +87,7 @@ Modalita utili:
 - `wizard-a4`: reset, invio 2 immagini, `PDF da immagini`, conferma A4, scelta bordi stretti
 - `pdf-followup`: reset, invio PDF, `Comprimi PDF`, breve attesa, `Scala di grigi`
 - `history`: invia `/history`
+- `public-trust`: verifica `/start`, `/help`, `/start privacy`, `/status`, upload PDF, output, `/history` e `/reset`; con `--pause` permette di controllare anche la conferma inline di cancellazione dati live
 - `full`: combina i passaggi principali per un controllo funzionale rapido
 
 ### Come lavora

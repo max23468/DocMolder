@@ -7,7 +7,7 @@ Il bot e pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_b
 ## Comandi utente
 
 - `/start`: apre DocMolder e mostra le azioni principali.
-- `/help`: mostra guida rapida e flussi consigliati.
+- `/help`: mostra guida rapida, limiti pubblici, dati e flussi consigliati.
 - `/history`: mostra gli ultimi job personali, con dettaglio e rilancio.
 - `/status`: mostra accesso, service mode, sessione corrente, coda personale e ultimo job.
 - `/reset`: azzera sessione e preferenze rapide; da qui l'utente puo anche chiedere la cancellazione completa dei propri dati live con conferma inline.
@@ -18,6 +18,7 @@ Il bot supporta solo payload essenziali su `/start <payload>`:
 
 - `/start help`
 - `/start history`
+- `/start privacy`
 - `/start status`
 
 ## Tastiere inline utente
@@ -85,6 +86,7 @@ Le metriche aggregate tengono traccia di:
 - il bot resta in polling, coerentemente con le decisioni architetturali correnti
 - i file utente restano temporanei; non è stato introdotto storage permanente dei file
 - le metriche Telegram attuali sono volutamente leggere e persistono in `app_meta`
+- i dettagli pubblici su dati, retention e cancellazione sono esposti in `/help`, `/status`, `/start privacy` e nella pagina statica `/privacy.html`
 
 ## Standard eventi e log
 

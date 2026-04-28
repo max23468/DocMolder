@@ -134,7 +134,7 @@ Note di perimetro:
 
 ## Fase 10: UX pubblica e trust
 
-Stato: dopo Fase 9.
+Stato: completata.
 
 Obiettivo:
 
@@ -155,7 +155,7 @@ Deliverable principali:
 - smoke pubblico minimo post-deploy: start, help, status, upload minimo,
   output e cancellazione dati
 
-Criteri di done:
+Criteri soddisfatti:
 
 - un nuovo utente capisce rapidamente cosa puo fare e cosa non deve aspettarsi
 - privacy e limiti sono visibili prima o durante il primo uso reale
@@ -169,7 +169,7 @@ Note di perimetro:
 
 ## Fase 11: Preset e automazioni leggere
 
-Stato: dopo Fase 10.
+Stato: prossima fase.
 
 Obiettivo:
 

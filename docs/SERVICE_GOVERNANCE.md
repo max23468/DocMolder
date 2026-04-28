@@ -46,21 +46,20 @@ Telegram, ma con un perimetro intenzionalmente prudente:
 
 La 1.x stabilizza il contratto attuale, non apre automaticamente una fase di
 promozione pubblica ampia. Prima di campagne, onboarding massivo o uso con dati
-sensibili ricorrenti servono ancora:
+sensibili ricorrenti serve ancora:
 
-- testo pubblico piu esplicito su privacy, retention e limiti del servizio
 - monitoraggio operativo sufficiente a capire saturazione, errori e abuso
 
 Sono gia presenti:
 
 - procedura self-service per cancellazione completa dei dati live da `/reset`
 - pruning automatico e policy formale per lo storico job live
+- testi bot e sito statico allineati su privacy, retention, limiti e uso best-effort
 
 Scelta operativa 1.x:
 
 - mantenere una postura di soft launch pubblico
-- valutare solo mini-promozioni controllate dopo la chiusura della Fase 9 e
-  degli interventi UX/trust della Fase 10
+- mini-promozioni controllate sono possibili dopo Fase 10, mantenendo basso il volume atteso
 - rimandare una promozione piu ampia a dopo l'osservabilita minima della Fase 13
 - mantenere l'italiano come lingua prodotto primaria nella 1.x iniziale
 

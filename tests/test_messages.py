@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.keyboards import build_admin_dashboard_keyboard
 from docmolder.models import JobStatus
-from docmolder.messages import HELP_MESSAGE
+from docmolder.messages import HELP_MESSAGE, PUBLIC_PRIVACY_URL, WELCOME_MESSAGE
 
 
 class MessageGoldenTest(unittest.TestCase):
@@ -23,6 +23,9 @@ class MessageGoldenTest(unittest.TestCase):
         self.assertNotIn("/last", HELP_MESSAGE)
         self.assertNotIn("/access", HELP_MESSAGE)
         self.assertNotIn("/admin", HELP_MESSAGE)
+        self.assertIn(PUBLIC_PRIVACY_URL, HELP_MESSAGE)
+        self.assertIn("non li archivio permanentemente", WELCOME_MESSAGE)
+        self.assertIn("best-effort", HELP_MESSAGE)
 
     def test_static_privacy_page_matches_public_command_surface(self) -> None:
         privacy_page = (Path(__file__).resolve().parents[1] / "deploy/static/docmolder-site/privacy.html").read_text(encoding="utf-8")
@@ -32,6 +35,8 @@ class MessageGoldenTest(unittest.TestCase):
         self.assertIn("/history", privacy_page)
         self.assertIn("/status", privacy_page)
         self.assertIn("/reset", privacy_page)
+        self.assertIn("30 giorni", privacy_page)
+        self.assertIn("cancellare anche tutti i dati live", privacy_page)
         self.assertNotIn("`/policy`", privacy_page)
         self.assertNotIn("`/privacy`", privacy_page)
         self.assertNotIn("`/last`", privacy_page)

@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw
 APP_NAME = "Telegram"
 DEFAULT_CHAT_NAME = "DocMolder"
 DEFAULT_ASSET_DIR = Path("tmp/manual-test-assets")
-SUPPORTED_PLANS = ("full", "wizard-a4", "pdf-followup", "history")
+SUPPORTED_PLANS = ("full", "wizard-a4", "pdf-followup", "history", "public-trust")
 
 
 @dataclass(frozen=True)
@@ -73,6 +73,17 @@ def build_plan(plan_name: str, assets: dict[str, Path]) -> list[Step]:
         ],
         "history": [
             Step("text", "/history", 1.0),
+        ],
+        "public-trust": [
+            Step("text", "/start", 1.0),
+            Step("text", "/help", 1.0),
+            Step("text", "/start privacy", 1.0),
+            Step("text", "/status", 1.0),
+            Step("file", str(assets["pdf"]), 1.2),
+            Step("text", "Comprimi PDF", 1.0),
+            Step("wait", "4.0", 4.0),
+            Step("text", "/history", 1.0),
+            Step("text", "/reset", 1.0),
         ],
     }
     if plan_name == "full":

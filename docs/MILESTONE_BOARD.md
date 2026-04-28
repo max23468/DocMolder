@@ -89,7 +89,7 @@ Deliverable principali:
 
 Stato:
 
-- decisioni ancora aperte su retention job e cancellazione completa
+- completata per il perimetro 1.x iniziale: retention job live, pruning automatico, backup con retention breve e cancellazione dati live self-service sono documentati e implementati
 
 ### M4 - Raddrizzamento foto documento
 

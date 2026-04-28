@@ -215,17 +215,21 @@ Per il versioning ordinario, feature PR e fix PR non devono aggiornare manualmen
 
 In sintesi, la priorità attuale è:
 
-- linea 1.x: mantenere stabile il bot pubblico Telegram-first, correggere regressioni emerse dall'uso reale e rafforzare privacy, retention e osservabilita senza uscire dal perimetro di utility documentale
+- linea 1.x: mantenere stabile il bot pubblico Telegram-first, correggere regressioni emerse dall'uso reale e rafforzare UX pubblica, privacy, retention e osservabilita senza uscire dal perimetro di utility documentale
 
 ## Gerarchia comandi Telegram
 
 Comandi utente:
 
 - `/start` per aprire DocMolder
-- `/help` per la guida rapida
+- `/help` per guida rapida, limiti, dati e flussi consigliati
 - `/history` per vedere gli ultimi job personali, aprirne i dettagli essenziali o rilanciarli
 - `/status` per vedere accesso, service mode, sessione corrente, coda personale e ultimo job
-- `/reset` per azzerare sessione e ultime scelte rapide
+- `/reset` per azzerare sessione e ultime scelte rapide, con opzione di cancellazione dati live
+
+Deep link pubblico utile:
+
+- `/start privacy` per riepilogo sintetico su dati, retention, limiti e cancellazione
 
 Comando admin nascosto dalla lista pubblica:
 

@@ -34,6 +34,7 @@ from docmolder.bot import (
     _build_compression_prompt,
     _build_file_too_large_message,
     _build_history_rerun_message,
+    _handle_start_payload,
     _build_image_session_message,
     _build_result_delivery_message,
     _build_user_history_job_detail,
@@ -842,6 +843,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("Policy sintetica", policy)
         self.assertIn("file massimo", policy)
+        self.assertIn("cancellare tutti i dati live", policy)
+        self.assertIn("docmolder.duckdns.org/privacy.html", policy)
         self.assertIn("Manutenzione operativa", maintenance)
         self.assertIn("Richieste accesso pending", maintenance)
 
@@ -869,7 +872,18 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Worker job", health_report)
         self.assertIn("Stato accesso DocMolder", access_report)
         self.assertIn("/history", access_report)
+        self.assertIn("/start privacy", access_report)
         self.assertIn("Metriche Telegram", metrics_report)
+
+    async def test_start_privacy_payload_returns_public_policy(self) -> None:
+        message = SimpleNamespace(reply_text=AsyncMock())
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        handled = await _handle_start_payload("privacy", self.deps, 7, message, context)
+
+        self.assertTrue(handled)
+        self.assertIn("Policy sintetica", message.reply_text.await_args.args[0])
+        self.assertIn("docmolder.duckdns.org/privacy.html", message.reply_text.await_args.args[0])
 
     async def test_status_command_returns_access_summary(self) -> None:
         self.store.save(

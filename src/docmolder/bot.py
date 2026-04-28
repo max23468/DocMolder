@@ -63,6 +63,7 @@ from docmolder.messages import (
     HELP_MESSAGE,
     JOB_QUEUE_LIMIT_MESSAGE,
     MIXED_SESSION_MESSAGE,
+    PUBLIC_PRIVACY_URL,
     SERVICE_UNAVAILABLE_MESSAGE,
     SESSION_EMPTY_MESSAGE,
     UNAUTHORIZED_MESSAGE,
@@ -2509,6 +2510,8 @@ def _build_access_status_message(deps: BotDependencies, user_id: int) -> str:
     else:
         lines.append("- Ultimo job: nessuno")
     lines.append("- Storico: usa /history per vedere dettagli recenti e rilanciare un job.")
+    lines.append("- Dati e limiti: usa /start privacy o apri la pagina privacy.")
+    lines.append(f"- Privacy: {PUBLIC_PRIVACY_URL}")
     return "\n".join(lines)
 
 
@@ -2521,13 +2524,19 @@ def _build_policy_message(deps: BotDependencies) -> str:
         "Dati e retention:\n"
         "- i file caricati servono solo per creare il risultato richiesto\n"
         f"- le directory job temporanee vengono pulite dopo circa {deps.settings.stale_job_retention_hours} ore\n"
+        f"- lo storico job live viene potato dopo {getattr(deps.settings, 'job_history_retention_days', 30)} giorni\n"
         "- il database conserva metadati tecnici dei job, preferenze minime, audit admin e metriche operative\n"
         "- il contenuto dei documenti non viene scritto nei log e non va inserito in issue, test o report\n\n"
+        "Cancellazione:\n"
+        "- /reset azzera sessione e preferenze rapide\n"
+        "- dallo stesso percorso puoi cancellare tutti i dati live con conferma inline\n"
+        "- i backup tecnici gia creati non vengono riscritti e scadono con la loro retention breve\n\n"
         "Limiti operativi:\n"
         f"- file massimo: {deps.settings.max_file_size_mb} MB\n"
         f"- file per sessione: {deps.settings.max_session_files}\n"
         f"- job attivi per utente: {deps.settings.max_active_jobs_per_user}\n"
         f"- upload rapido: {deps.settings.upload_burst_limit} file in {deps.settings.upload_burst_window_seconds} secondi\n\n"
+        f"Dettagli pubblici: {PUBLIC_PRIVACY_URL}\n\n"
         "Accesso:\n"
         "- se il bot è ristretto, la richiesta accesso parte dal primo messaggio inviato al bot\n"
         "- in manutenzione i nuovi job utente sono sospesi, mentre gli admin possono usare /admin"
@@ -2684,6 +2693,9 @@ async def _handle_start_payload(
     if payload == "help":
         await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
         return True
+    if payload in {"privacy", "dati", "data"}:
+        await message.reply_text(_build_policy_message(deps), reply_markup=build_main_menu_keyboard())
+        return True
     if payload == "history":
         jobs = deps.session_store.list_user_jobs(user_id, limit=5)
         if not jobs:
@@ -2815,27 +2827,27 @@ def _exceeds_file_size_limit(file_size: int | None, max_file_size_mb: int) -> bo
 
 
 def _build_file_too_large_message(max_file_size_mb: int) -> str:
-    return f"{FILE_TOO_LARGE_MESSAGE} Limite attuale: {max_file_size_mb} MB."
+    return f"{FILE_TOO_LARGE_MESSAGE} Limite attuale: {max_file_size_mb} MB. Prossimo passo: alleggerisci il file e reinvialo."
 
 
 def _build_session_file_limit_message(max_session_files: int) -> str:
     return (
         "Hai raggiunto il numero massimo di file per questa sessione. "
-        f"Limite attuale: {max_session_files} file. Usa /reset per ricominciare."
+        f"Limite attuale: {max_session_files} file. Usa /reset per ricominciare oppure invia un gruppo piu piccolo."
     )
 
 
 def _build_upload_rate_limit_message(upload_burst_limit: int, upload_burst_window_seconds: int) -> str:
     return (
         f"{UPLOAD_RATE_LIMIT_MESSAGE} "
-        f"Limite attuale: {upload_burst_limit} file in {upload_burst_window_seconds} secondi."
+        f"Limite attuale: {upload_burst_limit} file in {upload_burst_window_seconds} secondi. Prossimo passo: aspetta e riprendi dallo stesso file."
     )
 
 
 def _build_job_queue_limit_message(max_active_jobs_per_user: int) -> str:
     return (
         f"{JOB_QUEUE_LIMIT_MESSAGE} "
-        f"Limite attuale: {max_active_jobs_per_user} job attivi per utente."
+        f"Limite attuale: {max_active_jobs_per_user} job attivi per utente. Prossimo passo: attendi l'ultimo risultato o usa /status."
     )
 
 

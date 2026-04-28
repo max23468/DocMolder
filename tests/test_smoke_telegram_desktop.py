@@ -42,6 +42,21 @@ class SmokeTelegramDesktopScriptTest(unittest.TestCase):
     def test_supported_plans_are_exposed(self) -> None:
         self.assertIn("full", SUPPORTED_PLANS)
         self.assertIn("wizard-a4", SUPPORTED_PLANS)
+        self.assertIn("public-trust", SUPPORTED_PLANS)
+
+    def test_public_trust_plan_covers_public_commands_and_reset(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            assets = build_assets(Path(temp_dir))
+
+            steps = build_plan("public-trust", assets)
+
+            text_steps = [step.value for step in steps if step.kind == "text"]
+            self.assertIn("/start", text_steps)
+            self.assertIn("/help", text_steps)
+            self.assertIn("/start privacy", text_steps)
+            self.assertIn("/status", text_steps)
+            self.assertIn("/reset", text_steps)
+            self.assertTrue(any(step.kind == "file" and step.value.endswith(".pdf") for step in steps))
 
     def test_cleanup_assets_removes_generated_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
