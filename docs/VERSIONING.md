@@ -215,9 +215,11 @@ La promozione 1.0 deve passare da [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_REA
 1. completare checklist prodotto, smoke e operations;
 2. documentare nel corpo PR la `Major release rationale`;
 3. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder 1.0`;
-4. dopo il merge, eseguire auto-release con target esplicito `1.0.0`, tramite
-   `--target-version 1.0.0` o `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0`;
-5. rimuovere il target esplicito dopo la promozione se viene impostato in
+4. se la release automatica VPS e abilitata, impostare temporaneamente
+   `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0` prima del merge della PR finale;
+5. mergeare la PR e lasciare che webhook deploy e auto-release consumino quel
+   commit con target esplicito;
+6. rimuovere il target esplicito dopo la promozione se viene impostato in
    `/etc/docmolder/release.env`.
 
 Il target esplicito e accettato solo se e maggiore della versione corrente e non
