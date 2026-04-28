@@ -305,6 +305,8 @@ class AdminStats:
     known_users_total: int
     known_users_last_24h: int
     known_users_last_7d: int
+    active_users_last_24h: int
+    active_users_last_7d: int
     completed_actions_total: int
     completed_actions_last_24h: int
     completed_actions_last_7d: int
@@ -324,6 +326,8 @@ class AdminStats:
     jobs_running: int
     jobs_failed: int
     jobs_succeeded: int
+    jobs_finished_last_24h: int
+    jobs_failed_last_24h: int
     raster_results_total: int
     avg_duration_ms: int
     avg_input_bytes: int

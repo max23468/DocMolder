@@ -68,6 +68,8 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertEqual(final_stats.jobs_running, 0)
         self.assertEqual(final_stats.jobs_failed, 0)
         self.assertEqual(final_stats.jobs_succeeded, 1)
+        self.assertEqual(final_stats.jobs_finished_last_24h, 1)
+        self.assertEqual(final_stats.jobs_failed_last_24h, 0)
         self.assertEqual(final_stats.raster_results_total, 1)
         self.assertEqual(final_stats.avg_duration_ms, 900)
         self.assertEqual(final_stats.avg_input_bytes, 4000)

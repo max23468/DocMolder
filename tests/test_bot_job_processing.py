@@ -115,9 +115,22 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             max_active_jobs_per_user=2,
             cleanup_interval_minutes=30,
             stale_job_retention_hours=6,
+            job_history_retention_days=30,
+            admin_slow_job_threshold_ms=30000,
+            health_max_queued_jobs=20,
+            health_max_running_jobs=5,
+            health_max_running_job_age_seconds=3600,
+            health_max_runtime_dir_bytes=2_147_483_648,
+            health_max_database_bytes=134_217_728,
+            health_max_backup_age_seconds=172800,
+            health_max_finished_jobs_24h=300,
+            health_max_active_users_7d=100,
+            health_max_failure_rate_percent=40,
+            health_failure_rate_min_finished_jobs=10,
             telegram_brand_sync_enabled=True,
             runtime_dir=self.runtime_dir,
             database_path=self.runtime_dir / "docmolder.db",
+            sqlite_backup_dir=self.runtime_dir / "backups",
         )
         self.store = InMemorySessionStore()
         self.processor = DocumentProcessor(self.runtime_dir)
@@ -460,6 +473,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
                 known_users_total=1,
                 known_users_last_24h=1,
                 known_users_last_7d=1,
+                active_users_last_24h=1,
+                active_users_last_7d=1,
                 completed_actions_total=3,
                 completed_actions_last_24h=3,
                 completed_actions_last_7d=3,
@@ -479,6 +494,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
                 jobs_running=0,
                 jobs_failed=0,
                 jobs_succeeded=3,
+                jobs_finished_last_24h=3,
+                jobs_failed_last_24h=0,
                 raster_results_total=1,
                 avg_duration_ms=1500,
                 avg_input_bytes=4096,
@@ -491,12 +508,15 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertIn("Metriche tecniche medie", report)
+        self.assertIn("Utenti attivi ultime 24 ore: 1", report)
+        self.assertIn("Finestra ultime 24 ore", report)
         self.assertIn("1.5s", report)
         self.assertIn("4.0 KB", report)
         self.assertIn("2.0 KB", report)
         self.assertIn("Sintesi qualità", report)
         self.assertIn("100%", report)
         self.assertIn("Errori più frequenti", report)
+        self.assertIn("Job lenti ultime 24 ore", report)
         self.assertIn("Comprimi PDF: 2", report)
         self.assertIn("Dividi PDF: 0", report)
 
@@ -874,6 +894,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("docmolder.duckdns.org/privacy.html", policy)
         self.assertIn("Manutenzione operativa", maintenance)
         self.assertIn("Richieste accesso pending", maintenance)
+        self.assertIn("Soglie crescita prudente", maintenance)
+        self.assertIn("Ultimo pruning job", maintenance)
 
     async def test_telegram_api_call_retries_rate_limit_and_network_errors(self) -> None:
         mocked_call = AsyncMock(side_effect=[RetryAfter(1), NetworkError("temp"), "ok"])
@@ -895,6 +917,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Ultimi job falliti", queue_report)
         self.assertIn("Errori ricorrenti recenti", queue_report)
         self.assertIn("Database SQLite", health_report)
+        self.assertIn("Utenti attivi 24h/7g", health_report)
+        self.assertIn("Failure rate 24h", health_report)
         self.assertIn("file)", health_report)
         self.assertIn("Worker job", health_report)
         self.assertIn("Stato accesso DocMolder", access_report)
@@ -3122,8 +3146,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(alerts[0]["key"], "failure-rate")
         self.assertIn("tasso di fallimento anomalo", alerts[0]["text"])
         self.assertIn("Comprimi PDF: 4", alerts[0]["text"])
+        self.assertIn("docmolder-healthcheck", alerts[0]["text"])
         self.assertEqual(alerts[1]["key"], "repeated-failures:pdf_compress")
         self.assertIn("errori ripetuti su Comprimi PDF", alerts[1]["text"])
+        self.assertIn("runbook", alerts[1]["text"])
 
     async def test_maybe_send_admin_anomaly_alerts_respects_cooldown(self) -> None:
         self.deps.settings.admin_user_ids = [999]

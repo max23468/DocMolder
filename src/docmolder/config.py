@@ -33,6 +33,7 @@ class Settings(BaseSettings):
         alias="DOCMOLDER_ADMIN_ALERT_REPEATED_FAILURES_THRESHOLD",
     )
     admin_alert_cooldown_minutes: int = Field(default=60, alias="DOCMOLDER_ADMIN_ALERT_COOLDOWN_MINUTES")
+    admin_slow_job_threshold_ms: int = Field(default=30000, alias="DOCMOLDER_ADMIN_SLOW_JOB_THRESHOLD_MS")
     health_max_queued_jobs: int = Field(default=20, alias="DOCMOLDER_HEALTH_MAX_QUEUED_JOBS")
     health_max_running_jobs: int = Field(default=5, alias="DOCMOLDER_HEALTH_MAX_RUNNING_JOBS")
     health_max_running_job_age_seconds: int = Field(
@@ -40,7 +41,15 @@ class Settings(BaseSettings):
         alias="DOCMOLDER_HEALTH_MAX_RUNNING_JOB_AGE_SECONDS",
     )
     health_max_runtime_dir_bytes: int = Field(default=2_147_483_648, alias="DOCMOLDER_HEALTH_MAX_RUNTIME_DIR_BYTES")
+    health_max_database_bytes: int = Field(default=134_217_728, alias="DOCMOLDER_HEALTH_MAX_DATABASE_BYTES")
     health_max_backup_age_seconds: int = Field(default=172800, alias="DOCMOLDER_HEALTH_MAX_BACKUP_AGE_SECONDS")
+    health_max_finished_jobs_24h: int = Field(default=300, alias="DOCMOLDER_HEALTH_MAX_FINISHED_JOBS_24H")
+    health_max_active_users_7d: int = Field(default=100, alias="DOCMOLDER_HEALTH_MAX_ACTIVE_USERS_7D")
+    health_max_failure_rate_percent: int = Field(default=40, alias="DOCMOLDER_HEALTH_MAX_FAILURE_RATE_PERCENT")
+    health_failure_rate_min_finished_jobs: int = Field(
+        default=10,
+        alias="DOCMOLDER_HEALTH_FAILURE_RATE_MIN_FINISHED_JOBS",
+    )
     health_min_disk_free_bytes: int = Field(default=536_870_912, alias="DOCMOLDER_HEALTH_MIN_DISK_FREE_BYTES")
     health_min_disk_free_percent: int = Field(default=10, alias="DOCMOLDER_HEALTH_MIN_DISK_FREE_PERCENT")
     health_max_load_per_cpu: float = Field(default=2.0, alias="DOCMOLDER_HEALTH_MAX_LOAD_PER_CPU")

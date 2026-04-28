@@ -141,10 +141,16 @@ class InMemorySessionStore:
 
     def build_admin_stats(self) -> AdminStats:
         with self._lock:
+            active_user_ids = {user_id for user_id, _action in self._completed_actions}
+            jobs_finished_last_24h = sum(
+                1 for job in self._jobs.values() if job.status in {JobStatus.SUCCEEDED, JobStatus.FAILED}
+            )
             return AdminStats(
                 known_users_total=len(self._known_user_ids),
                 known_users_last_24h=len(self._known_user_ids),
                 known_users_last_7d=len(self._known_user_ids),
+                active_users_last_24h=len(active_user_ids),
+                active_users_last_7d=len(active_user_ids),
                 completed_actions_total=len(self._completed_actions),
                 completed_actions_last_24h=len(self._completed_actions),
                 completed_actions_last_7d=len(self._completed_actions),
@@ -168,6 +174,8 @@ class InMemorySessionStore:
                 jobs_running=sum(1 for job in self._jobs.values() if job.status == JobStatus.RUNNING),
                 jobs_failed=sum(1 for job in self._jobs.values() if job.status == JobStatus.FAILED),
                 jobs_succeeded=sum(1 for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED),
+                jobs_finished_last_24h=jobs_finished_last_24h,
+                jobs_failed_last_24h=sum(1 for job in self._jobs.values() if job.status == JobStatus.FAILED),
                 raster_results_total=sum(1 for job in self._jobs.values() if job.processing_mode == "raster"),
                 avg_duration_ms=_safe_average(
                     job.duration_ms for job in self._jobs.values() if job.status == JobStatus.SUCCEEDED

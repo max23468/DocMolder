@@ -177,7 +177,7 @@ Canali attuali:
 - backup giornaliero verificato tramite timer `docmolder-db-backup.timer`
 - alert check periodico tramite timer `docmolder-alertcheck.timer`
 - reconcile periodico tramite timer `docmolder-reconcile.timer`
-- soglie leggere per disco, runtime dir, load medio per CPU, RAM disponibile, coda e job running stale
+- soglie leggere per disco, runtime dir, load medio per CPU, RAM disponibile, coda, job running stale, database, job/giorno, utenti attivi e failure rate
 
 Eventi e log devono permettere di correlare almeno:
 

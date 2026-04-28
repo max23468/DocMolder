@@ -29,7 +29,8 @@ Variabili minime:
 - `DOCMOLDER_SQLITE_BACKUP_DIR`
 - limiti runtime (`SESSION_TTL`, `MAX_SESSION_FILES`, burst upload, job concorrenti)
 - soglie alert admin (`DOCMOLDER_ADMIN_ALERT_*`) se vuoi renderle piu o meno sensibili
-- soglie health (`DOCMOLDER_HEALTH_*`) per coda, job stale, runtime dir, backup, disco, load e RAM
+- soglie health (`DOCMOLDER_HEALTH_*`) per coda, job stale, runtime dir, backup, disco, load, RAM, database, job/giorno, utenti attivi e failure rate
+- soglia job lenti admin (`DOCMOLDER_ADMIN_SLOW_JOB_THRESHOLD_MS`)
 - `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS` per retention live dello storico job, default 30 giorni
 - `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX` per controllare il downscale preventivo delle immagini molto grandi
 
@@ -276,10 +277,33 @@ Se il bot non parte, controlla prima:
 Se i job falliscono:
 
 - controlla log servizio
+- apri `/admin`, poi `Coda`, `Health` e `Manutenzione`
 - verifica input PDF corrotti/protetti
 - verifica timeout Ghostscript
 - verifica spazio disco e permessi
 - controlla se l'admin ha ricevuto alert per failure rate o errori ripetuti
+
+## Soglie crescita e mitigazione
+
+Le soglie iniziali della Fase 13 servono a proteggere il soft launch:
+
+- `DOCMOLDER_HEALTH_MAX_FINISHED_JOBS_24H`: volume giornaliero prudenziale
+- `DOCMOLDER_HEALTH_MAX_ACTIVE_USERS_7D`: utenti attivi recenti
+- `DOCMOLDER_HEALTH_MAX_DATABASE_BYTES`: dimensione massima SQLite prima di rivalutare retention/pruning
+- `DOCMOLDER_HEALTH_MAX_FAILURE_RATE_PERCENT` con `DOCMOLDER_HEALTH_FAILURE_RATE_MIN_FINISHED_JOBS`: qualita minima del servizio
+- `DOCMOLDER_HEALTH_MAX_QUEUED_JOBS` e `DOCMOLDER_HEALTH_MAX_RUNNING_JOBS`: saturazione coda
+
+Se una soglia viene superata:
+
+1. apri `/admin` e controlla `Manutenzione`, `Coda` e `Health`
+2. esegui `docmolder-healthcheck --check-service-active --service-name docmolder`
+3. se il problema e carico o abuso, metti il bot in manutenzione da `/admin` o abilita temporaneamente `DOCMOLDER_ALLOWED_USER_IDS`
+4. se il problema e storico job/database, esegui una run mirata di reconcile o riduci temporaneamente `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`
+5. se il problema continua dopo mitigazione, sospendi promozione pubblica e valuta una decisione dedicata su VPS, SQLite o coda esterna
+
+La regola pratica: SQLite e VPS singola restano adeguati finche le soglie non
+sono superate in modo ricorrente e il recupero operativo resta possibile da
+`/admin`, healthcheck e runbook.
 
 ## Retention e dati
 
