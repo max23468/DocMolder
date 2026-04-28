@@ -87,7 +87,8 @@ Per le immagini:
 - oppure puo impaginarle in A4
 - se usa A4, chiede anche il tipo di bordo
 - in alcuni flussi puo applicare ritaglio bordi e conversione in scala di grigi
-- per foto di fogli puo usare "Raddrizza foto documento", con rilevamento contorno, correzione prospettica, normalizzazione leggibilita e fallback conservativo se il foglio non e chiaro
+- per foto di fogli puo usare "Raddrizza foto documento", con rilevamento contorno, correzione prospettica, profili `Piu leggibile`, `Mantieni colore` e `Bianco/nero pulito`, piu fallback conservativo se il foglio non e chiaro
+- il feedback della compressione segnala quando la riduzione e minima o quando il PDF sembra gia ottimizzato
 - quando il risultato richiesto e un PDF in scala di grigi da immagini, il bot lo genera direttamente in grigio invece di creare prima un PDF a colori e riconvertirlo dopo
 - le immagini con lato molto grande vengono ridotte prima della conversione, entro `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX`, per proteggere RAM e CPU della VPS
 - nei batch, ogni immagine preparata viene scritta come PDF temporaneo di una pagina e poi unita nel PDF finale, cosi il processo evita di tenere tutte le pagine rasterizzate in memoria contemporaneamente

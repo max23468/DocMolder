@@ -7,7 +7,7 @@ from typing import Protocol
 
 from telegram.ext import Application
 
-from docmolder.models import CompressionPreset, JobPayload, JobRecord, SupportedAction, UserSession
+from docmolder.models import CompressionPreset, DocumentPhotoMode, JobPayload, JobRecord, SupportedAction, UserSession
 from docmolder.processing import A4_MARGIN_NARROW_PX, DocumentProcessor, ProcessingResult, ProcessingUserError
 from docmolder.action_catalog import build_output_stem, build_session_file, infer_session_analysis
 from docmolder.session_store import SessionStore
@@ -35,6 +35,7 @@ async def enqueue_job(
     image_pdf_use_a4: bool = True,
     image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
     split_output_zip: bool = True,
+    document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
 ) -> JobRecord:
     session_analysis = infer_session_analysis(session)
     if action not in session_analysis.supported_actions:
@@ -50,6 +51,7 @@ async def enqueue_job(
         image_pdf_use_a4=image_pdf_use_a4,
         image_pdf_margin_px=image_pdf_margin_px,
         split_output_zip=split_output_zip,
+        document_photo_mode=document_photo_mode,
     )
     job = deps.session_store.create_job(
         user_id=user_id,
@@ -122,4 +124,5 @@ async def run_job_payload(
         payload.image_pdf_use_a4,
         payload.image_pdf_margin_px if payload.image_pdf_margin_px is not None else A4_MARGIN_NARROW_PX,
         payload.split_output_zip,
+        payload.document_photo_mode,
     )

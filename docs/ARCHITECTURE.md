@@ -111,7 +111,7 @@ Non e:
 2. Recap e tastiera riusano la stessa analisi per evitare inferenze duplicate nello stesso passaggio.
 3. La tastiera azioni deriva dalla sessione corrente e mostra prima un set breve di azioni consigliate.
 4. Le azioni compatibili ma meno frequenti restano dietro `Altre azioni`, senza cambiare i callback storici delle singole azioni.
-5. I wizard di dettaglio mostrano solo le opzioni del passo corrente, ad esempio compressione, split, rotazione o impaginazione A4; se esiste un preset leggero compatibile, aggiungono una scorciatoia senza togliere le scelte manuali.
+5. I wizard di dettaglio mostrano solo le opzioni del passo corrente, ad esempio compressione, split, rotazione, profilo foto documento o impaginazione A4; se esiste un preset leggero compatibile, aggiungono una scorciatoia senza togliere le scelte manuali.
 6. La tastiera admin mostra scorciatoie agli ultimi job solo per gli stati presenti nel database.
 
 ### Storico e retry

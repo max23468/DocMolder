@@ -36,6 +36,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Scelta tra formato originale immagini o impaginazione A4 con bordi configurabili
 - Conversione PDF in scala di grigi
 - Compressione PDF solo su richiesta
+- Feedback pratico quando la compressione riduce poco o non conviene
 - Unione PDF
 - Divisione PDF in un file per pagina, con scelta tra ZIP unico e PDF separati
 - Estrazione pagine da un PDF
@@ -45,6 +46,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Watermark testuale su PDF
 - Correzione automatica dell'orientamento dei PDF quando serve, con possibilità di rifare il file senza auto-rotazione
 - Correzione automatica orientamento per immagini
+- Raddrizzamento foto documento con profili `Piu leggibile`, `Mantieni colore` e `Bianco/nero pulito`
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 - Storico ultimi job con dettaglio essenziale e possibilità di rilanciare un'elaborazione
 - Preset leggeri per scelte ricorrenti di compressione, split e immagini verso PDF, senza salvare contenuti o nomi file
@@ -90,8 +92,10 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - watermark testuale PDF
 - conversione PDF in scala di grigi
 - compressione PDF con livelli semplici
+- feedback compressione quando la riduzione e minima o non conviene
 - correzione automatica dell'orientamento PDF nei flussi compatibili
 - correzione orientamento immagini
+- raddrizzamento foto documento con feedback su foto scure, sfocate o bordo incerto
 - storico lavori utente con recupero rapido del job via rilancio
 - self-service utente con `/start`, `/help`, `/history`, `/status` e `/reset`
 - tastiere inline contestuali: azioni consigliate in evidenza, azioni avanzate dietro espansione

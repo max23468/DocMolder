@@ -19,7 +19,7 @@ from PIL import Image, ImageChops, ImageOps
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import FileNotDecryptedError, PdfReadError
 
-from docmolder.models import CompressionPreset, SupportedAction
+from docmolder.models import CompressionPreset, DocumentPhotoMode, SupportedAction
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,7 @@ class _ProcessOptions:
     image_pdf_use_a4: bool
     image_pdf_margin_px: int
     split_output_zip: bool
+    document_photo_mode: DocumentPhotoMode
 
 
 class ProcessingUserError(Exception):
@@ -160,6 +161,7 @@ class DocumentProcessor:
         image_pdf_use_a4: bool = True,
         image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
         split_output_zip: bool = True,
+        document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
     ) -> ProcessingResult:
         handler = self._action_handlers.get(action)
         if handler is None:
@@ -173,6 +175,7 @@ class DocumentProcessor:
             image_pdf_use_a4=image_pdf_use_a4,
             image_pdf_margin_px=image_pdf_margin_px,
             split_output_zip=split_output_zip,
+            document_photo_mode=document_photo_mode,
         )
         return handler(action, input_paths, output_stem, options)
 
@@ -198,9 +201,9 @@ class DocumentProcessor:
         _action: SupportedAction,
         input_paths: list[Path],
         output_stem: str,
-        _options: _ProcessOptions,
+        options: _ProcessOptions,
     ) -> ProcessingResult:
-        return self.document_photos_to_pdf(input_paths, output_stem)
+        return self.document_photos_to_pdf(input_paths, output_stem, mode=options.document_photo_mode)
 
     def _process_pdf_merge_action(
         self,
@@ -371,7 +374,13 @@ class DocumentProcessor:
             processing_mode="native" if grayscale_output else None,
         )
 
-    def document_photos_to_pdf(self, image_paths: list[Path], output_stem: str) -> ProcessingResult:
+    def document_photos_to_pdf(
+        self,
+        image_paths: list[Path],
+        output_stem: str,
+        *,
+        mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
+    ) -> ProcessingResult:
         if not image_paths:
             raise ProcessingUserError("Non ho ricevuto foto del documento da sistemare.")
 
@@ -385,7 +394,7 @@ class DocumentProcessor:
             for image_path in image_paths:
                 with Image.open(image_path) as image:
                     corrected = ImageOps.exif_transpose(image).convert("RGB")
-                    transformed = self._transform_document_photo(corrected)
+                    transformed = self._transform_document_photo(corrected, mode=mode)
                     warnings.update(transformed.warnings)
                     if transformed.mode == "perspective":
                         perspective_count += 1
@@ -410,6 +419,7 @@ class DocumentProcessor:
                 perspective_count=perspective_count,
                 fallback_count=fallback_count,
                 warnings=warnings,
+                mode=mode,
             ),
             processing_mode="opencv" if perspective_count else "fallback",
         )
@@ -579,6 +589,7 @@ class DocumentProcessor:
             else:
                 mode = "conservative"
         message = f"PDF pronto. Compressione completata con livello {preset.value}."
+        message += self._build_compression_feedback(pdf_path, output_path)
         if mode == "ghostscript":
             message += " Ho mantenuto il PDF nativo con una compressione più fedele."
         elif mode == "raster":
@@ -916,6 +927,21 @@ class DocumentProcessor:
         finally:
             document.close()
 
+    def _build_compression_feedback(self, input_path: Path, output_path: Path) -> str:
+        try:
+            input_bytes = input_path.stat().st_size
+            output_bytes = output_path.stat().st_size
+        except OSError:
+            return ""
+        if input_bytes <= 0 or output_bytes <= 0:
+            return ""
+        if output_bytes >= input_bytes:
+            return " Il PDF sembra gia ottimizzato: questo passaggio non lo rende piu leggero dell'originale."
+        reduction_percent = round((1 - (output_bytes / input_bytes)) * 100)
+        if reduction_percent < 5:
+            return " La riduzione e minima: il PDF era gia abbastanza ottimizzato."
+        return f" Riduzione stimata: circa {reduction_percent}%."
+
     def _run_ghostscript_grayscale(self, pdf_path: Path, output_path: Path) -> bool:
         ghostscript = shutil.which("gs")
         if ghostscript is None:
@@ -1243,7 +1269,12 @@ class DocumentProcessor:
 
         return image.crop((left, top, right, bottom))
 
-    def _transform_document_photo(self, image: Image.Image) -> _DocumentPhotoTransform:
+    def _transform_document_photo(
+        self,
+        image: Image.Image,
+        *,
+        mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
+    ) -> _DocumentPhotoTransform:
         warnings = self._detect_document_photo_quality_warnings(image)
         corners = self._detect_document_photo_corners(image)
         if corners is None:
@@ -1251,7 +1282,7 @@ class DocumentProcessor:
             fallback_image = self._limit_document_photo_output_size(fallback_image)
             warnings.add("contorno_non_sicuro")
             return _DocumentPhotoTransform(
-                image=self._add_document_photo_margin(self._enhance_document_photo(fallback_image)),
+                image=self._add_document_photo_margin(self._enhance_document_photo(fallback_image, mode=mode)),
                 mode="fallback",
                 warnings=warnings,
             )
@@ -1261,7 +1292,7 @@ class DocumentProcessor:
 
         warped = self._warp_document_photo(image, corners)
         return _DocumentPhotoTransform(
-            image=self._add_document_photo_margin(self._enhance_document_photo(warped)),
+            image=self._add_document_photo_margin(self._enhance_document_photo(warped, mode=mode)),
             mode="perspective",
             warnings=warnings,
         )
@@ -1270,10 +1301,16 @@ class DocumentProcessor:
         grayscale = np.asarray(ImageOps.grayscale(image))
         warnings: set[str] = set()
         mean_brightness = float(grayscale.mean())
+        contrast = float(grayscale.std())
+        blur_score = float(cv2.Laplacian(grayscale, cv2.CV_64F).var())
         if mean_brightness < 55:
             warnings.add("foto_scura")
         elif mean_brightness > 235:
             warnings.add("foto_molto_chiara")
+        if contrast < 22:
+            warnings.add("contrasto_basso")
+        if blur_score < 18:
+            warnings.add("foto_sfuocata")
         return warnings
 
     def _detect_document_photo_corners(self, image: Image.Image) -> np.ndarray | None:
@@ -1403,7 +1440,16 @@ class DocumentProcessor:
         ordered[3] = points[np.argmax(point_diff)]
         return ordered
 
-    def _enhance_document_photo(self, image: Image.Image) -> Image.Image:
+    def _enhance_document_photo(
+        self,
+        image: Image.Image,
+        *,
+        mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
+    ) -> Image.Image:
+        if mode == DocumentPhotoMode.COLOR:
+            return self._enhance_document_photo_color(image)
+        if mode == DocumentPhotoMode.BW:
+            return self._enhance_document_photo_bw(image)
         gray = cv2.cvtColor(np.asarray(image.convert("RGB")), cv2.COLOR_RGB2GRAY)
         filtered = cv2.bilateralFilter(gray, 7, 25, 25)
         sigma = max(12, min(gray.shape[:2]) // 28)
@@ -1412,6 +1458,30 @@ class DocumentProcessor:
         clahe = cv2.createCLAHE(clipLimit=1.8, tileGridSize=(8, 8))
         enhanced = clahe.apply(normalized)
         return ImageOps.autocontrast(Image.fromarray(enhanced), cutoff=1)
+
+    def _enhance_document_photo_color(self, image: Image.Image) -> Image.Image:
+        rgb = np.asarray(image.convert("RGB"))
+        lab = cv2.cvtColor(rgb, cv2.COLOR_RGB2LAB)
+        lightness, channel_a, channel_b = cv2.split(lab)
+        filtered = cv2.bilateralFilter(lightness, 7, 25, 25)
+        clahe = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8, 8))
+        enhanced_lightness = clahe.apply(filtered)
+        enhanced_lab = cv2.merge((enhanced_lightness, channel_a, channel_b))
+        enhanced_rgb = cv2.cvtColor(enhanced_lab, cv2.COLOR_LAB2RGB)
+        return ImageOps.autocontrast(Image.fromarray(enhanced_rgb), cutoff=1)
+
+    def _enhance_document_photo_bw(self, image: Image.Image) -> Image.Image:
+        readable = self._enhance_document_photo(image, mode=DocumentPhotoMode.READABLE)
+        gray = np.asarray(readable)
+        threshold = cv2.adaptiveThreshold(
+            gray,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            31,
+            11,
+        )
+        return Image.fromarray(threshold)
 
     def _add_document_photo_margin(self, image: Image.Image) -> Image.Image:
         border_px = max(12, min(image.size) // 45)
@@ -1424,18 +1494,28 @@ class DocumentProcessor:
         perspective_count: int,
         fallback_count: int,
         warnings: set[str],
+        mode: DocumentPhotoMode,
     ) -> str:
         subject_label = "foto del documento" if total_images == 1 else "foto dei documenti"
         message = f"PDF pronto. Ho raddrizzato e pulito {total_images} {subject_label}."
+        mode_messages = {
+            DocumentPhotoMode.READABLE: "Ho usato il profilo piu leggibile.",
+            DocumentPhotoMode.COLOR: "Ho mantenuto il colore migliorando il contrasto.",
+            DocumentPhotoMode.BW: "Ho creato una versione bianco/nero pulita.",
+        }
+        message += f" {mode_messages[mode]}"
         if perspective_count:
             message += f" Correzione prospettica applicata a {perspective_count}."
         if fallback_count:
             message += (
-                f" Per {fallback_count} ho usato un fallback conservativo: non ho trovato con sicurezza il contorno del foglio."
+                f" Per {fallback_count} ho usato un fallback conservativo: contorno del foglio o prospettiva non erano sicuri."
             )
         warning_messages = {
             "foto_scura": "Alcune foto sembrano scure: se il testo resta poco leggibile, riprova con piu luce.",
             "foto_molto_chiara": "Alcune foto sono molto chiare: se il testo perde contrasto, riprova evitando riflessi.",
+            "contrasto_basso": "Alcune foto hanno poco contrasto: appoggia il foglio su uno sfondo piu diverso dal documento.",
+            "foto_sfuocata": "Alcune foto sembrano sfocate: riprova tenendo il telefono fermo e mettendo bene a fuoco il testo.",
+            "contorno_non_sicuro": "Non sempre ho visto un bordo leggibile del foglio: lascia spazio attorno al documento e usa uno sfondo uniforme.",
             "foglio_vicino_ai_bordi": "In almeno una foto il foglio e vicino ai bordi: lascia un po' di spazio attorno al documento per un ritaglio migliore.",
         }
         for warning_key, warning_message in warning_messages.items():

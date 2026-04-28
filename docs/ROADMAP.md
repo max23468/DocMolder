@@ -205,7 +205,7 @@ Note di perimetro:
 
 ## Fase 12: Qualita output e scansioni
 
-Stato: prossima fase.
+Stato: completata.
 
 Obiettivo:
 
@@ -221,12 +221,14 @@ Deliverable principali:
   conviene
 - test sintetici piu rappresentativi per foto documento e PDF problematici
 
-Criteri di done:
+Criteri soddisfatti:
 
 - gli output da foto reali diventano piu prevedibili
 - fallback ed errori spiegano il limite senza colpevolizzare l'utente
 - il bot suggerisce come riprovare quando input o risultato non sono ideali
 - i miglioramenti non degradano i percorsi nativi PDF quando disponibili
+- le opzioni restano dentro "Raddrizza foto documento" e non introducono OCR o
+  comprensione del contenuto
 
 Note di perimetro:
 
@@ -236,7 +238,7 @@ Note di perimetro:
 
 ## Fase 13: Osservabilita e scala prudente
 
-Stato: dopo Fase 12.
+Stato: prossima fase.
 
 Obiettivo:
 

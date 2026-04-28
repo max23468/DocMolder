@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.models import CompressionPreset, FileKind, JobPayload, UserSession
+from docmolder.models import CompressionPreset, DocumentPhotoMode, FileKind, JobPayload, UserSession
 from docmolder.action_catalog import build_session_file
 
 
@@ -29,6 +29,7 @@ class JobPayloadModelTest(unittest.TestCase):
             image_pdf_use_a4=False,
             image_pdf_margin_px=0,
             split_output_zip=False,
+            document_photo_mode=DocumentPhotoMode.COLOR,
         )
 
         loaded = JobPayload.from_json(payload.to_json())
@@ -45,6 +46,7 @@ class JobPayloadModelTest(unittest.TestCase):
         self.assertFalse(loaded.image_pdf_use_a4)
         self.assertEqual(loaded.image_pdf_margin_px, 0)
         self.assertFalse(loaded.split_output_zip)
+        self.assertEqual(loaded.document_photo_mode, DocumentPhotoMode.COLOR)
 
 
 if __name__ == "__main__":

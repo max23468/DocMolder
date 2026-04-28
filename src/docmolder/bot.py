@@ -40,6 +40,7 @@ from docmolder.keyboards import (
     build_compression_keyboard,
     build_delete_data_confirmation_keyboard,
     build_delete_data_request_keyboard,
+    build_document_photo_mode_keyboard,
     build_history_keyboard,
     build_images_pdf_layout_keyboard,
     build_images_pdf_margin_keyboard,
@@ -79,6 +80,7 @@ from docmolder.models import (
     AdminStats,
     AdminUserStat,
     CompressionPreset,
+    DocumentPhotoMode,
     FileKind,
     JobPayload,
     JobRecord,
@@ -118,6 +120,7 @@ from docmolder.text_requests import (
     _normalize_page_selection_text,
     _parse_image_pdf_layout_choice,
     _parse_image_pdf_margin_choice,
+    _parse_document_photo_mode_choice,
     _resolve_text_request,
     _tokenize_keyword_text,
     _validate_page_input_text,
@@ -134,6 +137,7 @@ _build_text_request_queued_message = build_text_request_queued_message
 
 _PENDING_IMAGES_PDF_LAYOUT_PREFIX = "images_pdf_layout"
 _PENDING_IMAGES_PDF_MARGIN_PREFIX = "images_pdf_margin"
+_PENDING_DOCUMENT_PHOTO_MODE = "document_photo_mode"
 _SERVICE_MODE_META_KEY = "service_mode"
 _SERVICE_MODE_NORMAL = "normal"
 _SERVICE_MODE_MAINTENANCE = "maintenance"
@@ -566,6 +570,7 @@ async def _enqueue_job(
     image_pdf_use_a4: bool = True,
     image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
     split_output_zip: bool = True,
+    document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
 ) -> JobRecord:
     deps = _get_dependencies(context)
     return await enqueue_job_flow(
@@ -583,6 +588,7 @@ async def _enqueue_job(
         image_pdf_use_a4=image_pdf_use_a4,
         image_pdf_margin_px=image_pdf_margin_px,
         split_output_zip=split_output_zip,
+        document_photo_mode=document_photo_mode,
     )
 
 
@@ -1677,6 +1683,16 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
 
+    if action == SupportedAction.DOCUMENT_PHOTO_FIX.value:
+        session.pending_action = _PENDING_DOCUMENT_PHOTO_MODE
+        session.touch()
+        deps.session_store.save(session)
+        await query.edit_message_text(
+            _build_document_photo_mode_prompt(),
+            reply_markup=build_document_photo_mode_keyboard(),
+        )
+        return
+
     if action == SupportedAction.PDF_SPLIT.value:
         session.pending_action = action
         session.touch()
@@ -2227,6 +2243,54 @@ async def handle_images_pdf_preset_callback(update: Update, context: ContextType
     )
 
 
+async def handle_document_photo_mode_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    query = update.callback_query
+    await _safe_answer_callback(query)
+
+    user = query.from_user
+    if not _is_authorized_for_deps(user.id if user else None, deps):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.edit_message_text(_build_service_unavailable_message())
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+
+    session = deps.session_store.get(user.id)
+    if session is None or not session.files:
+        await query.edit_message_text(SESSION_EMPTY_MESSAGE)
+        return
+
+    raw_mode = (query.data or "").removeprefix("document_photo_mode:")
+    _record_callback_metric(deps, f"document_photo_mode:{raw_mode}")
+    try:
+        mode = DocumentPhotoMode(raw_mode)
+    except ValueError:
+        await query.edit_message_text(_invalid_callback_message())
+        return
+
+    if not _has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+        return
+
+    job = await _enqueue_job(
+        context=context,
+        user_id=user.id,
+        chat_id=query.message.chat_id,
+        reply_to_message_id=query.message.message_id,
+        action=SupportedAction.DOCUMENT_PHOTO_FIX,
+        session=session,
+        document_photo_mode=mode,
+    )
+    deps.session_store.delete(user.id)
+    await query.edit_message_text(
+        f"{_document_photo_mode_label(mode)} selezionato. "
+        f"{_build_text_request_queued_message(SupportedAction.DOCUMENT_PHOTO_FIX, job.id, None)}"
+    )
+
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.exception("Errore non gestito", exc_info=context.error)
 
@@ -2328,6 +2392,16 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 )
                 return
 
+            if action == SupportedAction.DOCUMENT_PHOTO_FIX and text_request.document_photo_mode is None:
+                session.pending_action = _PENDING_DOCUMENT_PHOTO_MODE
+                session.touch()
+                deps.session_store.save(session)
+                await message.reply_text(
+                    _build_document_photo_mode_prompt(),
+                    reply_markup=build_document_photo_mode_keyboard(),
+                )
+                return
+
             compression_preset = text_request.compression_preset
             if action == SupportedAction.PDF_COMPRESS:
                 compression_preset = _resolve_compression_preset_for_job(deps, user.id, compression_preset)
@@ -2343,6 +2417,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 page_selection=text_request.page_selection,
                 watermark_text=text_request.watermark_text,
                 split_output_zip=text_request.split_output_zip if text_request.split_output_zip is not None else True,
+                document_photo_mode=text_request.document_photo_mode or DocumentPhotoMode.READABLE,
             )
             if action == SupportedAction.PDF_COMPRESS and compression_preset is not None:
                 _record_user_choice(deps, user.id, _COMPRESSION_PRESET_KEY, compression_preset.value)
@@ -2959,6 +3034,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CallbackQueryHandler(handle_result_action_callback, pattern=r"^result:"))
     application.add_handler(CallbackQueryHandler(handle_compression_callback, pattern=r"^compress:"))
     application.add_handler(CallbackQueryHandler(handle_split_output_callback, pattern=r"^split_output:"))
+    application.add_handler(CallbackQueryHandler(handle_document_photo_mode_callback, pattern=r"^document_photo_mode:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_preset_callback, pattern=r"^images_pdf_preset:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_margin_callback, pattern=r"^images_pdf_margin:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_layout_callback, pattern=r"^images_pdf_layout:"))
@@ -3073,6 +3149,8 @@ def _build_user_history_job_detail(job: JobRecord) -> str:
         detail_lines.append(f"Selezione pagine: {payload.page_selection}")
     if job.action.startswith("images_to_pdf"):
         detail_lines.append("Impaginazione: A4" if payload.image_pdf_use_a4 else "Impaginazione: formato originale")
+    if job.action == SupportedAction.DOCUMENT_PHOTO_FIX.value:
+        detail_lines.append(f"Profilo scansione: {_document_photo_mode_label(payload.document_photo_mode)}")
     if job.action == SupportedAction.PDF_SPLIT.value:
         detail_lines.append("Output divisione: ZIP unico" if payload.split_output_zip else "Output divisione: PDF separati")
     detail_lines.append("Rotazione automatica PDF: attiva" if payload.auto_rotate_pdf else "Rotazione automatica PDF: disattiva")
@@ -3228,6 +3306,23 @@ def _build_split_output_prompt(user_id: int, deps: BotDependencies) -> str:
     return f"{_build_pending_action_prompt(SupportedAction.PDF_SPLIT)}{saved_note}"
 
 
+def _build_document_photo_mode_prompt() -> str:
+    return (
+        "Come vuoi sistemare la foto del documento?\n"
+        "- Piu leggibile: migliora contrasto e pulizia generale.\n"
+        "- Mantieni colore: conserva il colore del foglio.\n"
+        "- Bianco/nero pulito: crea una scansione ad alto contrasto."
+    )
+
+
+def _document_photo_mode_label(mode: DocumentPhotoMode) -> str:
+    if mode == DocumentPhotoMode.COLOR:
+        return "Mantieni colore"
+    if mode == DocumentPhotoMode.BW:
+        return "Bianco/nero pulito"
+    return "Piu leggibile"
+
+
 def _build_image_pdf_layout_prompt(user_id: int, deps: BotDependencies) -> str:
     saved_layout = _get_stored_image_pdf_layout(deps, user_id, preset_only=True)
     saved_margin = _get_stored_image_pdf_margin(deps, user_id, preset_only=True)
@@ -3312,6 +3407,17 @@ async def _handle_pending_session_input(
 
     if session.pending_action.startswith(f"{_PENDING_IMAGES_PDF_MARGIN_PREFIX}:"):
         return await _handle_pending_images_pdf_margin_input(
+            update=update,
+            context=context,
+            session=session,
+            user_id=user_id,
+            chat_id=chat_id,
+            reply_to_message_id=reply_to_message_id,
+            text=text,
+        )
+
+    if session.pending_action == _PENDING_DOCUMENT_PHOTO_MODE:
+        return await _handle_pending_document_photo_mode_input(
             update=update,
             context=context,
             session=session,
@@ -3515,6 +3621,45 @@ async def _handle_pending_images_pdf_margin_input(
         image_pdf_use_a4=True,
         image_pdf_margin_px=margin_px,
     )
+
+
+async def _handle_pending_document_photo_mode_input(
+    *,
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    session: UserSession,
+    user_id: int,
+    chat_id: int,
+    reply_to_message_id: int | None,
+    text: str,
+) -> bool:
+    deps = _get_dependencies(context)
+    mode = _parse_document_photo_mode_choice(text)
+    if mode is None:
+        await update.effective_message.reply_text(
+            _build_document_photo_mode_prompt(),
+            reply_markup=build_document_photo_mode_keyboard(),
+        )
+        return True
+    if not _has_capacity_for_new_job(user_id, deps):
+        await update.effective_message.reply_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+        return True
+
+    job = await _enqueue_job(
+        context=context,
+        user_id=user_id,
+        chat_id=chat_id,
+        reply_to_message_id=reply_to_message_id,
+        action=SupportedAction.DOCUMENT_PHOTO_FIX,
+        session=session,
+        document_photo_mode=mode,
+    )
+    deps.session_store.delete(user_id)
+    await update.effective_message.reply_text(
+        f"{_document_photo_mode_label(mode)} selezionato.\n"
+        f"{_build_text_request_queued_message(SupportedAction.DOCUMENT_PHOTO_FIX, job.id, None)}"
+    )
+    return True
 
 
 async def _enqueue_image_pdf_job_from_text(

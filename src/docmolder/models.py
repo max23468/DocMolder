@@ -67,6 +67,12 @@ class CompressionPreset(StrEnum):
     STRONG = "strong"
 
 
+class DocumentPhotoMode(StrEnum):
+    READABLE = "readable"
+    COLOR = "color"
+    BW = "bw"
+
+
 class FileKind(StrEnum):
     IMAGE = "image"
     PDF = "pdf"
@@ -157,6 +163,7 @@ class JobPayloadData(TypedDict, total=False):
     image_pdf_use_a4: bool
     image_pdf_margin_px: int | None
     split_output_zip: bool
+    document_photo_mode: str
 
 
 @dataclass(slots=True)
@@ -170,6 +177,7 @@ class JobPayload:
     image_pdf_use_a4: bool = True
     image_pdf_margin_px: int | None = None
     split_output_zip: bool = True
+    document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE
 
     @classmethod
     def from_json(cls, payload_json: str) -> "JobPayload":
@@ -203,6 +211,7 @@ class JobPayload:
                 int(raw_payload["image_pdf_margin_px"]) if raw_payload.get("image_pdf_margin_px") is not None else None
             ),
             split_output_zip=bool(raw_payload.get("split_output_zip", True)),
+            document_photo_mode=DocumentPhotoMode(str(raw_payload.get("document_photo_mode", DocumentPhotoMode.READABLE.value))),
         )
 
     @classmethod
@@ -218,6 +227,7 @@ class JobPayload:
         image_pdf_use_a4: bool = True,
         image_pdf_margin_px: int | None = None,
         split_output_zip: bool = True,
+        document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
     ) -> "JobPayload":
         return cls(
             files=[
@@ -236,10 +246,11 @@ class JobPayload:
             image_pdf_use_a4=image_pdf_use_a4,
             image_pdf_margin_px=image_pdf_margin_px,
             split_output_zip=split_output_zip,
+            document_photo_mode=document_photo_mode,
         )
 
     def to_dict(self) -> JobPayloadData:
-        return {
+        payload: JobPayloadData = {
             "files": [
                 {
                     "telegram_file_id": item.telegram_file_id,
@@ -257,6 +268,9 @@ class JobPayload:
             "image_pdf_margin_px": self.image_pdf_margin_px,
             "split_output_zip": self.split_output_zip,
         }
+        if self.document_photo_mode != DocumentPhotoMode.READABLE:
+            payload["document_photo_mode"] = self.document_photo_mode.value
+        return payload
 
     def to_json(self) -> str:
         return json.dumps(self.to_dict())
