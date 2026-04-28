@@ -35,7 +35,10 @@ sudo install -D -m 755 "${APP_DIR}/deploy/update-duckdns.sh" /opt/docmolder/bin/
 sudo mkdir -p /etc/systemd/journald.conf.d
 sudo cp "${APP_DIR}/deploy/docmolder-journald.conf" /etc/systemd/journald.conf.d/docmolder.conf
 sudo bash "${APP_DIR}/deploy/install-static-site.sh"
-sudo bash "${APP_DIR}/deploy/install-github-webhook.sh"
+sudo \
+  DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER="${DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER:-}" \
+  DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER="${DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER:-}" \
+  bash "${APP_DIR}/deploy/install-github-webhook.sh"
 sudo systemctl daemon-reload
 sudo systemctl try-restart systemd-journald.service || true
 sudo systemctl enable --now docmolder-db-backup.timer
