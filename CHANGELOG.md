@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.12.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.9...docmolder-v0.12.0) (2026-04-28)
+
+
+### Funzionalità
+
+* complete phase 8 runtime optimization ([#102](https://github.com/max23468/DocMolder/issues/102)) ([c1470cb](https://github.com/max23468/DocMolder/commit/c1470cb92fd5875714a287f4e04dc54a446b63a7))
+
 ## [0.11.9](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.8...docmolder-v0.11.9) (2026-04-28)
 
 
