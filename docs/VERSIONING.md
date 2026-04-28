@@ -159,6 +159,25 @@ Non usare `main` per commit manuali o push diretti. Se una modifica e urgente,
 si apre comunque una PR piccola e la si squash-mergea dopo i gate locali
 rilevanti. La CI remota e un fallback manuale, non un passaggio ordinario.
 
+## Promozione esplicita a 1.0
+
+Finche il progetto e in `0.x`, anche una breaking change produce un minor bump.
+Per promuovere intenzionalmente DocMolder a `1.0.0` serve quindi un target
+esplicito, non un effetto collaterale di un commit ordinario.
+
+La promozione 1.0 deve passare da [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md):
+
+1. completare checklist prodotto, smoke e operations;
+2. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder 1.0`;
+3. dopo il merge, eseguire auto-release con target esplicito `1.0.0`, tramite
+   `--target-version 1.0.0` o `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0`;
+4. rimuovere il target esplicito dopo la promozione se viene impostato in
+   `/etc/docmolder/release.env`.
+
+Il target esplicito e accettato solo se e maggiore della versione corrente e non
+inferiore al bump naturale calcolato dal changelog. Non va usato per forzare
+patch/minor ordinarie o per aggirare la policy dei commit conventional.
+
 ## Regola pratica per gli agenti e per il maintainer
 
 Per evitare i disallineamenti visti nei tentativi precedenti:

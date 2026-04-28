@@ -99,6 +99,10 @@ def bump_version(current: str, bump: str) -> str:
     raise ValueError(f"Unsupported bump: {bump}")
 
 
+def is_version_greater(left: str, right: str) -> bool:
+    return parse_version(left) > parse_version(right)
+
+
 def parse_subject(sha: str, subject: str, body: str = "") -> ConventionalCommit | None:
     if RELEASE_COMMIT_RE.match(subject):
         return None
@@ -221,13 +225,27 @@ def build_changelog_entry(plan: ReleasePlan, repository: str) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build_release_plan(*, cwd: Path, repository: str) -> ReleasePlan | None:
+def resolve_next_version(current_version: str, bump: str, target_version: str | None = None) -> str:
+    natural_next_version = bump_version(current_version, bump)
+    if target_version is None:
+        return natural_next_version
+    parse_version(target_version)
+    if not is_version_greater(target_version, current_version):
+        raise RuntimeError(f"Target release version {target_version} must be greater than current version {current_version}")
+    if not is_version_greater(target_version, natural_next_version) and target_version != natural_next_version:
+        raise RuntimeError(
+            f"Target release version {target_version} is lower than the natural next version {natural_next_version}"
+        )
+    return target_version
+
+
+def build_release_plan(*, cwd: Path, repository: str, target_version: str | None = None) -> ReleasePlan | None:
     previous_tag, current_version = latest_reachable_tag(cwd=cwd)
     commits = commits_since(previous_tag, cwd=cwd)
     bump = highest_bump(commits, current_version)
     if bump is None:
         return None
-    next_version = bump_version(current_version, bump)
+    next_version = resolve_next_version(current_version, bump, target_version)
     next_tag = f"{TAG_PREFIX}{next_version}"
     plan = ReleasePlan(
         current_version=current_version,
@@ -478,10 +496,11 @@ def apply_release(
     author_name: str,
     author_email: str,
     dry_run: bool,
+    target_version: str | None = None,
 ) -> str:
     run(["git", "fetch", "--tags", "origin", branch], cwd=cwd)
     ensure_clean(cwd=cwd)
-    plan = build_release_plan(cwd=cwd, repository=repository)
+    plan = build_release_plan(cwd=cwd, repository=repository, target_version=target_version)
     if plan is None:
         existing_plan = build_existing_head_release_plan(cwd=cwd, repository=repository)
         if existing_plan is None:
@@ -520,6 +539,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--author-name", default=None)
     parser.add_argument("--author-email", default=None)
     parser.add_argument("--secrets-env-file", type=Path)
+    parser.add_argument("--target-version", default=None, help="Explicit release target, used for intentional graduation releases.")
     parser.add_argument("--dry-run", action="store_true")
     return parser.parse_args()
 
@@ -536,6 +556,7 @@ def main() -> int:
         "DOCMOLDER_RELEASE_GIT_AUTHOR_EMAIL",
         "docmolder-release-bot@users.noreply.github.com",
     )
+    target_version = args.target_version or os.getenv("DOCMOLDER_RELEASE_TARGET_VERSION") or None
     api_token = os.getenv(args.token_env, "").strip()
     git_token = os.getenv(git_token_env, "").strip() or api_token
     if not api_token and not args.dry_run:
@@ -554,6 +575,7 @@ def main() -> int:
             author_name=author_name,
             author_email=author_email,
             dry_run=args.dry_run,
+            target_version=target_version,
         )
     except Exception as exc:
         print(f"auto-release failed: {exc}", file=sys.stderr)
