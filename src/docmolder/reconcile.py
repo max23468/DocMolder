@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import ValidationError
@@ -46,6 +47,9 @@ def run_reconciliation(
     pruned_finished_jobs = 0
     if effective_prune_finished_days is not None:
         pruned_finished_jobs = store.prune_finished_jobs(retention_days=effective_prune_finished_days)
+        store.set_meta("reconcile:last_prune_at", datetime.now(timezone.utc).isoformat())
+        store.set_meta("reconcile:last_pruned_finished_jobs", str(pruned_finished_jobs))
+        store.set_meta("reconcile:last_prune_finished_days", str(effective_prune_finished_days))
     health = build_health_report(settings)
     report: dict[str, Any] = {
         "ok": True,

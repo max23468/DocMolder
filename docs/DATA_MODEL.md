@@ -333,10 +333,10 @@ Regole correnti:
 - la cancellazione completa da `/reset` rimuove i dati live dell'utente: sessione, file di sessione, preferenze, preset, storico job personale, usage events, known user e metadati utente in `app_meta`
 - i backup SQLite gia creati non vengono riscritti retroattivamente dalla cancellazione self-service; scadono tramite la retention breve dei backup
 - audit e log devono restare sintetici e non contenere documenti, payload completi o contenuti utente
+- le metriche admin includono utenti attivi recenti, job conclusi 24h, failure rate 24h e job lenti senza leggere contenuti documento
 
 ## Evoluzioni possibili
 
 Decisioni aperte:
 
-- metriche admin stabili da mantenere nel tempo
 - eventuale migrazione fuori da SQLite se carico o retention crescono

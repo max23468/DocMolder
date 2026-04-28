@@ -77,7 +77,12 @@ def build_health_report(
     max_running_jobs: int | None = None,
     max_running_job_age_seconds: int | None = None,
     max_runtime_dir_bytes: int | None = None,
+    max_database_bytes: int | None = None,
     max_backup_age_seconds: int | None = None,
+    max_finished_jobs_24h: int | None = None,
+    max_active_users_7d: int | None = None,
+    max_failure_rate_percent: int | None = None,
+    failure_rate_min_finished_jobs: int | None = None,
     min_disk_free_bytes: int | None = None,
     min_disk_free_percent: int | None = None,
     max_load_per_cpu: float | None = None,
@@ -116,6 +121,10 @@ def build_health_report(
         "jobs_running": 0,
         "jobs_failed": 0,
         "jobs_succeeded": 0,
+        "jobs_finished_last_24h": 0,
+        "jobs_failed_last_24h": 0,
+        "active_users_last_24h": 0,
+        "active_users_last_7d": 0,
     }
     stale_running_jobs = 0
     if database_exists:
@@ -132,6 +141,10 @@ def build_health_report(
                 "jobs_running": admin_stats.jobs_running,
                 "jobs_failed": admin_stats.jobs_failed,
                 "jobs_succeeded": admin_stats.jobs_succeeded,
+                "jobs_finished_last_24h": admin_stats.jobs_finished_last_24h,
+                "jobs_failed_last_24h": admin_stats.jobs_failed_last_24h,
+                "active_users_last_24h": admin_stats.active_users_last_24h,
+                "active_users_last_7d": admin_stats.active_users_last_7d,
             }
             if max_running_job_age_seconds is not None:
                 stale_running_jobs = len(
@@ -151,6 +164,22 @@ def build_health_report(
     runtime_size_bytes = _directory_size_bytes(runtime_dir)
     if max_runtime_dir_bytes is not None and runtime_size_bytes > max_runtime_dir_bytes:
         alerts.append("runtime_dir_size_exceeded")
+    database_size_bytes = database_path.stat().st_size if database_exists else 0
+    if max_database_bytes is not None and database_size_bytes > max_database_bytes:
+        alerts.append("database_size_exceeded")
+    if max_finished_jobs_24h is not None and stats["jobs_finished_last_24h"] > max_finished_jobs_24h:
+        alerts.append("finished_jobs_24h_exceeded")
+    if max_active_users_7d is not None and stats["active_users_last_7d"] > max_active_users_7d:
+        alerts.append("active_users_7d_exceeded")
+    failure_rate_percent = _percent(stats["jobs_failed_last_24h"], stats["jobs_finished_last_24h"])
+    min_finished_for_failure_rate = failure_rate_min_finished_jobs if failure_rate_min_finished_jobs is not None else 1
+    if (
+        max_failure_rate_percent is not None
+        and stats["jobs_finished_last_24h"] >= min_finished_for_failure_rate
+        and failure_rate_percent is not None
+        and failure_rate_percent > max_failure_rate_percent
+    ):
+        alerts.append("failure_rate_24h_exceeded")
 
     backup_count = len([candidate for candidate in backup_dir.iterdir() if candidate.is_file()]) if backup_dir.is_dir() else 0
     latest_backup_age_seconds = _latest_backup_age_seconds(backup_dir)
@@ -230,7 +259,7 @@ def build_health_report(
             "path": str(database_path),
             "exists": database_exists,
             "integrity_ok": db_integrity_ok,
-            "size_bytes": database_path.stat().st_size if database_exists else 0,
+            "size_bytes": database_size_bytes,
         },
         "backup": {
             "dir": str(backup_dir),
@@ -241,6 +270,7 @@ def build_health_report(
         "jobs": {
             **stats,
             "stale_running_jobs": stale_running_jobs,
+            "failure_rate_last_24h_percent": failure_rate_percent,
         },
     }
     log_event(
@@ -255,6 +285,12 @@ def build_health_report(
         jobs_running=stats["jobs_running"],
     )
     return report
+
+
+def _percent(numerator: int, denominator: int) -> int | None:
+    if denominator <= 0:
+        return None
+    return round((numerator / denominator) * 100)
 
 
 def render_text_report(report: dict[str, Any]) -> str:
@@ -287,7 +323,12 @@ def render_text_report(report: dict[str, Any]) -> str:
             f"jobs_running: {jobs['jobs_running']}",
             f"jobs_failed: {jobs['jobs_failed']}",
             f"jobs_succeeded: {jobs['jobs_succeeded']}",
+            f"jobs_finished_last_24h: {jobs['jobs_finished_last_24h']}",
+            f"jobs_failed_last_24h: {jobs['jobs_failed_last_24h']}",
+            f"jobs_failure_rate_last_24h_percent: {jobs['failure_rate_last_24h_percent']}",
             f"jobs_stale_running: {jobs['stale_running_jobs']}",
+            f"active_users_last_24h: {jobs['active_users_last_24h']}",
+            f"active_users_last_7d: {jobs['active_users_last_7d']}",
             "reasons: " + (", ".join(report["reasons"]) if report["reasons"] else "none"),
             "warnings: " + (", ".join(report["warnings"]) if report["warnings"] else "none"),
             "alerts: " + (", ".join(report["alerts"]) if report["alerts"] else "none"),
@@ -363,7 +404,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--max-running-jobs", type=int, help="Massimo numero di job running accettato.")
     parser.add_argument("--max-running-job-age-seconds", type=int, help="Eta massima dei job running.")
     parser.add_argument("--max-runtime-dir-bytes", type=int, help="Dimensione massima runtime dir.")
+    parser.add_argument("--max-database-bytes", type=int, help="Dimensione massima database SQLite.")
     parser.add_argument("--max-backup-age-seconds", type=int, help="Eta massima ultimo backup.")
+    parser.add_argument("--max-finished-jobs-24h", type=int, help="Massimo numero di job conclusi nelle ultime 24 ore.")
+    parser.add_argument("--max-active-users-7d", type=int, help="Massimo numero di utenti attivi negli ultimi 7 giorni.")
+    parser.add_argument("--max-failure-rate-percent", type=int, help="Tasso massimo di fallimento nelle ultime 24 ore.")
+    parser.add_argument(
+        "--failure-rate-min-finished-jobs",
+        type=int,
+        help="Numero minimo di job conclusi prima di valutare il failure rate.",
+    )
     parser.add_argument("--min-disk-free-bytes", type=int, help="Spazio disco libero minimo.")
     parser.add_argument("--min-disk-free-percent", type=int, help="Percentuale minima di disco libero.")
     parser.add_argument("--max-load-per-cpu", type=float, help="Load average 1m massimo per CPU.")
@@ -397,10 +447,29 @@ def main(argv: list[str] | None = None) -> int:
             if args.max_runtime_dir_bytes is not None
             else settings.health_max_runtime_dir_bytes
         ),
+        max_database_bytes=args.max_database_bytes if args.max_database_bytes is not None else settings.health_max_database_bytes,
         max_backup_age_seconds=(
             args.max_backup_age_seconds
             if args.max_backup_age_seconds is not None
             else settings.health_max_backup_age_seconds
+        ),
+        max_finished_jobs_24h=(
+            args.max_finished_jobs_24h
+            if args.max_finished_jobs_24h is not None
+            else settings.health_max_finished_jobs_24h
+        ),
+        max_active_users_7d=(
+            args.max_active_users_7d if args.max_active_users_7d is not None else settings.health_max_active_users_7d
+        ),
+        max_failure_rate_percent=(
+            args.max_failure_rate_percent
+            if args.max_failure_rate_percent is not None
+            else settings.health_max_failure_rate_percent
+        ),
+        failure_rate_min_finished_jobs=(
+            args.failure_rate_min_finished_jobs
+            if args.failure_rate_min_finished_jobs is not None
+            else settings.health_failure_rate_min_finished_jobs
         ),
         min_disk_free_bytes=(
             args.min_disk_free_bytes if args.min_disk_free_bytes is not None else settings.health_min_disk_free_bytes

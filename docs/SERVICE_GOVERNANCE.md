@@ -56,12 +56,13 @@ Sono gia presenti:
 - pruning automatico e policy formale per lo storico job live
 - testi bot e sito statico allineati su privacy, retention, limiti e uso best-effort
 - preset automatici leggeri per impostazioni operative ricorrenti, cancellabili con `/reset`
+- osservabilita minima Fase 13 su utenti attivi, job/giorno, failure rate, job lenti, pruning, cancellazioni dati e soglie SQLite/VPS
 
 Scelta operativa 1.x:
 
 - mantenere una postura di soft launch pubblico
 - mini-promozioni controllate sono possibili dopo Fase 10, mantenendo basso il volume atteso
-- rimandare una promozione piu ampia a dopo l'osservabilita minima della Fase 13
+- valutare una promozione piu ampia solo se le soglie prudenziali della Fase 13 restano sotto controllo con dati reali
 - mantenere l'italiano come lingua prodotto primaria nella 1.x iniziale
 
 ## Perimetro prodotto
@@ -223,9 +224,15 @@ Limiti principali configurabili:
 - `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`
 - `DOCMOLDER_GHOSTSCRIPT_TIMEOUT_SECONDS`
 - `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX`
-- `DOCMOLDER_HEALTH_*` per soglie operative di VPS, coda, disco, load, RAM, backup e runtime
+- `DOCMOLDER_ADMIN_SLOW_JOB_THRESHOLD_MS`
+- `DOCMOLDER_HEALTH_*` per soglie operative di VPS, coda, disco, load, RAM, backup, runtime, database, job/giorno, utenti attivi e failure rate
 
 Il servizio puo rifiutare o rimandare lavorazioni troppo pesanti per proteggere VPS, coda e utenti.
+
+Le soglie prudenziali iniziali non autorizzano automaticamente crescita o
+campagne: se job/giorno, utenti attivi, database, failure rate o coda superano i
+limiti configurati, la scelta predefinita e fermare promozione, usare
+manutenzione o allow-list temporanea e rivalutare architettura solo dopo diagnosi.
 
 ## Incident response minima
 

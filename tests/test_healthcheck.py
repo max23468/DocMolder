@@ -24,7 +24,7 @@ class HealthcheckTest(unittest.TestCase):
         (self.runtime_dir / "jobs").mkdir()
         self.backup_dir.mkdir()
         (self.backup_dir / "docmolder.db.backup").write_text("backup", encoding="utf-8")
-        SQLiteSessionStore(self.database_path)
+        self.store = SQLiteSessionStore(self.database_path)
         self.settings = Settings.model_construct(
             telegram_token="test-token",
             allowed_user_ids=[],
@@ -75,6 +75,34 @@ class HealthcheckTest(unittest.TestCase):
         self.assertIn("disk_free_percent_below_min", report["alerts"])
         self.assertIn("load_average_exceeded", report["alerts"])
         self.assertIn("memory_available_below_min", report["alerts"])
+
+    def test_build_health_report_alerts_on_growth_guardrails(self) -> None:
+        for index in range(3):
+            job = self.store.create_job(
+                user_id=index + 1,
+                chat_id=10,
+                reply_to_message_id=None,
+                action="pdf_compress",
+                payload_json='{"files":[]}',
+            )
+            self.store.mark_job_failed(job.id, "Errore")
+            self.store.record_completed_action(index + 1, "pdf_compress")
+
+        report = build_health_report(
+            self.settings,
+            max_database_bytes=1,
+            max_finished_jobs_24h=2,
+            max_active_users_7d=2,
+            max_failure_rate_percent=50,
+            failure_rate_min_finished_jobs=2,
+        )
+
+        self.assertFalse(report["ok"])
+        self.assertIn("database_size_exceeded", report["alerts"])
+        self.assertIn("finished_jobs_24h_exceeded", report["alerts"])
+        self.assertIn("active_users_7d_exceeded", report["alerts"])
+        self.assertIn("failure_rate_24h_exceeded", report["alerts"])
+        self.assertEqual(report["jobs"]["failure_rate_last_24h_percent"], 100)
 
 
 if __name__ == "__main__":

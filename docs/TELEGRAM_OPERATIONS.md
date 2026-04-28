@@ -65,8 +65,10 @@ Se `DOCMOLDER_ADMIN_USER_IDS` è configurata, gli admin usano `/admin` come ingr
 
 - panoramica generale
 - coda e ultimi job
-- health runtime, SQLite, backup e worker
-- manutenzione, running stale, accessi pending e audit recente
+- utenti attivi recenti, job conclusi 24h e failure rate 24h
+- health runtime, SQLite, backup, worker e soglie prudenziali
+- manutenzione, running stale, accessi pending, pruning, cancellazioni dati e audit recente
+- job lenti recenti, secondo `DOCMOLDER_ADMIN_SLOW_JOB_THRESHOLD_MS`
 - metriche Telegram aggregate da `app_meta`
 - pausa e ripresa servizio
 - dettaglio rapido degli ultimi job per stato, solo quando esiste almeno un job in quello stato
@@ -162,6 +164,7 @@ Segnali da verificare:
 - nessun job `running` oltre una soglia ragionevole per il tipo di lavorazione
 - errori Telegram e failure rate non persistenti oltre le soglie admin configurate
 - spazio disco sufficiente per runtime, job temporanei e backup
+- volume giornaliero, utenti attivi e dimensione SQLite sotto le soglie di soft launch
 
 Soglie configurabili:
 
@@ -169,10 +172,16 @@ Soglie configurabili:
 - numero massimo di job in esecuzione: `DOCMOLDER_HEALTH_MAX_RUNNING_JOBS`
 - eta massima di un job `running`: `DOCMOLDER_HEALTH_MAX_RUNNING_JOB_AGE_SECONDS`
 - dimensione massima accettabile del runtime dir: `DOCMOLDER_HEALTH_MAX_RUNTIME_DIR_BYTES`
+- dimensione massima accettabile del database SQLite: `DOCMOLDER_HEALTH_MAX_DATABASE_BYTES`
 - eta massima dell'ultimo backup SQLite: `DOCMOLDER_HEALTH_MAX_BACKUP_AGE_SECONDS`
+- volume prudenziale: `DOCMOLDER_HEALTH_MAX_FINISHED_JOBS_24H` e `DOCMOLDER_HEALTH_MAX_ACTIVE_USERS_7D`
+- failure rate prudenziale: `DOCMOLDER_HEALTH_MAX_FAILURE_RATE_PERCENT` dopo almeno `DOCMOLDER_HEALTH_FAILURE_RATE_MIN_FINISHED_JOBS`
 - spazio disco minimo: `DOCMOLDER_HEALTH_MIN_DISK_FREE_BYTES` e `DOCMOLDER_HEALTH_MIN_DISK_FREE_PERCENT`
 - carico e memoria minimi per VPS: `DOCMOLDER_HEALTH_MAX_LOAD_PER_CPU` e `DOCMOLDER_HEALTH_MIN_MEMORY_AVAILABLE_BYTES`
 - retention storico job live: `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`
+
+Le soglie iniziali sono prudenziali: servono a fermare crescita o promozione
+prima che il servizio richieda una decisione architetturale. Non sono SLA.
 
 ## Manutenzione one-shot
 

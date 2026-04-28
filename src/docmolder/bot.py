@@ -1139,8 +1139,9 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     failed_actions = deps.session_store.list_failed_actions(limit=5, since_days=7)
     recent_failed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
     recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
+    slow_jobs = _list_recent_slow_jobs(deps)
     await message.reply_text(
-        _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs),
+        _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs, slow_jobs),
         reply_markup=_build_admin_keyboard(deps),
     )
 
@@ -1416,7 +1417,8 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         failed_actions = deps.session_store.list_failed_actions(limit=5, since_days=7)
         recent_failed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.FAILED,))
         recent_completed_jobs = deps.session_store.list_recent_jobs(limit=5, statuses=(JobStatus.SUCCEEDED,))
-        body = _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs)
+        slow_jobs = _list_recent_slow_jobs(deps)
+        body = _build_admin_report(stats, top_users, failed_actions, recent_failed_jobs, recent_completed_jobs, slow_jobs)
 
     try:
         await query.edit_message_text(
@@ -2543,6 +2545,7 @@ def _build_admin_report(
     failed_actions: list[AdminActionStat],
     recent_failed_jobs: list[JobRecord],
     recent_completed_jobs: list[JobRecord],
+    slow_jobs: list[JobRecord] | None = None,
     *,
     activity_window_label: str = "ultimi 7 giorni",
     completed_jobs_heading: str = "Ultimi job completati",
@@ -2552,6 +2555,7 @@ def _build_admin_report(
     total_finished_jobs = stats.jobs_succeeded + stats.jobs_failed
     success_rate = _format_percent(stats.jobs_succeeded, total_finished_jobs)
     failure_rate = _format_percent(stats.jobs_failed, total_finished_jobs)
+    failure_rate_24h = _format_percent(stats.jobs_failed_last_24h, stats.jobs_finished_last_24h)
     raster_share = _format_percent(stats.raster_results_total, stats.jobs_succeeded)
     top_users_block = "\n".join(
         f"- {entry.label} ({entry.user_id}): {entry.completed_actions} operazioni"
@@ -2563,12 +2567,18 @@ def _build_admin_report(
     ) or "- Nessun pattern di errore rilevante"
     failed_jobs_block = "\n".join(_format_job_line(job) for job in recent_failed_jobs) or "- Nessun job fallito di recente"
     completed_jobs_block = "\n".join(_format_job_line(job) for job in recent_completed_jobs) or "- Nessun job completato di recente"
+    slow_jobs_block = (
+        "\n".join(_format_job_line(job) for job in slow_jobs or [])
+        or "- Nessun job lento rilevante nelle ultime 24 ore"
+    )
     return (
         "Riepilogo admin DocMolder\n"
         f"Aggiornato: {timestamp}\n\n"
         f"Utenti unici totali: {stats.known_users_total}\n"
         f"Nuovi utenti ultime 24 ore: {stats.known_users_last_24h}\n"
         f"Nuovi utenti ultimi 7 giorni: {stats.known_users_last_7d}\n"
+        f"Utenti attivi ultime 24 ore: {stats.active_users_last_24h}\n"
+        f"Utenti attivi ultimi 7 giorni: {stats.active_users_last_7d}\n"
         f"Operazioni completate totali: {stats.completed_actions_total}\n"
         f"Operazioni completate ultime 24 ore: {stats.completed_actions_last_24h}\n"
         f"Operazioni completate ultimi 7 giorni: {stats.completed_actions_last_7d}\n"
@@ -2586,6 +2596,9 @@ def _build_admin_report(
         "Sintesi qualità:\n"
         f"- Job riusciti: {stats.jobs_succeeded} ({success_rate})\n"
         f"- Job falliti: {stats.jobs_failed} ({failure_rate})\n\n"
+        "Finestra ultime 24 ore:\n"
+        f"- Job conclusi: {stats.jobs_finished_last_24h}\n"
+        f"- Job falliti: {stats.jobs_failed_last_24h} ({failure_rate_24h})\n\n"
         "Dettaglio operazioni:\n"
         f"- PDF da immagini: {stats.images_to_pdf_total}\n"
         f"- Comprimi PDF: {stats.pdf_compress_total}\n"
@@ -2604,9 +2617,23 @@ def _build_admin_report(
         f"{top_users_block}\n\n"
         f"{completed_jobs_heading}:\n"
         f"{completed_jobs_block}\n\n"
+        "Job lenti ultime 24 ore:\n"
+        f"{slow_jobs_block}\n\n"
         f"{failed_jobs_heading}:\n"
         f"{failed_jobs_block}"
     )
+
+
+def _list_recent_slow_jobs(deps: BotDependencies, *, since_days: int = 1, limit: int = 5) -> list[JobRecord]:
+    threshold_ms = max(1, int(deps.settings.admin_slow_job_threshold_ms))
+    candidates = deps.session_store.list_recent_jobs(
+        limit=200,
+        statuses=(JobStatus.SUCCEEDED,),
+        since_days=since_days,
+    )
+    slow_jobs = [job for job in candidates if (job.duration_ms or 0) >= threshold_ms]
+    slow_jobs.sort(key=lambda job: (job.duration_ms or 0, job.finished_at or job.created_at, job.id), reverse=True)
+    return slow_jobs[:limit]
 
 
 def _build_admin_queue_report(deps: BotDependencies) -> str:
@@ -2629,6 +2656,8 @@ def _build_admin_queue_report(deps: BotDependencies) -> str:
         f"- Coda in memoria: {queue_backlog}\n"
         f"- Job queued persistiti: {stats.jobs_queued}\n"
         f"- Job running persistiti: {stats.jobs_running}\n"
+        f"- Job conclusi ultime 24 ore: {stats.jobs_finished_last_24h}\n"
+        f"- Failure rate 24h: {_format_percent(stats.jobs_failed_last_24h, stats.jobs_finished_last_24h)}\n"
         f"- Sessioni attive: {stats.active_sessions}\n\n"
         "Ultimi job in coda:\n"
         f"{queued_block}\n\n"
@@ -2650,6 +2679,8 @@ def _build_admin_health_report(deps: BotDependencies) -> str:
     db_status = "ok" if database_path.exists() else "mancante"
     backup_status = "ok" if backup_dir.exists() else "mancante"
     db_size = _format_bytes(database_path.stat().st_size) if database_path.exists() else "0 B"
+    stats = deps.session_store.build_admin_stats()
+    failure_rate_24h = _format_percent(stats.jobs_failed_last_24h, stats.jobs_finished_last_24h)
     backup_count = len(list(backup_dir.glob("*"))) if backup_dir.exists() else 0
     disk_snapshot = _runtime_disk_snapshot(runtime_dir)
     disk_block = (
@@ -2672,6 +2703,9 @@ def _build_admin_health_report(deps: BotDependencies) -> str:
         f"- Cleanup schedulato: {cleanup_status}\n"
         f"- Report admin schedulati: {admin_status}\n"
         f"- Coda in memoria: {deps.job_queue.qsize()}\n"
+        f"- Utenti attivi 24h/7g: {stats.active_users_last_24h}/{stats.active_users_last_7d}\n"
+        f"- Job conclusi 24h: {stats.jobs_finished_last_24h}\n"
+        f"- Failure rate 24h: {failure_rate_24h}\n"
         f"{disk_block}"
     )
 
@@ -2684,19 +2718,31 @@ def _build_admin_maintenance_overview(deps: BotDependencies) -> str:
         max_running_jobs=getattr(deps.settings, "health_max_running_jobs", 5),
         max_running_job_age_seconds=max_running_age_seconds,
         max_runtime_dir_bytes=getattr(deps.settings, "health_max_runtime_dir_bytes", 2_147_483_648),
+        max_database_bytes=getattr(deps.settings, "health_max_database_bytes", 134_217_728),
         max_backup_age_seconds=getattr(deps.settings, "health_max_backup_age_seconds", 172800),
+        max_finished_jobs_24h=getattr(deps.settings, "health_max_finished_jobs_24h", 300),
+        max_active_users_7d=getattr(deps.settings, "health_max_active_users_7d", 100),
+        max_failure_rate_percent=getattr(deps.settings, "health_max_failure_rate_percent", 40),
+        failure_rate_min_finished_jobs=getattr(deps.settings, "health_failure_rate_min_finished_jobs", 10),
     )
     stale_jobs = deps.session_store.list_stale_running_jobs(max_age_seconds=max_running_age_seconds, limit=5)
+    stats = deps.session_store.build_admin_stats()
     pending_users = [
         user_id for user_id, status in _list_dynamic_access_statuses(deps) if status == _ACCESS_STATUS_PENDING
     ]
     recent_audit_entries = deps.session_store.list_audit_log_entries(limit=5)
+    deletion_count = sum(1 for entry in recent_audit_entries if entry.event_type == "user_data_deleted")
+    last_prune_at = deps.session_store.get_meta("reconcile:last_prune_at") or "mai registrato"
+    last_pruned_jobs = deps.session_store.get_meta("reconcile:last_pruned_finished_jobs") or "0"
+    last_prune_days = deps.session_store.get_meta("reconcile:last_prune_finished_days") or "disabled"
+    growth_alerts = _build_growth_guardrail_messages(deps, stats)
     stale_block = "\n".join(_format_job_line(job) for job in stale_jobs) or "- Nessun running stale"
     pending_block = "\n".join(f"- Utente {user_id}" for user_id in pending_users[:5]) or "- Nessuna richiesta pending"
     audit_block = "\n".join(
         f"- {entry.event_type}: {entry.outcome} ({entry.actor_user_id or 'sistema'} -> {entry.target_user_id or '-'})"
         for entry in recent_audit_entries
     ) or "- Nessun evento audit"
+    growth_block = "\n".join(f"- {message}" for message in growth_alerts) or "- Nessuna soglia prudenziale superata"
     alerts = ", ".join(health.get("alerts", [])) or "nessun alert"
     warnings = ", ".join(health.get("warnings", [])) or "nessun warning"
     return (
@@ -2705,8 +2751,13 @@ def _build_admin_maintenance_overview(deps: BotDependencies) -> str:
         f"- Alert: {alerts}\n"
         f"- Warning: {warnings}\n"
         f"- Runtime size: {_format_bytes(int(health['runtime']['size_bytes']))}\n"
+        f"- Database size: {_format_bytes(int(health['database']['size_bytes']))}\n"
         f"- Backup disponibili: {health['backup']['count']}\n"
-        f"- Ultimo backup age seconds: {health['backup']['latest_age_seconds']}\n\n"
+        f"- Ultimo backup age seconds: {health['backup']['latest_age_seconds']}\n"
+        f"- Ultimo pruning job: {last_pruned_jobs} job, retention {last_prune_days}, at {last_prune_at}\n"
+        f"- Cancellazioni dati recenti: {deletion_count}\n\n"
+        "Soglie crescita prudente:\n"
+        f"{growth_block}\n\n"
         "Running stale:\n"
         f"{stale_block}\n\n"
         "Richieste accesso pending:\n"
@@ -2714,6 +2765,39 @@ def _build_admin_maintenance_overview(deps: BotDependencies) -> str:
         "Audit recente:\n"
         f"{audit_block}"
     )
+
+
+def _build_growth_guardrail_messages(deps: BotDependencies, stats: AdminStats) -> list[str]:
+    settings = deps.settings
+    messages: list[str] = []
+    if stats.jobs_finished_last_24h > settings.health_max_finished_jobs_24h:
+        messages.append(
+            f"job/giorno {stats.jobs_finished_last_24h}>{settings.health_max_finished_jobs_24h}: valuta manutenzione o allow-list"
+        )
+    if stats.active_users_last_7d > settings.health_max_active_users_7d:
+        messages.append(
+            f"utenti attivi 7g {stats.active_users_last_7d}>{settings.health_max_active_users_7d}: rivaluta VPS singola"
+        )
+    if stats.jobs_finished_last_24h >= settings.health_failure_rate_min_finished_jobs:
+        failure_rate = _percent_int(stats.jobs_failed_last_24h, stats.jobs_finished_last_24h)
+        if failure_rate > settings.health_max_failure_rate_percent:
+            messages.append(
+                f"failure rate 24h {failure_rate}%>{settings.health_max_failure_rate_percent}%: controlla errori recenti"
+            )
+    database_path = settings.database_path
+    if database_path.exists() and database_path.stat().st_size > settings.health_max_database_bytes:
+        messages.append(
+            f"database {_format_bytes(database_path.stat().st_size)}>{_format_bytes(settings.health_max_database_bytes)}: valuta pruning o backup"
+        )
+    if stats.jobs_queued > settings.health_max_queued_jobs:
+        messages.append(f"coda {stats.jobs_queued}>{settings.health_max_queued_jobs}: valuta pausa temporanea")
+    return messages
+
+
+def _percent_int(numerator: int, denominator: int) -> int:
+    if denominator <= 0:
+        return 0
+    return round((numerator / denominator) * 100)
 
 
 def _build_access_status_message(deps: BotDependencies, user_id: int) -> str:
@@ -3866,6 +3950,7 @@ def _build_periodic_admin_report(deps: BotDependencies, *, since_days: int, titl
         failed_actions,
         recent_failed_jobs,
         recent_completed_jobs,
+        _list_recent_slow_jobs(deps, since_days=since_days),
         activity_window_label=activity_window_label,
         completed_jobs_heading=completed_jobs_heading,
         failed_jobs_heading=failed_jobs_heading,
@@ -3994,7 +4079,8 @@ def _build_failure_rate_alert_text(
         "Azioni coinvolte:\n"
         f"{top_actions}\n\n"
         "Ultimi job falliti:\n"
-        f"{recent_block}"
+        f"{recent_block}\n\n"
+        "Prossimo controllo: apri /admin > Coda oppure esegui docmolder-healthcheck; se continua, segui docs/VPS_RUNBOOK.md."
     )
 
 
@@ -4012,7 +4098,8 @@ def _build_repeated_failures_alert_text(
         f"- Job falliti per questa azione: {action_stat.total}\n"
         f"- Soglia configurata: {threshold_count}\n\n"
         "Ultimi job falliti per questa azione:\n"
-        f"{recent_block}"
+        f"{recent_block}\n\n"
+        "Prossimo controllo: apri /admin > Coda e verifica gli ultimi job; per mitigare usa manutenzione temporanea dal runbook."
     )
 
 

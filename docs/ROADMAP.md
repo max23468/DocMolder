@@ -91,7 +91,8 @@ Priorita di sequenza:
   job/giorno, utenti attivi, dimensione DB, failure rate e coda, poi rivederle
   con dati reali.
 - Promozione pubblica: mini-promozione controllata possibile dopo Fase 10 solo
-  se Fase 9 e chiusa; promozione piu ampia solo dopo Fase 13.
+  se Fase 9 e chiusa; promozione piu ampia solo se le soglie Fase 13 restano
+  sotto controllo con dati reali.
 - Canali: nessun nuovo canale oltre Telegram e sito statico nella 1.x iniziale.
   Niente web app e niente API pubbliche.
 - Release strategy: ogni fase puo uscire come release propria; le feature
@@ -238,7 +239,7 @@ Note di perimetro:
 
 ## Fase 13: Osservabilita e scala prudente
 
-Stato: prossima fase.
+Stato: completata.
 
 Obiettivo:
 
@@ -259,7 +260,7 @@ Deliverable principali:
 - runbook di emergenza per manutenzione, allow-list temporanea, pruning manuale
   e rollback
 
-Criteri di done:
+Criteri soddisfatti:
 
 - i problemi operativi comuni sono diagnosticabili da `/admin`, healthcheck e
   runbook senza interrogare manualmente SQLite
@@ -267,6 +268,8 @@ Criteri di done:
   rivalutare architettura
 - il servizio resta coerente con VPS singola e bot Telegram in polling finche i
   limiti sono rispettati
+- gli alert admin indicano un controllo successivo utile invece di limitarsi al
+  sintomo
 
 Note di perimetro:
 

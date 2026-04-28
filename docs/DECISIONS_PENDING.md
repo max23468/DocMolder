@@ -17,8 +17,8 @@ Questo documento non e una checklist di task: raccoglie scelte da chiarire prima
 
 - decidere se introdurre alert esterni oltre agli alert Telegram admin
 - decidere il livello minimo di smoke test post-deploy da considerare bloccante
-- decidere eventuali soglie definitive per coda, job stuck, failure rate, runtime dir, disco, load, RAM, job/giorno, utenti attivi e dimensione DB dopo osservazione in produzione
-- decidere quando SQLite smette di essere accettabile per volume, concorrenza o retention sulla base delle soglie iniziali della Fase 13
+- rivedere le soglie prudenziali Fase 13 dopo osservazione reale in produzione
+- decidere una migrazione fuori da SQLite/VPS singola se le soglie Fase 13 vengono superate in modo ricorrente
 
 ## Sicurezza
 
