@@ -28,7 +28,7 @@ Le tastiere inline sono contestuali alla sessione:
 - con immagini mostra solo le azioni consigliate per quel set di file, con le azioni meno frequenti dietro `Altre azioni`
 - con un singolo PDF mette davanti le azioni piu comuni e lascia modifica pagine, rotazione e watermark nella vista espansa
 - con piu PDF espone come scelta primaria l'unione
-- quando un flusso richiede un dettaglio, come compressione, split, rotazione o impaginazione A4, mostra solo le opzioni di quel passo
+- quando un flusso richiede un dettaglio, come compressione, split, rotazione, impaginazione A4 o profilo foto documento, mostra solo le opzioni di quel passo
 - per compressione, split e immagini verso PDF puo mostrare una scorciatoia `Usa preset` quando l'utente ha ripetuto la stessa impostazione piu volte
 
 Il pulsante `Altre azioni` espande tutte le azioni compatibili con la sessione corrente; `Meno azioni` torna alla vista breve.
@@ -44,6 +44,20 @@ Il bot conserva solo impostazioni operative ricorrenti:
 Il preset nasce da scelte ripetute, non da contenuti documento. I messaggi e i
 callback non salvano nomi file, testo estratto o profili documentali. La scelta
 manuale resta sempre disponibile e puo sovrascrivere il preset nel job corrente.
+
+## Qualita foto documento
+
+L'azione `Raddrizza foto documento` resta una trasformazione visiva guidata,
+senza OCR. Prima del job l'utente puo scegliere:
+
+- `Piu leggibile`
+- `Mantieni colore`
+- `Bianco/nero pulito`
+
+Il risultato puo includere avvisi pratici quando la foto sembra scura, sfocata,
+con poco contrasto, senza bordo leggibile o con prospettiva incerta. Gli avvisi
+devono indicare come riprovare, senza far credere che il bot legga o comprenda
+il contenuto del documento.
 
 ## Console admin
 

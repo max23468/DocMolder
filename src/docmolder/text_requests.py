@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from docmolder.messages import build_pending_action_prompt as _build_pending_action_prompt
-from docmolder.models import CompressionPreset, FileKind, SupportedAction, UserSession
+from docmolder.models import CompressionPreset, DocumentPhotoMode, FileKind, SupportedAction, UserSession
 from docmolder.processing import (
     A4_MARGIN_NARROW_PX,
     A4_MARGIN_NONE_PX,
@@ -25,6 +25,7 @@ class TextRequestResolution:
     page_selection: str | None = None
     watermark_text: str | None = None
     split_output_zip: bool | None = None
+    document_photo_mode: DocumentPhotoMode | None = None
     message: str | None = None
 
 
@@ -55,6 +56,20 @@ def _parse_image_pdf_margin_choice(text: str) -> int | None:
         return A4_MARGIN_WIDE_PX
     if _contains_any(normalized, ("bordi stretti", "stretto", "stretti", "narrow")):
         return A4_MARGIN_NARROW_PX
+    return None
+
+
+def _parse_document_photo_mode_choice(text: str) -> DocumentPhotoMode | None:
+    normalized = _normalize_free_text(text)
+    if _contains_any(normalized, ("mantieni colore", "a colori", "colore", "colori", "color")):
+        return DocumentPhotoMode.COLOR
+    if _contains_any(
+        normalized,
+        ("bianco e nero", "bianco nero", "b/n", "bn", "black white", "bw", "monocromatico"),
+    ):
+        return DocumentPhotoMode.BW
+    if _contains_any(normalized, ("piu leggibile", "più leggibile", "leggibile", "contrasto", "pulito")):
+        return DocumentPhotoMode.READABLE
     return None
 
 
@@ -312,6 +327,7 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
     watermark_text = _extract_watermark_text(text)
     compression_preset = _extract_compression_preset(keyword_text, tokens)
     split_output_zip = _infer_split_output_zip(keyword_text, tokens)
+    document_photo_mode = _parse_document_photo_mode_choice(text)
 
     if SupportedAction.PDF_ROTATE in supported and mentions_rotate:
         if rotate_degrees is not None:
@@ -404,7 +420,11 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
         if SupportedAction.DOCUMENT_PHOTO_FIX in supported and (
             mentions_document_photo_fix or (mentions_crop and "foglio" in tokens and mentions_auto_orient)
         ):
-            return TextRequestResolution(kind="enqueue", action=SupportedAction.DOCUMENT_PHOTO_FIX)
+            return TextRequestResolution(
+                kind="enqueue",
+                action=SupportedAction.DOCUMENT_PHOTO_FIX,
+                document_photo_mode=document_photo_mode,
+            )
         if SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE in supported and mentions_crop and mentions_grayscale:
             return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE)
         if SupportedAction.IMAGES_TO_PDF_CROP in supported and mentions_crop and (mentions_pdf or mentions_grayscale or mentions_pdf_creation):

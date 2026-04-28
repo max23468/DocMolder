@@ -14,7 +14,7 @@ from pypdf import PdfReader, PdfWriter
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.models import CompressionPreset, SupportedAction
+from docmolder.models import CompressionPreset, DocumentPhotoMode, SupportedAction
 from docmolder.processing import A4_MARGIN_WIDE_PX, DocumentProcessor, ProcessingUserError
 
 
@@ -397,6 +397,52 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertTrue(result.output_path.exists())
         self.assertEqual(result.processing_mode, "fallback")
         self.assertIn("fallback conservativo", result.message)
+        self.assertIn("bordo leggibile", result.message)
+
+    def test_document_photo_fix_can_keep_color_profile(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_document_photo_color" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "photo.jpg"
+        _save_realistic_document_photo(image_path)
+
+        result = self.processor.document_photos_to_pdf(
+            [image_path],
+            "document_photo_color",
+            mode=DocumentPhotoMode.COLOR,
+        )
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("mantenuto il colore", result.message)
+
+    def test_document_photo_fix_can_use_clean_bw_profile(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_document_photo_bw" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "photo.jpg"
+        _save_realistic_document_photo(image_path)
+
+        result = self.processor.document_photos_to_pdf(
+            [image_path],
+            "document_photo_bw",
+            mode=DocumentPhotoMode.BW,
+        )
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("bianco/nero pulita", result.message)
+
+    def test_document_photo_fix_warns_about_blurry_low_contrast_photo(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_document_photo_blurry" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "blurry.jpg"
+        image = Image.new("RGB", (700, 900), (80, 80, 80))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((120, 120, 580, 780), fill=(98, 98, 96), outline=(105, 105, 103))
+        image.filter(ImageFilter.GaussianBlur(radius=5)).save(image_path)
+
+        result = self.processor.process(SupportedAction.DOCUMENT_PHOTO_FIX, [image_path], "document_photo_blurry")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("poco contrasto", result.message)
+        self.assertIn("sfocate", result.message)
 
     def test_document_photo_fallback_caps_image_before_enhancement(self) -> None:
         image = Image.new("RGB", (3600, 2800), "white")
@@ -535,6 +581,18 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertIn("livello light", result.message)
         reader = PdfReader(str(result.output_path))
         self.assertEqual(len(reader.pages), 24)
+
+    def test_compress_pdf_mentions_when_reduction_is_minimal(self) -> None:
+        pdf_path = self.runtime_dir / "already_small.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=300, height=400)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        result = self.processor.compress_pdf(pdf_path, "already_small_light", CompressionPreset.LIGHT)
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("non lo rende piu leggero", result.message)
 
     def test_auto_rotate_pdf_to_dominant_orientation_rotates_outlier_pages(self) -> None:
         pdf_path = self.runtime_dir / "mostly_portrait.pdf"

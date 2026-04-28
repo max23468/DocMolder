@@ -100,6 +100,7 @@ Contiene:
 - preferenze auto-rotate
 - layout immagini verso PDF
 - preferenza ZIP nello split
+- profilo foto documento, quando diverso dal default leggibilita
 
 Uso:
 

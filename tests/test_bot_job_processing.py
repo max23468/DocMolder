@@ -70,6 +70,7 @@ from docmolder.bot import (
     handle_images_pdf_layout_callback,
     handle_images_pdf_margin_callback,
     handle_images_pdf_preset_callback,
+    handle_document_photo_mode_callback,
     handle_menu_text,
     handle_result_action_callback,
     handle_split_output_callback,
@@ -89,7 +90,7 @@ from docmolder.processing import DocumentProcessor
 from docmolder.processing import ProcessingOutput
 from docmolder.processing import ProcessingResult
 from docmolder.processing import ProcessingUserError
-from docmolder.models import CompressionPreset, FileKind, JobStatus, SupportedAction, UserSession
+from docmolder.models import CompressionPreset, DocumentPhotoMode, FileKind, JobStatus, SupportedAction, UserSession
 from docmolder.models import AdminActionStat, AdminStats, AdminUserStat
 from docmolder.keyboards import build_main_menu_keyboard
 from docmolder.session_store import InMemorySessionStore
@@ -2078,7 +2079,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("formato A4", message.reply_text.await_args.args[0])
         self.assertIsNotNone(self.store.get(7))
 
-    async def test_text_request_for_document_photo_fix_enqueues_direct_job(self) -> None:
+    async def test_text_request_for_document_photo_fix_prompts_for_scan_profile(self) -> None:
         self.store.save(
             UserSession(
                 user_id=7,
@@ -2099,11 +2100,64 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         await handle_menu_text(update, context)
 
+        self.assertEqual(len(self.store._jobs), 0)
+        self.assertEqual(self.store.get(7).pending_action, "document_photo_mode")
+        message.reply_text.assert_awaited_once()
+        self.assertIn("Come vuoi sistemare", message.reply_text.await_args.args[0])
+        self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
+
+    async def test_text_request_for_document_photo_fix_can_enqueue_explicit_bw_profile(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("img-1", "foto_documento.jpg", FileKind.IMAGE)],
+            )
+        )
+        message = SimpleNamespace(
+            text="Raddrizza foto documento in bianco e nero",
+            chat_id=99,
+            message_id=4572,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=33))) as enqueue_job:
+            await handle_menu_text(update, context)
+
+        enqueue_call = enqueue_job.await_args.kwargs
+        self.assertEqual(enqueue_call["action"], SupportedAction.DOCUMENT_PHOTO_FIX)
+        self.assertEqual(enqueue_call["document_photo_mode"], DocumentPhotoMode.BW)
+        self.assertIsNone(self.store.get(7))
+
+    async def test_document_photo_mode_callback_enqueues_color_profile(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("img-1", "foto_documento.jpg", FileKind.IMAGE)],
+                pending_action="document_photo_mode",
+            )
+        )
+        query = SimpleNamespace(
+            data="document_photo_mode:color",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=4573),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_document_photo_mode_callback(update, context)
+
         queued_job = next(iter(self.store._jobs.values()))
         self.assertEqual(queued_job.action, SupportedAction.DOCUMENT_PHOTO_FIX.value)
+        self.assertIn('"document_photo_mode": "color"', queued_job.payload_json)
         self.assertIsNone(self.store.get(7))
-        message.reply_text.assert_awaited_once()
-        self.assertIn("Raddrizzamento foto documento", message.reply_text.await_args.args[0])
+        self.assertIn("Mantieni colore", query.edit_message_text.await_args.args[0])
 
     async def test_layout_callback_a4_prompts_for_margin_choice(self) -> None:
         self.store.save(

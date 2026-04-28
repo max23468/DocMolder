@@ -123,6 +123,16 @@ def build_images_pdf_margin_keyboard(action: str) -> InlineKeyboardMarkup:
     )
 
 
+def build_document_photo_mode_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton("Piu leggibile", callback_data="document_photo_mode:readable")],
+            [InlineKeyboardButton("Mantieni colore", callback_data="document_photo_mode:color")],
+            [InlineKeyboardButton("Bianco/nero pulito", callback_data="document_photo_mode:bw")],
+        ]
+    )
+
+
 def _margin_key_from_px(value: str | None) -> str | None:
     if value == str(A4_MARGIN_WIDE_PX):
         return "wide"
