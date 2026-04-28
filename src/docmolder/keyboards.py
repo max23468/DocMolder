@@ -4,9 +4,19 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
 
 from docmolder.branding import MAIN_MENU_PLACEHOLDER, MAIN_MENU_ROWS
 from docmolder.models import JobStatus, SupportedAction, UserSession
+from docmolder.processing import A4_MARGIN_NARROW_PX, A4_MARGIN_NONE_PX, A4_MARGIN_WIDE_PX
 from docmolder.action_catalog import SessionAnalysis, get_action_label, infer_session_analysis
 
 _DEFAULT_ACTION_BUTTON_LIMIT = 3
+_COMPRESSION_LABELS = {
+    "light": "leggera",
+    "medium": "media",
+    "strong": "forte",
+}
+_SPLIT_OUTPUT_LABELS = {
+    "zip": "ZIP unico",
+    "files": "PDF separati",
+}
 
 
 def _build_action_button_label(action: SupportedAction) -> str:
@@ -47,32 +57,60 @@ def build_session_actions_keyboard(
     return InlineKeyboardMarkup(rows)
 
 
-def build_compression_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Leggera", callback_data="compress:light")],
-            [InlineKeyboardButton("Media", callback_data="compress:medium")],
-            [InlineKeyboardButton("Forte", callback_data="compress:strong")],
-        ]
-    )
+def build_compression_keyboard(preset: str | None = None) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton("Leggera", callback_data="compress:light")],
+        [InlineKeyboardButton("Media", callback_data="compress:medium")],
+        [InlineKeyboardButton("Forte", callback_data="compress:strong")],
+    ]
+    if preset in _COMPRESSION_LABELS:
+        rows.insert(0, [InlineKeyboardButton(f"Usa preset: {_COMPRESSION_LABELS[preset]}", callback_data=f"compress:{preset}")])
+    return InlineKeyboardMarkup(rows)
 
 
-def build_split_output_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("ZIP unico", callback_data="split_output:zip")],
-            [InlineKeyboardButton("PDF separati", callback_data="split_output:files")],
-        ]
-    )
+def build_split_output_keyboard(preset: str | None = None) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton("ZIP unico", callback_data="split_output:zip")],
+        [InlineKeyboardButton("PDF separati", callback_data="split_output:files")],
+    ]
+    if preset in _SPLIT_OUTPUT_LABELS:
+        rows.insert(0, [InlineKeyboardButton(f"Usa preset: {_SPLIT_OUTPUT_LABELS[preset]}", callback_data=f"split_output:{preset}")])
+    return InlineKeyboardMarkup(rows)
 
 
-def build_images_pdf_layout_keyboard(action: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton("Si, impagina in A4", callback_data=f"images_pdf_layout:a4:{action}")],
-            [InlineKeyboardButton("No, mantieni formato originale", callback_data=f"images_pdf_layout:original:{action}")],
-        ]
-    )
+def build_images_pdf_layout_keyboard(
+    action: str,
+    *,
+    preset_layout: str | None = None,
+    preset_margin_px: str | None = None,
+) -> InlineKeyboardMarkup:
+    rows = [
+        [InlineKeyboardButton("Si, impagina in A4", callback_data=f"images_pdf_layout:a4:{action}")],
+        [InlineKeyboardButton("No, mantieni formato originale", callback_data=f"images_pdf_layout:original:{action}")],
+    ]
+    if preset_layout == "original":
+        rows.insert(
+            0,
+            [
+                InlineKeyboardButton(
+                    "Usa preset: formato originale",
+                    callback_data=f"images_pdf_layout:original:{action}",
+                )
+            ],
+        )
+    elif preset_layout == "a4":
+        margin_key = _margin_key_from_px(preset_margin_px)
+        if margin_key is not None:
+            rows.insert(
+                0,
+                [
+                    InlineKeyboardButton(
+                        f"Usa preset: A4 {_margin_label_from_key(margin_key)}",
+                        callback_data=f"images_pdf_preset:a4:{margin_key}:{action}",
+                    )
+                ],
+            )
+    return InlineKeyboardMarkup(rows)
 
 
 def build_images_pdf_margin_keyboard(action: str) -> InlineKeyboardMarkup:
@@ -83,6 +121,24 @@ def build_images_pdf_margin_keyboard(action: str) -> InlineKeyboardMarkup:
             [InlineKeyboardButton("Nessun bordo", callback_data=f"images_pdf_margin:none:{action}")],
         ]
     )
+
+
+def _margin_key_from_px(value: str | None) -> str | None:
+    if value == str(A4_MARGIN_WIDE_PX):
+        return "wide"
+    if value == str(A4_MARGIN_NARROW_PX):
+        return "narrow"
+    if value == str(A4_MARGIN_NONE_PX):
+        return "none"
+    return None
+
+
+def _margin_label_from_key(key: str) -> str:
+    if key == "wide":
+        return "bordi larghi"
+    if key == "none":
+        return "senza bordi"
+    return "bordi stretti"
 
 
 def build_result_pdf_keyboard(

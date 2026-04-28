@@ -45,7 +45,7 @@ Motivazione:
 Conseguenze:
 - Fase 9 ha chiuso retention live, pruning e cancellazione completa self-service dentro `/reset`
 - Fase 10 ha rafforzato onboarding, privacy pubblica e sito statico senza introdurre una web app
-- Fase 11 introduce preset automatici leggeri e cancellabili, senza salvare contenuti o nomi file
+- Fase 11 ha introdotto preset automatici leggeri e cancellabili, senza salvare contenuti o nomi file
 - Fase 12 migliora scansioni dentro "Raddrizza foto documento", lasciando OCR fuori dal perimetro pubblico
 - Fase 13 definisce soglie prudenziali di crescita e criteri per rivalutare VPS singola e SQLite
 - una mini-promozione controllata e possibile solo dopo Fase 10 e con Fase 9 chiusa; una promozione piu ampia richiede anche Fase 13

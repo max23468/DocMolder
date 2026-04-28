@@ -149,6 +149,11 @@ _ADMIN_CALLBACK_REPLAY_WINDOW_SECONDS = 5
 _NEW_USER_NOTIFICATION_COOLDOWN_SECONDS = 120
 _BRANDING_SYNC_RETRY_AT_META_KEY = "branding_sync:retry_at"
 _BRANDING_SYNC_DEFAULT_BACKOFF_SECONDS = 3600
+_PRESET_CONFIRMATION_THRESHOLD = 2
+_COMPRESSION_PRESET_KEY = "compression_preset"
+_SPLIT_OUTPUT_KEY = "split_output"
+_IMAGE_PDF_LAYOUT_KEY = "image_pdf_layout"
+_IMAGE_PDF_MARGIN_KEY = "image_pdf_margin_px"
 
 
 class PendingActionEnqueueKwargs(TypedDict, total=False):
@@ -317,6 +322,87 @@ def _get_meta_counter(deps: BotDependencies, key: str) -> int:
         return int(current_value) if current_value is not None else 0
     except ValueError:
         return 0
+
+
+def _record_user_choice(deps: BotDependencies, user_id: int, key: str, value: str) -> None:
+    deps.session_store.set_user_preference(user_id, key, value)
+    last_key = f"{key}:last"
+    streak_key = f"{key}:streak"
+    previous_value = deps.session_store.get_user_preference(user_id, last_key)
+    previous_streak = deps.session_store.get_user_preference(user_id, streak_key)
+    try:
+        streak = int(previous_streak) if previous_streak is not None else 0
+    except ValueError:
+        streak = 0
+    streak = streak + 1 if previous_value == value else 1
+    deps.session_store.set_user_preference(user_id, last_key, value)
+    deps.session_store.set_user_preference(user_id, streak_key, str(streak))
+    if streak >= _PRESET_CONFIRMATION_THRESHOLD:
+        deps.session_store.set_user_preset(user_id, key, value)
+
+
+def _get_stored_compression_preset(deps: BotDependencies, user_id: int, *, preset_only: bool = False) -> str | None:
+    stored = deps.session_store.get_user_preset(user_id, _COMPRESSION_PRESET_KEY)
+    if stored is None and not preset_only:
+        stored = deps.session_store.get_user_preference(user_id, _COMPRESSION_PRESET_KEY)
+    if stored in {item.value for item in CompressionPreset}:
+        return stored
+    return None
+
+
+def _resolve_compression_preset_for_job(
+    deps: BotDependencies,
+    user_id: int,
+    requested_preset: CompressionPreset | None,
+) -> CompressionPreset:
+    if requested_preset is not None:
+        return requested_preset
+    stored = _get_stored_compression_preset(deps, user_id)
+    if stored is not None:
+        return CompressionPreset(stored)
+    return CompressionPreset.MEDIUM
+
+
+def _get_stored_split_output_choice(deps: BotDependencies, user_id: int, *, preset_only: bool = False) -> str | None:
+    stored = deps.session_store.get_user_preset(user_id, _SPLIT_OUTPUT_KEY)
+    if stored is None and not preset_only:
+        stored = deps.session_store.get_user_preference(user_id, _SPLIT_OUTPUT_KEY)
+    if stored in {"zip", "files"}:
+        return stored
+    return None
+
+
+def _record_split_output_choice(deps: BotDependencies, user_id: int, split_output_zip: bool) -> None:
+    _record_user_choice(deps, user_id, _SPLIT_OUTPUT_KEY, "zip" if split_output_zip else "files")
+
+
+def _get_stored_image_pdf_layout(deps: BotDependencies, user_id: int, *, preset_only: bool = False) -> str | None:
+    stored = deps.session_store.get_user_preset(user_id, _IMAGE_PDF_LAYOUT_KEY)
+    if stored is None and not preset_only:
+        stored = deps.session_store.get_user_preference(user_id, _IMAGE_PDF_LAYOUT_KEY)
+    if stored in {"a4", "original"}:
+        return stored
+    return None
+
+
+def _get_stored_image_pdf_margin(deps: BotDependencies, user_id: int, *, preset_only: bool = False) -> str | None:
+    stored = deps.session_store.get_user_preset(user_id, _IMAGE_PDF_MARGIN_KEY)
+    if stored is None and not preset_only:
+        stored = deps.session_store.get_user_preference(user_id, _IMAGE_PDF_MARGIN_KEY)
+    if stored in {str(A4_MARGIN_WIDE_PX), str(A4_MARGIN_NARROW_PX), str(A4_MARGIN_NONE_PX)}:
+        return stored
+    return None
+
+
+def _record_image_pdf_choice(
+    deps: BotDependencies,
+    user_id: int,
+    *,
+    image_pdf_use_a4: bool,
+    image_pdf_margin_px: int,
+) -> None:
+    _record_user_choice(deps, user_id, _IMAGE_PDF_LAYOUT_KEY, "a4" if image_pdf_use_a4 else "original")
+    _record_user_choice(deps, user_id, _IMAGE_PDF_MARGIN_KEY, str(image_pdf_margin_px))
 
 
 def _record_command_metric(deps: BotDependencies, command_name: str) -> None:
@@ -1382,12 +1468,13 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     _cancel_pending_image_notification(user.id, deps)
     deps.session_store.delete(user.id)
     deps.session_store.clear_user_preferences(user.id)
+    deps.session_store.clear_user_presets(user.id)
     await message.reply_text(
-        "Sessione azzerata. Ho dimenticato anche le ultime scelte rapide salvate. Puoi inviarmi nuovi file quando vuoi.",
+        "Sessione azzerata. Ho dimenticato anche ultime scelte rapide e preset salvati. Puoi inviarmi nuovi file quando vuoi.",
         reply_markup=build_main_menu_keyboard(),
     )
     await message.reply_text(
-        "Vuoi cancellare anche storico, preferenze e metadati live collegati al tuo account? "
+        "Vuoi cancellare anche storico, preferenze, preset e metadati live collegati al tuo account? "
         "I backup tecnici gia creati non vengono riscritti, ma scadono con la loro retention breve.",
         reply_markup=build_delete_data_request_keyboard(),
     )
@@ -1407,7 +1494,7 @@ async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFA
     if action == "request":
         await query.edit_message_text(
             "Confermi la cancellazione completa dei tuoi dati live?\n\n"
-            "Verranno rimossi sessione, preferenze, storico job e metadati utente. "
+            "Verranno rimossi sessione, preferenze, preset, storico job e metadati utente. "
             "I backup tecnici gia creati non vengono riscritti retroattivamente.",
             reply_markup=build_delete_data_confirmation_keyboard(),
         )
@@ -1440,7 +1527,7 @@ async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFA
         audit_entries_scrubbed=report.audit_entries_scrubbed,
     )
     await query.edit_message_text(
-        "Dati live cancellati. Ho rimosso sessione, preferenze, storico job e metadati utente collegati al tuo account.\n\n"
+        "Dati live cancellati. Ho rimosso sessione, preferenze, preset, storico job e metadati utente collegati al tuo account.\n\n"
         "Nota: i backup tecnici gia creati non vengono riscritti, ma restano coperti dalla retention breve."
     )
 
@@ -1579,7 +1666,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     if action == SupportedAction.PDF_COMPRESS.value:
         await query.edit_message_text(
             _build_compression_prompt(user.id, deps),
-            reply_markup=build_compression_keyboard(),
+            reply_markup=build_compression_keyboard(_get_stored_compression_preset(deps, user.id, preset_only=True)),
         )
         return
 
@@ -1595,8 +1682,8 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         session.touch()
         deps.session_store.save(session)
         await query.edit_message_text(
-            _build_pending_action_prompt(SupportedAction.PDF_SPLIT),
-            reply_markup=build_split_output_keyboard(),
+            _build_split_output_prompt(user.id, deps),
+            reply_markup=build_split_output_keyboard(_get_stored_split_output_choice(deps, user.id, preset_only=True)),
         )
         return
 
@@ -1615,7 +1702,11 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     if _is_image_pdf_action(resolved_action):
         await query.edit_message_text(
             _build_image_pdf_layout_prompt(user.id, deps),
-            reply_markup=build_images_pdf_layout_keyboard(action),
+            reply_markup=build_images_pdf_layout_keyboard(
+                action,
+                preset_layout=_get_stored_image_pdf_layout(deps, user.id, preset_only=True),
+                preset_margin_px=_get_stored_image_pdf_margin(deps, user.id, preset_only=True),
+            ),
         )
         return
 
@@ -1676,7 +1767,7 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
         session=session,
         compression_preset=compression_preset,
     )
-    deps.session_store.set_user_preference(user.id, "compression_preset", preset)
+    _record_user_choice(deps, user.id, _COMPRESSION_PRESET_KEY, preset)
     deps.session_store.delete(user.id)
     await query.edit_message_text(
         f"Compressione presa in carico. Job #{job.id} in coda.\nTi invio il PDF appena è pronto."
@@ -1737,6 +1828,7 @@ async def handle_split_output_callback(update: Update, context: ContextTypes.DEF
     except ProcessingUserError as exc:
         await query.edit_message_text(f"{exc}\n\nInviami un singolo PDF e riprova.")
         return
+    _record_split_output_choice(deps, user.id, split_output_zip)
     deps.session_store.delete(user.id)
     await query.edit_message_text(
         _build_pending_action_queued_message(SupportedAction.PDF_SPLIT, job.id, choice_label)
@@ -1826,7 +1918,7 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         await query.message.reply_text(
             _build_compression_prompt(user.id, deps),
             reply_to_message_id=query.message.message_id,
-            reply_markup=build_compression_keyboard(),
+            reply_markup=build_compression_keyboard(_get_stored_compression_preset(deps, user.id, preset_only=True)),
         )
         return
 
@@ -1843,9 +1935,9 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         session.touch()
         deps.session_store.save(session)
         await query.message.reply_text(
-            _build_pending_action_prompt(selected_action),
+            _build_split_output_prompt(user.id, deps),
             reply_to_message_id=query.message.message_id,
-            reply_markup=build_split_output_keyboard(),
+            reply_markup=build_split_output_keyboard(_get_stored_split_output_choice(deps, user.id, preset_only=True)),
         )
         return
 
@@ -2083,6 +2175,58 @@ async def handle_images_pdf_margin_callback(update: Update, context: ContextType
     )
 
 
+async def handle_images_pdf_preset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = _get_dependencies(context)
+    _purge_expired_sessions(deps)
+    query = update.callback_query
+    await _safe_answer_callback(query)
+
+    user = query.from_user
+    if not _is_authorized_for_deps(user.id if user else None, deps):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
+        await query.edit_message_text(_build_service_unavailable_message())
+        return
+    await _maybe_notify_admins_about_new_user(user, context)
+
+    session = deps.session_store.get(user.id)
+    if session is None or not session.files:
+        await query.edit_message_text(SESSION_EMPTY_MESSAGE)
+        return
+
+    try:
+        _, layout_choice, margin_choice, action_name = (query.data or "").split(":", 3)
+        action = SupportedAction(action_name)
+    except (TypeError, ValueError):
+        await query.edit_message_text(_invalid_callback_message())
+        return
+    _record_callback_metric(deps, f"images_pdf_preset:{layout_choice}:{margin_choice}")
+    if not _is_image_pdf_action(action) or layout_choice != "a4":
+        await query.edit_message_text("Questa opzione non è supportata per il PDF richiesto.")
+        return
+
+    margin_map = {
+        "wide": A4_MARGIN_WIDE_PX,
+        "narrow": A4_MARGIN_NARROW_PX,
+        "none": A4_MARGIN_NONE_PX,
+    }
+    margin_px = margin_map.get(margin_choice)
+    if margin_px is None:
+        await query.edit_message_text("Scelta non valida.")
+        return
+
+    await _enqueue_image_pdf_job_from_callback(
+        query=query,
+        context=context,
+        user_id=user.id,
+        action=action,
+        session=session,
+        image_pdf_use_a4=True,
+        image_pdf_margin_px=margin_px,
+    )
+
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.exception("Errore non gestito", exc_info=context.error)
 
@@ -2153,8 +2297,10 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 deps.session_store.save(session)
                 if text_request.action == SupportedAction.PDF_SPLIT:
                     await message.reply_text(
-                        text_request.message or _build_pending_action_prompt(text_request.action),
-                        reply_markup=build_split_output_keyboard(),
+                        _build_split_output_prompt(user.id, deps),
+                        reply_markup=build_split_output_keyboard(
+                            _get_stored_split_output_choice(deps, user.id, preset_only=True)
+                        ),
                     )
                 else:
                     await message.reply_text(text_request.message or _build_pending_action_prompt(text_request.action))
@@ -2174,10 +2320,17 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 deps.session_store.save(session)
                 await message.reply_text(
                     _build_image_pdf_layout_prompt(user.id, deps),
-                    reply_markup=build_images_pdf_layout_keyboard(action.value),
+                    reply_markup=build_images_pdf_layout_keyboard(
+                        action.value,
+                        preset_layout=_get_stored_image_pdf_layout(deps, user.id, preset_only=True),
+                        preset_margin_px=_get_stored_image_pdf_margin(deps, user.id, preset_only=True),
+                    ),
                 )
                 return
 
+            compression_preset = text_request.compression_preset
+            if action == SupportedAction.PDF_COMPRESS:
+                compression_preset = _resolve_compression_preset_for_job(deps, user.id, compression_preset)
             job = await _enqueue_job(
                 context=context,
                 user_id=user.id,
@@ -2185,12 +2338,20 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 reply_to_message_id=message.message_id,
                 action=action,
                 session=session,
-                compression_preset=text_request.compression_preset,
+                compression_preset=compression_preset,
                 rotate_degrees=text_request.rotate_degrees,
                 page_selection=text_request.page_selection,
                 watermark_text=text_request.watermark_text,
                 split_output_zip=text_request.split_output_zip if text_request.split_output_zip is not None else True,
             )
+            if action == SupportedAction.PDF_COMPRESS and compression_preset is not None:
+                _record_user_choice(deps, user.id, _COMPRESSION_PRESET_KEY, compression_preset.value)
+            if action == SupportedAction.PDF_SPLIT:
+                _record_split_output_choice(
+                    deps,
+                    user.id,
+                    text_request.split_output_zip if text_request.split_output_zip is not None else True,
+                )
             deps.session_store.delete(user.id)
             if action == SupportedAction.PDF_SPLIT:
                 await message.reply_text(
@@ -2210,7 +2371,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 )
             else:
                 await message.reply_text(
-                    _build_text_request_queued_message(action, job.id, text_request.compression_preset)
+                    _build_text_request_queued_message(action, job.id, compression_preset)
                 )
             return
 
@@ -2528,9 +2689,12 @@ def _build_policy_message(deps: BotDependencies) -> str:
         "- il database conserva metadati tecnici dei job, preferenze minime, audit admin e metriche operative\n"
         "- il contenuto dei documenti non viene scritto nei log e non va inserito in issue, test o report\n\n"
         "Cancellazione:\n"
-        "- /reset azzera sessione e preferenze rapide\n"
+        "- /reset azzera sessione, preferenze rapide e preset leggeri\n"
         "- dallo stesso percorso puoi cancellare tutti i dati live con conferma inline\n"
         "- i backup tecnici gia creati non vengono riscritti e scadono con la loro retention breve\n\n"
+        "Preset:\n"
+        "- salvo solo impostazioni operative ripetute, come compressione, layout immagini PDF e output split\n"
+        "- non salvo contenuti dei documenti o nomi file dentro i preset\n\n"
         "Limiti operativi:\n"
         f"- file massimo: {deps.settings.max_file_size_mb} MB\n"
         f"- file per sessione: {deps.settings.max_session_files}\n"
@@ -2795,6 +2959,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CallbackQueryHandler(handle_result_action_callback, pattern=r"^result:"))
     application.add_handler(CallbackQueryHandler(handle_compression_callback, pattern=r"^compress:"))
     application.add_handler(CallbackQueryHandler(handle_split_output_callback, pattern=r"^split_output:"))
+    application.add_handler(CallbackQueryHandler(handle_images_pdf_preset_callback, pattern=r"^images_pdf_preset:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_margin_callback, pattern=r"^images_pdf_margin:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_layout_callback, pattern=r"^images_pdf_layout:"))
     application.add_handler(CallbackQueryHandler(handle_action_callback, pattern=r"^action:"))
@@ -3032,8 +3197,14 @@ def _build_result_pdf_session(user_id: int, file_id: str, file_name: str | None)
 
 
 def _build_compression_prompt(user_id: int, deps: BotDependencies) -> str:
-    saved_preset = deps.session_store.get_user_preference(user_id, "compression_preset")
-    saved_note = f"\nUltima scelta rapida salvata: {saved_preset}." if saved_preset else ""
+    saved_preset = _get_stored_compression_preset(deps, user_id, preset_only=True)
+    saved_preference = _get_stored_compression_preset(deps, user_id)
+    if saved_preset:
+        saved_note = f"\nPreset leggero pronto: {saved_preset}."
+    elif saved_preference:
+        saved_note = f"\nUltima scelta rapida salvata: {saved_preference}."
+    else:
+        saved_note = ""
     return (
         "Hai scelto la compressione PDF. Seleziona il livello.\n"
         "Leggera preserva di piu il file; Media e Forte cercano una riduzione piu evidente."
@@ -3041,14 +3212,35 @@ def _build_compression_prompt(user_id: int, deps: BotDependencies) -> str:
     )
 
 
+def _build_split_output_prompt(user_id: int, deps: BotDependencies) -> str:
+    saved_preset = _get_stored_split_output_choice(deps, user_id, preset_only=True)
+    saved_preference = _get_stored_split_output_choice(deps, user_id)
+    if saved_preset == "zip":
+        saved_note = "\nPreset leggero pronto: ZIP unico."
+    elif saved_preset == "files":
+        saved_note = "\nPreset leggero pronto: PDF separati."
+    elif saved_preference == "zip":
+        saved_note = "\nUltima scelta rapida salvata: ZIP unico."
+    elif saved_preference == "files":
+        saved_note = "\nUltima scelta rapida salvata: PDF separati."
+    else:
+        saved_note = ""
+    return f"{_build_pending_action_prompt(SupportedAction.PDF_SPLIT)}{saved_note}"
+
+
 def _build_image_pdf_layout_prompt(user_id: int, deps: BotDependencies) -> str:
-    saved_layout = deps.session_store.get_user_preference(user_id, "image_pdf_layout")
-    saved_margin = deps.session_store.get_user_preference(user_id, "image_pdf_margin_px")
+    saved_layout = _get_stored_image_pdf_layout(deps, user_id, preset_only=True)
+    saved_margin = _get_stored_image_pdf_margin(deps, user_id, preset_only=True)
+    saved_note_prefix = "Preset leggero pronto"
+    if saved_layout is None:
+        saved_layout = _get_stored_image_pdf_layout(deps, user_id)
+        saved_margin = _get_stored_image_pdf_margin(deps, user_id)
+        saved_note_prefix = "Ultima scelta rapida salvata"
     saved_note = ""
     if saved_layout == "original":
-        saved_note = "\nUltima scelta rapida salvata: formato originale."
+        saved_note = f"\n{saved_note_prefix}: formato originale."
     elif saved_layout == "a4":
-        saved_note = "\nUltima scelta rapida salvata: A4"
+        saved_note = f"\n{saved_note_prefix}: A4"
         if saved_margin == str(A4_MARGIN_WIDE_PX):
             saved_note += " con bordi larghi."
         elif saved_margin == str(A4_MARGIN_NONE_PX):
@@ -3181,8 +3373,10 @@ async def _handle_pending_session_input(
             split_output_zip = _infer_split_output_zip(keyword_text, _tokenize_keyword_text(keyword_text))
             if split_output_zip is None:
                 await update.effective_message.reply_text(
-                    _build_pending_action_prompt(pending_action),
-                    reply_markup=build_split_output_keyboard(),
+                    _build_split_output_prompt(user_id, deps),
+                    reply_markup=build_split_output_keyboard(
+                        _get_stored_split_output_choice(deps, user_id, preset_only=True)
+                    ),
                 )
                 return True
             enqueue_kwargs["split_output_zip"] = split_output_zip
@@ -3205,6 +3399,8 @@ async def _handle_pending_session_input(
         return True
 
     deps.session_store.delete(user_id)
+    if pending_action == SupportedAction.PDF_SPLIT:
+        _record_split_output_choice(deps, user_id, enqueue_kwargs.get("split_output_zip") is True)
     raw_value = (
         "zip"
         if enqueue_kwargs.get("split_output_zip") is True
@@ -3348,8 +3544,12 @@ async def _enqueue_image_pdf_job_from_text(
         image_pdf_use_a4=image_pdf_use_a4,
         image_pdf_margin_px=image_pdf_margin_px,
     )
-    deps.session_store.set_user_preference(user_id, "image_pdf_layout", "a4" if image_pdf_use_a4 else "original")
-    deps.session_store.set_user_preference(user_id, "image_pdf_margin_px", str(image_pdf_margin_px))
+    _record_image_pdf_choice(
+        deps,
+        user_id,
+        image_pdf_use_a4=image_pdf_use_a4,
+        image_pdf_margin_px=image_pdf_margin_px,
+    )
     deps.session_store.delete(user_id)
     await update.effective_message.reply_text(
         f"{_describe_image_pdf_choice(image_pdf_use_a4, image_pdf_margin_px)}\n"
@@ -3842,8 +4042,12 @@ async def _enqueue_image_pdf_job_from_callback(
         image_pdf_use_a4=image_pdf_use_a4,
         image_pdf_margin_px=image_pdf_margin_px,
     )
-    deps.session_store.set_user_preference(user_id, "image_pdf_layout", "a4" if image_pdf_use_a4 else "original")
-    deps.session_store.set_user_preference(user_id, "image_pdf_margin_px", str(image_pdf_margin_px))
+    _record_image_pdf_choice(
+        deps,
+        user_id,
+        image_pdf_use_a4=image_pdf_use_a4,
+        image_pdf_margin_px=image_pdf_margin_px,
+    )
     deps.session_store.delete(user_id)
     await query.edit_message_text(
         f"{_describe_image_pdf_choice(image_pdf_use_a4, image_pdf_margin_px)}\n"

@@ -133,6 +133,20 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertIsNone(self.store.get_user_preference(55, "compression_preset"))
         self.assertIsNone(self.store.get_user_preference(55, "image_pdf_layout"))
 
+    def test_user_preset_roundtrip_and_clear(self) -> None:
+        self.assertIsNone(self.store.get_user_preset(55, "compression_preset"))
+
+        self.store.set_user_preset(55, "compression_preset", "medium")
+        self.store.set_user_preset(55, "image_pdf_layout", "a4")
+
+        self.assertEqual(self.store.get_user_preset(55, "compression_preset"), "medium")
+        self.assertEqual(self.store.get_user_preset(55, "image_pdf_layout"), "a4")
+
+        self.store.clear_user_presets(55)
+
+        self.assertIsNone(self.store.get_user_preset(55, "compression_preset"))
+        self.assertIsNone(self.store.get_user_preset(55, "image_pdf_layout"))
+
     def test_delete_removes_session_files(self) -> None:
         from docmolder.action_catalog import build_session_file
         from docmolder.models import FileKind, UserSession
@@ -163,6 +177,7 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.store.register_user(55, "mario", "Mario", None)
         self.store.record_completed_action(55, "pdf_compress")
         self.store.set_user_preference(55, "compression_preset", "medium")
+        self.store.set_user_preset(55, "compression_preset", "medium")
         self.store.set_meta("access:55:status", "approved")
         self.store.set_meta("upload_burst:55", "[1,2]")
         job = self.store.create_job(
@@ -187,11 +202,12 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertEqual(report.jobs_deleted, 1)
         self.assertEqual(report.usage_events_deleted, 1)
         self.assertEqual(report.known_users_deleted, 1)
-        self.assertEqual(report.meta_deleted, 3)
+        self.assertEqual(report.meta_deleted, 4)
         self.assertEqual(report.audit_entries_scrubbed, 1)
         self.assertIsNone(self.store.get(55))
         self.assertIsNone(self.store.get_job(job.id))
         self.assertIsNone(self.store.get_user_preference(55, "compression_preset"))
+        self.assertIsNone(self.store.get_user_preset(55, "compression_preset"))
         self.assertIsNone(self.store.get_meta("access:55:status"))
         self.assertIsNone(self.store.get_meta("upload_burst:55"))
         audit_entry = self.store.list_audit_log_entries(limit=1)[0]

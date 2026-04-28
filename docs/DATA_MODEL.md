@@ -236,6 +236,19 @@ Uso:
 - stato anti-burst upload con chiavi `upload_burst:<telegram_user_id>`, contenente solo timestamp recenti della finestra di rate limit
 - preferenze rapide e preset con chiavi utente come `user_pref:<telegram_user_id>:*` e `user_preset:<telegram_user_id>:*`
 
+Preferenze rapide e preset:
+
+- `user_pref:<telegram_user_id>:compression_preset`
+- `user_pref:<telegram_user_id>:split_output`
+- `user_pref:<telegram_user_id>:image_pdf_layout`
+- `user_pref:<telegram_user_id>:image_pdf_margin_px`
+- chiavi tecniche `user_pref:<telegram_user_id>:<preferenza>:last` e `:streak` per promuovere un preset dopo scelte ripetute
+- `user_preset:<telegram_user_id>:*` contiene solo impostazioni operative promosse, mai contenuti documento, nomi file o testo estratto
+
+I preset sono usati per scorciatoie inline e default iniziali nei flussi
+compatibili. La scelta manuale resta sempre disponibile e sovrascrive il preset
+per il job corrente.
+
 ### `jobs`
 
 Campi principali:
@@ -316,7 +329,7 @@ Questi asset devono restare nel runtime temporaneo e sotto cleanup.
 Regole correnti:
 
 - lo storico job live dei record conclusi viene potato da `docmolder-reconcile` oltre `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`, default 30 giorni
-- la cancellazione completa da `/reset` rimuove i dati live dell'utente: sessione, file di sessione, storico job personale, usage events, known user e metadati utente in `app_meta`
+- la cancellazione completa da `/reset` rimuove i dati live dell'utente: sessione, file di sessione, preferenze, preset, storico job personale, usage events, known user e metadati utente in `app_meta`
 - i backup SQLite gia creati non vengono riscritti retroattivamente dalla cancellazione self-service; scadono tramite la retention breve dei backup
 - audit e log devono restare sintetici e non contenere documenti, payload completi o contenuti utente
 

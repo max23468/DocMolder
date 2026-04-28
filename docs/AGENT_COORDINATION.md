@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| chiuso | Codex current chat | codex/phase-11-presets-light-automation | Fase 11: preset utente minimali, automazioni leggere, scorciatoie contestuali, docs/test/deploy | Implementati preset leggeri per compressione, split e immagini verso PDF; reset/cancellazione dati li rimuovono. Verificati test mirati, `bash scripts/ci_verify.sh`, `git diff --check`. |
 | chiuso | Codex current chat | codex/phase-10-public-ux-trust | Fase 10: UX pubblica, trust, testi bot/sito, errori operativi, docs/test/deploy | Testi `/start`/`/help`/`/status`, deep link `/start privacy`, sito statico e smoke plan pubblico allineati; `bash scripts/ci_verify.sh`, `git diff --check` e smoke dry-run OK. |
 | chiuso | Codex current chat | codex/phase-9-data-lifecycle | Fase 9: retention job, pruning reconcile, cancellazione dati utente in `/reset`, docs/test/deploy | Implementata cancellazione dati live self-service, retention job configurabile e pruning reconcile; gate locale `bash scripts/ci_verify.sh` e preflight publish OK. |
 | chiuso | Codex current chat | main / docs-only direct publish | Documentazione 1.x e uso pubblico bot | Allineata roadmap/readiness/contesto dopo release `1.0.1`; esplicitato soft launch pubblico best-effort in `SERVICE_GOVERNANCE.md`. Verificato `git diff --check`; cambio solo documentale, nessun deploy/release atteso. |

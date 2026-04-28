@@ -55,6 +55,7 @@ Sono gia presenti:
 - procedura self-service per cancellazione completa dei dati live da `/reset`
 - pruning automatico e policy formale per lo storico job live
 - testi bot e sito statico allineati su privacy, retention, limiti e uso best-effort
+- preset automatici leggeri per impostazioni operative ricorrenti, cancellabili con `/reset`
 
 Scelta operativa 1.x:
 
@@ -163,7 +164,16 @@ Retention:
 Retention:
 
 - sessione attiva secondo `DOCMOLDER_SESSION_TTL_MINUTES`
-- `/reset` cancella sessione e preferenze rapide dell'utente
+- `/reset` cancella sessione, preferenze rapide e preset leggeri dell'utente
+
+### Preferenze e preset
+
+Retention:
+
+- le preferenze rapide conservano solo l'ultima impostazione operativa scelta
+- i preset vengono promossi automaticamente dopo scelte ripetute compatibili
+- preset e preferenze riguardano compressione, output split e layout immagini verso PDF
+- non contengono contenuti documento, nomi file, testo estratto o profili documentali
 
 ### Job e storico
 
@@ -199,6 +209,7 @@ Regole:
 - la cancellazione completa riguarda i dati live, non i backup storici gia creati
 - log e audit devono registrare solo eventi sintetici, senza contenuti documentali
 - `/reset` deve distinguere il reset leggero dalla cancellazione completa dei dati
+- i preset restano opzionali: ogni wizard deve lasciare visibile la scelta manuale
 
 ## Limiti operativi dichiarati
 
