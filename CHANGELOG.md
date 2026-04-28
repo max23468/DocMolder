@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.12.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.12.0...docmolder-v0.12.1) (2026-04-28)
+
+
+### Correzioni
+
+* **release:** support explicit 1.0 graduation target ([#103](https://github.com/max23468/DocMolder/issues/103)) ([da4f448](https://github.com/max23468/DocMolder/commit/da4f448bdd6fc85dde864ffb614ac53992b8cb89))
+
 ## [0.12.0](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.9...docmolder-v0.12.0) (2026-04-28)
 
 
