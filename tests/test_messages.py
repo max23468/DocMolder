@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import unittest
-from pathlib import Path
 import sys
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -23,6 +23,18 @@ class MessageGoldenTest(unittest.TestCase):
         self.assertNotIn("/last", HELP_MESSAGE)
         self.assertNotIn("/access", HELP_MESSAGE)
         self.assertNotIn("/admin", HELP_MESSAGE)
+
+    def test_static_privacy_page_matches_public_command_surface(self) -> None:
+        privacy_page = (Path(__file__).resolve().parents[1] / "deploy/static/docmolder-site/privacy.html").read_text(encoding="utf-8")
+
+        self.assertIn("/start", privacy_page)
+        self.assertIn("/help", privacy_page)
+        self.assertIn("/history", privacy_page)
+        self.assertIn("/status", privacy_page)
+        self.assertIn("/reset", privacy_page)
+        self.assertNotIn("`/policy`", privacy_page)
+        self.assertNotIn("`/privacy`", privacy_page)
+        self.assertNotIn("`/last`", privacy_page)
 
     def test_admin_keyboard_keeps_maintenance_shortcut(self) -> None:
         keyboard = build_admin_dashboard_keyboard(service_paused=False)

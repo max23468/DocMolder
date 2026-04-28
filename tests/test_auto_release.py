@@ -66,6 +66,91 @@ class AutoReleaseTests(unittest.TestCase):
         self.assertIn("**bot:** add a useful shortcut", entry)
         self.assertIn("**deploy:** repair webhook release", entry)
 
+    def test_hidden_breaking_commits_are_release_candidates(self):
+        with patch.object(
+            auto_release,
+            "git_output",
+            return_value=f"{'a' * 40}\x00chore(api)!: rename release command\x00\x1e",
+        ):
+            commits = auto_release.commits_since("docmolder-v0.10.1", cwd=Path("."))
+
+        self.assertEqual(len(commits), 1)
+        self.assertEqual(commits[0].type, "chore")
+        self.assertTrue(commits[0].breaking)
+
+    def test_changelog_entry_surfaces_hidden_breaking_changes(self):
+        breaking_commit = auto_release.parse_subject("c" * 40, "chore(api)!: rename release command (#93)")
+
+        assert breaking_commit is not None
+
+        plan = auto_release.ReleasePlan(
+            current_version="0.10.1",
+            next_version="0.11.0",
+            previous_tag="docmolder-v0.10.1",
+            next_tag="docmolder-v0.11.0",
+            commits=[breaking_commit],
+            changelog_entry="",
+        )
+
+        entry = auto_release.build_changelog_entry(plan, "max23468/DocMolder")
+
+        self.assertIn("### Funzionalità", entry)
+        self.assertIn("**api:** rename release command", entry)
+
+    def test_apply_release_recovers_existing_head_tag_without_release(self):
+        plan = auto_release.ReleasePlan(
+            current_version="0.10.1",
+            next_version="0.10.2",
+            previous_tag="docmolder-v0.10.1",
+            next_tag="docmolder-v0.10.2",
+            commits=[],
+            changelog_entry="## [0.10.2]\n",
+        )
+
+        with (
+            patch.object(auto_release, "ensure_clean"),
+            patch.object(auto_release, "build_release_plan", return_value=None),
+            patch.object(auto_release, "build_existing_head_release_plan", return_value=plan),
+            patch.object(auto_release, "ensure_github_release") as ensure_github_release,
+        ):
+            message = auto_release.apply_release(
+                cwd=Path("."),
+                repository="max23468/DocMolder",
+                branch="main",
+                api_token="api-token",
+                git_token="git-token",
+                author_name="DocMolder Release Bot",
+                author_email="release@example.invalid",
+                dry_run=False,
+            )
+
+        self.assertEqual(message, "Release docmolder-v0.10.2 already tagged; GitHub release ensured.")
+        ensure_github_release.assert_called_once()
+
+    def test_ensure_github_release_updates_after_create_conflict(self):
+        plan = auto_release.ReleasePlan(
+            current_version="0.10.1",
+            next_version="0.10.2",
+            previous_tag="docmolder-v0.10.1",
+            next_tag="docmolder-v0.10.2",
+            commits=[],
+            changelog_entry="## [0.10.2]\n\n### Correzioni\n",
+        )
+
+        with patch.object(
+            auto_release,
+            "github_request",
+            side_effect=[
+                (404, None),
+                (422, {"message": "already_exists"}),
+                (200, {"id": 123}),
+                (200, {"id": 123}),
+            ],
+        ) as github_request:
+            auto_release.ensure_github_release(repository="max23468/DocMolder", token="api-token", plan=plan)
+
+        self.assertEqual(github_request.call_args_list[-1].args[:2], ("PATCH", "/repos/max23468/DocMolder/releases/123"))
+
     def test_main_uses_separate_git_token_when_configured(self):
         with (
             patch.dict(

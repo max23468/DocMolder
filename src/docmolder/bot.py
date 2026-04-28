@@ -1968,8 +1968,10 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     _purge_expired_sessions(deps)
     user = update.effective_user
     message = update.effective_message
+    if user is None or message is None:
+        return
     if not _is_authorized_for_deps(user.id if user else None, deps):
-        await message.reply_text(UNAUTHORIZED_MESSAGE)
+        await _handle_unauthorized_access_attempt(user, context, deps, message)
         return
     if _is_service_paused(deps) and not _is_admin(user.id if user else None, deps.settings):
         await message.reply_text(_build_service_unavailable_message())

@@ -22,9 +22,10 @@ class DeployScriptsTest(unittest.TestCase):
         script = (ROOT / "deploy" / "install-github-webhook.sh").read_text(encoding="utf-8")
 
         self.assertIn('systemctl enable --now "${WEBHOOK_SERVICE}"', script)
-        self.assertIn("systemd-run", script)
-        self.assertIn('--on-active="${WEBHOOK_RESTART_DELAY}"', script)
-        self.assertNotIn("sudo systemctl restart docmolder-github-webhook.service", script)
+        self.assertIn('WEBHOOK_RESTART_MARKER="${DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER:-/run/docmolder-github-webhook/restart-requested}"', script)
+        self.assertIn('DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER', script)
+        self.assertIn('Requested ${WEBHOOK_SERVICE} restart after current webhook job.', script)
+        self.assertNotIn("WEBHOOK_RESTART_DELAY", script)
 
 
 if __name__ == "__main__":

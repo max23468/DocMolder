@@ -9,7 +9,7 @@ AUTO_RELEASE_ENV_TEMPLATE="${APP_DIR}/deploy/release.env.example"
 SERVICE_FILE="${APP_DIR}/deploy/docmolder-github-webhook.service"
 AUTO_RELEASE_SCRIPT="${APP_DIR}/deploy/auto-release.sh"
 WEBHOOK_SERVICE="docmolder-github-webhook.service"
-WEBHOOK_RESTART_DELAY="${DOCMOLDER_GITHUB_WEBHOOK_RESTART_DELAY:-120s}"
+WEBHOOK_RESTART_MARKER="${DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER:-/run/docmolder-github-webhook/restart-requested}"
 
 if [ ! -f "${ENV_TEMPLATE}" ]; then
   echo "Missing webhook env template: ${ENV_TEMPLATE}" >&2
@@ -66,14 +66,14 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now "${WEBHOOK_SERVICE}"
 
 if [ "${webhook_was_active}" = "true" ]; then
-  restart_unit="docmolder-github-webhook-restart-$(date +%s)"
-  sudo systemd-run \
-    --quiet \
-    --collect \
-    --unit="${restart_unit}" \
-    --on-active="${WEBHOOK_RESTART_DELAY}" \
-    /bin/systemctl restart "${WEBHOOK_SERVICE}"
-  echo "Scheduled ${WEBHOOK_SERVICE} restart in ${WEBHOOK_RESTART_DELAY}."
+  if [ "${DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER:-}" = "1" ] || [ "${DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER:-}" = "true" ]; then
+    sudo install -d -m 755 "$(dirname "${WEBHOOK_RESTART_MARKER}")"
+    printf 'requested_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" | sudo tee "${WEBHOOK_RESTART_MARKER}" >/dev/null
+    echo "Requested ${WEBHOOK_SERVICE} restart after current webhook job."
+  else
+    sudo systemctl restart "${WEBHOOK_SERVICE}"
+    echo "Restarted ${WEBHOOK_SERVICE}."
+  fi
 fi
 
 echo "[status]"
