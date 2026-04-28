@@ -27,6 +27,13 @@ class DeployScriptsTest(unittest.TestCase):
         self.assertIn('Requested ${WEBHOOK_SERVICE} restart after current webhook job.', script)
         self.assertNotIn("WEBHOOK_RESTART_DELAY", script)
 
+    def test_update_vps_preserves_webhook_worker_restart_env(self) -> None:
+        script = (ROOT / "deploy" / "update-vps.sh").read_text(encoding="utf-8")
+
+        self.assertIn('DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER="${DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER:-}"', script)
+        self.assertIn('DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER="${DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER:-}"', script)
+        self.assertIn('bash "${APP_DIR}/deploy/install-github-webhook.sh"', script)
+
 
 if __name__ == "__main__":
     unittest.main()
