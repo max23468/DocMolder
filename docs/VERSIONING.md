@@ -40,7 +40,8 @@ Policy del progetto:
 - ogni commit che entra su `main` deve provenire da una PR squashata
 - eccezione stretta: commit diretti `chore(docs):` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
 - i guardrail GitHub Actions `Main Commit Policy` e `Release Policy` sono stati rimossi dai workflow attivi finche resta la modalita senza budget Actions
-- i controlli locali (`publish_doctor`, `preflight`, `ci_verify`) sono la verifica primaria per bloccare bump manuali, changelog fuori flusso e commit non coerenti con la policy
+- i controlli locali (`publish_doctor`, `preflight`, test mirati o `ci_verify`) sono la verifica primaria per bloccare bump manuali, changelog fuori flusso e commit non coerenti con la policy
+- `scripts/publish_change.sh` e il percorso standard per commit, push e PR pronta; draft, merge assistito e follow-up Actions richiedono variabili esplicite
 
 Il titolo della PR squashata diventa il commit che il flusso di release usera per:
 
@@ -147,19 +148,16 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 
 ## Flusso release
 
-1. si apre una PR con titolo convenzionale
+1. `scripts/publish_change.sh "<titolo conventional>"` apre una PR pronta con titolo convenzionale
 2. la PR viene squash-mergeata su `main`
 3. il webhook VPS deploya `main`
 4. dopo deploy riuscito, `scripts/auto_release.py` crea automaticamente la release se ci sono commit rilasciabili dal tag precedente
-5. la release automatica contiene:
-   - nuova versione
-   - aggiornamento di `CHANGELOG.md`
-   - bump dei file versione
-   - tag `docmolder-vX.Y.Z`
-   - GitHub Release
+5. la release automatica aggiorna versione, changelog, manifest, tag `docmolder-vX.Y.Z` e GitHub Release
 6. il commit di release viene redeployato dal webhook e poi viene ignorato dal generatore di release, evitando loop
 
-Non usare `main` per commit manuali o push diretti. Se una modifica e urgente, si apre comunque una PR piccola e la si squash-mergea appena la CI e verde.
+Non usare `main` per commit manuali o push diretti. Se una modifica e urgente,
+si apre comunque una PR piccola e la si squash-mergea dopo i gate locali
+rilevanti. La CI remota e un fallback manuale, non un passaggio ordinario.
 
 ## Regola pratica per gli agenti e per il maintainer
 
@@ -168,7 +166,8 @@ Per evitare i disallineamenti visti nei tentativi precedenti:
 - non fare mai bump manuali "gia dentro" una feature PR;
 - non aggiornare il changelog di release dentro una feature PR;
 - non riallineare a mano manifest o version file salvo manutenzione eccezionale del flusso release;
-- se serve una release, si mergea la PR funzionale e si lascia lavorare la release automatica VPS; `release-please` resta solo come fallback esplicito quando vuoi consumare Actions.
+- se serve una release, si mergea la PR funzionale e si lascia lavorare la release automatica VPS;
+- `release-please` resta solo come fallback esplicito quando vuoi consumare Actions.
 
 Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR e da considerare sbagliata e va corretta prima del merge.
 

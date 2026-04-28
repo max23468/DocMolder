@@ -5,14 +5,13 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 ## Asset versionati
 
 - CI: `.github/workflows/ci.yml`
+- CodeQL: `.github/workflows/codeql.yml`
 - Release Please: `.github/workflows/release-please.yml`
-- PR title guard: `.github/workflows/pr-title.yml`
-- Release file guard: `.github/workflows/release-policy.yml`
-- Main commit guard: `.github/workflows/main-commit-policy.yml`
 - Deploy VPS: `.github/workflows/deploy-vps.yml`
 - VPS Check: `.github/workflows/vps-check.yml`
 - VPS Backup: `.github/workflows/vps-backup.yml`
 - Rollback VPS: `.github/workflows/rollback-vps.yml`
+- Update VPS Env: `.github/workflows/update-vps-env.yml`
 - Dependabot: `.github/dependabot.yml`
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
 - Ownership: `.github/CODEOWNERS`
@@ -27,7 +26,7 @@ Canale GitHub preferito:
 
 - usa dove possibile il tool/plugin GitHub come canale primario per repository, PR, issue, commenti, review, metadata e creazione PR;
 - usa `gh` e `git` locali solo per operazioni non coperte bene dal plugin, come branch/commit/push locali, stato auth, log GitHub Actions e inspect di run CI;
-- usa `gh pr ready <numero>` per rimuovere lo stato draft: il tool connector `mark_pull_request_ready_for_review` al momento richiede il campo GraphQL `PullRequest.htmlUrl`, che non esiste nello schema GitHub; il campo valido sarebbe `url`;
+- usa `gh pr ready <numero>` solo per PR create esplicitamente come draft; il percorso standard crea PR gia pronte;
 - quando passi da plugin a CLI, mantieni allineati branch locale, PR corrente e SHA monitorato.
 
 Strumenti locali:
@@ -41,7 +40,7 @@ Strumenti locali:
 - `scripts/check_codex_bot_comments.py`: blocca ready/merge quando il Codex connector bot ha lasciato commenti aperti sulla PR.
 - `scripts/publish_doctor.py` o `make publish-doctor`: verifica in un unico punto branch/base, detached HEAD, divergenza da `origin/main`, file riservati a `release-please`, run failed correnti e commenti bot aperti.
 - `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
-- `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR draft; con `DOCMOLDER_USE_GH_ACTIONS=1` riattivi il vecchio watch/check/ready/auto-merge.
+- `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR pronta; con `DOCMOLDER_PUBLISH_DRAFT=1` apri una draft esplicita, con `DOCMOLDER_PUBLISH_MERGE=1` chiedi merge assistito local-first, con `DOCMOLDER_USE_GH_ACTIONS=1` riattivi il fallback legacy watch/check/ready/auto-merge.
 - `scripts/auto_release.py`: crea release senza Actions da una checkout pulita, aggiornando changelog, manifest, versioni, tag e GitHub Release.
 - `make install-hooks`: installa i hook Git locali che eseguono i controlli prima del push.
 - `docmolder-github-webhook.service`: listener systemd sulla VPS che riceve il webhook GitHub privato e lancia il deploy.
@@ -64,8 +63,9 @@ make publish-doctor
 Usa poi una sola corsia, dichiarandola nella risposta finale:
 
 - **Docs minuscoli diretti**: solo `AGENTS.md`, `README.md` o `docs/**`, titolo `chore(docs): ...`, nessun deploy/release atteso. Da `main` aggiornato usa `make publish-docs TITLE="chore(docs): <descrizione>"`: lo script esegue publish doctor, preflight, commit e push diretto senza PR. Evita questa corsia se il cambio tocca workflow, script, codice runtime, configurazione, release-owned files o istruzioni operative ambigue.
-- **PR standard**: default per codice, CI, script, test, configurazione e docs operative non banali. Usa `scripts/publish_change.sh "<titolo conventional>"`.
-- **PR + deploy/release follow-through**: solo quando il classificatore indica `deploy_relevant` o il titolo produce release. Tratta PR funzionale, Release PR e Deploy VPS come fasi separate da monitorare, non come un unico errore indistinto.
+- **PR standard**: default per codice, CI, script, test, configurazione e docs operative non banali. Usa `scripts/publish_change.sh "<titolo conventional>"`, poi review/merge e verifica webhook VPS.
+- **PR draft esplicita**: usa `DOCMOLDER_PUBLISH_DRAFT=1 scripts/publish_change.sh "<titolo conventional>"` solo quando vuoi aprire review anticipata senza dichiarare il cambio pronto.
+- **PR + deploy/release follow-through**: solo quando il classificatore indica `deploy_relevant` o il titolo produce release. Dopo il merge controlla webhook VPS, servizio, log recenti e auto-release.
 
 Se `publish_doctor` segnala branch indietro/divergente, detached HEAD, run failed correnti o commenti bot aperti, correggi quello prima di creare o aggiornare la PR.
 
@@ -100,7 +100,7 @@ Quando ci sono commit `feat:`, `fix:`, `deps:` o `docs:` rilasciabili, `scripts/
 Richiedere almeno:
 
 - pull request prima del merge;
-- status check CI verdi;
+- nessun status check Actions obbligatorio finche il progetto opera local-first;
 - titolo PR convenzionale;
 - linear history;
 - disabilitazione force push e branch deletion.

@@ -15,7 +15,7 @@ Indice unico della documentazione operativa.
 ## Esercizio e deploy
 
 - [VPS_RUNBOOK.md](./VPS_RUNBOOK.md): setup Oracle VPS + operations day-2.
-- [CODEX_CLOUD_DEPLOY.md](./CODEX_CLOUD_DEPLOY.md): flusso consigliato per lavorare da Codex web/cloud, con deploy manuale di default e webhook GitHub privato come automazione senza Actions.
+- [CODEX_CLOUD_DEPLOY.md](./CODEX_CLOUD_DEPLOY.md): flusso consigliato per lavorare da Codex web/cloud, con webhook GitHub privato come deploy standard senza Actions e deploy manuale come fallback.
 - [RELEASE_PROCESS.md](./RELEASE_PROCESS.md): checklist di rilascio e deploy.
 - [VERSIONING.md](./VERSIONING.md): policy ufficiale per versioni, changelog e release.
 - [OPERATIONS_SECURITY.md](./OPERATIONS_SECURITY.md): sicurezza operativa, segreti, log, backup e incident response.

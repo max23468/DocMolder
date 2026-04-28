@@ -40,8 +40,8 @@ Anche da solo conviene mantenere un mini-flusso PR:
 2. commit piccoli e coesi
 3. PR verso `main` con titolo Conventional Commits
 4. squash merge dopo verifiche locali rilevanti; esegui `CI` manualmente solo quando serve un gate remoto
-5. lasciare a `Release Please` la Release PR e il changelog finale solo se riattivi esplicitamente il workflow; altrimenti gestisci release e changelog con il flusso manuale concordato
-6. se vuoi automazione deploy senza Actions, configura il webhook privato sulla VPS e i hook locali nel repo
+5. lasciare release, changelog e tag alla release automatica VPS dopo il deploy
+6. usare `Release Please` e i workflow deploy solo come fallback manuali espliciti
 
 Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre con branch dedicato + PR + squash merge.
 Eccezione operativa: per modifiche minuscole, solo documentali e a basso rischio (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`), il maintainer puo pubblicare direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR.
@@ -58,7 +58,7 @@ Questa non e una preferenza soft: per DocMolder il flusso ufficiale resta PR squ
 Regola aggiuntiva fondamentale:
 
 - le PR ordinarie non devono toccare `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py`;
-- quei file vengono aggiornati solo dalla Release PR automatica;
+- quei file vengono aggiornati solo dalla release automatica VPS o da manutenzione esplicita del flusso;
 - se compaiono in una PR normale, la PR va corretta prima del merge;
 - per il dettaglio operativo della policy, fai sempre riferimento a [VERSIONING.md](./VERSIONING.md).
 
