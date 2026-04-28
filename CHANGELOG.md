@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.5.1](https://github.com/max23468/DocMolder/compare/docmolder-v1.5.0...docmolder-v1.5.1) (2026-04-28)
+
+
+### Correzioni
+
+* **copy:** correct Italian accents and grammar ([#112](https://github.com/max23468/DocMolder/issues/112)) ([778da68](https://github.com/max23468/DocMolder/commit/778da68d9d8888ca78e4f316ac4f2dd2dc87c9e4))
+
 ## [1.5.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.4.0...docmolder-v1.5.0) (2026-04-28)
 
 
