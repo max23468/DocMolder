@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
 
 from docmolder.branding import MAIN_MENU_PLACEHOLDER, MAIN_MENU_ROWS
 from docmolder.models import JobStatus, SupportedAction, UserSession
-from docmolder.action_catalog import get_action_label, infer_exposed_actions, infer_recommended_actions
+from docmolder.action_catalog import SessionAnalysis, get_action_label, infer_session_analysis
 
 _DEFAULT_ACTION_BUTTON_LIMIT = 3
 
@@ -22,12 +22,18 @@ def build_actions_keyboard(actions: list[SupportedAction]) -> InlineKeyboardMark
     return InlineKeyboardMarkup(rows)
 
 
-def build_session_actions_keyboard(session: UserSession, *, expanded: bool = False) -> InlineKeyboardMarkup | None:
-    all_actions = infer_exposed_actions(session)
+def build_session_actions_keyboard(
+    session: UserSession,
+    *,
+    expanded: bool = False,
+    analysis: SessionAnalysis | None = None,
+) -> InlineKeyboardMarkup | None:
+    analysis = analysis or infer_session_analysis(session)
+    all_actions = list(analysis.exposed_actions)
     if not all_actions:
         return None
 
-    recommended_actions = infer_recommended_actions(session)
+    recommended_actions = list(analysis.recommended_actions)
     primary_actions = recommended_actions[:_DEFAULT_ACTION_BUTTON_LIMIT] or all_actions[:_DEFAULT_ACTION_BUTTON_LIMIT]
     visible_actions = all_actions if expanded else primary_actions
     rows = [[InlineKeyboardButton(_build_action_button_label(action), callback_data=f"action:{action.value}")] for action in visible_actions]

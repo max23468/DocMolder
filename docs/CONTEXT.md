@@ -68,3 +68,8 @@ Ultimo aggiornamento del contesto:
 - la gerarchia comandi Telegram e stata semplificata: utenti su `/start`, `/help`, `/history`, `/status`, `/reset`; admin su `/admin` nascosto e dashboard inline
 - le tastiere inline sono contestuali: azioni consigliate in vista breve, azioni avanzate dietro `Altre azioni`, scorciatoie admin job mostrate solo per stati disponibili
 - la Fase 7 ha chiuso il rafforzamento VPS/performance: healthcheck con soglie su servizio, SQLite, backup, runtime, disco, load e RAM; backup/reconcile/alert timer; retention journald; downscale preventivo delle immagini enormi; profiler locale dei flussi pesanti
+- la Fase 8 ha introdotto un'analisi strutturata della sessione riusata da recap, tastiere e job flow: conteggi, preview file, azioni supportate/esposte/consigliate, azioni avanzate, warning e prossimo passo
+- il processor usa ora una mappa azione -> handler invece di un dispatch lineare, rendendo piu chiara l'aggiunta o modifica delle trasformazioni
+- il flusso immagini verso PDF scrive PDF intermedi per pagina e li unisce, riducendo il picco di memoria sui batch; le foto documento chiudono prima le immagini trasformate dopo l'impaginazione
+- il limite anti-burst degli upload conserva in `app_meta` solo le timestamp recenti della finestra operativa, cosi sopravvive a un riavvio senza diventare storico permanente
+- lo storico job mostra anche riepilogo file sorgente e nome output base derivato dal catalogo, allineando file restituiti e dettaglio utente

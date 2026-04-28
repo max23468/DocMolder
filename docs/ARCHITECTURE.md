@@ -52,16 +52,16 @@ Non e:
 - `src/docmolder/bot.py`
   - handler Telegram, wizard utente, admin console, queue worker e messaggi
 - `src/docmolder/action_catalog.py`
-  - catalogo centrale di azioni, naming output e compatibilita tra file e operazioni
+  - catalogo centrale di azioni, analisi sessione, naming output e compatibilita tra file e operazioni
 - `src/docmolder/telegram_messaging.py`
   - chunking messaggi lunghi e fallback parse-mode per invii Telegram gestiti
 - limiti leggeri per upload e job utente
-  - oggi gestiti nel runtime Telegram in `src/docmolder/bot.py`
+  - gestiti nel runtime Telegram in `src/docmolder/bot.py`, con stato anti-burst minimo e temporaneo in `app_meta`
 
 ### Pipeline documentale
 
 - `src/docmolder/processing.py`
-  - trasformazioni PDF e immagini, fallback, downscale preventivo immagini enormi, cleanup job e metriche di processing
+  - trasformazioni PDF e immagini, dispatch azione -> handler, fallback, downscale preventivo immagini enormi, cleanup job e metriche di processing
 - `docs/PDF_PIPELINE.md`
   - dettaglia compromessi tra percorsi nativi, Ghostscript e fallback raster
 
@@ -107,10 +107,12 @@ Non e:
 
 ### Tastiere inline contestuali
 
-1. La tastiera azioni deriva dalla sessione corrente e mostra prima un set breve di azioni consigliate.
-2. Le azioni compatibili ma meno frequenti restano dietro `Altre azioni`, senza cambiare i callback storici delle singole azioni.
-3. I wizard di dettaglio mostrano solo le opzioni del passo corrente, ad esempio compressione, split, rotazione o impaginazione A4.
-4. La tastiera admin mostra scorciatoie agli ultimi job solo per gli stati presenti nel database.
+1. Il catalogo costruisce una analisi strutturata della sessione: inventario file, azioni supportate, azioni esposte, azioni consigliate, azioni avanzate, warning e prossimo passo.
+2. Recap e tastiera riusano la stessa analisi per evitare inferenze duplicate nello stesso passaggio.
+3. La tastiera azioni deriva dalla sessione corrente e mostra prima un set breve di azioni consigliate.
+4. Le azioni compatibili ma meno frequenti restano dietro `Altre azioni`, senza cambiare i callback storici delle singole azioni.
+5. I wizard di dettaglio mostrano solo le opzioni del passo corrente, ad esempio compressione, split, rotazione o impaginazione A4.
+6. La tastiera admin mostra scorciatoie agli ultimi job solo per gli stati presenti nel database.
 
 ### Storico e retry
 
@@ -162,6 +164,7 @@ Canali attuali:
 - console admin Telegram `/admin` con health, queue e metriche via dashboard inline
 - metriche job in `jobs`
 - metriche Telegram aggregate in `app_meta`
+- timestamp recenti anti-burst upload in `app_meta`, limitati alla finestra di rate limit
 - backup giornaliero verificato tramite timer `docmolder-db-backup.timer`
 - alert check periodico tramite timer `docmolder-alertcheck.timer`
 - reconcile periodico tramite timer `docmolder-reconcile.timer`

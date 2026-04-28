@@ -216,6 +216,7 @@ Uso:
 - stato applicativo leggero
 - flag operativi come manutenzione o alert recenti
 - accesso dinamico utente con chiavi `access:<telegram_user_id>:status`
+- stato anti-burst upload con chiavi `upload_burst:<telegram_user_id>`, contenente solo timestamp recenti della finestra di rate limit
 
 ### `jobs`
 

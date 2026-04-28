@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| in corso | Codex current chat | codex/phase-8-optimization | Fase 8: action catalog/session analysis, bot UX sessione, processor dispatch, performance immagini->PDF, docs/test | Avvio Fase 8 in blocco; worktree pulito e nessuna PR aperta. |
 | chiuso | Codex preserve webhook worker flag | codex/preserve-webhook-worker-flag / #101 | `deploy/update-vps.sh`, test deploy script | Follow-up P1 tardivo su PR #100 pubblicato con #101: env worker/marker preservati attraverso `sudo`; thread #100 risolto e controlli Codex puliti su #100/#101. |
 | chiuso | Codex repo realignment | codex/repo-realignment-audit-fixes | `scripts/auto_release.py`, webhook deploy/restart, GitHub maintenance reports, Telegram command docs/site, tests | Implementato piano riallineamento: gate locale ripristinato, commenti Codex #88/#95/#97 corretti localmente, report GitHub meno rumoroso, docs/sito comandi allineati. Verificati `bash scripts/ci_verify.sh`, smoke VPS read-only, GitHub maintenance e controlli branch/PR. Nessun deploy eseguito. |
 | chiuso | Codex harden auto release secrets | codex/harden-auto-release-secrets | `deploy/auto-release.sh`, `scripts/auto_release.py`, test deploy/release, docs VPS | Fix leak token auto-release nei log sudo: segreti passati via env-file temporaneo invece di `sudo --preserve-env`; verificati test auto-release/deploy, ruff mirato, bash -n, py_compile e diff check. |
