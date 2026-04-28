@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.11.9](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.8...docmolder-v0.11.9) (2026-04-28)
+
+
+### Correzioni
+
+* **deploy:** preserve webhook worker restart flag ([#101](https://github.com/max23468/DocMolder/issues/101)) ([b6e36f3](https://github.com/max23468/DocMolder/commit/b6e36f3781811a7c3b264d449ce6795ec0b436a5))
+
 ## [0.11.8](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.7...docmolder-v0.11.8) (2026-04-28)
 
 
