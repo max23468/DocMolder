@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.11.6](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.5...docmolder-v0.11.6) (2026-04-28)
+
+
+### Correzioni
+
+* **release:** simplify local-first publish flow ([#98](https://github.com/max23468/DocMolder/issues/98)) ([b303121](https://github.com/max23468/DocMolder/commit/b303121b9bbf15f8bc695dfbfbb358933945e88d))
+
 ## [0.11.5](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.4...docmolder-v0.11.5) (2026-04-28)
 
 
