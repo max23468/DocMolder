@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import logging
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
-import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -17,7 +17,6 @@ from docmolder.bot import (
     BotDependencies,
     ADMIN_ONLY_MESSAGE,
     SensitiveLogFilter,
-    SESSION_EMPTY_MESSAGE,
     _build_access_status_message,
     _build_admin_health_report,
     _build_admin_maintenance_overview,
@@ -59,7 +58,6 @@ from docmolder.bot import (
     handle_rotate_callback,
     _maybe_send_admin_report_for_period,
     _process_job,
-    access_command,
     access_review_command,
     admin_command,
     build_application,
@@ -74,12 +72,9 @@ from docmolder.bot import (
     job_command,
     metrics_command,
     pause_command,
-    policy_command,
     queue_command,
     retry_command,
-    request_access_command,
     resume_command,
-    last_command,
     start_command,
     status_command,
 )
@@ -780,6 +775,23 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
         await start_command(update, context)
+
+        self.assertEqual(self.store.get_meta("access:55:status"), "pending")
+        self.bot.send_message.assert_awaited_once()
+        self.assertIn("richiesta all'admin", message.reply_text.await_args.args[0])
+
+    async def test_unauthorized_text_attempt_creates_pending_access_request(self) -> None:
+        self.deps.settings.allowed_user_ids = [7]
+        self.deps.settings.admin_user_ids = [999]
+        self.bot.send_message = AsyncMock()
+        message = SimpleNamespace(text="Ciao", reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=55, username="mario", first_name="Mario", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
 
         self.assertEqual(self.store.get_meta("access:55:status"), "pending")
         self.bot.send_message.assert_awaited_once()

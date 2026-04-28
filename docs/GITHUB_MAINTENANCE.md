@@ -48,7 +48,7 @@ Strumenti locali:
 
 La CI usa lo stesso classificatore, ma non parte automaticamente su push o PR: va avviata manualmente con `workflow_dispatch` solo quando serve un gate remoto. Per cambi senza impatto runtime mantiene i check richiesti ma salta install, test Python e package build pesanti.
 
-`Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `VPS Backup` crea un backup SQLite verificato senza deployare file; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente.
+`Deploy VPS` ha concurrency con `cancel-in-progress: true`, quindi un deploy obsoleto viene cancellato quando arriva un nuovo deploy sullo stesso target. `VPS Check` consente verifiche manuali senza copiare file sulla macchina; `VPS Backup` crea un backup SQLite verificato senza deployare file; `Rollback VPS` redeploya una revisione precedente scelta esplicitamente. `Update VPS Env` resta un fallback manuale Actions per piccoli cambi di configurazione quando non e pratico entrare sulla VPS; il percorso normale resta modifica controllata via SSH/runbook, senza consumare Actions.
 
 ### Corsie di pubblicazione
 

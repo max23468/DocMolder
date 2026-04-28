@@ -175,7 +175,7 @@ def commits_since(tag: str, *, cwd: Path) -> list[ConventionalCommit]:
             continue
         sha, subject, body = parts
         parsed = parse_subject(sha, subject, body)
-        if parsed and parsed.releasable and parsed.type not in HIDDEN_TYPES:
+        if parsed and parsed.releasable:
             commits.append(parsed)
     return commits
 
@@ -264,6 +264,16 @@ def update_changelog(path: Path, entry: str) -> None:
     path.write_text(new_text, encoding="utf-8")
 
 
+def changelog_entry_for_version(path: Path, version: str) -> str:
+    text = path.read_text(encoding="utf-8")
+    start_match = re.search(rf"^## \[{re.escape(version)}\].*$", text, flags=re.MULTILINE)
+    if not start_match:
+        raise RuntimeError(f"Could not find CHANGELOG entry for {version}")
+    next_match = re.search(r"^## \[", text[start_match.end() :], flags=re.MULTILINE)
+    end = start_match.end() + next_match.start() if next_match else len(text)
+    return text[start_match.start() : end].strip() + "\n"
+
+
 def update_release_files(*, cwd: Path, plan: ReleasePlan) -> None:
     update_changelog(cwd / "CHANGELOG.md", plan.changelog_entry)
     replace_once(cwd / "pyproject.toml", r'^version = "[^"]+"$', f'version = "{plan.next_version}"')
@@ -283,6 +293,52 @@ def ensure_clean(*, cwd: Path) -> None:
 def tag_exists(tag: str, *, cwd: Path) -> bool:
     result = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"refs/tags/{tag}"], cwd=cwd, check=False)
     return result.returncode == 0
+
+
+def tag_points_at_head(tag: str, *, cwd: Path) -> bool:
+    result = subprocess.run(["git", "rev-parse", f"{tag}^{{}}", "HEAD"], cwd=cwd, check=False, capture_output=True, text=True)
+    if result.returncode != 0:
+        return False
+    lines = result.stdout.splitlines()
+    return len(lines) == 2 and lines[0] == lines[1]
+
+
+def previous_reachable_tag(current_tag: str, *, cwd: Path) -> tuple[str, str]:
+    seen_current = False
+    for tag, version in semver_tags(cwd=cwd):
+        if tag == current_tag:
+            seen_current = True
+            continue
+        if not seen_current:
+            continue
+        result = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", tag, "HEAD"],
+            cwd=cwd,
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if result.returncode == 0:
+            return tag, version
+    raise RuntimeError(f"No previous reachable {TAG_PREFIX}* tag found before {current_tag}")
+
+
+def build_existing_head_release_plan(*, cwd: Path, repository: str) -> ReleasePlan | None:
+    current_tag, current_version = latest_reachable_tag(cwd=cwd)
+    if not tag_points_at_head(current_tag, cwd=cwd):
+        return None
+    previous_tag, previous_version = previous_reachable_tag(current_tag, cwd=cwd)
+    commits = commits_since(previous_tag, cwd=cwd)
+    if not commits:
+        return None
+    return ReleasePlan(
+        current_version=previous_version,
+        next_version=current_version,
+        previous_tag=previous_tag,
+        next_tag=current_tag,
+        commits=commits,
+        changelog_entry=changelog_entry_for_version(cwd / "CHANGELOG.md", current_version),
+    )
 
 
 def configure_git_identity(*, cwd: Path, name: str, email: str) -> None:
@@ -381,17 +437,35 @@ def ensure_github_release(*, repository: str, token: str, plan: ReleasePlan) -> 
         "prerelease": False,
     }
     if status == 200 and isinstance(existing, dict):
-        release_id = existing["id"]
-        update_status, update_response = github_request("PATCH", f"/repos/{repository}/releases/{release_id}", token=token, payload=payload)
-        if update_status not in {200}:
-            raise RuntimeError(f"GitHub release update failed: {update_status} {update_response}")
+        update_github_release(repository=repository, token=token, release_id=existing["id"], payload=payload)
         return
     if status != 404:
         raise RuntimeError(f"GitHub release lookup failed: {status} {existing}")
 
     create_status, create_response = github_request("POST", f"/repos/{repository}/releases", token=token, payload=payload)
     if create_status not in {200, 201}:
+        if create_status == 422:
+            retry_status, retry_existing = github_request("GET", f"/repos/{repository}/releases/tags/{plan.next_tag}", token=token)
+            if retry_status == 200 and isinstance(retry_existing, dict):
+                update_github_release(
+                    repository=repository,
+                    token=token,
+                    release_id=retry_existing["id"],
+                    payload=payload,
+                )
+                return
         raise RuntimeError(f"GitHub release creation failed: {create_status} {create_response}")
+
+
+def update_github_release(*, repository: str, token: str, release_id: int, payload: dict[str, Any]) -> None:
+    update_status, update_response = github_request(
+        "PATCH",
+        f"/repos/{repository}/releases/{release_id}",
+        token=token,
+        payload=payload,
+    )
+    if update_status not in {200}:
+        raise RuntimeError(f"GitHub release update failed: {update_status} {update_response}")
 
 
 def apply_release(
@@ -409,7 +483,13 @@ def apply_release(
     ensure_clean(cwd=cwd)
     plan = build_release_plan(cwd=cwd, repository=repository)
     if plan is None:
-        return "No releasable commits since latest release tag."
+        existing_plan = build_existing_head_release_plan(cwd=cwd, repository=repository)
+        if existing_plan is None:
+            return "No releasable commits since latest release tag."
+        if dry_run:
+            return f"Would ensure GitHub release for existing tag {existing_plan.next_tag}."
+        ensure_github_release(repository=repository, token=api_token, plan=existing_plan)
+        return f"Release {existing_plan.next_tag} already tagged; GitHub release ensured."
 
     if tag_exists(plan.next_tag, cwd=cwd):
         if dry_run:

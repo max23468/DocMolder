@@ -69,6 +69,8 @@ class WebhookConfig:
     auto_release_script: str
     auto_release_timeout_seconds: int
     max_body_bytes: int
+    restart_marker_path: str
+    service_name: str
 
     @classmethod
     def from_env(cls) -> "WebhookConfig":
@@ -85,6 +87,11 @@ class WebhookConfig:
             auto_release_script=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_SCRIPT", "/opt/docmolder/app/deploy/auto-release.sh").strip(),
             auto_release_timeout_seconds=env_int("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_TIMEOUT_SECONDS", 1200),
             max_body_bytes=env_int("DOCMOLDER_GITHUB_WEBHOOK_MAX_BODY_BYTES", 1_048_576),
+            restart_marker_path=os.getenv(
+                "DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER",
+                "/run/docmolder-github-webhook/restart-requested",
+            ).strip(),
+            service_name=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SERVICE_NAME", "docmolder-github-webhook.service").strip(),
         )
 
     @property
@@ -154,6 +161,8 @@ class GitHubDeployWebhookApp:
             "repository": self.config.repository,
             "branch": self.config.branch,
             "auto_release_script": self.config.auto_release_script,
+            "restart_marker_path": self.config.restart_marker_path,
+            "service_name": self.config.service_name,
             "last_job": self.state.last_job,
             "last_result": self.state.last_result,
             "last_error": self.state.last_error,
@@ -202,12 +211,16 @@ class GitHubDeployWebhookApp:
 
         command = [str(script), job.target_ref]
         print(f"[webhook] running: {' '.join(command)}", flush=True)
+        env = os.environ.copy()
+        env["DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER"] = "1"
+        env["DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER"] = self.config.restart_marker_path
         result = subprocess.run(
             command,
             check=False,
             capture_output=True,
             text=True,
             timeout=self.config.deploy_timeout_seconds,
+            env=env,
         )
 
         if result.stdout:
@@ -234,9 +247,14 @@ class GitHubDeployWebhookApp:
         print(f"[webhook] deploy OK for {job.target_ref}", flush=True)
         release_result = self._run_auto_release()
         self.state.last_result["auto_release"] = release_result
-        self.state.last_result["ok"] = release_result["ok"]
+        restart_result = self._restart_webhook_if_requested()
+        self.state.last_result["webhook_restart"] = restart_result
+        self.state.last_result["ok"] = release_result["ok"] and restart_result["ok"]
         if not release_result["ok"]:
             self.state.last_error = f"auto release exited with {release_result['returncode']}"
+            raise RuntimeError(self.state.last_error)
+        if not restart_result["ok"]:
+            self.state.last_error = str(restart_result.get("error") or "webhook restart scheduling failed")
             raise RuntimeError(self.state.last_error)
 
     def _run_auto_release(self) -> dict[str, Any]:
@@ -267,6 +285,40 @@ class GitHubDeployWebhookApp:
             "script": str(script),
             "finished_at": utc_now(),
         }
+
+    def _restart_webhook_if_requested(self) -> dict[str, Any]:
+        marker = Path(self.config.restart_marker_path)
+        if not marker.exists():
+            return {"ok": True, "requested": False, "marker": str(marker)}
+
+        try:
+            marker.unlink()
+        except OSError as exc:
+            return {"ok": False, "requested": True, "marker": str(marker), "error": f"cannot remove restart marker: {exc}"}
+
+        unit_name = f"docmolder-github-webhook-restart-{int(datetime.now(timezone.utc).timestamp())}"
+        command = [
+            "systemd-run",
+            "--quiet",
+            "--collect",
+            f"--unit={unit_name}",
+            "--on-active=1s",
+            "/bin/systemctl",
+            "restart",
+            self.config.service_name,
+        ]
+        result = subprocess.run(command, check=False, capture_output=True, text=True)
+        payload: dict[str, Any] = {
+            "ok": result.returncode == 0,
+            "requested": True,
+            "marker": str(marker),
+            "returncode": result.returncode,
+            "unit": unit_name,
+            "service": self.config.service_name,
+        }
+        if result.returncode != 0:
+            payload["error"] = result.stderr.strip() or result.stdout.strip() or "systemd-run failed"
+        return payload
 
 
 class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
@@ -427,6 +479,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=int,
         default=env_int("DOCMOLDER_GITHUB_WEBHOOK_MAX_BODY_BYTES", 1_048_576),
     )
+    parser.add_argument(
+        "--restart-marker-path",
+        default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER", "/run/docmolder-github-webhook/restart-requested"),
+    )
+    parser.add_argument(
+        "--service-name",
+        default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SERVICE_NAME", "docmolder-github-webhook.service"),
+    )
     return parser.parse_args(argv)
 
 
@@ -445,6 +505,8 @@ def main(argv: list[str] | None = None) -> None:
         auto_release_script=args.auto_release_script,
         auto_release_timeout_seconds=args.auto_release_timeout_seconds,
         max_body_bytes=args.max_body_bytes,
+        restart_marker_path=args.restart_marker_path,
+        service_name=args.service_name,
     )
     app = GitHubDeployWebhookApp(config)
     server = GitHubDeployWebhookHTTPServer((config.host, config.port), GitHubDeployWebhookHandler, app)
@@ -460,6 +522,8 @@ def main(argv: list[str] | None = None) -> None:
                 "repository": config.repository,
                 "branch": config.branch,
                 "auto_release_script": config.auto_release_script,
+                "restart_marker_path": config.restart_marker_path,
+                "service_name": config.service_name,
                 "configured": config.ready,
             },
             ensure_ascii=False,

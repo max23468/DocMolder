@@ -4,6 +4,7 @@ import importlib.util
 import sys
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 
@@ -52,6 +53,42 @@ class CodexReportsTest(unittest.TestCase):
 
         self.assertFalse(report["ok"])
         self.assertIn("GitHub CLI", report["errors"][0])
+
+    def test_github_maintenance_report_filters_failed_runs_by_current_sha(self) -> None:
+        failed_runs = [
+            {
+                "databaseId": 1,
+                "workflowName": "CI",
+                "headBranch": "main",
+                "headSha": "oldsha",
+                "url": "https://example.invalid/old",
+            },
+            {
+                "databaseId": 2,
+                "workflowName": "CI",
+                "headBranch": "main",
+                "headSha": "newsha",
+                "url": "https://example.invalid/new",
+            },
+        ]
+        merged_prs = [{"number": 95, "title": "fix deploy", "url": "https://example.invalid/pr/95", "mergedAt": "now"}]
+
+        with (
+            patch.object(github_maintenance_report, "has_gh", return_value=True),
+            patch.object(github_maintenance_report, "current_branch", return_value="main"),
+            patch.object(github_maintenance_report, "current_sha", return_value="newsha"),
+            patch.object(github_maintenance_report, "run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")),
+            patch.object(github_maintenance_report, "gh_json", side_effect=[([], None), (failed_runs, None), (merged_prs, None), ([], None)]),
+            patch.object(
+                github_maintenance_report,
+                "codex_bot_comments_for_pr",
+                return_value={"ok": True, "has_open_comments": True, "lines": ["open"]},
+            ),
+        ):
+            report = github_maintenance_report.collect_report(limit=5)
+
+        self.assertEqual([item["databaseId"] for item in report["current_branch_failed_runs"]], [2])
+        self.assertEqual(report["codex_bot_comment_prs"][0]["number"], 95)
 
     def test_ops_next_actions_warns_when_health_missing(self) -> None:
         actions = ops_report.next_actions({"health": None})
