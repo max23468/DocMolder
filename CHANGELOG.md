@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.11.8](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.7...docmolder-v0.11.8) (2026-04-28)
+
+
+### Correzioni
+
+* **ops:** realign release and webhook flows ([#100](https://github.com/max23468/DocMolder/issues/100)) ([008d25a](https://github.com/max23468/DocMolder/commit/008d25a1915b37b2404e87e96da7da38f298af6b))
+
 ## [0.11.7](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.6...docmolder-v0.11.7) (2026-04-28)
 
 
