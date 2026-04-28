@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.12.2](https://github.com/max23468/DocMolder/compare/docmolder-v0.12.1...docmolder-v0.12.2) (2026-04-28)
+
+
+### Documentazione
+
+* **release:** define major release criteria ([#104](https://github.com/max23468/DocMolder/issues/104)) ([b7fd8d3](https://github.com/max23468/DocMolder/commit/b7fd8d351df45875e1745ae32cdcff8a5be19681))
+
 ## [0.12.1](https://github.com/max23468/DocMolder/compare/docmolder-v0.12.0...docmolder-v0.12.1) (2026-04-28)
 
 
