@@ -86,6 +86,20 @@ class InMemorySessionStore:
             for meta_key in [meta_key for meta_key in self._meta if meta_key.startswith(prefix)]:
                 self._meta.pop(meta_key, None)
 
+    def get_user_preset(self, user_id: int, key: str) -> str | None:
+        with self._lock:
+            return self._meta.get(f"user_preset:{user_id}:{key}")
+
+    def set_user_preset(self, user_id: int, key: str, value: str) -> None:
+        with self._lock:
+            self._meta[f"user_preset:{user_id}:{key}"] = value
+
+    def clear_user_presets(self, user_id: int) -> None:
+        prefix = f"user_preset:{user_id}:"
+        with self._lock:
+            for meta_key in [meta_key for meta_key in self._meta if meta_key.startswith(prefix)]:
+                self._meta.pop(meta_key, None)
+
     def delete_user_data(self, user_id: int) -> UserDataDeletionReport:
         with self._lock:
             meta_prefixes = (f"user_pref:{user_id}:", f"user_preset:{user_id}:")

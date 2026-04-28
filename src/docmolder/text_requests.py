@@ -310,7 +310,7 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
     page_selection = _extract_page_selection_from_text(normalized_text, allow_keywordless_sequence=True)
     rotate_degrees = _extract_rotation_degrees(keyword_text)
     watermark_text = _extract_watermark_text(text)
-    compression_preset = _extract_compression_preset(keyword_text, tokens) or CompressionPreset.MEDIUM
+    compression_preset = _extract_compression_preset(keyword_text, tokens)
     split_output_zip = _infer_split_output_zip(keyword_text, tokens)
 
     if SupportedAction.PDF_ROTATE in supported and mentions_rotate:

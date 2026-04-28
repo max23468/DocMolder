@@ -36,11 +36,13 @@ from docmolder.bot import (
     _build_history_rerun_message,
     _handle_start_payload,
     _build_image_session_message,
+    _build_split_output_prompt,
     _build_result_delivery_message,
     _build_user_history_job_detail,
     _build_user_history_summary,
     _build_job_queue_limit_message,
     _normalize_page_selection_text,
+    _record_user_choice,
     _build_periodic_admin_report,
     _build_processing_started_message,
     _maybe_notify_admins_about_new_user,
@@ -67,6 +69,7 @@ from docmolder.bot import (
     history_command,
     handle_images_pdf_layout_callback,
     handle_images_pdf_margin_callback,
+    handle_images_pdf_preset_callback,
     handle_menu_text,
     handle_result_action_callback,
     handle_split_output_callback,
@@ -401,6 +404,29 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         message = _build_compression_prompt(7, self.deps)
 
         self.assertIn("Ultima scelta rapida salvata: medium", message)
+
+    def test_repeated_user_choice_promotes_lightweight_preset(self) -> None:
+        _record_user_choice(self.deps, 7, "compression_preset", "strong")
+        self.assertEqual(self.store.get_user_preference(7, "compression_preset"), "strong")
+        self.assertIsNone(self.store.get_user_preset(7, "compression_preset"))
+
+        _record_user_choice(self.deps, 7, "compression_preset", "strong")
+
+        self.assertEqual(self.store.get_user_preset(7, "compression_preset"), "strong")
+
+    def test_build_compression_prompt_mentions_promoted_preset(self) -> None:
+        self.store.set_user_preset(7, "compression_preset", "strong")
+
+        message = _build_compression_prompt(7, self.deps)
+
+        self.assertIn("Preset leggero pronto: strong", message)
+
+    def test_build_split_output_prompt_mentions_promoted_preset(self) -> None:
+        self.store.set_user_preset(7, "split_output", "files")
+
+        message = _build_split_output_prompt(7, self.deps)
+
+        self.assertIn("Preset leggero pronto: PDF separati", message)
 
     def test_image_session_message_includes_structured_recap(self) -> None:
         session = UserSession(
@@ -1783,6 +1809,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(queued_job.action, "pdf_split")
         self.assertIn('"split_output_zip": false', queued_job.payload_json)
         self.assertIsNone(self.store.get(7))
+        self.assertEqual(self.store.get_user_preference(7, "split_output"), "files")
         self.assertIn("PDF separati", query.edit_message_text.await_args.args[0])
 
     async def test_split_output_callback_rejects_incompatible_session(self) -> None:
@@ -2152,6 +2179,32 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         query.edit_message_text.assert_awaited_once()
         self.assertIsNone(self.store.get(7))
 
+    async def test_images_pdf_preset_callback_enqueues_job_with_saved_a4_margin(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("img-1", "foto_1.jpg", FileKind.IMAGE)],
+            )
+        )
+        query = SimpleNamespace(
+            data="images_pdf_preset:a4:narrow:images_to_pdf",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=461),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_images_pdf_preset_callback(update, context)
+
+        queued_jobs = list(self.store._jobs.values())
+        self.assertEqual(len(queued_jobs), 1)
+        self.assertIn('"image_pdf_use_a4": true', queued_jobs[0].payload_json)
+        self.assertIn('"image_pdf_margin_px": 48', queued_jobs[0].payload_json)
+        query.edit_message_text.assert_awaited_once()
+        self.assertIsNone(self.store.get(7))
+
     async def test_text_request_for_cropped_grayscale_pdf_from_images_prompts_for_layout_choice(self) -> None:
         self.store.save(
             UserSession(
@@ -2292,6 +2345,56 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(enqueue_call["compression_preset"].value, "medium")
         message.reply_text.assert_awaited_once()
         self.assertIsNone(self.store.get(7))
+
+    async def test_text_request_uses_saved_compression_preset_when_level_is_missing(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        self.store.set_user_preset(7, "compression_preset", "strong")
+        message = SimpleNamespace(
+            text="Comprimi questo pdf",
+            chat_id=99,
+            message_id=7890,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
+            await handle_menu_text(update, context)
+
+        self.assertEqual(enqueue_job.await_args.kwargs["compression_preset"], CompressionPreset.STRONG)
+
+    async def test_text_request_explicit_compression_level_overrides_saved_preset(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        self.store.set_user_preset(7, "compression_preset", "strong")
+        message = SimpleNamespace(
+            text="Comprimi questo pdf in modo leggero",
+            chat_id=99,
+            message_id=78901,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
+            await handle_menu_text(update, context)
+
+        self.assertEqual(enqueue_job.await_args.kwargs["compression_preset"], CompressionPreset.LIGHT)
 
     async def test_text_request_accepts_light_typo_for_compression(self) -> None:
         self.store.save(
@@ -2867,6 +2970,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             )
         )
         self.store.set_user_preference(7, "compression_preset", "medium")
+        self.store.set_user_preset(7, "compression_preset", "medium")
         message = SimpleNamespace(
             text="Azzera sessione",
             chat_id=99,
@@ -2888,6 +2992,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Cancella tutti i miei dati", str(message.reply_text.await_args_list[1].kwargs["reply_markup"]))
         self.assertIsNone(self.store.get(7))
         self.assertIsNone(self.store.get_user_preference(7, "compression_preset"))
+        self.assertIsNone(self.store.get_user_preset(7, "compression_preset"))
 
     async def test_delete_data_callback_requires_confirmation_then_deletes_live_data(self) -> None:
         self.store.save(
@@ -2897,6 +3002,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             )
         )
         self.store.set_user_preference(7, "compression_preset", "medium")
+        self.store.set_user_preset(7, "compression_preset", "medium")
         self.store.set_meta("access:7:status", "approved")
         job = self.store.create_job(
             user_id=7,
@@ -2926,6 +3032,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Dati live cancellati", query.edit_message_text.await_args.args[0])
         self.assertIsNone(self.store.get(7))
         self.assertIsNone(self.store.get_user_preference(7, "compression_preset"))
+        self.assertIsNone(self.store.get_user_preset(7, "compression_preset"))
         self.assertIsNone(self.store.get_meta("access:7:status"))
         self.assertIsNone(self.store.get_job(job.id))
         self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "user_data_deleted")

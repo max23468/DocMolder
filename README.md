@@ -47,6 +47,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Correzione automatica orientamento per immagini
 - Sessioni temporanee per raccogliere più file in messaggi successivi
 - Storico ultimi job con dettaglio essenziale e possibilità di rilanciare un'elaborazione
+- Preset leggeri per scelte ricorrenti di compressione, split e immagini verso PDF, senza salvare contenuti o nomi file
 - Self-service essenziale con `/start`, `/help`, `/history`, `/status` e `/reset`
 - Deep link Telegram essenziali per guida, storico e stato
 - Console admin Telegram accorpata in `/admin`, con queue, health, metrics, manutenzione, access review, pause/resume e scorciatoie inline
@@ -66,6 +67,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 
 - Nessun salvataggio permanente dei file utente nel perimetro attuale del prodotto
 - Pulizia automatica delle cartelle temporanee
+- I preset salvano solo impostazioni operative ripetute, non contenuti documento o nomi file
 - Limiti configurabili su dimensione file, numero di allegati, burst upload e carico concorrente
 
 ## Stato attuale
@@ -225,7 +227,7 @@ Comandi utente:
 - `/help` per guida rapida, limiti, dati e flussi consigliati
 - `/history` per vedere gli ultimi job personali, aprirne i dettagli essenziali o rilanciarli
 - `/status` per vedere accesso, service mode, sessione corrente, coda personale e ultimo job
-- `/reset` per azzerare sessione e ultime scelte rapide, con opzione di cancellazione dati live
+- `/reset` per azzerare sessione, ultime scelte rapide e preset, con opzione di cancellazione dati live
 
 Deep link pubblico utile:
 

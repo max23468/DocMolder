@@ -210,6 +210,20 @@ class SQLiteSessionStore:
             )
             connection.commit()
 
+    def get_user_preset(self, user_id: int, key: str) -> str | None:
+        return self.get_meta(f"user_preset:{user_id}:{key}")
+
+    def set_user_preset(self, user_id: int, key: str, value: str) -> None:
+        self.set_meta(f"user_preset:{user_id}:{key}", value)
+
+    def clear_user_presets(self, user_id: int) -> None:
+        with self._lock, self._connect() as connection:
+            connection.execute(
+                "DELETE FROM app_meta WHERE key LIKE ?",
+                (f"user_preset:{user_id}:%",),
+            )
+            connection.commit()
+
     def delete_user_data(self, user_id: int) -> UserDataDeletionReport:
         with self._lock, self._connect() as connection:
             connection.execute("DELETE FROM session_files WHERE user_id = ?", (user_id,))

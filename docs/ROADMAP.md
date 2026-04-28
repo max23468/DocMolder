@@ -169,7 +169,7 @@ Note di perimetro:
 
 ## Fase 11: Preset e automazioni leggere
 
-Stato: prossima fase.
+Stato: completata.
 
 Obiettivo:
 
@@ -189,12 +189,14 @@ Deliverable principali:
 - policy chiara su quali preferenze diventano persistenti e quali restano
   inferenze momentanee
 
-Criteri di done:
+Criteri soddisfatti:
 
 - l'utente ricorrente riduce i passaggi nei flussi piu frequenti
 - ogni preset resta opzionale e non impedisce la scelta manuale
 - preset e preferenze non salvano contenuti documento o dati sensibili
 - `/reset` e cancellazione completa rimuovono preferenze e preset
+- i preset vengono promossi solo dopo scelte ripetute e restano limitati a
+  compressione, layout immagini verso PDF e formato output split
 
 Note di perimetro:
 
@@ -203,7 +205,7 @@ Note di perimetro:
 
 ## Fase 12: Qualita output e scansioni
 
-Stato: dopo Fase 11.
+Stato: prossima fase.
 
 Obiettivo:
 

@@ -10,7 +10,7 @@ Il bot e pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_b
 - `/help`: mostra guida rapida, limiti pubblici, dati e flussi consigliati.
 - `/history`: mostra gli ultimi job personali, con dettaglio e rilancio.
 - `/status`: mostra accesso, service mode, sessione corrente, coda personale e ultimo job.
-- `/reset`: azzera sessione e preferenze rapide; da qui l'utente puo anche chiedere la cancellazione completa dei propri dati live con conferma inline.
+- `/reset`: azzera sessione, preferenze rapide e preset leggeri; da qui l'utente puo anche chiedere la cancellazione completa dei propri dati live con conferma inline.
 
 ## Deep link supportati
 
@@ -29,8 +29,21 @@ Le tastiere inline sono contestuali alla sessione:
 - con un singolo PDF mette davanti le azioni piu comuni e lascia modifica pagine, rotazione e watermark nella vista espansa
 - con piu PDF espone come scelta primaria l'unione
 - quando un flusso richiede un dettaglio, come compressione, split, rotazione o impaginazione A4, mostra solo le opzioni di quel passo
+- per compressione, split e immagini verso PDF puo mostrare una scorciatoia `Usa preset` quando l'utente ha ripetuto la stessa impostazione piu volte
 
 Il pulsante `Altre azioni` espande tutte le azioni compatibili con la sessione corrente; `Meno azioni` torna alla vista breve.
+
+## Preset utente leggeri
+
+Il bot conserva solo impostazioni operative ricorrenti:
+
+- livello compressione PDF
+- scelta output split: ZIP unico o PDF separati
+- layout immagini verso PDF: A4 o formato originale, con margine A4
+
+Il preset nasce da scelte ripetute, non da contenuti documento. I messaggi e i
+callback non salvano nomi file, testo estratto o profili documentali. La scelta
+manuale resta sempre disponibile e puo sovrascrivere il preset nel job corrente.
 
 ## Console admin
 
