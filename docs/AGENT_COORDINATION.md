@@ -91,7 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
-| in corso | Codex current chat | codex/major-release-criteria | Criteri versioning/release per major `X.0.0`, docs release/readiness | Definizione criterio prodotto/ops per decidere quando una major e legittima; modifiche solo documentali. |
+| chiuso | Codex current chat | codex/major-release-criteria / #104 | Criteri versioning/release per major `X.0.0`, docs release/readiness | PR #104 mergiata; release `docmolder-v0.12.2` creata e deploy VPS verificato. La major richiede ora `Major release rationale` prima di usare target espliciti `X.0.0`. |
 | chiuso | Codex current chat | codex/1-0-readiness / #103 | Readiness 1.0: criteri prodotto/ops, smoke plan, flusso release graduation, docs/test | PR #103 mergiata; release `docmolder-v0.12.1` creata e deploy VPS verificato. Resta da completare smoke Telegram funzionale prima del bump effettivo a `1.0.0`. |
 | chiuso | Codex phase 8 optimization | codex/phase-8-optimization / #102 | Fase 8: action catalog/session analysis, bot UX sessione, processor dispatch, performance immagini->PDF, docs/test | PR #102 mergiata, release `docmolder-v0.12.0` creata e deploy VPS verificato con health/smoke OK. Branch remota eliminata. |
 | chiuso | Codex preserve webhook worker flag | codex/preserve-webhook-worker-flag / #101 | `deploy/update-vps.sh`, test deploy script | Follow-up P1 tardivo su PR #100 pubblicato con #101: env worker/marker preservati attraverso `sudo`; thread #100 risolto e controlli Codex puliti su #100/#101. |
