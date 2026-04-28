@@ -91,6 +91,47 @@ Tipi che non devono generare una release autonoma:
 
 Usali quando la modifica non cambia il comportamento rilasciabile del prodotto o dell'operativita.
 
+## Criterio per release major `X.0.0`
+
+Una release `X.0.0` non e una release "piu grande" in senso generico. E una
+soglia di contratto: dichiara che il modo corretto di usare, mantenere o
+integrare DocMolder cambia in modo sostanziale oppure diventa stabile per una
+nuova fase del progetto.
+
+Una major release e appropriata quando almeno una di queste condizioni e vera:
+
+- cambia il contratto utente principale: comandi pubblici, flussi Telegram,
+  significato delle azioni o aspettative sui risultati dei documenti;
+- cambia il contratto operativo: deploy, release, rollback, backup, retention,
+  restore o runbook richiedono un comportamento diverso da parte del maintainer;
+- cambia il contratto dati/sicurezza: retention, cancellazione, persistenza,
+  log, accessi admin o gestione dei file utente assumono garanzie diverse;
+- cambia il perimetro prodotto deciso in [DECISIONS.md](./DECISIONS.md), ad
+  esempio da utility Telegram-first verso una superficie web/API o verso uno
+  storage documentale piu ampio;
+- una o piu breaking change non sono solo dettagli tecnici interni, ma
+  richiedono migrazione, comunicazione esplicita o aggiornamento dei runbook.
+
+Una major release non e appropriata solo per:
+
+- accumulo di molte patch o feature compatibili;
+- refactor interni, pulizia codice o miglioramenti di performance senza cambio
+  di contratto;
+- aggiornamenti documentali che chiariscono cio che e gia vero;
+- desiderio di avere un numero versione piu ordinato.
+
+Ogni PR che prepara una major deve includere nel corpo PR una sezione
+`Major release rationale` con:
+
+1. perche il cambio merita `X.0.0`;
+2. quali contratti cambiano o vengono dichiarati stabili;
+3. quali smoke, rollback e note operative sono richiesti;
+4. quali limiti o migrazioni restano dichiarati.
+
+Il target esplicito `DOCMOLDER_RELEASE_TARGET_VERSION=X.0.0` va usato solo dopo
+questa decisione. Non sostituisce il criterio: e solo il meccanismo operativo
+per applicarlo.
+
 ## Quando usare ogni tipo
 
 Usa `feat:` per:
@@ -165,13 +206,18 @@ Finche il progetto e in `0.x`, anche una breaking change produce un minor bump.
 Per promuovere intenzionalmente DocMolder a `1.0.0` serve quindi un target
 esplicito, non un effetto collaterale di un commit ordinario.
 
+`1.0.0` e una major particolare: non richiede per forza una breaking change.
+Serve a dichiarare stabile il perimetro attuale se la checklist di readiness e
+chiusa e se accettiamo esplicitamente i limiti dichiarati del servizio.
+
 La promozione 1.0 deve passare da [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md):
 
 1. completare checklist prodotto, smoke e operations;
-2. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder 1.0`;
-3. dopo il merge, eseguire auto-release con target esplicito `1.0.0`, tramite
+2. documentare nel corpo PR la `Major release rationale`;
+3. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder 1.0`;
+4. dopo il merge, eseguire auto-release con target esplicito `1.0.0`, tramite
    `--target-version 1.0.0` o `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0`;
-4. rimuovere il target esplicito dopo la promozione se viene impostato in
+5. rimuovere il target esplicito dopo la promozione se viene impostato in
    `/etc/docmolder/release.env`.
 
 Il target esplicito e accettato solo se e maggiore della versione corrente e non

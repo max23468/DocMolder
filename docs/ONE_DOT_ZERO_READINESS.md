@@ -93,6 +93,11 @@ Se Telegram Desktop non e disponibile nell'ambiente corrente, la PR 1.0 deve dir
 
 ## Meccanica release 1.0
 
+La 1.0 segue il criterio generale per le major release definito in
+[VERSIONING.md](./VERSIONING.md#criterio-per-release-major-x00), con una
+particolarita: puo essere motivata dalla stabilizzazione del perimetro attuale,
+anche senza introdurre breaking change.
+
 Il flusso SemVer normale pre-1.0 porta:
 
 - `fix:` a patch
@@ -103,9 +108,10 @@ Per promuovere intenzionalmente `0.x` a `1.0.0`, serve quindi un percorso esplic
 
 1. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder 1.0`
 2. includere in PR il risultato della checklist di questo documento
-3. mergeare la PR su `main`
-4. far girare auto-release VPS con target esplicito `1.0.0`
-5. verificare tag, GitHub Release, deploy del commit release e smoke post-release
+3. includere nel corpo PR la sezione `Major release rationale`
+4. mergeare la PR su `main`
+5. far girare auto-release VPS con target esplicito `1.0.0`
+6. verificare tag, GitHub Release, deploy del commit release e smoke post-release
 
 La 1.0 non va ottenuta con bump manuali casuali dei file release-owned dentro una feature PR ordinaria.
 
