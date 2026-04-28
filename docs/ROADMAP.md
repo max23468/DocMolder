@@ -45,10 +45,4 @@ Completata.
 
 ## Fase 8: Ottimizzazione del Funzionamento
 
-- [ ] introdurre una analisi strutturata della sessione corrente, non limitata a un semplice recap testuale, con conteggi, tipo di contenuti, azioni consigliate ed eventuali warning
-- [ ] evitare di ricalcolare più volte nella stessa catena le azioni supportate o esposte, riusando un risultato già inferito quando possibile
-- [ ] profilare e ottimizzare meglio il flusso immagini verso PDF per ridurre uso di memoria sui batch più pesanti
-- [ ] sostituire il dispatch lineare delle azioni nel processor con una mappa più chiara tra azione e handler
-- [ ] distinguere meglio nel codice e nei messaggi le nozioni di azioni supportate, azioni esposte e azioni consigliate
-- [ ] consolidare naming output e metadati job per avere convenzioni più coerenti tra file restituiti, storico e riepiloghi utente
-- [ ] valutare se una parte minima dello stato upload usato per i limiti operativi debba sopravvivere ai riavvii invece di restare solo in memoria
+Completata.

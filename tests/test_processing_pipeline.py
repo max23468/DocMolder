@@ -313,6 +313,9 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertTrue(result.output_path.exists())
         self.assertEqual(result.output_name, "cropped.pdf")
 
+    def test_process_dispatcher_covers_every_supported_action(self) -> None:
+        self.assertEqual(set(self.processor._action_handlers), set(SupportedAction))
+
     def test_document_photo_fix_creates_pdf_with_perspective_correction(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_document_photo" / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
@@ -453,6 +456,23 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
 
         self.assertTrue(result.output_path.exists())
         self.assertIn("Ho ridotto 1 immagine molto grande", result.message)
+
+    def test_images_to_pdf_streams_pages_through_intermediate_pdfs(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_streamed_images" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        first_image = input_dir / "first.jpg"
+        second_image = input_dir / "second.jpg"
+        Image.new("RGB", (320, 180), "white").save(first_image)
+        Image.new("RGB", (320, 180), "white").save(second_image)
+
+        result = self.processor.images_to_pdf([first_image, second_image], "streamed")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertFalse((input_dir / ".streamed_page_0001.pdf").exists())
+        self.assertTrue((input_dir.parent / ".streamed_page_0001.pdf").exists())
+        self.assertTrue((input_dir.parent / ".streamed_page_0002.pdf").exists())
+        reader = PdfReader(str(result.output_path))
+        self.assertEqual(len(reader.pages), 2)
 
     def test_prepare_image_downscales_in_place_to_limit_peak_memory(self) -> None:
         source = Image.new("RGB", (20, 20), "white")

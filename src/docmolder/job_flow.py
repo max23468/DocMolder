@@ -9,7 +9,7 @@ from telegram.ext import Application
 
 from docmolder.models import CompressionPreset, JobPayload, JobRecord, SupportedAction, UserSession
 from docmolder.processing import A4_MARGIN_NARROW_PX, DocumentProcessor, ProcessingResult, ProcessingUserError
-from docmolder.action_catalog import build_output_stem, build_session_file, infer_supported_actions
+from docmolder.action_catalog import build_output_stem, build_session_file, infer_session_analysis
 from docmolder.session_store import SessionStore
 
 
@@ -36,7 +36,8 @@ async def enqueue_job(
     image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
     split_output_zip: bool = True,
 ) -> JobRecord:
-    if action not in infer_supported_actions(session):
+    session_analysis = infer_session_analysis(session)
+    if action not in session_analysis.supported_actions:
         raise ProcessingUserError("L'azione scelta non è più disponibile per la sessione corrente.")
 
     payload = JobPayload.from_session(

@@ -17,6 +17,7 @@ from docmolder.action_catalog import (
     infer_exposed_actions,
     infer_result_followup_actions,
     infer_recommended_actions,
+    infer_session_analysis,
 )
 
 
@@ -100,6 +101,30 @@ class ActionCatalogHelpersTest(unittest.TestCase):
         self.assertIn("- File: 2 PDF", recap)
         self.assertIn("Azioni consigliate: Unisci PDF", recap)
         self.assertIn("Contratto.pdf, Allegato.pdf", recap)
+
+    def test_session_analysis_distinguishes_recommended_and_advanced_actions(self) -> None:
+        session = UserSession(
+            user_id=9,
+            files=[build_session_file("pdf-1", "Contratto.pdf", FileKind.PDF)],
+        )
+
+        analysis = infer_session_analysis(session)
+
+        self.assertEqual(analysis.inventory.pdf_count, 1)
+        self.assertIn(SupportedAction.PDF_COMPRESS, analysis.recommended_actions)
+        self.assertIn(SupportedAction.PDF_WATERMARK, analysis.advanced_actions)
+        self.assertEqual(analysis.warnings, ())
+
+    def test_session_analysis_warns_for_pending_detail(self) -> None:
+        session = UserSession(
+            user_id=9,
+            files=[build_session_file("pdf-1", "Contratto.pdf", FileKind.PDF)],
+            pending_action=SupportedAction.PDF_EXTRACT_PAGES.value,
+        )
+
+        analysis = infer_session_analysis(session)
+
+        self.assertTrue(any("aspettando un dettaglio" in warning for warning in analysis.warnings))
 
     def test_infer_recommended_actions_prefers_merge_for_multi_pdf_session(self) -> None:
         session = UserSession(

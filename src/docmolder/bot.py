@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import json
 import logging
 import re
 import shutil
@@ -80,6 +81,7 @@ from docmolder.models import (
     JobRecord,
     JobStatus,
     PendingActionValue,
+    SessionFile,
     SupportedAction,
     UserSession,
 )
@@ -93,10 +95,13 @@ from docmolder.processing import (
 )
 from docmolder.retry import run_async_with_retry
 from docmolder.action_catalog import (
+    SessionAnalysis,
+    build_output_stem,
     build_session_file,
     build_session_recap,
     get_action_label,
     infer_result_followup_actions,
+    infer_session_analysis,
     infer_supported_actions,
     sanitize_filename,
 )
@@ -136,6 +141,7 @@ _ACCESS_STATUS_BLOCKED = "blocked"
 _ACCESS_STATUS_REJECTED = "rejected"
 _TELEGRAM_RETRY_ATTEMPTS = 3
 _TELEGRAM_METRIC_PREFIX = "telegram_metric:"
+_UPLOAD_BURST_META_PREFIX = "upload_burst:"
 _ADMIN_CALLBACK_REPLAY_WINDOW_SECONDS = 5
 _NEW_USER_NOTIFICATION_COOLDOWN_SECONDS = 120
 _BRANDING_SYNC_RETRY_AT_META_KEY = "branding_sync:retry_at"
@@ -581,17 +587,56 @@ def _consume_upload_slot(user_id: int, deps: BotDependencies) -> bool:
     now = datetime.now(timezone.utc)
     window_seconds = deps.settings.upload_burst_window_seconds
     max_uploads = deps.settings.upload_burst_limit
-    history = deps.upload_history.setdefault(user_id, deque())
+    history = deps.upload_history.get(user_id)
+    if history is None:
+        history = _load_persisted_upload_history(user_id, deps)
+        deps.upload_history[user_id] = history
     threshold = now.timestamp() - window_seconds
 
     while history and history[0].timestamp() < threshold:
         history.popleft()
 
     if len(history) >= max_uploads:
+        _persist_upload_history(user_id, deps, history)
         return False
 
     history.append(now)
+    _persist_upload_history(user_id, deps, history)
     return True
+
+
+def _upload_burst_meta_key(user_id: int) -> str:
+    return f"{_UPLOAD_BURST_META_PREFIX}{user_id}"
+
+
+def _load_persisted_upload_history(user_id: int, deps: BotDependencies) -> deque[datetime]:
+    raw_value = deps.session_store.get_meta(_upload_burst_meta_key(user_id))
+    if not raw_value:
+        return deque()
+    try:
+        raw_timestamps = json.loads(raw_value)
+    except json.JSONDecodeError:
+        return deque()
+    if not isinstance(raw_timestamps, list):
+        return deque()
+
+    history: deque[datetime] = deque()
+    threshold = datetime.now(timezone.utc).timestamp() - deps.settings.upload_burst_window_seconds
+    for raw_timestamp in raw_timestamps:
+        if not isinstance(raw_timestamp, int | float):
+            continue
+        if raw_timestamp < threshold:
+            continue
+        try:
+            history.append(datetime.fromtimestamp(float(raw_timestamp), tz=timezone.utc))
+        except (OSError, OverflowError, ValueError):
+            continue
+    return history
+
+
+def _persist_upload_history(user_id: int, deps: BotDependencies, history: deque[datetime]) -> None:
+    timestamps = [round(item.timestamp(), 3) for item in history]
+    deps.session_store.set_meta(_upload_burst_meta_key(user_id), json.dumps(timestamps, separators=(",", ":")))
 
 
 async def _sync_telegram_branding(
@@ -723,8 +768,25 @@ def _build_missing_context_reference_message(deps: BotDependencies, user_id: int
     )
 
 
-def _filter_keyboard_for_session(session: UserSession, *, expanded: bool = False) -> InlineKeyboardMarkup | None:
-    return build_session_actions_keyboard(session, expanded=expanded)
+def _filter_keyboard_for_session(
+    session: UserSession,
+    *,
+    expanded: bool = False,
+    analysis: SessionAnalysis | None = None,
+) -> InlineKeyboardMarkup | None:
+    return build_session_actions_keyboard(session, expanded=expanded, analysis=analysis)
+
+
+def _build_session_reply(
+    session: UserSession,
+    *,
+    intro: str | None = None,
+    expanded: bool = False,
+) -> tuple[str, InlineKeyboardMarkup | None]:
+    analysis = infer_session_analysis(session)
+    recap = build_session_recap(session, analysis=analysis)
+    text = f"{intro}\n{recap}" if intro else recap
+    return text, _filter_keyboard_for_session(session, expanded=expanded, analysis=analysis)
 
 
 def _is_image_pdf_action(action: SupportedAction) -> bool:
@@ -1375,9 +1437,10 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     _cancel_pending_image_notification(user.id, deps)
+    session_text, session_keyboard = _build_session_reply(session, intro="File ricevuto.")
     await message.reply_text(
-        f"File ricevuto.\n{build_session_recap(session)}",
-        reply_markup=_filter_keyboard_for_session(session),
+        session_text,
+        reply_markup=session_keyboard,
     )
 
 
@@ -1442,9 +1505,10 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     action = (query.data or "").removeprefix("action:")
     _record_callback_metric(deps, f"action:{action}")
     if action in {"more", "less"}:
+        session_text, session_keyboard = _build_session_reply(session, expanded=action == "more")
         await query.edit_message_text(
-            build_session_recap(session),
-            reply_markup=_filter_keyboard_for_session(session, expanded=action == "more"),
+            session_text,
+            reply_markup=session_keyboard,
         )
         return
     try:
@@ -2371,7 +2435,12 @@ def _build_access_status_message(deps: BotDependencies, user_id: int) -> str:
         f"- Sessione corrente: {'attiva' if session is not None and session.files else 'vuota'}",
     ]
     if session is not None and session.files:
-        lines.append(f"- File in sessione: {len(session.files)}")
+        analysis = infer_session_analysis(session)
+        lines.append(f"- File in sessione: {analysis.inventory.short_label}")
+        if analysis.recommended_actions:
+            lines.append(f"- Azioni consigliate: {', '.join(get_action_label(action) for action in analysis.recommended_actions[:3])}")
+        if analysis.warnings:
+            lines.append(f"- Avvisi sessione: {' '.join(analysis.warnings)}")
         if session.pending_action:
             lines.append(f"- Input atteso: {_action_label(session.pending_action)}")
     if last_job is not None:
@@ -2574,9 +2643,10 @@ async def _handle_start_payload(
         if session is None or not session.files:
             await message.reply_text(SESSION_EMPTY_MESSAGE, reply_markup=build_main_menu_keyboard())
         else:
+            session_text, session_keyboard = _build_session_reply(session)
             await message.reply_text(
-                build_session_recap(session),
-                reply_markup=_filter_keyboard_for_session(session),
+                session_text,
+                reply_markup=session_keyboard,
             )
         return True
     return False
@@ -2748,14 +2818,15 @@ def _format_user_history_line(job: JobRecord) -> str:
 
 def _build_user_history_job_detail(job: JobRecord) -> str:
     payload = JobPayload.from_json(job.payload_json)
-    file_count = len(payload.files)
+    session_files = _payload_session_files(payload)
     reference_time = (job.finished_at or job.created_at).astimezone(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y %H:%M")
     detail_lines = [
         f"Dettaglio Job #{job.id}",
         f"Azione: {_action_label(job.action)}",
         f"Stato: {_format_job_status(job.status)}",
         f"Riferimento temporale: {reference_time}",
-        f"File sorgente: {file_count}",
+        f"File sorgente: {_build_payload_file_summary(payload)}",
+        f"Nome output base: {build_output_stem(SupportedAction(job.action), session_files)}",
     ]
     if job.rerun_of_job_id is not None:
         detail_lines.append(f"Origine rilancio: job #{job.rerun_of_job_id}")
@@ -2784,6 +2855,28 @@ def _build_user_history_job_detail(job: JobRecord) -> str:
         detail_lines.append(f"Errore: {job.error_message}")
     detail_lines.append("Puoi usare il pulsante del job per rilanciarlo e recuperare di nuovo il risultato.")
     return "\n".join(detail_lines)
+
+
+def _payload_session_files(payload: JobPayload) -> list[SessionFile]:
+    return [
+        SessionFile(
+            telegram_file_id=item.telegram_file_id,
+            file_name=item.file_name,
+            kind=item.kind,
+        )
+        for item in payload.files
+    ]
+
+
+def _build_payload_file_summary(payload: JobPayload) -> str:
+    file_count = len(payload.files)
+    if file_count == 0:
+        return "0"
+    preview = ", ".join(sanitize_filename(item.file_name) for item in payload.files[:3])
+    remaining = file_count - min(file_count, 3)
+    if remaining:
+        preview += f" e altri {remaining}"
+    return f"{file_count} ({preview})"
 
 
 def _build_history_rerun_message(source_job: JobRecord, job_id: int) -> str:
@@ -2834,10 +2927,11 @@ async def _send_image_session_notification(
         if {item.kind for item in session.files} != {FileKind.IMAGE}:
             return
 
+        session_text, session_keyboard = _build_session_reply(session, intro=_build_image_session_intro(session))
         await context.bot.send_message(
             chat_id=chat_id,
-            text=_build_image_session_message(session),
-            reply_markup=_filter_keyboard_for_session(session),
+            text=session_text,
+            reply_markup=session_keyboard,
         )
     except asyncio.CancelledError:
         raise
@@ -2848,12 +2942,14 @@ async def _send_image_session_notification(
 
 
 def _build_image_session_message(session: UserSession) -> str:
+    return f"{_build_image_session_intro(session)}\n{build_session_recap(session)}"
+
+
+def _build_image_session_intro(session: UserSession) -> str:
     image_count = sum(1 for item in session.files if item.kind == FileKind.IMAGE)
     if image_count == 1:
-        intro = "Immagine ricevuta."
-    else:
-        intro = f"Ho ricevuto {image_count} immagini nella stessa sessione."
-    return f"{intro}\n{build_session_recap(session)}"
+        return "Immagine ricevuta."
+    return f"Ho ricevuto {image_count} immagini nella stessa sessione."
 
 
 def _build_result_pdf_session(user_id: int, file_id: str, file_name: str | None) -> UserSession:

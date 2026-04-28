@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from collections import deque
 from datetime import datetime, timedelta, timezone
+import json
 from pathlib import Path
 import sys
 
@@ -53,6 +54,28 @@ class RateLimitHelpersTest(unittest.TestCase):
         self.deps.upload_history[42] = deque([stale_time, stale_time])
 
         self.assertTrue(_consume_upload_slot(42, self.deps))
+
+    def test_consume_upload_slot_survives_dependency_restart(self) -> None:
+        self.assertTrue(_consume_upload_slot(42, self.deps))
+        restarted_deps = BotDependencies(
+            settings=self.deps.settings,
+            session_store=self.store,
+            processor=self.deps.processor,
+        )
+
+        self.assertTrue(_consume_upload_slot(42, restarted_deps))
+        self.assertFalse(_consume_upload_slot(42, restarted_deps))
+
+    def test_consume_upload_slot_ignores_stale_persisted_entries(self) -> None:
+        stale_time = datetime.now(timezone.utc) - timedelta(seconds=40)
+        self.store.set_meta("upload_burst:42", json.dumps([stale_time.timestamp(), stale_time.timestamp()]))
+        restarted_deps = BotDependencies(
+            settings=self.deps.settings,
+            session_store=self.store,
+            processor=self.deps.processor,
+        )
+
+        self.assertTrue(_consume_upload_slot(42, restarted_deps))
 
     def test_has_capacity_for_new_job_reflects_active_jobs(self) -> None:
         self.assertTrue(_has_capacity_for_new_job(7, self.deps))

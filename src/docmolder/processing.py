@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
+from typing import Callable
 
 import fitz
 import cv2
@@ -30,6 +31,12 @@ A4_MARGIN_NONE_PX = 0
 DOCUMENT_PHOTO_DETECTION_MAX_SIDE = 1800
 DOCUMENT_PHOTO_OUTPUT_MAX_SIDE = 2400
 IMAGE_PDF_DEFAULT_MAX_SOURCE_SIDE = 3200
+_IMAGE_PDF_ACTION_OPTIONS: dict[SupportedAction, tuple[bool, bool]] = {
+    SupportedAction.IMAGES_TO_PDF: (False, False),
+    SupportedAction.IMAGES_TO_PDF_CROP: (True, False),
+    SupportedAction.IMAGES_TO_PDF_GRAYSCALE: (False, True),
+    SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: (True, True),
+}
 
 
 @dataclass(slots=True)
@@ -55,6 +62,18 @@ class _DocumentPhotoTransform:
     warnings: set[str] = field(default_factory=set)
 
 
+@dataclass(frozen=True, slots=True)
+class _ProcessOptions:
+    compression_preset: CompressionPreset | None
+    rotate_degrees: int | None
+    page_selection: str | None
+    watermark_text: str | None
+    auto_rotate_pdf: bool
+    image_pdf_use_a4: bool
+    image_pdf_margin_px: int
+    split_output_zip: bool
+
+
 class ProcessingUserError(Exception):
     pass
 
@@ -69,6 +88,26 @@ class DocumentProcessor:
         self.runtime_dir = runtime_dir
         self.ghostscript_timeout_seconds = max(1, ghostscript_timeout_seconds)
         self.image_pdf_max_source_side_px = max(800, image_pdf_max_source_side_px)
+        self._action_handlers: dict[
+            SupportedAction,
+            Callable[[SupportedAction, list[Path], str, _ProcessOptions], ProcessingResult],
+        ] = {
+            SupportedAction.IMAGES_TO_PDF: self._process_images_pdf_action,
+            SupportedAction.IMAGES_TO_PDF_CROP: self._process_images_pdf_action,
+            SupportedAction.IMAGES_TO_PDF_GRAYSCALE: self._process_images_pdf_action,
+            SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: self._process_images_pdf_action,
+            SupportedAction.DOCUMENT_PHOTO_FIX: self._process_document_photo_action,
+            SupportedAction.PDF_MERGE: self._process_pdf_merge_action,
+            SupportedAction.PDF_SPLIT: self._process_pdf_split_action,
+            SupportedAction.PDF_EXTRACT_PAGES: self._process_pdf_extract_action,
+            SupportedAction.PDF_REORDER_PAGES: self._process_pdf_reorder_action,
+            SupportedAction.PDF_DELETE_PAGES: self._process_pdf_delete_action,
+            SupportedAction.PDF_GRAYSCALE: self._process_pdf_grayscale_action,
+            SupportedAction.PDF_COMPRESS: self._process_pdf_compress_action,
+            SupportedAction.PDF_ROTATE: self._process_pdf_rotate_action,
+            SupportedAction.PDF_WATERMARK: self._process_pdf_watermark_action,
+            SupportedAction.AUTO_ORIENT: self._process_auto_orient_action,
+        }
 
     def create_job_dir(self, user_id: int) -> Path:
         job_dir = self.runtime_dir / "jobs" / f"user_{user_id}_{uuid.uuid4().hex[:12]}"
@@ -122,57 +161,153 @@ class DocumentProcessor:
         image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
         split_output_zip: bool = True,
     ) -> ProcessingResult:
-        image_pdf_options = {
-            SupportedAction.IMAGES_TO_PDF: (False, False),
-            SupportedAction.IMAGES_TO_PDF_CROP: (True, False),
-            SupportedAction.IMAGES_TO_PDF_GRAYSCALE: (False, True),
-            SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: (True, True),
-        }
-        if action == SupportedAction.DOCUMENT_PHOTO_FIX:
-            return self.document_photos_to_pdf(input_paths, output_stem)
-        if action in image_pdf_options:
-            auto_crop, grayscale_output = image_pdf_options[action]
-            return self.images_to_pdf(
-                input_paths,
-                output_stem,
-                auto_crop=auto_crop,
-                grayscale_output=grayscale_output,
-                use_a4_layout=image_pdf_use_a4,
-                a4_margin_px=image_pdf_margin_px,
-            )
-        if action == SupportedAction.PDF_MERGE:
-            return self.merge_pdfs(input_paths, output_stem, auto_rotate_pdf=auto_rotate_pdf)
-        if action == SupportedAction.PDF_SPLIT:
-            return self.split_pdf_pages(input_paths[0], output_stem, output_as_zip=split_output_zip)
-        if action == SupportedAction.PDF_EXTRACT_PAGES:
-            if page_selection is None:
-                raise ValueError("Selezione pagine mancante.")
-            return self.extract_pdf_pages(input_paths[0], output_stem, page_selection=page_selection)
-        if action == SupportedAction.PDF_REORDER_PAGES:
-            if page_selection is None:
-                raise ValueError("Selezione pagine mancante.")
-            return self.reorder_pdf_pages(input_paths[0], output_stem, page_selection=page_selection)
-        if action == SupportedAction.PDF_DELETE_PAGES:
-            if page_selection is None:
-                raise ValueError("Selezione pagine mancante.")
-            return self.delete_pdf_pages(input_paths[0], output_stem, page_selection=page_selection)
-        if action == SupportedAction.PDF_GRAYSCALE:
-            return self.pdf_to_grayscale(input_paths[0], output_stem, auto_rotate_pdf=auto_rotate_pdf)
-        if action == SupportedAction.PDF_COMPRESS:
-            if compression_preset is None:
-                raise ValueError("Livello di compressione mancante.")
-            return self.compress_pdf(input_paths[0], output_stem, compression_preset, auto_rotate_pdf=auto_rotate_pdf)
-        if action == SupportedAction.PDF_ROTATE:
-            if rotate_degrees is None:
-                raise ValueError("Rotazione mancante.")
-            return self.rotate_pdf(input_paths[0], output_stem, rotate_degrees)
-        if action == SupportedAction.PDF_WATERMARK:
-            if watermark_text is None:
-                raise ValueError("Testo watermark mancante.")
-            return self.add_text_watermark(input_paths[0], output_stem, watermark_text=watermark_text)
-        if action == SupportedAction.AUTO_ORIENT:
-            return self.auto_orient_images(input_paths, output_stem)
-        raise ValueError(f"Azione non supportata: {action}")
+        handler = self._action_handlers.get(action)
+        if handler is None:
+            raise ValueError(f"Azione non supportata: {action}")
+        options = _ProcessOptions(
+            compression_preset=compression_preset,
+            rotate_degrees=rotate_degrees,
+            page_selection=page_selection,
+            watermark_text=watermark_text,
+            auto_rotate_pdf=auto_rotate_pdf,
+            image_pdf_use_a4=image_pdf_use_a4,
+            image_pdf_margin_px=image_pdf_margin_px,
+            split_output_zip=split_output_zip,
+        )
+        return handler(action, input_paths, output_stem, options)
+
+    def _process_images_pdf_action(
+        self,
+        action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        auto_crop, grayscale_output = _IMAGE_PDF_ACTION_OPTIONS[action]
+        return self.images_to_pdf(
+            input_paths,
+            output_stem,
+            auto_crop=auto_crop,
+            grayscale_output=grayscale_output,
+            use_a4_layout=options.image_pdf_use_a4,
+            a4_margin_px=options.image_pdf_margin_px,
+        )
+
+    def _process_document_photo_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        _options: _ProcessOptions,
+    ) -> ProcessingResult:
+        return self.document_photos_to_pdf(input_paths, output_stem)
+
+    def _process_pdf_merge_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        return self.merge_pdfs(input_paths, output_stem, auto_rotate_pdf=options.auto_rotate_pdf)
+
+    def _process_pdf_split_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        return self.split_pdf_pages(input_paths[0], output_stem, output_as_zip=options.split_output_zip)
+
+    def _process_pdf_extract_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        if options.page_selection is None:
+            raise ValueError("Selezione pagine mancante.")
+        return self.extract_pdf_pages(input_paths[0], output_stem, page_selection=options.page_selection)
+
+    def _process_pdf_reorder_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        if options.page_selection is None:
+            raise ValueError("Selezione pagine mancante.")
+        return self.reorder_pdf_pages(input_paths[0], output_stem, page_selection=options.page_selection)
+
+    def _process_pdf_delete_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        if options.page_selection is None:
+            raise ValueError("Selezione pagine mancante.")
+        return self.delete_pdf_pages(input_paths[0], output_stem, page_selection=options.page_selection)
+
+    def _process_pdf_grayscale_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        return self.pdf_to_grayscale(input_paths[0], output_stem, auto_rotate_pdf=options.auto_rotate_pdf)
+
+    def _process_pdf_compress_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        if options.compression_preset is None:
+            raise ValueError("Livello di compressione mancante.")
+        return self.compress_pdf(
+            input_paths[0],
+            output_stem,
+            options.compression_preset,
+            auto_rotate_pdf=options.auto_rotate_pdf,
+        )
+
+    def _process_pdf_rotate_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        if options.rotate_degrees is None:
+            raise ValueError("Rotazione mancante.")
+        return self.rotate_pdf(input_paths[0], output_stem, options.rotate_degrees)
+
+    def _process_pdf_watermark_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        if options.watermark_text is None:
+            raise ValueError("Testo watermark mancante.")
+        return self.add_text_watermark(input_paths[0], output_stem, watermark_text=options.watermark_text)
+
+    def _process_auto_orient_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        _options: _ProcessOptions,
+    ) -> ProcessingResult:
+        return self.auto_orient_images(input_paths, output_stem)
 
     def images_to_pdf(
         self,
@@ -187,31 +322,39 @@ class DocumentProcessor:
         if not image_paths:
             raise ProcessingUserError("Non ho ricevuto immagini da convertire in PDF.")
         output_path = image_paths[0].parent.parent / f"{output_stem}.pdf"
-        prepared_images: list[Image.Image] = []
+        page_pdf_paths: list[Path] = []
         downscaled_images = 0
-        try:
-            for image_path in image_paths:
-                with Image.open(image_path) as image:
-                    corrected, was_downscaled = self._prepare_image_for_pdf(
-                        image,
-                        grayscale_output=grayscale_output,
-                        auto_crop=auto_crop,
-                    )
-                    if was_downscaled:
-                        downscaled_images += 1
+        for index, image_path in enumerate(image_paths, start=1):
+            page_pdf_path = output_path.parent / f".{output_stem}_page_{index:04d}.pdf"
+            with Image.open(image_path) as image:
+                corrected, was_downscaled = self._prepare_image_for_pdf(
+                    image,
+                    grayscale_output=grayscale_output,
+                    auto_crop=auto_crop,
+                )
+                if was_downscaled:
+                    downscaled_images += 1
+                try:
+                    if use_a4_layout:
+                        page_image = self._build_a4_page(corrected, margin_px=a4_margin_px)
+                    else:
+                        page_image = corrected.copy()
                     try:
-                        if use_a4_layout:
-                            prepared_images.append(self._build_a4_page(corrected, margin_px=a4_margin_px))
-                        else:
-                            prepared_images.append(corrected.copy())
+                        page_image.save(page_pdf_path, "PDF", resolution=150.0)
                     finally:
-                        corrected.close()
+                        page_image.close()
+                finally:
+                    corrected.close()
+            page_pdf_paths.append(page_pdf_path)
 
-            first, *rest = prepared_images
-            first.save(output_path, "PDF", save_all=True, append_images=rest, resolution=150.0)
-        finally:
-            for image in prepared_images:
-                image.close()
+        if len(page_pdf_paths) == 1:
+            page_pdf_paths[0].replace(output_path)
+        else:
+            writer = PdfWriter()
+            for page_pdf_path in page_pdf_paths:
+                writer.append(str(page_pdf_path))
+            with output_path.open("wb") as handle:
+                writer.write(handle)
 
         message = self._build_images_to_pdf_message(
             auto_crop=auto_crop,
@@ -234,7 +377,6 @@ class DocumentProcessor:
 
         output_path = image_paths[0].parent.parent / f"{output_stem}.pdf"
         prepared_images: list[Image.Image] = []
-        transformed_images: list[Image.Image] = []
         perspective_count = 0
         fallback_count = 0
         warnings: set[str] = set()
@@ -244,20 +386,20 @@ class DocumentProcessor:
                 with Image.open(image_path) as image:
                     corrected = ImageOps.exif_transpose(image).convert("RGB")
                     transformed = self._transform_document_photo(corrected)
-                    transformed_images.append(transformed.image)
                     warnings.update(transformed.warnings)
                     if transformed.mode == "perspective":
                         perspective_count += 1
                     else:
                         fallback_count += 1
-                    prepared_images.append(self._build_a4_page(transformed.image, margin_px=A4_MARGIN_NARROW_PX))
+                    try:
+                        prepared_images.append(self._build_a4_page(transformed.image, margin_px=A4_MARGIN_NARROW_PX))
+                    finally:
+                        transformed.image.close()
 
             first, *rest = prepared_images
             first.save(output_path, "PDF", save_all=True, append_images=rest, resolution=150.0)
         finally:
             for image in prepared_images:
-                image.close()
-            for image in transformed_images:
                 image.close()
 
         return ProcessingResult(

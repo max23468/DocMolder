@@ -511,6 +511,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Storico ultimi job", summary)
         self.assertIn(f"Job #{job.id}", summary)
         self.assertIn("Dettaglio Job", detail)
+        self.assertIn("File sorgente: 1 (foto.jpg)", detail)
+        self.assertIn("Nome output base: foto_pdf", detail)
         self.assertIn("Impaginazione: A4", detail)
         self.assertIn("Rotazione automatica PDF: attiva", detail)
         self.assertIn("Strategia finale: lossless", detail)
