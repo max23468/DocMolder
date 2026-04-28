@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| chiuso | Codex current chat | codex/phase-10-public-ux-trust | Fase 10: UX pubblica, trust, testi bot/sito, errori operativi, docs/test/deploy | Testi `/start`/`/help`/`/status`, deep link `/start privacy`, sito statico e smoke plan pubblico allineati; `bash scripts/ci_verify.sh`, `git diff --check` e smoke dry-run OK. |
 | chiuso | Codex current chat | codex/phase-9-data-lifecycle | Fase 9: retention job, pruning reconcile, cancellazione dati utente in `/reset`, docs/test/deploy | Implementata cancellazione dati live self-service, retention job configurabile e pruning reconcile; gate locale `bash scripts/ci_verify.sh` e preflight publish OK. |
 | chiuso | Codex current chat | main / docs-only direct publish | Documentazione 1.x e uso pubblico bot | Allineata roadmap/readiness/contesto dopo release `1.0.1`; esplicitato soft launch pubblico best-effort in `SERVICE_GOVERNANCE.md`. Verificato `git diff --check`; cambio solo documentale, nessun deploy/release atteso. |
 | chiuso | Codex current chat | codex/fix-1-0-target-cleanup / #106 | Follow-up commento Codex #105 su cleanup target `DOCMOLDER_RELEASE_TARGET_VERSION` | PR #106 mergiata; release `docmolder-v1.0.1` creata e deploy VPS verificato. Thread Codex #105 risolto; target temporaneo assente da `release.env`. |

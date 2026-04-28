@@ -3,10 +3,13 @@ from __future__ import annotations
 from docmolder.branding import BRAND_NAME, BRAND_TAGLINE
 from docmolder.models import CompressionPreset, SupportedAction
 
+PUBLIC_PRIVACY_URL = "https://docmolder.duckdns.org/privacy.html"
+
 WELCOME_MESSAGE = (
     f"Ciao, sono {BRAND_NAME}.\n\n"
     f"{BRAND_TAGLINE}\n\n"
-    "Lavoro bene quando mi mandi PDF, foto o scansioni direttamente qui su Telegram.\n\n"
+    "Lavoro bene quando mi mandi PDF, foto o scansioni direttamente qui su Telegram. "
+    "Uso i file per creare il risultato richiesto e non li archivio permanentemente.\n\n"
     "Ti aiuto a:\n"
     "- creare PDF ordinati da immagini\n"
     "- raddrizzare foto di documenti senza aprire un editor\n"
@@ -15,7 +18,8 @@ WELCOME_MESSAGE = (
     "- aggiungere watermark testuali\n"
     "- correggere l'orientamento di PDF e immagini quando serve\n\n"
     "Per partire, inviami immagini o PDF.\n"
-    "Se preferisci, usa il menu rapido qui sotto oppure i template `Foto in A4` e `Scansiona e comprimi`."
+    "Per limiti, dati e cancellazione usa /help o leggi la pagina privacy:\n"
+    f"{PUBLIC_PRIVACY_URL}"
 )
 
 HELP_MESSAGE = (
@@ -24,7 +28,13 @@ HELP_MESSAGE = (
     "2. Ti proporrò solo le azioni compatibili con i file ricevuti.\n"
     "3. Se crei un PDF da immagini, ti chiederò anche se vuoi impaginarlo in A4 e con quali bordi.\n"
     "4. Ti restituirò il file finale qui in chat.\n\n"
-    "DocMolder e pensato per essere semplice: una richiesta chiara per volta, pochi tocchi e un risultato pronto.\n\n"
+    "DocMolder e pensato per essere semplice: una richiesta chiara per volta, pochi tocchi e un risultato pronto. "
+    "Il servizio e pubblico ma best-effort: non e un archivio documentale, non offre SLA e puo limitare lavorazioni troppo pesanti.\n\n"
+    "Dati e limiti:\n"
+    "- i file servono alla lavorazione e non sono archiviati permanentemente\n"
+    "- lo storico job live conserva metadati tecnici per /history e retry, poi viene potato\n"
+    "- /reset azzera sessione e preferenze; da li puoi cancellare anche tutti i tuoi dati live\n"
+    f"- dettagli completi: {PUBLIC_PRIVACY_URL}\n\n"
     "Esempi:\n"
     "- più immagini -> un PDF unico\n"
     "- immagini scannerizzate -> ritaglio bordi e PDF\n"
@@ -52,7 +62,7 @@ HELP_MESSAGE = (
     "/help\n"
     "/history\n"
     "/status\n"
-    "/reset  (azzera sessione e ultime scelte rapide)"
+    "/reset  (azzera sessione e ultime scelte rapide, con opzione di cancellazione dati live)"
 )
 
 UNAUTHORIZED_MESSAGE = (
@@ -72,31 +82,31 @@ MIXED_SESSION_MESSAGE = (
 
 FILE_TOO_LARGE_MESSAGE = (
     "Questo file supera il limite consentito per il bot. "
-    "Se puoi, prova a inviarne una versione piu leggera oppure dividi il materiale in piu file."
+    "Prova a inviarne una versione piu leggera, riduci risoluzione/compressione oppure dividi il materiale in piu file."
 )
 
 UPLOAD_RATE_LIMIT_MESSAGE = (
     "Stai inviando file troppo rapidamente. "
-    "Aspetta un attimo e poi riprova con calma."
+    "Aspetta qualche secondo e poi riprova con meno file per volta."
 )
 
 JOB_QUEUE_LIMIT_MESSAGE = (
     "Hai gia troppe operazioni in coda o in lavorazione. "
-    "Aspetta che il bot finisca i job gia presi in carico, poi potrai inviarne altri."
+    "Aspetta che il bot finisca i job gia presi in carico, controlla /status e poi inviane altri."
 )
 
 PROCESSING_MESSAGE = "Sto elaborando i file. Potrebbe volerci qualche secondo."
 
 GENERIC_ERROR_MESSAGE = (
     "Si è verificato un problema durante l'elaborazione. "
-    "Riprova tra poco oppure usa /reset per ricominciare."
+    "Riprova tra poco; se il problema continua, usa /reset e reinvia il file."
 )
 
 ADMIN_ONLY_MESSAGE = "Questo comando è disponibile solo per l'admin del bot."
 
 SERVICE_UNAVAILABLE_MESSAGE = (
     "DocMolder è in modalità manutenzione in questo momento. "
-    "Riprova tra poco. Gli admin possono continuare a usare i comandi di controllo."
+    "Riprova tra poco o controlla /status. Gli admin possono continuare a usare i comandi di controllo."
 )
 
 

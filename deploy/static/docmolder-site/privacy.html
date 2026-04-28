@@ -285,7 +285,9 @@
           <ul>
             <li>Il database puo conservare metadati tecnici dei job: azione, stato, tempi, dimensioni, esito o errore sintetico.</li>
             <li>Lo storico leggero serve a funzioni come `/history`, rilancio da storico, admin console e diagnostica.</li>
+            <li>Lo storico job live viene potato automaticamente dopo 30 giorni, salvo configurazione operativa diversa.</li>
             <li>I backup SQLite sono trattati come dati sensibili e devono avere retention breve e verificabile.</li>
+            <li>La cancellazione self-service dei dati live non riscrive retroattivamente i backup gia creati: i dati eventualmente presenti nei backup scadono con la retention dei backup.</li>
           </ul>
         </section>
 
@@ -293,8 +295,9 @@
           <h2 id="delete-title">Cancellazione e reset</h2>
           <ul>
             <li>Il comando `/reset` pulisce la sessione corrente e le preferenze rapide dell'utente.</li>
+            <li>Dallo stesso percorso puoi cancellare anche tutti i dati live collegati al tuo account, con conferma inline obbligatoria.</li>
             <li>Il cleanup job rimuove i file temporanei secondo le soglie operative configurate.</li>
-            <li>La cancellazione self-service completa dello storico utente e la retention massima formale dei vecchi job restano decisioni aperte.</li>
+            <li>La cancellazione completa rimuove sessione, preferenze, preset, storico job personale, usage events e metadati utente live.</li>
           </ul>
         </section>
 
@@ -309,7 +312,8 @@
         <ul>
           <li>Niente archivio permanente dei file personali.</li>
           <li>File temporanei con cleanup schedulato.</li>
-          <li>Metadati job minimi per storico e diagnostica.</li>
+          <li>Metadati job minimi per storico e diagnostica, con retention live di 30 giorni.</li>
+          <li>Cancellazione dati live disponibile da `/reset`.</li>
           <li>Comandi pubblici essenziali: `/start`, `/help`, `/history`, `/status` e `/reset`.</li>
         </ul>
         <a class="button" href="https://t.me/docmolder_bot" rel="noopener">Apri @docmolder_bot</a>
