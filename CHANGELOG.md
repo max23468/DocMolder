@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.5.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.4.0...docmolder-v1.5.0) (2026-04-28)
+
+
+### Funzionalità
+
+* **ops:** add public scale guardrails ([#111](https://github.com/max23468/DocMolder/issues/111)) ([8d1a5ac](https://github.com/max23468/DocMolder/commit/8d1a5acd142d6d28d083ac203999d171224bfec6))
+
 ## [1.4.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.3.0...docmolder-v1.4.0) (2026-04-28)
 
 
