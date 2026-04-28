@@ -19,7 +19,7 @@ Il packet deve essere breve, concreto e autosufficiente. Se il lavoro è ambiguo
 ## Ownership
 - Puoi modificare: <file/moduli/responsabilità>
 - Non toccare: <file/moduli/responsabilità fuori scope>
-- Altri agenti attivi: <righe rilevanti da docs/AGENT_COORDINATION.md>
+- Altri agenti attivi: <branch, PR, worktree o chat rilevanti; scrivi "nessuno" se non noti>
 
 ## Vincoli
 - Mantieni DocMolder Telegram-first e dentro il perimetro di docs/DECISIONS.md.

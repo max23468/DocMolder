@@ -9,7 +9,6 @@ Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
 - `docs/CONTEXT.md` per lo stato sintetico del progetto;
 - `docs/DECISIONS.md` per il perimetro prodotto;
 - `docs/ROADMAP.md` per le priorità correnti;
-- `docs/AGENT_COORDINATION.md` quando lavori in parallelo, riprendi una chat precedente o trovi modifiche non tue nel worktree;
 - `docs/LOCAL_DEV.md` per setup e comandi di verifica;
 - `docs/VERSIONING.md` e `docs/RELEASE_PROCESS.md` quando la task riguarda commit, PR, release o deploy.
 
@@ -52,14 +51,14 @@ Quando più chat, agenti o istanze Codex lavorano sul progetto nello stesso peri
 - Quando deleghi, prepara un task packet con `docs/CODEX_TASK_PACKET.md` e, se utile, usa i prompt di `docs/CODEX_TASK_PROMPTS.md`.
 - Preferisci branch o worktree dedicati per filone di lavoro, con nomi `codex/<tema>` quando crei nuove branch operative.
 - All'avvio di una nuova chat che deve modificare file, se la branch/worktree corrente è già sporca per altre modifiche, separa automaticamente il nuovo lavoro: non riusare la stessa working tree, crea una branch/worktree dedicata da una base pulita e mantieni i due filoni distinti fino a PR/merge.
-- Se modifiche non tue sono già presenti nel worktree corrente, non basta fare `git switch -c`: gli uncommitted changes seguirebbero la nuova branch. Usa invece un worktree separato o una base pulita equivalente, poi annota la separazione in `docs/AGENT_COORDINATION.md` quando il lavoro non è minuscolo.
-- Aggiorna `docs/AGENT_COORDINATION.md` all'avvio e alla chiusura di lavori non banali, indicando task, branch/worktree, area posseduta, stato, file toccati, verifiche e rischi residui.
-- All'avvio di una nuova chat o quando riprendi lavoro, leggi `docs/AGENT_COORDINATION.md`, controlla `git status --short` e verifica branch/PR aperte rilevanti prima di editare.
+- Se modifiche non tue sono già presenti nel worktree corrente, non basta fare `git switch -c`: gli uncommitted changes seguirebbero la nuova branch. Usa invece un worktree separato o una base pulita equivalente, poi segnala la separazione in chat o nella PR quando il lavoro non è minuscolo.
+- Usa questo `AGENTS.md` come fonte unica per le regole di coordinamento tra agenti: non mantenere registri operativi paralleli se commit, PR, branch, worktree e chat bastano a ricostruire il contesto.
+- All'avvio di una nuova chat o quando riprendi lavoro non banale, controlla `git status --short` e verifica branch/PR aperte rilevanti prima di editare.
 - Per un briefing iniziale standard usa `python3 scripts/agent_start.py --area <area> --owner <owner>`.
 - Prima di toccare aree potenzialmente condivise usa `python3 scripts/agent_parallel_safe.py --owner <owner>`.
 - Se trovi un'altra istanza attiva sulla stessa area, non sovrascrivere né normalizzare le sue modifiche: integra, ribasa o segnala il conflitto in modo esplicito.
 - Per lavori non minuscoli, apri una branch o una PR appena possibile: la PR diventa la fonte di verità per diff, check, review e handoff. Usa PR draft solo quando vuoi segnalare esplicitamente che il cambio non è pronto.
-- A fine lavoro lascia un handoff sintetico nel registro o nella PR: cosa è stato fatto, cosa resta aperto, quali check sono stati eseguiti e quali aree non vanno toccate senza rilettura. Per generarlo puoi usare `python3 scripts/agent_handoff.py`.
+- A fine lavoro lascia un handoff sintetico nella PR o nella risposta finale quando serve a coordinare altri filoni. Per generarlo puoi usare `python3 scripts/agent_handoff.py`.
 
 ## 5) Logging, errori e UX operativa
 
