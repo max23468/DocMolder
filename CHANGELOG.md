@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [0.11.5](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.4...docmolder-v0.11.5) (2026-04-28)
+
+
+### Correzioni
+
+* **bot:** simplify Telegram command surfaces ([#97](https://github.com/max23468/DocMolder/issues/97)) ([3bbed81](https://github.com/max23468/DocMolder/commit/3bbed817d41025071828f3c5529290e047986131))
+
 ## [0.11.4](https://github.com/max23468/DocMolder/compare/docmolder-v0.11.3...docmolder-v0.11.4) (2026-04-27)
 
 
