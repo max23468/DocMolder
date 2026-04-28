@@ -91,7 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
-| in corso | Codex current chat | codex/fix-1-0-target-cleanup | Follow-up commento Codex #105 su cleanup target `DOCMOLDER_RELEASE_TARGET_VERSION` | PR correttiva per chiarire che il target va rimosso solo dopo conferma auto-release/tag/deploy, non subito dopo il merge. |
+| chiuso | Codex current chat | codex/fix-1-0-target-cleanup / #106 | Follow-up commento Codex #105 su cleanup target `DOCMOLDER_RELEASE_TARGET_VERSION` | PR #106 mergiata; release `docmolder-v1.0.1` creata e deploy VPS verificato. Thread Codex #105 risolto; target temporaneo assente da `release.env`. |
 | chiuso | Codex current chat | codex/prepare-1-0-release / #105 | Preparazione finale release `1.0.0`: readiness, rationale, target release, smoke e verifica VPS | PR #105 mergiata; `docmolder-v1.0.0` creata e deploy VPS verificato. Target temporaneo rimosso da `/etc/docmolder/release.env`; health/smoke post-release OK. |
 | chiuso | Codex current chat | codex/major-release-criteria / #104 | Criteri versioning/release per major `X.0.0`, docs release/readiness | PR #104 mergiata; release `docmolder-v0.12.2` creata e deploy VPS verificato. La major richiede ora `Major release rationale` prima di usare target espliciti `X.0.0`. |
 | chiuso | Codex current chat | codex/1-0-readiness / #103 | Readiness 1.0: criteri prodotto/ops, smoke plan, flusso release graduation, docs/test | PR #103 mergiata; release `docmolder-v0.12.1` creata e deploy VPS verificato. Resta da completare smoke Telegram funzionale prima del bump effettivo a `1.0.0`. |
