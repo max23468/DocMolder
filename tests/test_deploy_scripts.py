@@ -12,9 +12,10 @@ class DeployScriptsTest(unittest.TestCase):
         script = (ROOT / "deploy" / "auto-release.sh").read_text(encoding="utf-8")
 
         self.assertIn('APP_USER="${DOCMOLDER_APP_USER:-docmolder}"', script)
-        self.assertIn('preserve_env="DOCMOLDER_RELEASE_GITHUB_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN,DOCMOLDER_RELEASE_GIT_TOKEN_ENV"', script)
-        self.assertIn('preserve_env="${preserve_env},${custom_git_token_env}"', script)
-        self.assertIn('sudo --preserve-env="${preserve_env}"', script)
+        self.assertIn('SECRETS_ENV_FILE="$(mktemp "${TMPDIR:-/tmp}/docmolder-auto-release-env.XXXXXX")"', script)
+        self.assertIn('chown "${APP_USER}" "${SECRETS_ENV_FILE}"', script)
+        self.assertIn('sudo -u "${APP_USER}" "${args[@]}" --secrets-env-file "${SECRETS_ENV_FILE}"', script)
+        self.assertNotIn("--preserve-env", script)
         self.assertIn('--git-token-env "${DOCMOLDER_RELEASE_GIT_TOKEN_ENV:-DOCMOLDER_RELEASE_GIT_TOKEN}"', script)
 
     def test_webhook_install_defers_listener_restart_outside_deploy_hook(self) -> None:
