@@ -6,23 +6,27 @@ La 1.0 non aggiunge automaticamente nuove feature: serve a dichiarare stabile il
 
 ## Baseline corrente
 
-- release stabile corrente: `docmolder-v0.12.0`
+- release stabile corrente: `docmolder-v0.12.2`
 - canale ordinario: PR su `main`, deploy via webhook privato GitHub -> VPS, auto-release VPS
 - perimetro prodotto: utility documentale Telegram-first, non storage permanente, non editor PDF generalista
 
 ## Stato audit corrente
 
-Verifica del 2026-04-28 sulla VPS `docmolder.duckdns.org`:
+Verifica del 2026-04-28 sulla VPS `docmolder.duckdns.org`, aggiornata dopo la
+preparazione release:
 
-- revisione live: `d20a5b6`
-- tag live: `docmolder-v0.12.0`
+- tag live: `docmolder-v0.12.2`
 - healthcheck con env VPS: `status: ok`
 - smoke tecnico VPS: `DocMolder smoke check OK`
 - log `docmolder` ultimi 10 minuti: nessun warning/error
+- smoke Telegram Desktop `make smoke-ui` completato con piano `full`
+- evidenza runtime dello smoke Telegram:
+  - job `images_to_pdf` riuscito
+  - job `pdf_grayscale` riuscito sul PDF generato
 
-Questa baseline conferma che `0.12.0` e un punto di partenza valido per la
-readiness. Prima del bump effettivo a `1.0.0` resta comunque necessario ripetere
-uno smoke post-release e completare lo smoke funzionale Telegram.
+Questa baseline conferma che `0.12.2` e un punto di partenza valido per la
+promozione. Dopo il bump effettivo a `1.0.0` resta necessario ripetere health,
+smoke tecnico e controllo log post-release.
 
 ## Criteri per dire "1.0"
 
@@ -109,15 +113,35 @@ Per promuovere intenzionalmente `0.x` a `1.0.0`, serve quindi un percorso esplic
 1. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder 1.0`
 2. includere in PR il risultato della checklist di questo documento
 3. includere nel corpo PR la sezione `Major release rationale`
-4. mergeare la PR su `main`
-5. far girare auto-release VPS con target esplicito `1.0.0`
-6. verificare tag, GitHub Release, deploy del commit release e smoke post-release
+4. impostare temporaneamente `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0` sulla VPS
+5. mergeare la PR su `main`, lasciando che il webhook esegua deploy e auto-release con target
+6. rimuovere subito il target temporaneo dalla VPS
+7. verificare tag, GitHub Release, deploy del commit release e smoke post-release
 
 La 1.0 non va ottenuta con bump manuali casuali dei file release-owned dentro una feature PR ordinaria.
 
+## Major release rationale
+
+`docmolder-v1.0.0` e giustificata come release di stabilizzazione, non come
+breaking change.
+
+- Contratto utente stabile: la superficie pubblica resta `/start`, `/help`,
+  `/history`, `/status`, `/reset`; i flussi principali PDF/immagini sono
+  definiti e verificati.
+- Contratto operativo stabile: il percorso ordinario resta PR su `main`, webhook
+  privato GitHub -> VPS, auto-release VPS, healthcheck e smoke post-deploy.
+- Contratto dati dichiarato: file utente temporanei, retention breve, job
+  history non permanente e assenza di cancellazione completa self-service nel
+  perimetro attuale.
+- Perimetro prodotto stabile: DocMolder resta utility documentale Telegram-first,
+  non editor PDF generalista, non storage documentale permanente e non dashboard
+  web-first.
+- Smoke richiesti: gate locale, smoke Telegram Desktop, health/smoke tecnico VPS
+  prima e dopo release.
+
 ## Decisione condivisa prima del bump
 
-Prima di impostare il target `1.0.0`, confermare:
+Prima di impostare il target `1.0.0`, sono confermati:
 
 - il nome e posizionamento pubblico restano quelli correnti
 - non vogliamo introdurre nuove feature prima della 1.0

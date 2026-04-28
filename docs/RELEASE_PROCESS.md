@@ -92,8 +92,9 @@ In pratica:
 3. chiarisci quali contratti cambiano o vengono dichiarati stabili: UX utente,
    dati/sicurezza, operativita, deploy/release o perimetro prodotto;
 4. completa smoke e rollback coerenti con il rischio della major;
-5. usa `DOCMOLDER_RELEASE_TARGET_VERSION=X.0.0` solo dopo merge e decisione
-   esplicita.
+5. se la release automatica VPS e abilitata, imposta
+   `DOCMOLDER_RELEASE_TARGET_VERSION=X.0.0` prima del merge della PR finale;
+6. rimuovi il target esplicito subito dopo la release.
 
 Se la motivazione e solo "abbiamo accumulato abbastanza feature", resta una
 minor release. Se il cambio e solo interno e compatibile, resta patch/minor
@@ -108,20 +109,29 @@ pre-1.0. Prima va completata la checklist in
 Per `1.0.0`, la `Major release rationale` puo essere una dichiarazione di
 stabilita del perimetro attuale, non necessariamente una breaking change.
 
-Quando la decisione e confermata, l'auto-release puo ricevere un target esplicito:
+Quando la decisione e confermata, l'auto-release puo ricevere un target esplicito.
+Nel percorso VPS automatico va impostato prima del merge della PR finale:
 
 ```bash
-DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0 deploy/auto-release.sh
+sudo cp /etc/docmolder/release.env /etc/docmolder/release.env.bak-$(date +%Y%m%d%H%M%S)
+printf '\nDOCMOLDER_RELEASE_TARGET_VERSION=1.0.0\n' | sudo tee -a /etc/docmolder/release.env >/dev/null
 ```
 
-oppure, per una prova locale senza effetti:
+Dopo la release `docmolder-v1.0.0`, rimuovere la riga e lasciare che il webhook
+redeployi il commit di release:
+
+```bash
+sudo sed -i '/^DOCMOLDER_RELEASE_TARGET_VERSION=/d' /etc/docmolder/release.env
+```
+
+Per una prova locale senza effetti:
 
 ```bash
 DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0 .venv/bin/python scripts/auto_release.py --dry-run
 ```
 
-Se il target viene inserito in `/etc/docmolder/release.env`, va rimosso subito
-dopo la release `docmolder-v1.0.0` per tornare al normale SemVer automatico.
+Il target va rimosso subito dopo la release `docmolder-v1.0.0` per tornare al
+normale SemVer automatico.
 
 `Release Please` non parte automaticamente. Resta eseguibile manualmente con
 `workflow_dispatch` solo come fallback esplicito se vuoi consumare Actions; il

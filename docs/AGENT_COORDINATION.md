@@ -91,6 +91,7 @@ Aggiorna questa tabella solo per lavori non banali, paralleli o potenzialmente c
 
 | Stato | Owner/chat | Branch/worktree | Area posseduta | Note |
 | --- | --- | --- | --- | --- |
+| in corso | Codex current chat | codex/prepare-1-0-release | Preparazione finale release `1.0.0`: readiness, rationale, target release, smoke e verifica VPS | Smoke Telegram `make smoke-ui` completato; job reali `images_to_pdf` e `pdf_grayscale` riusciti su VPS. Prossimo: PR finale, target esplicito prima del merge, release `1.0.0`. |
 | chiuso | Codex current chat | codex/major-release-criteria / #104 | Criteri versioning/release per major `X.0.0`, docs release/readiness | PR #104 mergiata; release `docmolder-v0.12.2` creata e deploy VPS verificato. La major richiede ora `Major release rationale` prima di usare target espliciti `X.0.0`. |
 | chiuso | Codex current chat | codex/1-0-readiness / #103 | Readiness 1.0: criteri prodotto/ops, smoke plan, flusso release graduation, docs/test | PR #103 mergiata; release `docmolder-v0.12.1` creata e deploy VPS verificato. Resta da completare smoke Telegram funzionale prima del bump effettivo a `1.0.0`. |
 | chiuso | Codex phase 8 optimization | codex/phase-8-optimization / #102 | Fase 8: action catalog/session analysis, bot UX sessione, processor dispatch, performance immagini->PDF, docs/test | PR #102 mergiata, release `docmolder-v0.12.0` creata e deploy VPS verificato con health/smoke OK. Branch remota eliminata. |
