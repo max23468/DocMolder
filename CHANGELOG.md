@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.3.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.2.0...docmolder-v1.3.0) (2026-04-28)
+
+
+### Funzionalità
+
+* **presets:** add lightweight user presets ([#109](https://github.com/max23468/DocMolder/issues/109)) ([151946e](https://github.com/max23468/DocMolder/commit/151946e554785cf031a502ad511b8fcd13192aae))
+
 ## [1.2.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.1.0...docmolder-v1.2.0) (2026-04-28)
 
 
