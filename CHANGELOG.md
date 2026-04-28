@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.4.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.3.0...docmolder-v1.4.0) (2026-04-28)
+
+
+### Funzionalità
+
+* **scans:** improve document photo quality feedback ([#110](https://github.com/max23468/DocMolder/issues/110)) ([5405513](https://github.com/max23468/DocMolder/commit/5405513eec61650d20811b23b90dee23838b6b51))
+
 ## [1.3.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.2.0...docmolder-v1.3.0) (2026-04-28)
 
 
