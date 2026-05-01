@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.6.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.5.2...docmolder-v1.6.0) (2026-05-01)
+
+
+### Funzionalità
+
+* supporta il taglio bordi dei PDF ([#119](https://github.com/max23468/DocMolder/issues/119)) ([93b488c](https://github.com/max23468/DocMolder/commit/93b488c776b3befff8d0ddd7714c4b38bbb5a5c5))
+
 ## [1.5.2](https://github.com/max23468/DocMolder/compare/docmolder-v1.5.1...docmolder-v1.5.2) (2026-05-01)
 
 
