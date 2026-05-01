@@ -41,6 +41,7 @@ jobs:
           UPDATE_TYPE: ${{ steps.dependabot-metadata.outputs.update-type }}
           DEPENDENCY_TYPE: ${{ steps.dependabot-metadata.outputs.dependency-type }}
           PACKAGE_ECOSYSTEM: ${{ steps.dependabot-metadata.outputs.package-ecosystem }}
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -75,6 +76,7 @@ jobs:
         env:
           PULL_REQUESTS_JSON: ${{ toJson(github.event.workflow_run.pull_requests) }}
           VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
