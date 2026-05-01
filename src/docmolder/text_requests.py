@@ -416,6 +416,9 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
     if SupportedAction.PDF_GRAYSCALE in supported and mentions_grayscale:
         return TextRequestResolution(kind="enqueue", action=SupportedAction.PDF_GRAYSCALE)
 
+    if SupportedAction.PDF_CROP in supported and mentions_crop:
+        return TextRequestResolution(kind="enqueue", action=SupportedAction.PDF_CROP)
+
     if session_kinds == {FileKind.IMAGE}:
         if SupportedAction.DOCUMENT_PHOTO_FIX in supported and (
             mentions_document_photo_fix or (mentions_crop and "foglio" in tokens and mentions_auto_orient)

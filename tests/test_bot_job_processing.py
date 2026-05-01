@@ -1574,6 +1574,33 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(enqueue_call["session"].files[0].telegram_file_id, "telegram-pdf-id")
         reply_text.assert_awaited_once()
 
+    async def test_text_request_for_pdf_crop_enqueues_crop_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            text="taglia i bordi di questo pdf",
+            chat_id=99,
+            message_id=1202,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=89))) as enqueue_job:
+            await handle_menu_text(update, context)
+
+        enqueue_job.assert_awaited_once()
+        self.assertEqual(enqueue_job.await_args.kwargs["action"], SupportedAction.PDF_CROP)
+        message.reply_text.assert_awaited_once()
+        self.assertIn("Taglio bordi PDF", message.reply_text.await_args.args[0])
+
     async def test_result_callback_can_continue_with_compression_without_reupload(self) -> None:
         reply_text = AsyncMock()
         message = SimpleNamespace(
