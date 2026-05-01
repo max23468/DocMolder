@@ -103,6 +103,40 @@ class ActionCatalogHelpersTest(unittest.TestCase):
         self.assertIn("Azioni consigliate: Unisci PDF", recap)
         self.assertIn("Contratto.pdf, Allegato.pdf", recap)
 
+    def test_session_recap_handles_empty_mixed_and_long_preview_sessions(self) -> None:
+        empty_recap = build_session_recap(UserSession(user_id=1))
+        self.assertIn("nessun file", empty_recap)
+
+        mixed_session = UserSession(
+            user_id=2,
+            files=[
+                build_session_file("pdf-1", "Contratto.pdf", FileKind.PDF),
+                build_session_file("img-1", "Foto 1.jpg", FileKind.IMAGE),
+            ],
+        )
+        mixed_analysis = infer_session_analysis(mixed_session)
+        self.assertEqual(mixed_analysis.supported_actions, ())
+        self.assertIn("PDF e immagini", " ".join(mixed_analysis.warnings))
+        self.assertIn("compatibile", mixed_analysis.next_step)
+
+        image_session = UserSession(
+            user_id=3,
+            files=[
+                build_session_file("img-1", "Foto 1.jpg", FileKind.IMAGE),
+                build_session_file("img-2", "Foto 2.jpg", FileKind.IMAGE),
+                build_session_file("img-3", "Foto 3.jpg", FileKind.IMAGE),
+                build_session_file("img-4", "Foto 4.jpg", FileKind.IMAGE),
+            ],
+        )
+        recap = build_session_recap(image_session)
+        self.assertIn("e altri 1", recap)
+        self.assertIn("e altre 2", recap)
+
+        single_pdf_recap = build_session_recap(
+            UserSession(user_id=4, files=[build_session_file("pdf-1", "Doc.pdf", FileKind.PDF)])
+        )
+        self.assertIn("Altre azioni disponibili", single_pdf_recap)
+
     def test_session_analysis_distinguishes_recommended_and_advanced_actions(self) -> None:
         session = UserSession(
             user_id=9,
@@ -156,6 +190,15 @@ class ActionCatalogHelpersTest(unittest.TestCase):
 
         self.assertNotIn(SupportedAction.PDF_GRAYSCALE, actions)
         self.assertIn(SupportedAction.PDF_COMPRESS, actions)
+
+    def test_labels_followups_and_output_names_handle_fallbacks(self) -> None:
+        self.assertEqual(get_action_label("images_pdf_layout:images_to_pdf"), "impaginazione PDF da immagini")
+        self.assertEqual(get_action_label("custom_action"), "custom_action")
+        self.assertIn(SupportedAction.PDF_COMPRESS, infer_result_followup_actions("unknown"))
+        self.assertEqual(build_output_stem(SupportedAction.PDF_COMPRESS, []), "docmolder_compressed")
+        unnamed = build_session_file("abcdef123456", None, FileKind.PDF)
+        self.assertEqual(unnamed.file_name, "pdf_abcdef12")
+        self.assertEqual(build_session_file("1", "...", FileKind.PDF).file_name, "...")
 
 
 if __name__ == "__main__":

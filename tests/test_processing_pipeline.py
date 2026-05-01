@@ -10,6 +10,7 @@ import subprocess
 import zipfile
 
 import fitz
+import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
 from pypdf import PdfReader, PdfWriter
 
@@ -371,6 +372,53 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
     def test_process_dispatcher_covers_every_supported_action(self) -> None:
         self.assertEqual(set(self.processor._action_handlers), set(SupportedAction))
 
+    def test_process_rejects_unknown_action_and_missing_required_options(self) -> None:
+        pdf_path = self.runtime_dir / "source_missing_options.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        with self.assertRaisesRegex(ValueError, "Azione non supportata"):
+            self.processor.process("unknown", [pdf_path], "unknown")  # type: ignore[arg-type]
+        for action, expected_message in [
+            (SupportedAction.PDF_EXTRACT_PAGES, "Selezione pagine"),
+            (SupportedAction.PDF_REORDER_PAGES, "Selezione pagine"),
+            (SupportedAction.PDF_DELETE_PAGES, "Selezione pagine"),
+            (SupportedAction.PDF_COMPRESS, "compressione"),
+            (SupportedAction.PDF_ROTATE, "Rotazione"),
+            (SupportedAction.PDF_WATERMARK, "watermark"),
+        ]:
+            with self.subTest(action=action):
+                with self.assertRaisesRegex(ValueError, expected_message):
+                    self.processor.process(action, [pdf_path], "missing_options")
+
+    def test_process_dispatches_merge_split_page_actions_and_auto_orient(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_dispatch" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        first_pdf = input_dir / "first.pdf"
+        second_pdf = input_dir / "second.pdf"
+        for path in [first_pdf, second_pdf]:
+            writer = PdfWriter()
+            writer.add_blank_page(width=200, height=300)
+            writer.add_blank_page(width=220, height=300)
+            with path.open("wb") as handle:
+                writer.write(handle)
+        image_path = input_dir / "photo.jpg"
+        Image.new("RGB", (80, 60), "white").save(image_path)
+
+        merge = self.processor.process(SupportedAction.PDF_MERGE, [first_pdf, second_pdf], "merged_dispatch", auto_rotate_pdf=False)
+        split = self.processor.process(SupportedAction.PDF_SPLIT, [first_pdf], "split_dispatch", split_output_zip=False)
+        extract = self.processor.process(SupportedAction.PDF_EXTRACT_PAGES, [first_pdf], "extract_dispatch", page_selection="1")
+        reorder = self.processor.process(SupportedAction.PDF_REORDER_PAGES, [first_pdf], "reorder_dispatch", page_selection="2 1")
+        delete = self.processor.process(SupportedAction.PDF_DELETE_PAGES, [first_pdf], "delete_dispatch", page_selection="2")
+        rotate = self.processor.process(SupportedAction.PDF_ROTATE, [first_pdf], "rotate_dispatch", rotate_degrees=90)
+        watermark = self.processor.process(SupportedAction.PDF_WATERMARK, [first_pdf], "watermark_dispatch", watermark_text="BOZZA")
+        oriented = self.processor.process(SupportedAction.AUTO_ORIENT, [image_path], "oriented_dispatch")
+
+        for result in [merge, split, extract, reorder, delete, rotate, watermark, oriented]:
+            self.assertTrue(result.output_path.exists())
+
     def test_document_photo_fix_creates_pdf_with_perspective_correction(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_document_photo" / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
@@ -648,6 +696,256 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
 
         self.assertTrue(result.output_path.exists())
         self.assertIn("non lo rende più leggero", result.message)
+
+    def test_grayscale_uses_native_and_raster_fallback_messages(self) -> None:
+        pdf_path = self.runtime_dir / "grayscale_branch.pdf"
+        pdf_path.write_bytes(b"%PDF-branch")
+        prepared_path = self.runtime_dir / "grayscale_prepared.pdf"
+        prepared_path.write_bytes(b"%PDF-prepared")
+
+        with (
+            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 2)),
+            patch.object(self.processor, "_validate_pdf_for_processing"),
+            patch.object(self.processor, "_run_ghostscript_grayscale", return_value=False),
+            patch.object(self.processor, "_convert_pdf_images_to_grayscale_native", return_value=True),
+        ):
+            native = self.processor.pdf_to_grayscale(pdf_path, "grayscale_native")
+
+        with (
+            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 0)),
+            patch.object(self.processor, "_validate_pdf_for_processing"),
+            patch.object(self.processor, "_run_ghostscript_grayscale", return_value=False),
+            patch.object(self.processor, "_convert_pdf_images_to_grayscale_native", return_value=False),
+            patch.object(self.processor, "_render_pdf_as_images") as render,
+        ):
+            raster = self.processor.pdf_to_grayscale(pdf_path, "grayscale_raster")
+
+        self.assertEqual(native.processing_mode, "native")
+        self.assertTrue(native.auto_rotation_applied)
+        self.assertIn("orientamento di 2 pagine", native.message)
+        self.assertEqual(raster.processing_mode, "raster")
+        self.assertIn("ripiego", raster.message)
+        render.assert_called_once()
+
+    def test_compress_pdf_covers_ghostscript_lossless_and_raster_fallbacks(self) -> None:
+        pdf_path = self.runtime_dir / "compress_branch.pdf"
+        pdf_path.write_bytes(b"%PDF-branch")
+        prepared_path = self.runtime_dir / "compress_prepared.pdf"
+        prepared_path.write_bytes(b"%PDF-prepared")
+
+        with (
+            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 1)),
+            patch.object(self.processor, "_validate_pdf_for_processing"),
+            patch.object(self.processor, "_compress_pdf_conservative", return_value=False),
+            patch.object(self.processor, "_run_ghostscript_compress", return_value=True),
+        ):
+            ghostscript = self.processor.compress_pdf(pdf_path, "compress_ghostscript", CompressionPreset.MEDIUM)
+
+        with (
+            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 0)),
+            patch.object(self.processor, "_validate_pdf_for_processing"),
+            patch.object(self.processor, "_compress_pdf_conservative", return_value=False),
+            patch.object(self.processor, "_run_ghostscript_compress", return_value=False),
+            patch.object(self.processor, "_compress_pdf_lossless") as lossless,
+        ):
+            lossless_result = self.processor.compress_pdf(pdf_path, "compress_lossless", CompressionPreset.MEDIUM)
+
+        with (
+            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 0)),
+            patch.object(self.processor, "_validate_pdf_for_processing"),
+            patch.object(self.processor, "_compress_pdf_conservative", return_value=False),
+            patch.object(self.processor, "_run_ghostscript_compress", return_value=False),
+            patch.object(self.processor, "_render_pdf_as_images") as render,
+        ):
+            raster = self.processor.compress_pdf(pdf_path, "compress_raster", CompressionPreset.STRONG)
+
+        self.assertEqual(ghostscript.processing_mode, "ghostscript")
+        self.assertTrue(ghostscript.auto_rotation_applied)
+        self.assertIn("compressione più fedele", ghostscript.message)
+        self.assertEqual(lossless_result.processing_mode, "lossless")
+        lossless.assert_called_once()
+        self.assertEqual(raster.processing_mode, "raster")
+        self.assertIn("ripiego", raster.message)
+        render.assert_called_once()
+
+    def test_conservative_pdf_helpers_and_ghostscript_error_branches(self) -> None:
+        pdf_path = self.runtime_dir / "conservative_source.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=200)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        conservative_output = self.runtime_dir / "conservative_output.pdf"
+        self.assertTrue(
+            self.processor._compress_pdf_conservative(
+                pdf_path,
+                conservative_output,
+                image_quality=70,
+                image_dpi_threshold=150,
+                image_dpi_target=135,
+            )
+        )
+        self.assertTrue(conservative_output.exists())
+
+        grayscale_output = self.runtime_dir / "native_grayscale_output.pdf"
+        with self.assertLogs("docmolder.processing", level="ERROR"):
+            self.assertFalse(self.processor._convert_pdf_images_to_grayscale_native(pdf_path, grayscale_output))
+
+        with (
+            patch("docmolder.processing.shutil.which", return_value="gs"),
+            patch("docmolder.processing.subprocess.run", return_value=subprocess.CompletedProcess(["gs"], 0)),
+        ):
+            self.assertTrue(self.processor._run_ghostscript_grayscale(pdf_path, self.runtime_dir / "gray_gs.pdf"))
+            self.assertTrue(
+                self.processor._run_ghostscript_compress(pdf_path, self.runtime_dir / "compress_gs.pdf", "/screen")
+            )
+
+        with (
+            patch("docmolder.processing.shutil.which", return_value="gs"),
+            patch(
+                "docmolder.processing.subprocess.run",
+                side_effect=subprocess.CalledProcessError(1, ["gs"]),
+            ),
+        ):
+            with self.assertLogs("docmolder.processing", level="ERROR"):
+                self.assertFalse(self.processor._run_ghostscript_grayscale(pdf_path, self.runtime_dir / "gray_gs_fail.pdf"))
+            with self.assertLogs("docmolder.processing", level="ERROR"):
+                self.assertFalse(
+                    self.processor._run_ghostscript_compress(pdf_path, self.runtime_dir / "compress_gs_fail.pdf", "/screen")
+                )
+
+    def test_auto_orient_images_returns_single_file_and_zip_for_batches(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_auto_orient_images" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        first = input_dir / "first.png"
+        second = input_dir / "second.jpg"
+        Image.new("RGBA", (80, 60), (255, 255, 255, 255)).save(first)
+        Image.new("RGB", (80, 60), "white").save(second)
+
+        single = self.processor.auto_orient_images([first], "single_oriented")
+        batch = self.processor.auto_orient_images([first, second], "batch_oriented")
+
+        self.assertEqual(single.output_name, "single_oriented_1.png")
+        self.assertTrue(single.output_path.exists())
+        self.assertEqual(batch.output_name, "batch_oriented.zip")
+        with zipfile.ZipFile(batch.output_path) as archive:
+            self.assertEqual(archive.namelist(), ["batch_oriented_1.png", "batch_oriented_2.jpg"])
+
+    def test_render_pdf_as_images_supports_png_and_jpeg_outputs(self) -> None:
+        pdf_path = self.runtime_dir / "render_source.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=120, height=160)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+        png_output = self.runtime_dir / "render_png.pdf"
+        jpeg_output = self.runtime_dir / "render_jpeg.pdf"
+
+        self.processor._render_pdf_as_images(pdf_path, png_output, dpi=72, colorspace=fitz.csGRAY, image_format="png")
+        self.processor._render_pdf_as_images(
+            pdf_path,
+            jpeg_output,
+            dpi=72,
+            colorspace=fitz.csRGB,
+            image_format="jpeg",
+            jpeg_quality=60,
+        )
+
+        self.assertEqual(len(PdfReader(str(png_output)).pages), 1)
+        self.assertEqual(len(PdfReader(str(jpeg_output)).pages), 1)
+
+    def test_processing_helpers_cover_edge_cases_without_external_tools(self) -> None:
+        self.assertIn(
+            "formato originale",
+            self.processor._build_images_to_pdf_message(
+                auto_crop=True,
+                grayscale_output=True,
+                use_a4_layout=False,
+                a4_margin_px=0,
+                downscaled_images=2,
+            ),
+        )
+        self.assertEqual(self.processor._describe_a4_margin(0), "nessun bordo")
+        self.assertEqual(self.processor._format_page_numbers([]), "")
+        self.assertEqual(self.processor._format_page_numbers([2]), "2")
+        self.assertEqual(self.processor._build_compression_feedback(self.runtime_dir / "missing.pdf", self.runtime_dir / "missing-out.pdf"), "")
+        empty = self.runtime_dir / "empty.bin"
+        empty.write_bytes(b"")
+        nonempty = self.runtime_dir / "nonempty.bin"
+        nonempty.write_bytes(b"x")
+        self.assertEqual(self.processor._build_compression_feedback(empty, nonempty), "")
+        bigger = self.runtime_dir / "bigger.bin"
+        bigger.write_bytes(b"x" * 100)
+        smaller = self.runtime_dir / "smaller.bin"
+        smaller.write_bytes(b"x" * 97)
+        self.assertIn("minima", self.processor._build_compression_feedback(bigger, smaller))
+
+        small = Image.new("RGB", (20, 20), "white")
+        self.assertEqual(self.processor._auto_crop_scan_borders(small).size, small.size)
+        blank = Image.new("RGB", (120, 120), "white")
+        self.assertEqual(self.processor._auto_crop_scan_borders(blank).size, blank.size)
+        full = Image.new("RGB", (120, 120), "black")
+        self.assertEqual(self.processor._auto_crop_scan_borders(full).size, full.size)
+        bordered = Image.new("RGB", (180, 180), "white")
+        ImageDraw.Draw(bordered).rectangle((45, 45, 135, 135), fill="black")
+        self.assertLess(self.processor._auto_crop_scan_borders(bordered).size[0], bordered.size[0])
+
+        rgba = Image.new("RGBA", (4000, 1200), (255, 255, 255, 255))
+        prepared, was_downscaled = self.processor._prepare_image_for_pdf(rgba, grayscale_output=False, auto_crop=False)
+        try:
+            self.assertEqual(prepared.mode, "RGB")
+            self.assertTrue(was_downscaled)
+            self.assertLessEqual(max(prepared.size), self.processor.image_pdf_max_source_side_px)
+        finally:
+            prepared.close()
+
+        huge = Image.new("RGB", (3000, 1000), "white")
+        limited = self.processor._limit_document_photo_output_size(huge)
+        self.assertLessEqual(max(limited.size), 2400)
+        same_size = self.processor._limit_document_photo_output_size(blank)
+        self.assertEqual(same_size.size, blank.size)
+        self.assertIsNone(self.processor._infer_target_page_orientation(["portrait", "landscape"]))
+
+        warnings = self.processor._detect_document_photo_quality_warnings(Image.new("RGB", (200, 200), "black"))
+        self.assertIn("foto_scura", warnings)
+        bright_warnings = self.processor._detect_document_photo_quality_warnings(Image.new("RGB", (200, 200), "white"))
+        self.assertIn("foto_molto_chiara", bright_warnings)
+
+        tiny_quad = np.array([[0, 0], [10, 0], [10, 10], [0, 10]], dtype="float32")
+        self.assertFalse(self.processor._is_plausible_document_quad(tiny_quad, (200, 200)))
+        edge_quad = np.array([[0, 10], [100, 10], [100, 180], [0, 180]], dtype="float32")
+        self.assertTrue(self.processor._document_corners_touch_image_edge(edge_quad, (120, 200)))
+
+        message = self.processor._build_document_photos_to_pdf_message(
+            total_images=1,
+            perspective_count=0,
+            fallback_count=1,
+            warnings={"foto_scura", "foto_molto_chiara", "contrasto_basso", "foto_sfuocata", "contorno_non_sicuro"},
+            mode=DocumentPhotoMode.READABLE,
+        )
+        self.assertIn("fallback conservativo", message)
+        self.assertIn("molto chiare", message)
+
+    def test_page_selection_parser_reports_user_friendly_errors(self) -> None:
+        pdf_path = self.runtime_dir / "selection_source.pdf"
+        writer = PdfWriter()
+        for _ in range(3):
+            writer.add_blank_page(width=200, height=200)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        invalid_cases = [
+            (" ", "nessuna selezione"),
+            ("1,,2", "virgola vuota"),
+            ("a-2", "intervalli pagina"),
+            ("2-1", "intervalli pagina"),
+            ("due", "solo numeri"),
+            ("4", "3 pagine"),
+            ("1,1,2", "ogni pagina una sola volta"),
+        ]
+        for raw_value, expected_message in invalid_cases:
+            with self.subTest(raw_value=raw_value):
+                with self.assertRaisesRegex(ProcessingUserError, expected_message):
+                    self.processor._parse_page_selection(raw_value, pdf_path, mode="full_reorder")
 
     def test_auto_rotate_pdf_to_dominant_orientation_rotates_outlier_pages(self) -> None:
         pdf_path = self.runtime_dir / "mostly_portrait.pdf"

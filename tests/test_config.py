@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.config import Settings
+from docmolder.config import Settings, load_settings
 
 
 class SettingsEnvParsingTest(unittest.TestCase):
@@ -61,6 +61,21 @@ class SettingsEnvParsingTest(unittest.TestCase):
         custom_settings = Settings()
 
         self.assertEqual(custom_settings.job_history_retention_days, 14)
+
+    def test_id_list_parser_accepts_lists_and_rejects_unknown_types(self) -> None:
+        self.assertEqual(Settings._parse_id_list([1, "2"], "DOCMOLDER_ALLOWED_USER_IDS"), [1, 2])
+        with self.assertRaisesRegex(TypeError, "DOCMOLDER_ALLOWED_USER_IDS"):
+            Settings._parse_id_list({"id": 1}, "DOCMOLDER_ALLOWED_USER_IDS")
+
+    def test_load_settings_creates_runtime_directories(self) -> None:
+        self._set_base_env()
+
+        settings = load_settings()
+
+        self.assertTrue((settings.runtime_dir / "sessions").is_dir())
+        self.assertTrue((settings.runtime_dir / "jobs").is_dir())
+        self.assertTrue(settings.database_path.parent.is_dir())
+        self.assertTrue(settings.sqlite_backup_dir.is_dir())
 
 
 if __name__ == "__main__":

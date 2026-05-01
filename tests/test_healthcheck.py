@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import io
+import json
+import subprocess
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 import sys
 from unittest.mock import patch
@@ -9,7 +13,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.config import Settings
-from docmolder.healthcheck import build_health_report
+from docmolder.healthcheck import build_health_report, main, render_text_report
 from docmolder.session_store import SQLiteSessionStore
 
 
@@ -103,6 +107,76 @@ class HealthcheckTest(unittest.TestCase):
         self.assertIn("active_users_7d_exceeded", report["alerts"])
         self.assertIn("failure_rate_24h_exceeded", report["alerts"])
         self.assertEqual(report["jobs"]["failure_rate_last_24h_percent"], 100)
+
+    def test_build_health_report_reports_missing_runtime_database_and_backup(self) -> None:
+        missing_settings = Settings.model_construct(
+            telegram_token="test-token",
+            allowed_user_ids=[],
+            admin_user_ids=[],
+            default_language="it",
+            runtime_dir=self.root / "missing-runtime",
+            database_path=self.root / "missing-runtime" / "docmolder.db",
+            sqlite_backup_dir=self.root / "missing-runtime" / "backups",
+        )
+
+        with patch("docmolder.healthcheck._disk_usage", return_value=None):
+            report = build_health_report(missing_settings)
+
+        self.assertFalse(report["ok"])
+        self.assertIn("runtime_dir_missing", report["reasons"])
+        self.assertIn("database_missing", report["reasons"])
+        self.assertIn("backup_dir_missing", report["warnings"])
+        self.assertIsNone(report["runtime"]["disk_free_bytes"])
+
+    def test_build_health_report_flags_inactive_service(self) -> None:
+        completed = subprocess.CompletedProcess(["systemctl"], 3, stdout="", stderr="")
+        with patch("docmolder.healthcheck.subprocess.run", return_value=completed):
+            report = build_health_report(self.settings, check_service_active=True, service_name="docmolder")
+
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["service"]["active"], False)
+        self.assertIn("service_inactive", report["alerts"])
+
+    def test_build_health_report_treats_missing_systemctl_as_unknown_service_state(self) -> None:
+        with patch("docmolder.healthcheck.subprocess.run", side_effect=FileNotFoundError("systemctl")):
+            report = build_health_report(self.settings, check_service_active=True, service_name="docmolder")
+
+        self.assertTrue(report["ok"])
+        self.assertIsNone(report["service"]["active"])
+
+    def test_render_text_report_includes_reasons_warnings_and_alerts(self) -> None:
+        report = build_health_report(self.settings, max_database_bytes=1)
+
+        text = render_text_report(report)
+
+        self.assertIn("status: fail", text)
+        self.assertIn("database_size_exceeded", text)
+        self.assertIn("warnings: none", text)
+        self.assertIn("jobs_failure_rate_last_24h_percent", text)
+
+    def test_main_prints_json_report_and_returns_failure_status(self) -> None:
+        report = {
+            "ok": False,
+            "status": "fail",
+            "reasons": ["database_missing"],
+            "warnings": [],
+            "alerts": [],
+            "service": {"checked": False},
+            "runtime": {},
+            "system": {},
+            "database": {},
+            "backup": {},
+            "jobs": {},
+        }
+        stdout = io.StringIO()
+        with patch("docmolder.healthcheck.Settings", return_value=self.settings), patch(
+            "docmolder.healthcheck.build_health_report", return_value=report
+        ):
+            with redirect_stdout(stdout):
+                exit_code = main(["--json", "--max-queued-jobs", "1"])
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(json.loads(stdout.getvalue())["reasons"], ["database_missing"])
 
 
 if __name__ == "__main__":
