@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.6.3](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.2...docmolder-v1.6.3) (2026-05-01)
+
+
+### Correzioni
+
+* **processing:** keep PDF crop content-safe ([#125](https://github.com/max23468/DocMolder/issues/125)) ([a1faa4e](https://github.com/max23468/DocMolder/commit/a1faa4e0a84595cdb7af8a34e178b04bec583db0))
+
 ## [1.6.2](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.1...docmolder-v1.6.2) (2026-05-01)
 
 
