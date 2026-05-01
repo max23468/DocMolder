@@ -399,6 +399,12 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("più tempo", message)
         self.assertIn("fallback", message)
 
+    def test_image_crop_message_distinguishes_source_images_from_pdf_crop(self) -> None:
+        message = _build_text_request_queued_message(SupportedAction.IMAGES_TO_PDF_CROP, 14, None)
+
+        self.assertIn("Ritaglio automatico delle immagini", message)
+        self.assertIn("Job #14", message)
+
     def test_build_result_delivery_message_suggests_followup_actions_for_pdf(self) -> None:
         result = ProcessingResult(
             output_path=Path("/tmp/output.pdf"),
@@ -578,6 +584,21 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Rotazione automatica PDF: attiva", detail)
         self.assertIn("Strategia finale: lossless", detail)
         self.assertIn("Ripeto il job", rerun_message)
+
+    def test_history_rerun_for_image_crop_points_to_pdf_crop_followup(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action=SupportedAction.IMAGES_TO_PDF_CROP.value,
+            payload_json='{"files":[{"telegram_file_id":"img-1","file_name":"foto.jpg","kind":"image"}],"compression_preset":null,"auto_rotate_pdf":true,"image_pdf_use_a4":true}',
+        )
+
+        message = _build_history_rerun_message(job, 15)
+
+        self.assertIn("ritaglio sulle immagini sorgenti", message)
+        self.assertIn("Taglia bordi PDF", message)
+        self.assertIn("taglia i bordi di questo pdf", message)
 
     async def test_maybe_send_admin_report_for_period_persists_last_sent(self) -> None:
         self.deps.settings.admin_user_ids = [999]

@@ -3303,6 +3303,16 @@ def _build_history_rerun_message(source_job: JobRecord, job_id: int) -> str:
         job_id,
         payload.compression_preset,
     )
+    if source_job.action in {
+        SupportedAction.IMAGES_TO_PDF_CROP.value,
+        SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE.value,
+    }:
+        return (
+            f"Ripeto il job #{source_job.id} dal tuo storico.\n"
+            f"{base_message}\n\n"
+            "Nota: questo rilancia il ritaglio sulle immagini sorgenti. "
+            "Per tagliare i bordi del PDF risultato, usa il pulsante `Taglia bordi PDF` sotto il file oppure reinvia il PDF e scrivi `taglia i bordi di questo pdf`."
+        )
     return f"Ripeto il job #{source_job.id} dal tuo storico.\n{base_message}"
 
 
