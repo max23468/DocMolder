@@ -66,7 +66,7 @@ Per l'unione:
 Per un singolo PDF il bot supporta anche:
 
 - divisione del PDF in un file per pagina, con scelta tra archivio ZIP e PDF separati
-- ritaglio dei bordi uniformi del PDF, tramite cropbox nativo delle pagine quando il contenuto e rilevabile
+- ritaglio dei bordi del PDF: usa cropbox nativo per bordi uniformi; quando il PDF contiene una foto di un foglio su sfondo riconoscibile può applicare un ritaglio visivo più forte, restando conservativo se il foglio tocca i bordi della foto
 - estrazione pagine
 - riordino completo delle pagine
 - eliminazione pagine
@@ -75,7 +75,7 @@ Per un singolo PDF il bot supporta anche:
 
 Questi flussi:
 
-- restano nativi, senza passare da rasterizzazione
+- restano nativi dove possibile; il ritaglio bordi PDF può rasterizzare la singola pagina quando serve rimuovere lo sfondo di una foto-documento
 - quando producono più output, possono raccoglierli in un unico ZIP oppure inviarli come file separati se l'utente lo preferisce
 - chiedono in chat solo il minimo input necessario, per esempio `1,3,5-7` oppure un testo semplice
 - validano in modo esplicito selezioni pagina, ordine completo o gradi ammessi
