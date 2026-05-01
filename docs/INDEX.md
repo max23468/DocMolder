@@ -10,12 +10,12 @@ Indice unico della documentazione operativa.
 - [CODEX_TASK_PACKET.md](./CODEX_TASK_PACKET.md): template per deleghe a sub-agenti o istanze parallele.
 - [CODEX_TASK_PROMPTS.md](./CODEX_TASK_PROMPTS.md): prompt operativi riutilizzabili per Codex.
 - [CODEX_INTEGRATIONS.md](./CODEX_INTEGRATIONS.md): integrazioni scelte per sviluppo Codex, GitHub release e operations.
-- Tool locali: `make codex-dev-report`, `make github-maintenance`, `make ops-report` per sviluppo Codex, release GitHub e osservabilità.
+- Tool locali: `make codex-dev-report`, `make github-maintenance`, `make release-sanity`, `make ops-report` per sviluppo Codex, release GitHub e osservabilità.
 
 ## Esercizio e deploy
 
 - [VPS_RUNBOOK.md](./VPS_RUNBOOK.md): setup Oracle VPS + operations day-2.
-- [CODEX_CLOUD_DEPLOY.md](./CODEX_CLOUD_DEPLOY.md): flusso consigliato per lavorare da Codex web/cloud, con webhook GitHub privato come deploy standard senza Actions e deploy manuale come fallback.
+- [CODEX_CLOUD_DEPLOY.md](./CODEX_CLOUD_DEPLOY.md): flusso consigliato per lavorare da Codex web/cloud, con CI prudente, Release Please e webhook GitHub privato come deploy standard.
 - [RELEASE_PROCESS.md](./RELEASE_PROCESS.md): checklist di rilascio e deploy.
 - [VERSIONING.md](./VERSIONING.md): policy ufficiale per versioni, changelog e release.
 - [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md): criteri, checklist e record della promozione DocMolder a `1.0.0`.

@@ -17,7 +17,7 @@ La fonte di verità della release è composta da:
 - [CHANGELOG.md](../CHANGELOG.md) in root
 - `.release-please-manifest.json` come stato corrente della versione gestita
 
-Il campo `version` di `pyproject.toml` e `src/docmolder/__init__.py` sono derivati e vengono aggiornati dal flusso di release. Nel percorso normale senza GitHub Actions li aggiorna la release automatica sulla VPS; `release-please` resta un fallback manuale esplicito.
+Il campo `version` di `pyproject.toml` e `src/docmolder/__init__.py` sono derivati e vengono aggiornati dalla Release PR generata da `Release Please`. La release automatica VPS resta solo un fallback spento di default.
 
 I seguenti file sono quindi **riservati al flusso di release**:
 
@@ -39,8 +39,8 @@ Policy del progetto:
 - il titolo della PR è parte del processo di versioning, non solo descrizione editoriale
 - ogni commit che entra su `main` deve provenire da una PR squashata
 - eccezione stretta: commit diretti `chore(docs):` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
-- i guardrail GitHub Actions `Main Commit Policy` e `Release Policy` sono stati rimossi dai workflow attivi finché resta la modalità senza budget Actions
-- i controlli locali (`publish_doctor`, `preflight`, test mirati o `ci_verify`) sono la verifica primaria per bloccare bump manuali, changelog fuori flusso e commit non coerenti con la policy
+- `CI result` è il guardrail GitHub Actions richiesto sulle PR non draft verso `main`
+- i controlli locali (`publish_doctor`, `preflight`, test mirati o `ci_verify`) restano la verifica primaria ed economica prima del push
 - `scripts/publish_change.sh` è il percorso standard per commit, push e PR pronta; draft, merge assistito e follow-up Actions richiedono variabili esplicite
 
 Il titolo della PR squashata diventa il commit che il flusso di release usera per:
@@ -128,9 +128,9 @@ Ogni PR che prepara una major deve includere nel corpo PR una sezione
 3. quali smoke, rollback e note operative sono richiesti;
 4. quali limiti o migrazioni restano dichiarati.
 
-Il target esplicito `DOCMOLDER_RELEASE_TARGET_VERSION=X.0.0` va usato solo dopo
-questa decisione. Non sostituisce il criterio: è solo il meccanismo operativo
-per applicarlo.
+La major deve essere coordinata nel flusso Release Please prima del merge della
+PR finale. Non basta cambiare un numero versione: serve una decisione esplicita
+e tracciabile nel corpo PR.
 
 ## Quando usare ogni tipo
 
@@ -191,40 +191,21 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 
 1. `scripts/publish_change.sh "<titolo conventional>"` apre una PR pronta con titolo convenzionale
 2. la PR viene squash-mergeata su `main`
-3. il webhook VPS deploya `main`
-4. dopo deploy riuscito, `scripts/auto_release.py` crea automaticamente la release se ci sono commit rilasciabili dal tag precedente
-5. la release automatica aggiorna versione, changelog, manifest, tag `docmolder-vX.Y.Z` e GitHub Release
-6. il commit di release viene redeployato dal webhook e poi viene ignorato dal generatore di release, evitando loop
+3. `CI result` passa sulla PR non draft
+4. il webhook VPS deploya il merge su `main`
+5. `Release Please` apre o aggiorna la Release PR se ci sono commit rilasciabili
+6. il merge della Release PR aggiorna versione, changelog, manifest, tag `docmolder-vX.Y.Z` e GitHub Release
+7. il commit di release viene deployato dal webhook VPS
 
 Non usare `main` per commit manuali o push diretti. Se una modifica è urgente,
 si apre comunque una PR piccola e la si squash-mergea dopo i gate locali
-rilevanti. La CI remota è un fallback manuale, non un passaggio ordinario.
+rilevanti e `CI result`.
 
 ## Promozione esplicita a 1.0
 
-Finché il progetto è in `0.x`, anche una breaking change produce un minor bump.
-Per promuovere intenzionalmente DocMolder a `1.0.0` serve quindi un target
-esplicito, non un effetto collaterale di un commit ordinario.
-
-`1.0.0` è una major particolare: non richiede per forza una breaking change.
-Serve a dichiarare stabile il perimetro attuale se la checklist di readiness è
-chiusa e se accettiamo esplicitamente i limiti dichiarati del servizio.
-
-La promozione 1.0 deve passare da [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md):
-
-1. completare checklist prodotto, smoke e operations;
-2. documentare nel corpo PR la `Major release rationale`;
-3. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder 1.0`;
-4. se la release automatica VPS è abilitata, impostare temporaneamente
-   `DOCMOLDER_RELEASE_TARGET_VERSION=1.0.0` prima del merge della PR finale;
-5. mergeare la PR e lasciare che webhook deploy e auto-release consumino quel
-   commit con target esplicito;
-6. rimuovere il target esplicito da `/etc/docmolder/release.env` solo dopo aver
-   verificato tag `docmolder-v1.0.0`, GitHub Release e deploy del commit release.
-
-Il target esplicito è accettato solo se è maggiore della versione corrente e non
-inferiore al bump naturale calcolato dal changelog. Non va usato per forzare
-patch/minor ordinarie o per aggirare la policy dei commit conventional.
+DocMolder è già nella linea stabile `1.x`. La checklist storica resta in
+[ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md); nuove major seguono il
+criterio `X.0.0` sopra e il flusso Release Please primario.
 
 ## Regola pratica per gli agenti e per il maintainer
 
@@ -233,8 +214,8 @@ Per evitare i disallineamenti visti nei tentativi precedenti:
 - non fare mai bump manuali "già dentro" una feature PR;
 - non aggiornare il changelog di release dentro una feature PR;
 - non riallineare a mano manifest o version file salvo manutenzione eccezionale del flusso release;
-- se serve una release, si mergea la PR funzionale e si lascia lavorare la release automatica VPS;
-- `release-please` resta solo come fallback esplicito quando vuoi consumare Actions.
+- se serve una release, si mergea la PR funzionale e si lascia lavorare `Release Please`;
+- `deploy/auto-release.sh` resta solo come fallback esplicito e spento di default sulla VPS.
 
 Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR è da considerare sbagliata e va corretta prima del merge.
 

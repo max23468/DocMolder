@@ -1,16 +1,25 @@
 name: CI
 
 on:
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   workflow_dispatch:
     inputs:
       full_tests:
         description: Run quality, test matrix and package build regardless of diff
         required: false
-        default: true
+        default: false
         type: boolean
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -28,6 +37,8 @@ jobs:
       package_build_required: ${{ steps.classify.outputs.package_build_required }}
       coverage_required: ${{ steps.classify.outputs.coverage_required }}
       fast_static_required: ${{ steps.classify.outputs.fast_static_required }}
+      dependency_review_required: ${{ steps.classify.outputs.dependency_review_required }}
+      release_owned: ${{ steps.classify.outputs.release_owned }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,11 +78,44 @@ jobs:
             echo "package_build_required=$(awk -F= '/DOCMOLDER_PACKAGE_BUILD_REQUIRED=/{value=$2} END{print value}' change-impact.env)"
             echo "coverage_required=$(awk -F= '/DOCMOLDER_COVERAGE_REQUIRED=/{value=$2} END{print value}' change-impact.env)"
             echo "fast_static_required=$(awk -F= '/DOCMOLDER_FAST_STATIC_REQUIRED=/{print $2}' change-impact.env)"
+            echo "dependency_review_required=$(awk -F= '/DOCMOLDER_DEPENDENCY_REVIEW_REQUIRED=/{print $2}' change-impact.env)"
+            echo "release_owned=$(awk -F= '/DOCMOLDER_RELEASE_OWNED=/{print $2}' change-impact.env)"
           } >> "${GITHUB_OUTPUT}"
+
+  pr-policy:
+    name: PR policy
+    needs: classify
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate PR title and release files
+        run: python3 scripts/check_pr_policy.py --title "${PR_TITLE}" --head-ref "${PR_HEAD_REF}" --release-owned "${RELEASE_OWNED}"
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_HEAD_REF: ${{ github.head_ref }}
+          RELEASE_OWNED: ${{ needs.classify.outputs.release_owned }}
+
+  dependency-review:
+    name: Dependency review
+    needs: classify
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft && needs.classify.outputs.dependency_review_required == 'true' && (!github.event.repository.private || vars.DOCMOLDER_ENABLE_DEPENDENCY_REVIEW == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v4
 
   fast-gate:
     name: Fast gate
     needs: classify
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -100,7 +144,7 @@ jobs:
     needs:
       - classify
       - fast-gate
-    if: needs.classify.outputs.full_tests_required == 'true'
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && needs.classify.outputs.full_tests_required == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -127,7 +171,7 @@ jobs:
     needs:
       - classify
       - fast-gate
-    if: needs.classify.outputs.full_tests_required == 'true'
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && needs.classify.outputs.full_tests_required == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     strategy:
@@ -165,7 +209,7 @@ jobs:
     needs:
       - classify
       - fast-gate
-    if: needs.classify.outputs.package_build_required == 'true'
+    if: (github.event_name != 'pull_request' || !github.event.pull_request.draft) && needs.classify.outputs.package_build_required == 'true'
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -193,3 +237,40 @@ jobs:
           name: package-dist
           path: dist/*
           if-no-files-found: error
+
+  ci-result:
+    name: CI result
+    needs:
+      - classify
+      - pr-policy
+      - dependency-review
+      - fast-gate
+      - quality
+      - test
+      - package-build
+    if: always() && (github.event_name != 'pull_request' || !github.event.pull_request.draft)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check required CI jobs
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+
+          needs = json.loads(os.environ["NEEDS_JSON"])
+          failed = {
+              name: payload.get("result")
+              for name, payload in needs.items()
+              if payload.get("result") not in {"success", "skipped"}
+          }
+          if failed:
+              for name, result in sorted(failed.items()):
+                  print(f"::error::{name} ended with {result}")
+              sys.exit(1)
+
+          print("CI result OK.")
+          PY

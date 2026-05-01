@@ -1,0 +1,141 @@
+name: Dependabot Auto Merge
+
+on:
+  pull_request_target:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event_name == 'pull_request_target' && github.event.pull_request.number || github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  mark-candidate:
+    name: Mark candidate
+    if: github.event_name == 'pull_request_target' && github.event.pull_request.user.login == 'dependabot[bot]' && github.event.pull_request.base.ref == 'main' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch Dependabot metadata
+        id: dependabot-metadata
+        uses: dependabot/fetch-metadata@v2
+
+      - name: Apply conservative auto-merge label
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          UPDATE_TYPE: ${{ steps.dependabot-metadata.outputs.update-type }}
+          DEPENDENCY_TYPE: ${{ steps.dependabot-metadata.outputs.dependency-type }}
+          PACKAGE_ECOSYSTEM: ${{ steps.dependabot-metadata.outputs.package-ecosystem }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh label create dependabot-automerge \
+            --description "Dependabot PR eligible for conservative auto-merge" \
+            --color 0E8A16 \
+            --force
+
+          if [ "${UPDATE_TYPE}" = "version-update:semver-major" ]; then
+            gh pr edit "${PR_URL}" --remove-label dependabot-automerge || true
+            echo "Major update: manual review required."
+            exit 0
+          fi
+
+          if [ "${DEPENDENCY_TYPE}" = "direct:production" ] && [ "${PACKAGE_ECOSYSTEM}" != "github-actions" ]; then
+            gh pr edit "${PR_URL}" --remove-label dependabot-automerge || true
+            echo "Production dependency update: manual review required."
+            exit 0
+          fi
+
+          gh pr edit "${PR_URL}" --add-label dependabot-automerge
+          echo "Dependabot PR marked as an auto-merge candidate."
+
+  merge-after-ci:
+    name: Merge after CI
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Merge eligible Dependabot PR
+        env:
+          PULL_REQUESTS_JSON: ${{ toJson(github.event.workflow_run.pull_requests) }}
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          pr_number="$(python3 - <<'PY'
+          import json
+          import os
+
+          prs = json.loads(os.environ["PULL_REQUESTS_JSON"])
+          print(prs[0]["number"] if prs else "")
+          PY
+          )"
+
+          if [ -z "${pr_number}" ]; then
+            echo "No pull request found for this CI run."
+            exit 0
+          fi
+
+          pr_json="$(gh pr view "${pr_number}" --json author,baseRefName,headRefOid,isDraft,labels,state,url)"
+          merge_allowed="$(python3 - <<'PY' "${pr_json}" "${VERIFIED_SHA}"
+          import json
+          import sys
+
+          pr = json.loads(sys.argv[1])
+          verified_sha = sys.argv[2]
+          labels = {label["name"] for label in pr.get("labels", [])}
+          failures = []
+          if pr.get("state") != "OPEN":
+              failures.append("PR is not open")
+          if pr.get("isDraft"):
+              failures.append("PR is draft")
+          if pr.get("baseRefName") != "main":
+              failures.append("base is not main")
+          if pr.get("author", {}).get("login") not in {"dependabot", "dependabot[bot]"}:
+              failures.append("author is not Dependabot")
+          if "dependabot-automerge" not in labels:
+              failures.append("missing dependabot-automerge label")
+          if pr.get("headRefOid") != verified_sha:
+              failures.append("PR head SHA differs from verified CI SHA")
+
+          if failures:
+              for failure in failures:
+                  print(f"Skip auto-merge: {failure}")
+              print("no")
+              sys.exit(0)
+          print("yes")
+          PY
+          )"
+
+          if [ "${merge_allowed##*$'\n'}" != "yes" ]; then
+            printf '%s\n' "${merge_allowed}"
+            exit 0
+          fi
+
+          pr_url="$(python3 - <<'PY' "${pr_json}"
+          import json
+          import sys
+
+          print(json.loads(sys.argv[1])["url"])
+          PY
+          )"
+
+          gh pr merge "${pr_url}" --squash --delete-branch
+          echo "Dependabot PR merged after successful CI."

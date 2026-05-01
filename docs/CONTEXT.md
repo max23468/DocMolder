@@ -57,7 +57,7 @@ Ultimo aggiornamento del contesto:
 - lo storico distingue ora anche i job rilanciati come entità separate, mantenendo il riferimento al job di origine
 - la Fase 2 ha introdotto alert admin anti-spam per failure rate anomali o errori ripetuti nelle ultime finestre operative
 - la VPS ha ora backup SQLite giornaliero con timer systemd, script manuali di backup/restore e retention corta verificabile
-- il flusso senza GitHub Actions usa hook Git locali installabili e un listener webhook GitHub privato sulla VPS per deploy su `main`; se `/etc/docmolder/release.env` abilita la release automatica, la VPS crea anche bump, changelog, tag e GitHub Release dopo un deploy riuscito
+- il flusso GitHub Actions prudente usa CI automatica sulle PR non draft verso `main` e `Release Please` su push a `main`; il listener webhook GitHub privato sulla VPS resta responsabile del deploy, mentre l'auto-release VPS resta fallback spento di default
 - la copertura pseudo end-to-end include ora anche flussi più realistici di upload Telegram, wizard immagini->PDF e follow-up sul PDF risultato
 - la comprensione testuale è ora più tollerante su richieste naturali, sinonimi e piccoli refusi, con estrazione diretta di pagine, rotazioni, watermark e livello di compressione
 - quando un comando testuale è ambiguo o incompleto, il bot prova a chiarire l'azione o chiede il dettaglio mancante invece di fermarsi su una lettura fragile

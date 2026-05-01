@@ -1,7 +1,9 @@
 name: Release Please
 
 on:
-  # Trigger manuale: l'aggiornamento automatico su push e disattivato in modalita senza budget Actions.
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

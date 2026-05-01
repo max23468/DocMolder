@@ -110,7 +110,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Messaggi commit chiari, in forma imperativa, con scope quando utile.
 - Per operazioni GitHub usa dove possibile il tool/plugin GitHub come canale primario per repository, PR, issue, commenti, review, metadata e creazione PR; ricorri a `gh`/git locali solo quando il plugin non copre bene l'operazione, ad esempio branch/commit/push locali, stato auth, log GitHub Actions o inspect di run CI.
 - Per togliere una PR dallo stato draft usa `gh pr ready <numero>` invece del tool GitHub connector `mark_pull_request_ready_for_review`: il connector attuale inciampa su `PullRequest.htmlUrl`, campo non valido nello schema GraphQL GitHub, mentre `gh` usa il percorso affidabile.
-- Il flusso ufficiale è branch dedicato, PR verso `main`, gate locali rilevanti e squash merge. La CI remota si avvia solo come fallback esplicito.
+- Il flusso ufficiale è branch dedicato, PR verso `main`, gate locali rilevanti, `CI result` verde sulle PR non draft e squash merge.
 - Il titolo PR deve seguire Conventional Commits perché guida `release-please`; scrivilo come frase da changelog, orientata al cambiamento rilasciabile e non all'attività interna.
 - Prima di aprire o mergiare una PR, usa `scripts/preflight_publish.sh` o `make preflight-publish` per classificare il diff, bloccare tocchi accidentali ai file release-owned e capire se il deploy VPS è davvero atteso.
 - Quando l'utente chiede di "caricare", "pubblicare", "pubblica" o formule simili una modifica, considera incluso l'intero flusso GitHub: branch/commit mirato, push, PR, controlli locali, merge e verifica post-merge, salvo richiesta esplicita di fermarsi a push o PR. Per i deploy, il default operativo è il webhook privato GitHub -> VPS; la procedura manuale sulla VPS (`sudo /opt/docmolder/app/deploy/update-vps.sh`) resta fallback. Usa `Deploy VPS` via GitHub Actions solo se l'utente lo chiede esplicitamente. In ogni caso segui `docs/VPS_RUNBOOK.md` e riporta comandi, esito e verifiche. Dove possibile usa `scripts/publish_change.sh "<titolo conventional>"`.
@@ -127,11 +127,12 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi, classificazione del cambio, impatto deploy/release e test effettuati.
 - Se una PR deve produrre una release, includi una sezione `Release note` di 1-3 frasi in linguaggio naturale; se è solo manutenzione interna, usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`). Usa `skip-changelog` solo per escludere la PR dalle release note generate da GitHub, non come sostituto del tipo PR per `release-please`.
 - Se apri una PR come draft, fallo per review anticipata o dubbi residui espliciti; il percorso standard crea PR già pronte e non usa lo stato draft solo per far partire check.
-- Per il versioning, la repository resta compatibile con `release-please` ma in modalità senza budget Actions la strada normale è locale/manuale:
+- Per il versioning, `release-please` è di nuovo il flusso primario:
   - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
-  - il bump versione e il changelog di release spettano al flusso release automatico sulla VPS quando `/etc/docmolder/release.env` lo abilita;
-  - `release-please` resta solo un fallback manuale esplicito quando il maintainer vuole consumare Actions;
-  - dopo il merge di una PR funzionale, il webhook VPS deploya e poi crea release/tag se trova commit rilasciabili; controlla health/log VPS invece di inseguire check Actions;
+  - il bump versione, il changelog, i tag e le GitHub Release spettano alla Release PR generata da `Release Please`;
+  - dopo il merge di una PR funzionale, controlla che `Release Please` abbia aperto o aggiornato la Release PR quando ci sono commit rilasciabili;
+  - dopo il merge della Release PR, il webhook VPS deploya il commit di release; controlla health/log VPS e la GitHub Release;
+  - `deploy/auto-release.sh` resta solo fallback operativo spento di default sulla VPS (`DOCMOLDER_AUTO_RELEASE_ENABLED=false`);
   - se una modifica ordinaria tocca quei file, fermati e riallinea la PR al flusso ufficiale prima del merge.
 
 ## 10) Deploy e operazioni
@@ -142,7 +143,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.
 - Per deploy o manutenzione VPS, seguire `docs/VPS_RUNBOOK.md` e riportare sempre comandi eseguiti, esito e verifiche.
 - Dopo un deploy, non limitarti allo stato `active`: controlla anche log recenti e percorso utente minimo quando possibile.
-- In modalità senza budget GitHub Actions, i workflow automatici restano spenti per default: usa gate locali, webhook VPS e release automatica VPS come percorso normale, e ricorri a `workflow_dispatch` solo se l'utente lo chiede esplicitamente.
+- Con budget GitHub Actions ripristinato, la CI prudente parte sulle PR non draft verso `main` e `Release Please` parte su push a `main`; deploy, VPS check, backup, rollback, update env e CodeQL restano manuali salvo richiesta esplicita.
 - Per automazione senza Actions, usa `make install-hooks` sul repo locale e il listener `docmolder-github-webhook.service` sulla VPS; il webhook privato deve verificare repository, branch e firma HMAC prima di lanciare `update-vps.sh` e, se configurato, `auto-release.sh`.
 
 ## 11) Definizione di Done
