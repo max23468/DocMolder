@@ -339,6 +339,67 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         finally:
             cropped.close()
 
+    def test_process_pdf_crop_removes_photo_document_background(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_pdf_photo_crop" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "photo.jpg"
+        _save_realistic_document_photo(image_path)
+        pdf_path = input_dir / "source.pdf"
+        document = fitz.open()
+        try:
+            page = document.new_page(width=595.2, height=841.92)
+            page.insert_image(fitz.Rect(55, 20, 540, 822), filename=str(image_path))
+            document.save(pdf_path)
+        finally:
+            document.close()
+
+        result = self.processor.process(SupportedAction.PDF_CROP, [pdf_path], "cropped_photo_pdf")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.processing_mode, "opencv")
+        self.assertIn("bordi prospettici", result.message)
+        cropped = fitz.open(result.output_path)
+        try:
+            page = cropped[0]
+            pixmap = page.get_pixmap(matrix=fitz.Matrix(1, 1), alpha=False)
+            with Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples) as rendered:
+                corner_pixels = [
+                    rendered.getpixel((8, 8)),
+                    rendered.getpixel((rendered.width - 9, 8)),
+                    rendered.getpixel((8, rendered.height - 9)),
+                    rendered.getpixel((rendered.width - 9, rendered.height - 9)),
+                ]
+            self.assertGreater(min(sum(pixel) / 3 for pixel in corner_pixels), 155)
+        finally:
+            cropped.close()
+
+    def test_process_pdf_crop_uses_safe_rect_when_photo_document_touches_edge(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_pdf_photo_near_edge_crop" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        image_path = input_dir / "near_edge_photo.jpg"
+        _save_realistic_document_photo(image_path, near_edge=True)
+        pdf_path = input_dir / "source.pdf"
+        document = fitz.open()
+        try:
+            page = document.new_page(width=595.2, height=841.92)
+            page.insert_image(fitz.Rect(55, 20, 540, 822), filename=str(image_path))
+            document.save(pdf_path)
+        finally:
+            document.close()
+
+        result = self.processor.process(SupportedAction.PDF_CROP, [pdf_path], "cropped_photo_pdf")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertEqual(result.processing_mode, "native")
+        self.assertIn("tagliato i bordi", result.message)
+        cropped = fitz.open(result.output_path)
+        try:
+            page = cropped[0]
+            self.assertLess(page.rect.width, 540)
+            self.assertLess(page.rect.height, 760)
+        finally:
+            cropped.close()
+
     def test_process_dispatcher_covers_every_supported_action(self) -> None:
         self.assertEqual(set(self.processor._action_handlers), set(SupportedAction))
 
