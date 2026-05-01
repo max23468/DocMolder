@@ -197,6 +197,13 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 6. il merge della Release PR aggiorna versione, changelog, manifest, tag `docmolder-vX.Y.Z` e GitHub Release
 7. il commit di release viene deployato dal webhook VPS
 
+Se l'utente ha chiesto di pubblicare o procedere con una modifica rilasciabile,
+il flusso operativo standard include anche il merge della Release PR generata
+da `Release Please` e la verifica di tag, GitHub Release, deploy del commit di
+release e smoke/health VPS. Non fermarti dopo avere solo osservato che la
+Release PR è stata aperta, a meno che l'utente abbia chiesto esplicitamente di
+fermarsi o ci sia un blocco reale.
+
 Non usare `main` per commit manuali o push diretti. Se una modifica è urgente,
 si apre comunque una PR piccola e la si squash-mergea dopo i gate locali
 rilevanti e `CI result`.
@@ -214,7 +221,7 @@ Per evitare i disallineamenti visti nei tentativi precedenti:
 - non fare mai bump manuali "già dentro" una feature PR;
 - non aggiornare il changelog di release dentro una feature PR;
 - non riallineare a mano manifest o version file salvo manutenzione eccezionale del flusso release;
-- se serve una release, si mergea la PR funzionale e si lascia lavorare `Release Please`;
+- se serve una release, si mergea la PR funzionale, si lascia lavorare `Release Please`, poi si mergea la Release PR generata nello stesso flusso quando è pronta;
 - `deploy/auto-release.sh` resta solo come fallback esplicito e spento di default sulla VPS.
 
 Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR è da considerare sbagliata e va corretta prima del merge.

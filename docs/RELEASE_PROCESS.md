@@ -22,6 +22,7 @@ Percorso standard:
 3. pubblica con `scripts/publish_change.sh "<titolo conventional>"`
 4. fai review/merge della PR pronta
 5. dopo il merge, verifica webhook VPS, deploy e Release PR aggiornata da Release Please
+6. se la Release PR esiste per la modifica appena pubblicata, mergeala nello stesso flusso e verifica tag, GitHub Release, deploy del commit di release e smoke/health VPS
 
 `publish_change.sh` esegue già `publish_doctor`, `preflight_publish`, commit
 se necessario, push, generazione body PR e controllo commenti Codex connector.
@@ -77,6 +78,12 @@ Il flusso ufficiale con Release Please primario è:
 4. merge della Release PR
 5. `Release Please` crea tag `docmolder-vX.Y.Z` e GitHub Release
 6. il webhook VPS deploya anche il commit di release con bump/changelog
+
+Quando una richiesta dell'utente implica pubblicare una modifica rilasciabile,
+il lavoro non è concluso al solo merge della PR funzionale. L'agente deve
+proseguire fino al merge della Release PR generata da `Release Please` e alla
+verifica della release ufficiale, salvo istruzione esplicita di fermarsi prima
+o blocco reale da riportare.
 
 Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 
