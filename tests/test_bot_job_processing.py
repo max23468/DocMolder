@@ -4,6 +4,8 @@ import logging
 import sys
 import tempfile
 import unittest
+from collections import deque
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -17,6 +19,9 @@ from docmolder.bot import (
     BotDependencies,
     ADMIN_ONLY_MESSAGE,
     SensitiveLogFilter,
+    _append_audit_log,
+    _build_image_session_intro,
+    _build_result_pdf_session,
     _build_access_status_message,
     _build_admin_health_report,
     _build_admin_maintenance_overview,
@@ -49,10 +54,39 @@ from docmolder.bot import (
     _maybe_send_admin_anomaly_alerts,
     _build_text_request_queued_message,
     _build_session_file_limit_message,
+    _build_service_status_label,
     _build_upload_rate_limit_message,
     _build_unsupported_document_message,
+    _format_bytes,
+    _format_duration_ms,
+    _format_job_line,
+    _get_dynamic_access_status,
+    _get_meta_counter,
+    _get_service_mode,
+    _get_stored_compression_preset,
+    _get_stored_image_pdf_layout,
+    _get_stored_image_pdf_margin,
+    _get_stored_split_output_choice,
+    _increment_meta_counter,
+    _is_authorized,
+    _is_authorized_for_deps,
+    _is_replayed_callback,
+    _is_service_paused,
+    _list_dynamic_access_statuses,
+    _load_persisted_upload_history,
+    _persist_upload_history,
+    _record_callback_metric,
+    _record_command_metric,
+    _record_image_pdf_choice,
+    _record_split_output_choice,
+    _record_upload_metric,
     _detect_admin_anomaly_alerts,
     _redact_sensitive_text,
+    _resolve_compression_preset_for_job,
+    _set_dynamic_access_status,
+    _set_service_mode,
+    _sum_file_sizes,
+    _sum_processing_result_sizes,
     handle_admin_callback,
     handle_action_callback,
     handle_compression_callback,
@@ -149,6 +183,129 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(commands, ["start", "help", "history", "status", "reset", "admin"])
         self.assertNotIn("ping", commands)
+
+    def test_access_service_mode_metrics_and_preset_helpers(self) -> None:
+        restricted_settings = self.settings.model_copy(update={"allowed_user_ids": [1], "admin_user_ids": [99]})
+        restricted_deps = BotDependencies(restricted_settings, InMemorySessionStore(), self.processor)
+
+        self.assertFalse(_is_authorized(None, restricted_settings))
+        self.assertTrue(_is_authorized(1, restricted_settings))
+        self.assertFalse(_is_authorized(7, restricted_settings))
+        self.assertFalse(_is_authorized_for_deps(None, restricted_deps))
+        self.assertTrue(_is_authorized_for_deps(99, restricted_deps))
+        self.assertFalse(_is_authorized_for_deps(7, restricted_deps))
+
+        _set_dynamic_access_status(restricted_deps, 7, " APPROVED ")
+        _set_dynamic_access_status(restricted_deps, 8, "blocked")
+        restricted_deps.session_store.set_meta("access:not-a-user:status", "pending")
+        self.assertEqual(_get_dynamic_access_status(restricted_deps, 7), "approved")
+        self.assertTrue(_is_authorized_for_deps(7, restricted_deps))
+        self.assertFalse(_is_authorized_for_deps(8, restricted_deps))
+        self.assertEqual(_list_dynamic_access_statuses(restricted_deps), [(7, " APPROVED "), (8, "blocked")])
+
+        self.assertEqual(_get_service_mode(self.deps), "normal")
+        self.assertEqual(_build_service_status_label(self.deps), "attivo")
+        _set_service_mode(self.deps, "maintenance")
+        self.assertTrue(_is_service_paused(self.deps))
+        self.assertEqual(_build_service_status_label(self.deps), "manutenzione")
+        _set_service_mode(self.deps, "unknown")
+        self.assertEqual(_get_service_mode(self.deps), "normal")
+
+        self.store.set_meta("counter", "not-a-number")
+        self.assertEqual(_get_meta_counter(self.deps, "counter"), 0)
+        _increment_meta_counter(self.deps, "counter", amount=3)
+        self.assertEqual(_get_meta_counter(self.deps, "counter"), 3)
+        _record_command_metric(self.deps, "start")
+        _record_callback_metric(self.deps, "compress:medium")
+        _record_upload_metric(self.deps, "pdf")
+        self.assertEqual(self.store.get_meta("telegram_metric:command:start"), "1")
+        self.assertEqual(self.store.get_meta("telegram_metric:callback:compress:medium"), "1")
+        self.assertEqual(self.store.get_meta("telegram_metric:upload:pdf"), "1")
+
+        self.store.set_user_preference(7, "compression_preset", "invalid")
+        self.assertIsNone(_get_stored_compression_preset(self.deps, 7))
+        self.store.set_user_preference(7, "compression_preset", "medium")
+        self.assertEqual(_resolve_compression_preset_for_job(self.deps, 7, None), CompressionPreset.MEDIUM)
+        self.assertEqual(
+            _resolve_compression_preset_for_job(self.deps, 7, CompressionPreset.LIGHT),
+            CompressionPreset.LIGHT,
+        )
+
+        self.store.set_user_preference(7, "custom:last", "zip")
+        self.store.set_user_preference(7, "custom:streak", "bad")
+        _record_user_choice(self.deps, 7, "custom", "zip")
+        _record_user_choice(self.deps, 7, "custom", "zip")
+        self.assertEqual(self.store.get_user_preset(7, "custom"), "zip")
+
+        _record_split_output_choice(self.deps, 7, split_output_zip=False)
+        _record_split_output_choice(self.deps, 7, split_output_zip=False)
+        self.assertEqual(_get_stored_split_output_choice(self.deps, 7, preset_only=True), "files")
+        _record_image_pdf_choice(self.deps, 7, image_pdf_use_a4=True, image_pdf_margin_px=48)
+        _record_image_pdf_choice(self.deps, 7, image_pdf_use_a4=True, image_pdf_margin_px=48)
+        self.assertEqual(_get_stored_image_pdf_layout(self.deps, 7, preset_only=True), "a4")
+        self.assertEqual(_get_stored_image_pdf_margin(self.deps, 7, preset_only=True), "48")
+
+    def test_upload_history_audit_and_format_helpers(self) -> None:
+        self.assertEqual(list(_load_persisted_upload_history(7, self.deps)), [])
+        self.store.set_meta("upload_burst:7", "{bad-json")
+        self.assertEqual(list(_load_persisted_upload_history(7, self.deps)), [])
+        self.store.set_meta("upload_burst:7", '{"not":"a-list"}')
+        self.assertEqual(list(_load_persisted_upload_history(7, self.deps)), [])
+
+        now = datetime.now(timezone.utc)
+        old_timestamp = (now - timedelta(seconds=self.settings.upload_burst_window_seconds + 10)).timestamp()
+        recent_timestamp = (now - timedelta(seconds=1)).timestamp()
+        self.store.set_meta("upload_burst:7", f'["bad",{old_timestamp},{recent_timestamp}]')
+        history = _load_persisted_upload_history(7, self.deps)
+        self.assertEqual(len(history), 1)
+        _persist_upload_history(8, self.deps, deque([now]))
+        self.assertTrue(self.store.get_meta("upload_burst:8").startswith("["))
+
+        self.assertFalse(_is_replayed_callback(self.deps, user_id=7, callback_data="admin:pause", message_id=None))
+        self.assertTrue(_is_replayed_callback(self.deps, user_id=7, callback_data="admin:pause", message_id=None))
+        _append_audit_log(self.deps, "test_event", actor_user_id=7, outcome="ok", target_user_id=8, detail="detail")
+        self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "test_event")
+        with patch.object(self.store, "append_audit_log_entry", side_effect=RuntimeError("audit failed")), self.assertLogs(
+            "docmolder.bot",
+            level="ERROR",
+        ):
+            _append_audit_log(self.deps, "test_event", actor_user_id=7, outcome="failed")
+
+        self.assertEqual(_format_duration_ms(999), "999ms")
+        self.assertEqual(_format_duration_ms(1500), "1.5s")
+        self.assertEqual(_format_bytes(900), "900 B")
+        self.assertEqual(_format_bytes(2048), "2.0 KB")
+        self.assertEqual(_format_bytes(2 * 1024 * 1024), "2.0 MB")
+
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action=SupportedAction.PDF_COMPRESS.value,
+            payload_json='{"files":[]}',
+        )
+        self.store.mark_job_failed(job.id, "errore test")
+        failed_job = self.store.get_job(job.id)
+        self.assertIn("errore test", _format_job_line(failed_job))
+
+        session = UserSession(user_id=7, files=[build_session_file("img-1", "foto.jpg", FileKind.IMAGE)])
+        self.assertEqual(_build_image_session_intro(session), "Immagine ricevuta.")
+        result_session = _build_result_pdf_session(7, "file-id", None)
+        self.assertEqual(result_session.files[0].file_name, "pdf_file-id")
+
+        first_path = self.runtime_dir / "first.bin"
+        second_path = self.runtime_dir / "second.bin"
+        missing_path = self.runtime_dir / "missing.bin"
+        first_path.write_bytes(b"x" * 10)
+        second_path.write_bytes(b"y" * 20)
+        self.assertEqual(_sum_file_sizes([first_path, missing_path, second_path]), 30)
+        result = ProcessingResult(
+            output_path=first_path,
+            output_name=first_path.name,
+            message="ok",
+            additional_outputs=[ProcessingOutput(path=second_path, name=second_path.name)],
+        )
+        self.assertEqual(_sum_processing_result_sizes(result), 30)
 
     async def test_process_job_cleans_up_only_after_result_is_sent(self) -> None:
         job = self.store.create_job(

@@ -8,7 +8,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.session_store import SQLiteSessionStore
+from docmolder.session_store import InMemorySessionStore, SQLiteSessionStore
 from docmolder.models import JobStatus
 
 
@@ -458,6 +458,115 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertIsNone(self.store.get_job(old_job.id))
         self.assertIsNotNone(self.store.get_job(recent_job.id))
         self.assertIsNotNone(self.store.get_job(running_job.id))
+
+
+class InMemorySessionStoreTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.store = InMemorySessionStore()
+
+    def test_register_user_preferences_presets_and_meta_roundtrip(self) -> None:
+        self.assertTrue(self.store.register_user(10, "mario", "Mario", "Rossi"))
+        self.assertFalse(self.store.register_user(10, None, None, None))
+
+        self.store.set_meta("admin:last", "ok")
+        self.store.set_meta("other:last", "skip")
+        self.store.set_user_preference(10, "compression", "medium")
+        self.store.set_user_preset(10, "split", "zip")
+
+        self.assertEqual(self.store.get_meta("admin:last"), "ok")
+        self.assertEqual(self.store.list_meta("admin:"), {"admin:last": "ok"})
+        self.assertEqual(self.store.get_user_preference(10, "compression"), "medium")
+        self.assertEqual(self.store.get_user_preset(10, "split"), "zip")
+
+        self.store.clear_user_preferences(10)
+        self.store.clear_user_presets(10)
+
+        self.assertIsNone(self.store.get_user_preference(10, "compression"))
+        self.assertIsNone(self.store.get_user_preset(10, "split"))
+
+    def test_delete_user_data_removes_live_records_and_scrubs_audit(self) -> None:
+        from docmolder.models import UserSession
+
+        self.store.save(UserSession(user_id=55))
+        self.store.register_user(55, "mario", "Mario", None)
+        self.store.record_completed_action(55, "pdf_compress")
+        self.store.set_user_preference(55, "compression_preset", "medium")
+        self.store.set_user_preset(55, "compression_preset", "medium")
+        self.store.set_meta("access:55:status", "approved")
+        self.store.set_meta("upload_burst:55", "[1,2]")
+        job = self.store.create_job(55, 99, None, "pdf_compress", '{"files":[]}')
+        self.store.mark_job_failed(job.id, "Errore")
+        self.store.append_audit_log_entry(
+            "access_review",
+            actor_user_id=55,
+            target_user_id=7,
+            outcome="approved",
+            detail="private detail",
+        )
+
+        report = self.store.delete_user_data(55)
+
+        self.assertEqual(report.sessions_deleted, 1)
+        self.assertEqual(report.jobs_deleted, 1)
+        self.assertEqual(report.usage_events_deleted, 1)
+        self.assertEqual(report.known_users_deleted, 1)
+        self.assertEqual(report.meta_deleted, 4)
+        self.assertEqual(report.audit_entries_scrubbed, 1)
+        self.assertIsNone(self.store.get(55))
+        self.assertIsNone(self.store.get_job(job.id))
+        entry = self.store.list_audit_log_entries()[0]
+        self.assertIsNone(entry.actor_user_id)
+        self.assertEqual(entry.target_user_id, 7)
+        self.assertEqual(entry.detail, "")
+
+    def test_job_lists_stats_requeue_and_prune(self) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        self.store.record_completed_action(1, "images_to_pdf")
+        self.store.record_completed_action(1, "pdf_merge")
+        self.store.record_completed_action(2, "pdf_compress")
+        running_job = self.store.create_job(1, 10, None, "pdf_compress", "{}")
+        self.store.mark_job_running(running_job.id)
+        running = self.store.get_job(running_job.id)
+        self.assertIsNotNone(running)
+        running.started_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        running.error_message = "old"
+        failed_job = self.store.create_job(2, 20, None, "pdf_compress", "{}")
+        self.store.mark_job_failed(failed_job.id, "Errore")
+        old_success = self.store.create_job(2, 20, None, "images_to_pdf", "{}")
+        self.store.mark_job_succeeded_with_metrics(
+            old_success.id,
+            "ok",
+            processing_mode="raster",
+            input_bytes=100,
+            output_bytes=50,
+            duration_ms=20,
+        )
+        old_success_record = self.store.get_job(old_success.id)
+        self.assertIsNotNone(old_success_record)
+        old_success_record.finished_at = datetime.now(timezone.utc) - timedelta(days=40)
+
+        stats = self.store.build_admin_stats()
+        self.assertEqual(stats.active_users_last_7d, 2)
+        self.assertEqual(stats.jobs_running, 1)
+        self.assertEqual(stats.jobs_failed, 1)
+        self.assertEqual(stats.raster_results_total, 1)
+        self.assertEqual(stats.avg_duration_ms, 20)
+        self.assertEqual(self.store.count_active_jobs_for_user(1), 1)
+        self.assertEqual(self.store.list_top_users(limit=1)[0].user_id, 1)
+        self.assertEqual(self.store.list_failed_actions(limit=1)[0].action, "pdf_compress")
+        self.assertEqual(self.store.list_user_jobs(2, statuses=(JobStatus.FAILED,))[0].id, failed_job.id)
+        self.assertEqual(self.store.list_recent_jobs(statuses=(JobStatus.FAILED,))[0].id, failed_job.id)
+        self.assertEqual(self.store.list_stale_running_jobs(max_age_seconds=3600)[0].id, running_job.id)
+
+        requeued = self.store.requeue_stale_running_jobs(max_age_seconds=3600)
+        self.assertEqual([job.id for job in requeued], [running_job.id])
+        self.assertEqual(self.store.get_job(running_job.id).status, JobStatus.QUEUED)
+
+        pruned = self.store.prune_finished_jobs(retention_days=30)
+
+        self.assertEqual(pruned, 1)
+        self.assertIsNone(self.store.get_job(old_success.id))
 
 
 if __name__ == "__main__":
