@@ -26,7 +26,13 @@ release_sanity = load_script("release_sanity")
 
 class ReleaseSanityTest(unittest.TestCase):
     def test_current_release_metadata_is_aligned(self) -> None:
-        with patch.object(release_sanity, "latest_docmolder_tag", return_value="docmolder-v1.5.1"):
+        manifest = release_sanity.read_json(ROOT / ".release-please-manifest.json")
+        self.assertIsInstance(manifest, dict)
+        manifest_version = manifest.get(".")
+        self.assertIsInstance(manifest_version, str)
+
+        expected_tag = f"docmolder-v{manifest_version}"
+        with patch.object(release_sanity, "latest_docmolder_tag", return_value=expected_tag):
             self.assertEqual(release_sanity.collect_errors(), [])
 
 
