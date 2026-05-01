@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.5.2](https://github.com/max23468/DocMolder/compare/docmolder-v1.5.1...docmolder-v1.5.2) (2026-05-01)
+
+
+### Correzioni
+
+* **reliability:** harden release sanity and file errors ([#117](https://github.com/max23468/DocMolder/issues/117)) ([1d63ce0](https://github.com/max23468/DocMolder/commit/1d63ce0f3ae294d6bf0c8bc8a47d61d6fe4e6d03))
+
 ## [1.5.1](https://github.com/max23468/DocMolder/compare/docmolder-v1.5.0...docmolder-v1.5.1) (2026-04-28)
 
 
