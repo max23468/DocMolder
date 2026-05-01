@@ -80,6 +80,12 @@ MIXED_SESSION_MESSAGE = (
     "Per evitare combinazioni ambigue, usa /reset e riparti con soli PDF oppure sole immagini."
 )
 
+UNSUPPORTED_DOCUMENT_MESSAGE = (
+    "Non riesco a lavorare questo tipo di file. "
+    "Per ora supporto PDF e immagini JPG, PNG o WEBP. "
+    "Prossimo passo: esportalo in PDF o immagine e reinvialo qui."
+)
+
 FILE_TOO_LARGE_MESSAGE = (
     "Questo file supera il limite consentito per il bot. "
     "Prova a inviarne una versione più leggera, riduci risoluzione/compressione oppure dividi il materiale in più file."

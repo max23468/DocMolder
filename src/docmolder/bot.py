@@ -68,6 +68,7 @@ from docmolder.messages import (
     SERVICE_UNAVAILABLE_MESSAGE,
     SESSION_EMPTY_MESSAGE,
     UNAUTHORIZED_MESSAGE,
+    UNSUPPORTED_DOCUMENT_MESSAGE,
     UPLOAD_RATE_LIMIT_MESSAGE,
     WELCOME_MESSAGE,
     build_pending_action_prompt,
@@ -1563,7 +1564,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     kind = _infer_document_kind(document)
     if kind is None:
-        await message.reply_text("Per ora supporto solo PDF e immagini.")
+        await message.reply_text(_build_unsupported_document_message(document))
         return
 
     if not _consume_upload_slot(user.id, deps):
@@ -3139,6 +3140,19 @@ def _infer_document_kind(document: Document) -> FileKind | None:
     if mime_type.startswith("image/") or file_name.endswith((".jpg", ".jpeg", ".png", ".webp")):
         return FileKind.IMAGE
     return None
+
+
+def _build_unsupported_document_message(document: Document) -> str:
+    mime_type = (document.mime_type or "").strip()
+    file_name = (document.file_name or "").strip()
+    suffix = Path(file_name).suffix.lower().lstrip(".")
+    if mime_type:
+        hint = f"Tipo ricevuto: {mime_type}."
+    elif suffix:
+        hint = f"Estensione ricevuta: .{suffix}."
+    else:
+        hint = "Non riesco a riconoscere formato o estensione del file."
+    return f"{UNSUPPORTED_DOCUMENT_MESSAGE}\n{hint}"
 
 
 def _pick_best_photo(photos: list[PhotoSize]) -> PhotoSize:
