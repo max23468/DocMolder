@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.6.2](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.1...docmolder-v1.6.2) (2026-05-01)
+
+
+### Correzioni
+
+* **processing:** improve PDF crop for photo borders ([#123](https://github.com/max23468/DocMolder/issues/123)) ([d7384bb](https://github.com/max23468/DocMolder/commit/d7384bb4c61047bec3bfdd437bb1ab602bdd021c))
+
 ## [1.6.1](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.0...docmolder-v1.6.1) (2026-05-01)
 
 
