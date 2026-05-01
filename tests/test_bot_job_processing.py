@@ -50,6 +50,7 @@ from docmolder.bot import (
     _build_text_request_queued_message,
     _build_session_file_limit_message,
     _build_upload_rate_limit_message,
+    _build_unsupported_document_message,
     _detect_admin_anomaly_alerts,
     _redact_sensitive_text,
     handle_admin_callback,
@@ -524,6 +525,17 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("20 MB", _build_file_too_large_message(20))
         self.assertIn("12 file", _build_session_file_limit_message(12))
         self.assertIn("3 file in 30 secondi", _build_upload_rate_limit_message(3, 30))
+        self.assertIn(
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            _build_unsupported_document_message(
+                SimpleNamespace(
+                    file_name="contratto.docx",
+                    mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                )
+            ),
+        )
+        text_file_message = _build_unsupported_document_message(SimpleNamespace(file_name="note.txt", mime_type=None))
+        self.assertIn("esportalo in PDF", text_file_message)
         self.assertIn("4 job attivi", _build_job_queue_limit_message(4))
         self.assertIn("Watermark", _build_user_history_job_detail(
             self.store.create_job(
@@ -3309,6 +3321,33 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         enqueue_job.assert_awaited_once()
         self.assertEqual(enqueue_job.await_args.kwargs["action"], SupportedAction.PDF_GRAYSCALE)
+
+    async def test_document_upload_rejects_unsupported_file_with_next_step(self) -> None:
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+        user = SimpleNamespace(id=7, username=None, first_name="Test", last_name=None)
+        document_message = SimpleNamespace(
+            chat_id=99,
+            message_id=1199,
+            document=SimpleNamespace(
+                file_id="docx-telegram-id",
+                file_name="contratto.docx",
+                mime_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                file_size=1024,
+            ),
+            reply_text=AsyncMock(),
+        )
+
+        await handle_document(
+            SimpleNamespace(effective_user=user, effective_message=document_message),
+            context,
+        )
+
+        self.assertIsNone(self.store.get(7))
+        document_message.reply_text.assert_awaited_once()
+        reply_text = document_message.reply_text.await_args.args[0]
+        self.assertIn("Non riesco a lavorare questo tipo di file", reply_text)
+        self.assertIn("esportalo in PDF", reply_text)
+        self.assertIn("application/vnd.openxmlformats-officedocument.wordprocessingml.document", reply_text)
 
     async def test_pseudo_e2e_document_upload_to_compress_flow(self) -> None:
         context = SimpleNamespace(application=self.application, bot=self.bot)
