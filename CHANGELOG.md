@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.6.1](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.0...docmolder-v1.6.1) (2026-05-01)
+
+
+### Correzioni
+
+* **bot:** clarify image crop reruns ([#121](https://github.com/max23468/DocMolder/issues/121)) ([25748ef](https://github.com/max23468/DocMolder/commit/25748ef9f74773dbd4b340ff22fc36ab1243e01e))
+
 ## [1.6.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.5.2...docmolder-v1.6.0) (2026-05-01)
 
 
