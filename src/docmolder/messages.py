@@ -184,11 +184,11 @@ def build_text_request_queued_message(
 ) -> str:
     if action == SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE:
         return (
-            f"Ritaglio automatico e PDF in scala di grigi presi in carico. "
+            f"Ritaglio automatico delle immagini e PDF in scala di grigi presi in carico. "
             f"Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
         )
     if action == SupportedAction.IMAGES_TO_PDF_CROP:
-        return f"Ritaglio automatico e creazione PDF presi in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
+        return f"Ritaglio automatico delle immagini e creazione PDF presi in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
     if action == SupportedAction.DOCUMENT_PHOTO_FIX:
         return f"Raddrizzamento foto documento preso in carico. Job #{job_id} in coda.\nTi scrivo qui appena è pronto."
     if action == SupportedAction.IMAGES_TO_PDF_GRAYSCALE:

@@ -9,10 +9,10 @@ from docmolder.models import FileKind, SessionFile, SupportedAction, UserSession
 
 ACTION_LABELS: dict[SupportedAction, str] = {
     SupportedAction.IMAGES_TO_PDF: "PDF da immagini",
-    SupportedAction.IMAGES_TO_PDF_CROP: "PDF con ritaglio bordi",
+    SupportedAction.IMAGES_TO_PDF_CROP: "PDF da immagini con ritaglio",
     SupportedAction.DOCUMENT_PHOTO_FIX: "Raddrizza foto documento",
     SupportedAction.IMAGES_TO_PDF_GRAYSCALE: "PDF grigio da immagini",
-    SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: "PDF grigio con ritaglio bordi",
+    SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: "PDF grigio da immagini con ritaglio",
     SupportedAction.PDF_COMPRESS: "Comprimi PDF",
     SupportedAction.PDF_GRAYSCALE: "Scala di grigi",
     SupportedAction.PDF_CROP: "Taglia bordi PDF",
