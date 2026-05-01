@@ -63,12 +63,6 @@ class _DocumentPhotoTransform:
 
 
 @dataclass(frozen=True, slots=True)
-class _PdfCropStats:
-    cropped_pages: int
-    photo_pages: int = 0
-
-
-@dataclass(frozen=True, slots=True)
 class _ProcessOptions:
     compression_preset: CompressionPreset | None
     rotate_degrees: int | None
@@ -627,12 +621,10 @@ class DocumentProcessor:
         if auto_rotate_pdf:
             prepared_path, rotated_pages = self._prepare_single_pdf_for_processing(pdf_path)
         self._validate_pdf_for_processing(pdf_path)
-        crop_stats = self._crop_pdf_uniform_borders(prepared_path, output_path)
+        cropped_pages = self._crop_pdf_uniform_borders(prepared_path, output_path)
 
-        if crop_stats.photo_pages:
-            message = f"PDF pronto. Ho tagliato i bordi prospettici del documento su {crop_stats.photo_pages} pagine."
-        elif crop_stats.cropped_pages:
-            message = f"PDF pronto. Ho tagliato i bordi uniformi su {crop_stats.cropped_pages} pagine."
+        if cropped_pages:
+            message = f"PDF pronto. Ho tagliato i bordi uniformi su {cropped_pages} pagine."
         else:
             message = "PDF pronto. Non ho trovato bordi uniformi abbastanza chiari da tagliare."
         if rotated_pages:
@@ -642,7 +634,7 @@ class DocumentProcessor:
             output_name=output_path.name,
             message=message,
             auto_rotation_applied=rotated_pages > 0,
-            processing_mode="opencv" if crop_stats.photo_pages else "native",
+            processing_mode="native",
         )
 
     def rotate_pdf(self, pdf_path: Path, output_stem: str, rotate_degrees: int) -> ProcessingResult:
@@ -912,62 +904,20 @@ class DocumentProcessor:
             destination.close()
             source.close()
 
-    def _crop_pdf_uniform_borders(self, pdf_path: Path, output_path: Path) -> _PdfCropStats:
+    def _crop_pdf_uniform_borders(self, pdf_path: Path, output_path: Path) -> int:
         document = self._open_pdf_document(pdf_path)
-        destination = fitz.open()
         cropped_pages = 0
-        photo_pages = 0
         try:
-            for page_index, page in enumerate(document):
-                photo_image = self._render_pdf_photo_document_page(page)
-                if photo_image is not None:
-                    try:
-                        image_stream = self._pil_image_to_pdf_png_stream(photo_image)
-                        rect = fitz.Rect(0, 0, photo_image.width, photo_image.height)
-                        out_page = destination.new_page(width=rect.width, height=rect.height)
-                        out_page.insert_image(rect, stream=image_stream)
-                        cropped_pages += 1
-                        photo_pages += 1
-                        continue
-                    finally:
-                        photo_image.close()
-
+            for page in document:
                 crop_rect = self._detect_pdf_page_content_rect(page)
                 if crop_rect is None:
-                    destination.insert_pdf(document, from_page=page_index, to_page=page_index)
                     continue
                 page.set_cropbox(crop_rect)
                 cropped_pages += 1
-                destination.insert_pdf(document, from_page=page_index, to_page=page_index)
-            destination.save(output_path, garbage=4, clean=True, deflate=True, use_objstms=1)
-            return _PdfCropStats(cropped_pages=cropped_pages, photo_pages=photo_pages)
+            document.save(output_path, garbage=4, clean=True, deflate=True, use_objstms=1)
+            return cropped_pages
         finally:
-            destination.close()
             document.close()
-
-    def _pil_image_to_pdf_png_stream(self, image: Image.Image) -> bytes:
-        buffer = BytesIO()
-        image.save(buffer, format="PNG", optimize=True)
-        return buffer.getvalue()
-
-    def _render_pdf_photo_document_page(self, page: fitz.Page) -> Image.Image | None:
-        pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), colorspace=fitz.csRGB, alpha=False)
-        image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
-        try:
-            content_bbox = self._detect_pdf_uniform_content_bbox(image)
-            if content_bbox is None:
-                content_bbox = (0, 0, image.width, image.height)
-            content_image = image.crop(content_bbox)
-            try:
-                document_quad = self._detect_pdf_photo_document_quad(content_image)
-                if document_quad is None:
-                    return None
-                warped = self._warp_document_photo(content_image, document_quad)
-                return self._add_pdf_photo_crop_margin(self._limit_document_photo_output_size(warped))
-            finally:
-                content_image.close()
-        finally:
-            image.close()
 
     def _detect_pdf_page_content_rect(self, page: fitz.Page) -> fitz.Rect | None:
         page_rect = page.rect
@@ -978,20 +928,9 @@ class DocumentProcessor:
         pixmap = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csRGB, alpha=False)
         image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
         try:
-            bbox = self._detect_pdf_uniform_content_bbox(image)
-            if bbox is not None:
-                cropped_image = image.crop(bbox)
-                try:
-                    photo_bbox = self._detect_pdf_photo_document_bbox(cropped_image)
-                finally:
-                    cropped_image.close()
-                if photo_bbox is not None:
-                    bbox = (
-                        bbox[0] + photo_bbox[0],
-                        bbox[1] + photo_bbox[1],
-                        bbox[0] + photo_bbox[2],
-                        bbox[1] + photo_bbox[3],
-                    )
+            background = self._estimate_background_color(image)
+            diff = ImageChops.difference(image, Image.new("RGB", image.size, background))
+            bbox = diff.convert("L").point(lambda value: 255 if value > 18 else 0).getbbox()
         finally:
             image.close()
         if bbox is None:
@@ -1007,140 +946,42 @@ class DocumentProcessor:
         right = min(pixmap.width, right + padding)
         bottom = min(pixmap.height, bottom + padding)
 
-        if right - left < pixmap.width * 0.35 or bottom - top < pixmap.height * 0.35:
-            return None
-
         new_rect = fitz.Rect(
             page_rect.x0 + (left / pixmap.width) * page_rect.width,
             page_rect.y0 + (top / pixmap.height) * page_rect.height,
             page_rect.x0 + (right / pixmap.width) * page_rect.width,
             page_rect.y0 + (bottom / pixmap.height) * page_rect.height,
         )
+        image_rect = self._detect_pdf_image_content_rect(page)
+        if image_rect is not None:
+            new_rect.include_rect(image_rect)
+
+        new_rect = fitz.Rect(
+            max(page_rect.x0, new_rect.x0),
+            max(page_rect.y0, new_rect.y0),
+            min(page_rect.x1, new_rect.x1),
+            min(page_rect.y1, new_rect.y1),
+        )
+        if new_rect.width < page_rect.width * 0.35 or new_rect.height < page_rect.height * 0.35:
+            return None
         if new_rect.width >= page_rect.width - 2 and new_rect.height >= page_rect.height - 2:
             return None
         return new_rect
 
-    def _detect_pdf_uniform_content_bbox(self, image: Image.Image) -> tuple[int, int, int, int] | None:
-        background = self._estimate_background_color(image)
-        diff = ImageChops.difference(image, Image.new("RGB", image.size, background))
-        return diff.convert("L").point(lambda value: 255 if value > 18 else 0).getbbox()
-
-    def _detect_pdf_photo_document_bbox(self, image: Image.Image) -> tuple[int, int, int, int] | None:
-        return self._detect_pdf_photo_document_rect_bbox(image)
-
-    def _detect_pdf_photo_document_quad(self, image: Image.Image) -> np.ndarray | None:
-        candidates = sorted(
-            self._detect_pdf_photo_document_candidates(image),
-            key=lambda item: cv2.contourArea(item[1]),
-            reverse=True,
-        )
-        for _score, contour, _bbox in candidates:
-            perimeter = cv2.arcLength(contour, True)
-            for epsilon in (0.025, 0.04, 0.055, 0.07):
-                approx = cv2.approxPolyDP(contour, epsilon * perimeter, True)
-                if len(approx) != 4 or not cv2.isContourConvex(approx):
-                    continue
-                points = self._order_document_points(approx.reshape(4, 2).astype("float32"))
-                points = self._expand_document_quad(points, image.size)
-                if self._is_plausible_document_quad(points, image.size):
-                    return points
-        return None
-
-    def _expand_document_quad(self, points: np.ndarray, image_size: tuple[int, int]) -> np.ndarray:
-        width, height = image_size
-        center = points.mean(axis=0)
-        expanded = center + ((points - center) * 1.08)
-        expanded[:, 0] = np.clip(expanded[:, 0], 0, width - 1)
-        expanded[:, 1] = np.clip(expanded[:, 1], 0, height - 1)
-        return expanded.astype("float32")
-
-    def _detect_pdf_photo_document_rect_bbox(self, image: Image.Image) -> tuple[int, int, int, int] | None:
-        candidates = self._detect_pdf_photo_document_candidates(image)
-        if not candidates:
-            return None
-        return max(candidates, key=lambda item: item[0])[2]
-
-    def _detect_pdf_photo_document_candidates(
-        self, image: Image.Image
-    ) -> list[tuple[float, np.ndarray, tuple[int, int, int, int]]]:
-        width, height = image.size
-        if width < 120 or height < 120:
-            return []
-
-        rgb_image = image.convert("RGB")
-        try:
-            rgb = np.asarray(rgb_image)
-            gray = cv2.cvtColor(rgb, cv2.COLOR_RGB2GRAY)
-            saturation = cv2.cvtColor(rgb, cv2.COLOR_RGB2HSV)[:, :, 1]
-        finally:
-            rgb_image.close()
-
-        sample = max(16, min(width, height) // 20)
-        corner_values = np.concatenate(
-            [
-                gray[:sample, :sample].reshape(-1),
-                gray[:sample, width - sample :].reshape(-1),
-                gray[height - sample :, :sample].reshape(-1),
-                gray[height - sample :, width - sample :].reshape(-1),
-            ]
-        )
-        corner_median = float(np.median(corner_values))
-        kernel_size = max(9, min(width, height) // 45)
-        if kernel_size % 2 == 0:
-            kernel_size += 1
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
-
-        candidates: list[tuple[float, np.ndarray, tuple[int, int, int, int]]] = []
-        for brightness_offset in (50, 45, 55, 40):
-            threshold = min(220, corner_median + brightness_offset)
-            for saturation_limit in (80, 110, 140):
-                mask = ((gray > threshold) & (saturation < saturation_limit)).astype("uint8") * 255
-                mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-                mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
-                contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                for contour in sorted(contours, key=cv2.contourArea, reverse=True)[:4]:
-                    area_ratio = cv2.contourArea(contour) / float(width * height)
-                    if not 0.15 <= area_ratio <= 0.92:
-                        continue
-                    left, top, box_width, box_height = cv2.boundingRect(contour)
-                    right = left + box_width
-                    bottom = top + box_height
-                    edge_tolerance = max(4, min(width, height) // 80)
-                    touched_edges = sum(
-                        (
-                            left <= edge_tolerance,
-                            top <= edge_tolerance,
-                            right >= width - edge_tolerance,
-                            bottom >= height - edge_tolerance,
-                        )
-                    )
-                    if touched_edges >= 3:
-                        continue
-                    crop_area_ratio = (box_width * box_height) / float(width * height)
-                    if crop_area_ratio > 0.92:
-                        continue
-                    padding = max(8, min(width, height) // 20)
-                    padded_left = max(0, left - padding)
-                    padded_top = max(0, top - padding)
-                    padded_right = min(width, right + padding)
-                    padded_bottom = min(height, bottom + padding)
-                    padded_area_ratio = ((padded_right - padded_left) * (padded_bottom - padded_top)) / float(
-                        width * height
-                    )
-                    if padded_area_ratio > 0.94:
-                        continue
-                    score = area_ratio - (0.15 * touched_edges)
-                    candidates.append((score, contour, (padded_left, padded_top, padded_right, padded_bottom)))
-
-        return [
-            (score, contour, bbox)
-            for score, contour, bbox in sorted(candidates, key=lambda item: item[0], reverse=True)
-            if (bbox[2] - bbox[0]) >= width * 0.35 and (bbox[3] - bbox[1]) >= height * 0.35
-        ]
-
-    def _add_pdf_photo_crop_margin(self, image: Image.Image) -> Image.Image:
-        border_px = max(16, min(image.size) // 80)
-        return ImageOps.expand(image, border=border_px, fill="white")
+    def _detect_pdf_image_content_rect(self, page: fitz.Page) -> fitz.Rect | None:
+        content_rect: fitz.Rect | None = None
+        for image_info in page.get_image_info():
+            bbox = image_info.get("bbox")
+            if bbox is None:
+                continue
+            image_rect = fitz.Rect(bbox)
+            if image_rect.is_empty or image_rect.width < 2 or image_rect.height < 2:
+                continue
+            if content_rect is None:
+                content_rect = image_rect
+            else:
+                content_rect.include_rect(image_rect)
+        return content_rect
 
     def _compress_pdf_lossless(self, pdf_path: Path, output_path: Path) -> None:
         document = self._open_pdf_document(pdf_path)
