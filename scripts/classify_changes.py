@@ -130,22 +130,42 @@ def matches(path: str, patterns: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatch(path, pattern) for pattern in patterns)
 
 
-def pyproject_version_changed(git_range: GitRange, paths: list[str], *, staged: bool, working_tree: bool) -> bool:
-    if "pyproject.toml" not in paths:
-        return False
+def diff_for_path(git_range: GitRange, path: str, *, staged: bool, working_tree: bool) -> str:
     diff_args = ["diff", "--unified=0"]
     if staged:
         diff_args.append("--cached")
     else:
         diff_args.append(f"{git_range.base}...{git_range.head}")
-    diff_args.extend(["--", "pyproject.toml"])
+    diff_args.extend(["--", path])
     diff = run_git(diff_args, check=False)
     if working_tree:
-        diff += "\n" + run_git(["diff", "--cached", "--unified=0", "--", "pyproject.toml"], check=False)
-        diff += "\n" + run_git(["diff", "--unified=0", "--", "pyproject.toml"], check=False)
+        diff += "\n" + run_git(["diff", "--cached", "--unified=0", "--", path], check=False)
+        diff += "\n" + run_git(["diff", "--unified=0", "--", path], check=False)
+    return diff
+
+
+def pyproject_version_changed(git_range: GitRange, paths: list[str], *, staged: bool, working_tree: bool) -> bool:
+    if "pyproject.toml" not in paths:
+        return False
+    diff = diff_for_path(git_range, "pyproject.toml", staged=staged, working_tree=working_tree)
     version_line = re.compile(r"^[+-]\s*version\s*=")
     for line in diff.splitlines():
         if version_line.match(line):
+            return True
+    return False
+
+
+def pyproject_dependency_review_changed(git_range: GitRange, paths: list[str], *, staged: bool, working_tree: bool) -> bool:
+    if "pyproject.toml" not in paths:
+        return False
+    diff = diff_for_path(git_range, "pyproject.toml", staged=staged, working_tree=working_tree)
+    version_line = re.compile(r"^[+-]\s*version\s*=")
+    for line in diff.splitlines():
+        if not line.startswith(("+", "-")) or line.startswith(("+++", "---")):
+            continue
+        if version_line.match(line):
+            continue
+        if line[1:].strip():
             return True
     return False
 
@@ -157,7 +177,13 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
     docs = [path for path in paths if matches(path, DOC_PATTERNS)]
     tests = [path for path in paths if matches(path, TEST_PATTERNS)]
     ci = [path for path in paths if matches(path, CI_PATTERNS)]
-    dependencies = [path for path in paths if matches(path, DEPENDENCY_PATTERNS)]
+    dependency_review_files = [
+        path
+        for path in paths
+        if matches(path, DEPENDENCY_PATTERNS) and path != "pyproject.toml"
+    ]
+    if pyproject_dependency_review_changed(git_range, paths, staged=staged, working_tree=working_tree):
+        dependency_review_files.append("pyproject.toml")
 
     release_owned = [path for path in paths if path in RELEASE_OWNED_FILES]
     if pyproject_version_changed(git_range, paths, staged=staged, working_tree=working_tree):
@@ -169,10 +195,12 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
     ops_only = bool(paths) and len(ops) == len(paths)
     no_runtime_impact = bool(paths) and not deploy_relevant and not code and not tests
     full_tests_required = bool(code or tests)
-    package_build_required = any(path.startswith("src/") for path in code) or bool(dependencies)
+    package_build_required = any(path.startswith("src/") for path in code) or any(
+        matches(path, DEPENDENCY_PATTERNS) for path in paths
+    )
     coverage_required = full_tests_required
     fast_static_required = bool(paths)
-    dependency_review_required = bool(dependencies)
+    dependency_review_required = bool(dependency_review_files)
 
     return {
         "base": git_range.base,
@@ -191,8 +219,8 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
         "tests_files": tests,
         "ci_only": ci_only,
         "ci_files": ci,
-        "dependency_relevant": bool(dependencies),
-        "dependency_files": dependencies,
+        "dependency_relevant": bool(dependency_review_files),
+        "dependency_files": sorted(dependency_review_files),
         "ops_only": ops_only,
         "release_owned": bool(release_owned),
         "release_owned_files": sorted(set(release_owned)),

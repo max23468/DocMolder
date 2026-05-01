@@ -69,24 +69,26 @@ Conseguenze:
 - il vhost pubblico resta un sito statico di presentazione e ingresso verso Telegram finché non viene deciso un endpoint DocMolder specifico
 - eventuali evoluzioni API-first, webhook Telegram o UI web richiederebbero una decisione nuova
 
-## Webhook privato per deploy, release e hook locali
+## Webhook privato per deploy, Release Please e hook locali
 
 Decisione:
-- l'automazione senza GitHub Actions usa webhook privati GitHub -> VPS per il deploy su `main` e, se abilitato, per la release automatica successiva
+- l'automazione ordinaria usa CI prudente sulle PR non draft verso `main`, `Release Please` su push a `main` e webhook privati GitHub -> VPS per il deploy
 - il listener webhook gira sulla VPS dietro Nginx e verifica firma HMAC, repository e branch prima di lanciare `deploy/update-vps.sh`
-- dopo un deploy riuscito, il listener può lanciare `deploy/auto-release.sh`, che crea bump, changelog, commit di release, tag e GitHub Release quando trova commit rilasciabili dal tag precedente
+- il listener può ancora lanciare `deploy/auto-release.sh`, ma resta fallback spento di default; in esercizio ordinario `DOCMOLDER_AUTO_RELEASE_ENABLED=false`
+- il bump versione, il changelog, i tag e le GitHub Release sono gestiti da `Release Please`
 - i controlli di qualità locale vivono in hook `git` installabili con `make install-hooks`
-- il token GitHub usato per scrivere release vive solo sulla VPS in `/etc/docmolder/release.env`, con permessi root-only
+- eventuali token GitHub per il fallback auto-release vivono solo sulla VPS in `/etc/docmolder/release.env`, con permessi root-only
 
 Motivazione:
-- permette di mantenere il deploy automatico senza dipendere da Actions
-- permette di mantenere versioni, changelog, tag e GitHub Releases allineati anche senza Actions
+- mantiene il consumo Actions controllato: CI PR e Release Please automatici, workflow operativi solo manuali
+- mantiene versioni, changelog, tag e GitHub Releases allineati nel flusso standard GitHub
 - mantiene il listener semplice e confinato alla VPS, non al runtime Telegram
-- sposta i gate quotidiani vicino alla macchina di sviluppo, dove il costo di verifica e nullo
+- mantiene gate locali e hook come primo feedback economico prima del push
 
 Conseguenze:
 - il deploy automatico dipende da un webhook GitHub configurato esplicitamente sulla repository
-- la release automatica dipende da un token GitHub con permessi di scrittura sui contenuti del repository
+- le release ordinarie dipendono dal workflow `Release Please` e dalla Release PR generata su `main`
+- la release automatica VPS, se riabilitata come fallback, dipende da un token GitHub con permessi di scrittura sui contenuti del repository
 - la VPS deve esporre un endpoint HTTPS dedicato al listener, ma non un runtime web applicativo generalista
 - gli hook locali possono bloccare push non pronti prima che arrivino su GitHub
 - se il webhook o gli hook non sono configurati, il percorso resta manuale ma non si rompe il bot

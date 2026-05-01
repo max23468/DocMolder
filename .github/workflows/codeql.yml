@@ -1,8 +1,19 @@
 name: CodeQL
 
 on:
-  # Trigger manuale: push, PR e schedule automatici sono disattivati in modalita senza budget Actions.
+  # Trigger manuale: CodeQL resta a consumo esplicito.
   workflow_dispatch:
+    inputs:
+      reason:
+        description: Motivo della finestra CodeQL
+        required: true
+        default: security-window
+        type: choice
+        options:
+          - security-window
+          - release-candidate
+          - security-sensitive-change
+          - manual-investigation
 
 permissions:
   actions: read
@@ -77,3 +88,13 @@ jobs:
       - name: Skip CodeQL analysis
         if: ${{ github.event.repository.private || steps.changes.outputs.code_changed != 'true' }}
         run: echo "CodeQL analysis not required for this change."
+
+      - name: Analysis summary
+        if: always()
+        run: |
+          {
+            echo "## CodeQL"
+            echo ""
+            echo "- Reason: \`${{ inputs.reason || 'manual' }}\`"
+            echo "- Workflow conclusion: \`${{ job.status }}\`"
+          } >> "${GITHUB_STEP_SUMMARY}"

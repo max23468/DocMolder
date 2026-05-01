@@ -1,7 +1,7 @@
 name: Deploy VPS
 
 on:
-  # Trigger manuale: il deploy automatico su push e disattivato in modalita senza budget Actions.
+  # Trigger manuale: il deploy ordinario su push passa dal webhook VPS.
   workflow_dispatch:
     inputs:
       target_ref:

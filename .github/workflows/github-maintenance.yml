@@ -1,0 +1,47 @@
+name: GitHub Maintenance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 7 1 * *"
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+  security-events: read
+
+concurrency:
+  group: github-maintenance
+  cancel-in-progress: true
+
+jobs:
+  report:
+    name: Maintenance report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run GitHub maintenance report
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 scripts/github_maintenance_report.py --limit 30 | tee github-maintenance-report.md
+
+      - name: Publish summary
+        if: always()
+        run: |
+          {
+            echo "## GitHub Maintenance"
+            echo ""
+            if [ -f github-maintenance-report.md ]; then
+              cat github-maintenance-report.md
+            else
+              echo "Report non generato."
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"

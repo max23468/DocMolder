@@ -6,13 +6,14 @@ Questa guida serve per usare `chatgpt.com` come postazione di lavoro e release s
 
 La VPS corretta di DocMolder è `docmolder.duckdns.org` (host operativo della macchina), non altri host del perimetro personale. Il deploy SSH diretto dal runtime Codex cloud verso la VPS non è affidabile, perché l'ambiente cloud non ha connettività garantita verso la macchina.
 
-In modalità standard senza GitHub Actions, il percorso consigliato è:
+Nel flusso standard con GitHub Actions prudente, il percorso consigliato è:
 
 1. Codex cloud prepara e pubblica il codice su GitHub.
-2. Il maintainer lascia che il webhook privato GitHub -> VPS lanci `sudo /opt/docmolder/app/deploy/update-vps.sh` quando il merge raggiunge `main`.
-3. La VPS applica installazione o aggiornamento locale senza fare `git pull`.
-4. Se la release automatica è abilitata in `/etc/docmolder/release.env`, la VPS crea bump, changelog, tag e GitHub Release senza usare Actions.
-5. Le verifiche operative si eseguono via SSH diretto o con i comandi locali del repo.
+2. La PR non draft verso `main` passa `CI result`.
+3. Il maintainer mergea la PR e lascia che il webhook privato GitHub -> VPS lanci `sudo /opt/docmolder/app/deploy/update-vps.sh`.
+4. `Release Please` apre o aggiorna la Release PR quando ci sono commit rilasciabili.
+5. Il merge della Release PR crea changelog, tag e GitHub Release; il webhook VPS deploya anche il commit di release.
+6. Le verifiche operative si eseguono via SSH diretto o con i comandi locali del repo.
 
 ## Flusso consigliato da mobile
 
@@ -41,7 +42,7 @@ Configura questi valori sulla VPS in `/etc/docmolder/github-webhook.env`:
 - `DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY`
 - `DOCMOLDER_GITHUB_WEBHOOK_BRANCH`
 - `DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT`
-- `DOCMOLDER_RELEASE_GITHUB_TOKEN`, solo in `/etc/docmolder/release.env` se vuoi release automatiche complete senza Actions
+- `DOCMOLDER_RELEASE_GITHUB_TOKEN`, solo in `/etc/docmolder/release.env` se riabiliti il fallback auto-release VPS
 
 Note operative:
 
@@ -49,7 +50,7 @@ Note operative:
 - `DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY` dovrebbe restare `max23468/DocMolder`
 - `DOCMOLDER_GITHUB_WEBHOOK_BRANCH` dovrebbe restare `main`
 - `DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT` dovrebbe restare `/opt/docmolder/app/deploy/update-vps.sh`
-- `DOCMOLDER_RELEASE_GITHUB_TOKEN` deve avere permessi sufficienti a pushare su `main`, creare tag e creare GitHub Release; non va mai committato
+- se usato per il fallback auto-release, `DOCMOLDER_RELEASE_GITHUB_TOKEN` deve avere permessi sufficienti a pushare su `main`, creare tag e creare GitHub Release; non va mai committato
 
 ## Fallback locale
 
@@ -63,7 +64,7 @@ Il webhook GitHub esegue:
 
 - sincronizzazione del repository verso `/opt/docmolder/app`
 - installazione o aggiornamento locale con `deploy/update-vps.sh`
-- release automatica con `deploy/auto-release.sh`, solo se abilitata e se ci sono commit rilasciabili
+- fallback auto-release con `deploy/auto-release.sh`, solo se esplicitamente riabilitato; nel flusso standard deve restare disabilitato
 - controllo `systemctl status docmolder --no-pager`
 - controllo `systemctl status docmolder-db-backup.timer --no-pager`
 - stato operativo del listener nel journal di systemd

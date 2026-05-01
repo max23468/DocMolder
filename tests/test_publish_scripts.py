@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import unittest
 import os
+import json
 from pathlib import Path
 
 
@@ -88,6 +89,36 @@ class PublishScriptsTest(unittest.TestCase):
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("release-please", result.stderr)
+
+    def test_classify_skips_dependency_review_for_pyproject_version_only(self) -> None:
+        run(["git", "switch", "-c", "codex/release-version"], self.repo)
+        (self.repo / "pyproject.toml").write_text('[project]\nversion = "0.2.0"\n', encoding="utf-8")
+
+        result = run(
+            ["python3", "scripts/classify_changes.py", "--base", "origin/main", "--working-tree", "--format", "json"],
+            self.repo,
+        )
+        report = json.loads(result.stdout)
+
+        self.assertTrue(report["release_owned"])
+        self.assertTrue(report["package_build_required"])
+        self.assertFalse(report["dependency_review_required"])
+
+    def test_classify_requires_dependency_review_for_pyproject_dependency_change(self) -> None:
+        run(["git", "switch", "-c", "codex/dependency"], self.repo)
+        (self.repo / "pyproject.toml").write_text(
+            '[project]\nversion = "0.1.0"\ndependencies = ["pypdf>=6"]\n',
+            encoding="utf-8",
+        )
+
+        result = run(
+            ["python3", "scripts/classify_changes.py", "--base", "origin/main", "--working-tree", "--format", "json"],
+            self.repo,
+        )
+        report = json.loads(result.stdout)
+
+        self.assertTrue(report["dependency_review_required"])
+        self.assertIn("pyproject.toml", report["dependency_files"])
 
     def test_publish_change_pushes_existing_direct_docs_commit(self) -> None:
         (self.repo / "docs" / "guide.md").write_text("guide\nupdated\n", encoding="utf-8")
