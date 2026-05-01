@@ -20,6 +20,7 @@ class SupportedAction(StrEnum):
     IMAGES_TO_PDF_GRAYSCALE = "images_to_pdf_grayscale"
     IMAGES_TO_PDF_CROP_GRAYSCALE = "images_to_pdf_crop_grayscale"
     PDF_GRAYSCALE = "pdf_grayscale"
+    PDF_CROP = "pdf_crop"
     PDF_COMPRESS = "pdf_compress"
     PDF_MERGE = "pdf_merge"
     PDF_SPLIT = "pdf_split"
@@ -38,6 +39,7 @@ SupportedActionValue: TypeAlias = Literal[
     "images_to_pdf_grayscale",
     "images_to_pdf_crop_grayscale",
     "pdf_grayscale",
+    "pdf_crop",
     "pdf_compress",
     "pdf_merge",
     "pdf_split",

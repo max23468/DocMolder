@@ -9,6 +9,7 @@ from unittest.mock import patch
 import subprocess
 import zipfile
 
+import fitz
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
 from pypdf import PdfReader, PdfWriter
 
@@ -312,6 +313,31 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
 
         self.assertTrue(result.output_path.exists())
         self.assertEqual(result.output_name, "cropped.pdf")
+
+    def test_process_pdf_crop_trims_uniform_page_border(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_pdf_crop" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = input_dir / "source.pdf"
+        document = fitz.open()
+        try:
+            page = document.new_page(width=400, height=600)
+            page.draw_rect(fitz.Rect(90, 120, 310, 480), color=(0, 0, 0), fill=(0.95, 0.95, 0.95), width=2)
+            page.insert_text((120, 180), "DocMolder crop test", fontsize=16)
+            document.save(pdf_path)
+        finally:
+            document.close()
+
+        result = self.processor.process(SupportedAction.PDF_CROP, [pdf_path], "cropped_pdf")
+
+        self.assertTrue(result.output_path.exists())
+        self.assertIn("tagliato i bordi", result.message)
+        cropped = fitz.open(result.output_path)
+        try:
+            page = cropped[0]
+            self.assertLess(page.rect.width, 400)
+            self.assertLess(page.rect.height, 600)
+        finally:
+            cropped.close()
 
     def test_process_dispatcher_covers_every_supported_action(self) -> None:
         self.assertEqual(set(self.processor._action_handlers), set(SupportedAction))

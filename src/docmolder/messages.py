@@ -13,7 +13,7 @@ WELCOME_MESSAGE = (
     "Ti aiuto a:\n"
     "- creare PDF ordinati da immagini\n"
     "- raddrizzare foto di documenti senza aprire un editor\n"
-    "- comprimere, unire, dividere e convertire PDF\n"
+    "- comprimere, tagliare bordi, unire, dividere e convertire PDF\n"
     "- estrarre, riordinare, eliminare o ruotare pagine\n"
     "- aggiungere watermark testuali\n"
     "- correggere l'orientamento di PDF e immagini quando serve\n\n"
@@ -40,7 +40,7 @@ HELP_MESSAGE = (
     "- immagini scannerizzate -> ritaglio bordi e PDF\n"
     "- foto storta di un foglio -> raddrizza foto documento\n"
     "- immagini -> PDF con formato originale oppure A4 con bordi a scelta\n"
-    "- un PDF -> comprimi o scala di grigi\n"
+    "- un PDF -> comprimi, taglia bordi o scala di grigi\n"
     "- un PDF -> dividi in un file per pagina\n"
     "- un PDF -> estrai pagine, riordinale, eliminale, ruotale o aggiungi un watermark\n"
     "- più PDF -> unisci\n\n"
@@ -51,6 +51,7 @@ HELP_MESSAGE = (
     "- converti in bianco e nero\n"
     "- unisci questi pdf\n"
     "- comprimi questo pdf\n"
+    "- taglia i bordi di questo pdf\n"
     "- dividi questo pdf\n"
     "- estrai pagine 2-4\n"
     "- ruota questo pdf di 90 gradi\n"
@@ -199,6 +200,8 @@ def build_text_request_queued_message(
             f"Conversione in scala di grigi presa in carico. Job #{job_id} in coda.\n"
             "Se il PDF è complesso potrei impiegare un po' di più o usare un fallback per garantirti comunque un risultato."
         )
+    if action == SupportedAction.PDF_CROP:
+        return f"Taglio bordi PDF preso in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
     if action == SupportedAction.PDF_MERGE:
         return f"Unione PDF presa in carico. Job #{job_id} in coda.\nTi invio il file appena è pronto."
     if action == SupportedAction.PDF_SPLIT:

@@ -15,6 +15,7 @@ ACTION_LABELS: dict[SupportedAction, str] = {
     SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: "PDF grigio con ritaglio bordi",
     SupportedAction.PDF_COMPRESS: "Comprimi PDF",
     SupportedAction.PDF_GRAYSCALE: "Scala di grigi",
+    SupportedAction.PDF_CROP: "Taglia bordi PDF",
     SupportedAction.PDF_MERGE: "Unisci PDF",
     SupportedAction.PDF_SPLIT: "Dividi PDF",
     SupportedAction.PDF_EXTRACT_PAGES: "Estrai pagine",
@@ -32,6 +33,7 @@ OUTPUT_SUFFIX_BY_ACTION: dict[SupportedAction, str] = {
     SupportedAction.IMAGES_TO_PDF_GRAYSCALE: "grayscale",
     SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE: "cropped_grayscale",
     SupportedAction.PDF_GRAYSCALE: "grayscale",
+    SupportedAction.PDF_CROP: "cropped",
     SupportedAction.PDF_COMPRESS: "compressed",
     SupportedAction.PDF_MERGE: "merged",
     SupportedAction.PDF_SPLIT: "split_pages",
@@ -54,6 +56,7 @@ IMAGE_ONLY_ACTIONS: tuple[SupportedAction, ...] = (
 
 SINGLE_PDF_ACTIONS: tuple[SupportedAction, ...] = (
     SupportedAction.PDF_GRAYSCALE,
+    SupportedAction.PDF_CROP,
     SupportedAction.PDF_COMPRESS,
     SupportedAction.PDF_SPLIT,
     SupportedAction.PDF_EXTRACT_PAGES,
@@ -65,6 +68,7 @@ SINGLE_PDF_ACTIONS: tuple[SupportedAction, ...] = (
 
 RESULT_FOLLOWUP_ACTIONS: tuple[SupportedAction, ...] = (
     SupportedAction.PDF_COMPRESS,
+    SupportedAction.PDF_CROP,
     SupportedAction.PDF_GRAYSCALE,
     SupportedAction.PDF_SPLIT,
     SupportedAction.PDF_EXTRACT_PAGES,
@@ -85,6 +89,7 @@ EXPOSED_ACTION_ORDER: tuple[SupportedAction, ...] = (
     SupportedAction.DOCUMENT_PHOTO_FIX,
     SupportedAction.IMAGES_TO_PDF_GRAYSCALE,
     SupportedAction.PDF_GRAYSCALE,
+    SupportedAction.PDF_CROP,
     SupportedAction.PDF_COMPRESS,
     SupportedAction.PDF_MERGE,
     SupportedAction.PDF_SPLIT,
@@ -255,6 +260,7 @@ def _infer_recommended_actions(
     else:
         ordered_candidates = (
             SupportedAction.PDF_COMPRESS,
+            SupportedAction.PDF_CROP,
             SupportedAction.PDF_GRAYSCALE,
             SupportedAction.PDF_EXTRACT_PAGES,
             SupportedAction.PDF_SPLIT,

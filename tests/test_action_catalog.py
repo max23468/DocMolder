@@ -52,6 +52,7 @@ class ActionCatalogHelpersTest(unittest.TestCase):
             actions,
             [
                 SupportedAction.PDF_GRAYSCALE,
+                SupportedAction.PDF_CROP,
                 SupportedAction.PDF_COMPRESS,
                 SupportedAction.PDF_SPLIT,
                 SupportedAction.PDF_EXTRACT_PAGES,
@@ -82,7 +83,7 @@ class ActionCatalogHelpersTest(unittest.TestCase):
         self.assertIsNotNone(expanded_keyboard)
         compact_labels = [button.text for row in compact_keyboard.inline_keyboard for button in row]
         expanded_labels = [button.text for row in expanded_keyboard.inline_keyboard for button in row]
-        self.assertIn("Altre azioni (5)", compact_labels)
+        self.assertIn("Altre azioni (6)", compact_labels)
         self.assertIn("Meno azioni", expanded_labels)
         self.assertIn("Aggiungi watermark", expanded_labels)
         self.assertNotIn("Aggiungi watermark", compact_labels)

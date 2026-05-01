@@ -66,6 +66,7 @@ Per l'unione:
 Per un singolo PDF il bot supporta anche:
 
 - divisione del PDF in un file per pagina, con scelta tra archivio ZIP e PDF separati
+- ritaglio dei bordi uniformi del PDF, tramite cropbox nativo delle pagine quando il contenuto e rilevabile
 - estrazione pagine
 - riordino completo delle pagine
 - eliminazione pagine

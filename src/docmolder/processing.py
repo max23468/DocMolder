@@ -104,6 +104,7 @@ class DocumentProcessor:
             SupportedAction.PDF_REORDER_PAGES: self._process_pdf_reorder_action,
             SupportedAction.PDF_DELETE_PAGES: self._process_pdf_delete_action,
             SupportedAction.PDF_GRAYSCALE: self._process_pdf_grayscale_action,
+            SupportedAction.PDF_CROP: self._process_pdf_crop_action,
             SupportedAction.PDF_COMPRESS: self._process_pdf_compress_action,
             SupportedAction.PDF_ROTATE: self._process_pdf_rotate_action,
             SupportedAction.PDF_WATERMARK: self._process_pdf_watermark_action,
@@ -280,6 +281,15 @@ class DocumentProcessor:
             options.compression_preset,
             auto_rotate_pdf=options.auto_rotate_pdf,
         )
+
+    def _process_pdf_crop_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        options: _ProcessOptions,
+    ) -> ProcessingResult:
+        return self.crop_pdf_borders(input_paths[0], output_stem, auto_rotate_pdf=options.auto_rotate_pdf)
 
     def _process_pdf_rotate_action(
         self,
@@ -604,6 +614,29 @@ class DocumentProcessor:
             processing_mode=mode,
         )
 
+    def crop_pdf_borders(self, pdf_path: Path, output_stem: str, auto_rotate_pdf: bool = True) -> ProcessingResult:
+        output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
+        prepared_path = pdf_path
+        rotated_pages = 0
+        if auto_rotate_pdf:
+            prepared_path, rotated_pages = self._prepare_single_pdf_for_processing(pdf_path)
+        self._validate_pdf_for_processing(pdf_path)
+        cropped_pages = self._crop_pdf_uniform_borders(prepared_path, output_path)
+
+        if cropped_pages:
+            message = f"PDF pronto. Ho tagliato i bordi uniformi su {cropped_pages} pagine."
+        else:
+            message = "PDF pronto. Non ho trovato bordi uniformi abbastanza chiari da tagliare."
+        if rotated_pages:
+            message += f" Ho anche corretto automaticamente l'orientamento di {rotated_pages} pagine."
+        return ProcessingResult(
+            output_path=output_path,
+            output_name=output_path.name,
+            message=message,
+            auto_rotation_applied=rotated_pages > 0,
+            processing_mode="native",
+        )
+
     def rotate_pdf(self, pdf_path: Path, output_stem: str, rotate_degrees: int) -> ProcessingResult:
         if rotate_degrees not in {90, 180, 270}:
             raise ProcessingUserError("Per la rotazione manuale puoi usare solo 90, 180 o 270 gradi.")
@@ -870,6 +903,61 @@ class DocumentProcessor:
         finally:
             destination.close()
             source.close()
+
+    def _crop_pdf_uniform_borders(self, pdf_path: Path, output_path: Path) -> int:
+        document = self._open_pdf_document(pdf_path)
+        cropped_pages = 0
+        try:
+            for page in document:
+                crop_rect = self._detect_pdf_page_content_rect(page)
+                if crop_rect is None:
+                    continue
+                page.set_cropbox(crop_rect)
+                cropped_pages += 1
+            document.save(output_path, garbage=4, clean=True, deflate=True, use_objstms=1)
+            return cropped_pages
+        finally:
+            document.close()
+
+    def _detect_pdf_page_content_rect(self, page: fitz.Page) -> fitz.Rect | None:
+        page_rect = page.rect
+        if page_rect.width < 40 or page_rect.height < 40:
+            return None
+
+        zoom = 2
+        pixmap = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csRGB, alpha=False)
+        image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+        try:
+            background = self._estimate_background_color(image)
+            diff = ImageChops.difference(image, Image.new("RGB", image.size, background))
+            bbox = diff.convert("L").point(lambda value: 255 if value > 18 else 0).getbbox()
+        finally:
+            image.close()
+        if bbox is None:
+            return None
+
+        left, top, right, bottom = bbox
+        if (right - left) >= pixmap.width - 8 and (bottom - top) >= pixmap.height - 8:
+            return None
+
+        padding = max(4, min(pixmap.width, pixmap.height) // 150)
+        left = max(0, left - padding)
+        top = max(0, top - padding)
+        right = min(pixmap.width, right + padding)
+        bottom = min(pixmap.height, bottom + padding)
+
+        if right - left < pixmap.width * 0.35 or bottom - top < pixmap.height * 0.35:
+            return None
+
+        new_rect = fitz.Rect(
+            page_rect.x0 + (left / pixmap.width) * page_rect.width,
+            page_rect.y0 + (top / pixmap.height) * page_rect.height,
+            page_rect.x0 + (right / pixmap.width) * page_rect.width,
+            page_rect.y0 + (bottom / pixmap.height) * page_rect.height,
+        )
+        if new_rect.width >= page_rect.width - 2 and new_rect.height >= page_rect.height - 2:
+            return None
+        return new_rect
 
     def _compress_pdf_lossless(self, pdf_path: Path, output_path: Path) -> None:
         document = self._open_pdf_document(pdf_path)
