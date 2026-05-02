@@ -340,6 +340,33 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         finally:
             cropped.close()
 
+    def test_process_pdf_crop_handles_rotated_pages_in_unrotated_coordinates(self) -> None:
+        input_dir = self.runtime_dir / "jobs" / "job_pdf_rotated_crop" / "input"
+        input_dir.mkdir(parents=True, exist_ok=True)
+        pdf_path = input_dir / "source.pdf"
+        document = fitz.open()
+        try:
+            page = document.new_page(width=400, height=600)
+            page.draw_rect(fitz.Rect(90, 120, 310, 480), color=(0, 0, 0), fill=(0.95, 0.95, 0.95), width=2)
+            page.insert_text((120, 180), "DocMolder rotated crop test", fontsize=16)
+            page.set_rotation(90)
+            document.save(pdf_path)
+        finally:
+            document.close()
+
+        result = self.processor.process(SupportedAction.PDF_CROP, [pdf_path], "cropped_rotated_pdf", auto_rotate_pdf=False)
+
+        cropped = fitz.open(result.output_path)
+        try:
+            page = cropped[0]
+            self.assertEqual(page.rotation, 90)
+            self.assertLess(page.rect.width, 600)
+            self.assertLess(page.rect.height, 400)
+            self.assertLess(page.cropbox.width, 400)
+            self.assertLess(page.cropbox.height, 600)
+        finally:
+            cropped.close()
+
     def test_process_pdf_crop_keeps_photo_document_crop_native(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_pdf_photo_safe_crop" / "input"
         input_dir.mkdir(parents=True, exist_ok=True)

@@ -188,6 +188,11 @@ class SQLiteSessionStore:
             )
             connection.commit()
 
+    def delete_meta(self, key: str) -> None:
+        with self._lock, self._connect() as connection:
+            connection.execute("DELETE FROM app_meta WHERE key = ?", (key,))
+            connection.commit()
+
     def list_meta(self, prefix: str) -> dict[str, str]:
         with self._lock, self._connect() as connection:
             rows = connection.execute(

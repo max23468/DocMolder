@@ -174,7 +174,7 @@ def main() -> int:
         print(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True))
     else:
         print_text(report)
-    return 0 if report.get("ok") or report.get("health_error") else 1
+    return 0 if report.get("ok") else 1
 
 
 if __name__ == "__main__":

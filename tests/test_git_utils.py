@@ -44,7 +44,7 @@ class GitUtilsTest(unittest.TestCase):
             self.assertFalse(lock.exists())
             self.assertIn("Rimosso lock Git stale", message)
 
-    def test_remove_stale_index_lock_tolerates_missing_lsof(self) -> None:
+    def test_remove_stale_index_lock_refuses_when_lsof_is_missing(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             repo = Path(tmp)
             git_dir = repo / ".git"
@@ -60,10 +60,10 @@ class GitUtilsTest(unittest.TestCase):
                 raise AssertionError(args)
 
             with patch("docmolder.git_utils.subprocess.run", side_effect=fake_run):
-                message = remove_stale_index_lock(str(repo))
+                with self.assertRaisesRegex(RuntimeError, "lsof"):
+                    remove_stale_index_lock(str(repo))
 
-            self.assertFalse(lock.exists())
-            self.assertIn("Rimosso lock Git stale", message)
+            self.assertTrue(lock.exists())
 
     def test_run_git_command_waits_for_available_lock(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

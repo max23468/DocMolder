@@ -120,6 +120,29 @@ class ReconcileTest(unittest.TestCase):
         self.assertEqual(report["pruned_finished_jobs"], 0)
         self.assertIsNotNone(self.store.get_job(old_job.id))
 
+    def test_reconciliation_no_prune_finished_overrides_explicit_prune_days(self) -> None:
+        old_job = self.store.create_job(7, 99, None, "pdf_compress", "{}")
+        self.store.mark_job_succeeded(old_job.id, "Completato")
+        old_timestamp = "2000-01-01T00:00:00+00:00"
+        with self.store._connect() as connection:
+            connection.execute(
+                "UPDATE jobs SET created_at = ?, finished_at = ? WHERE id = ?",
+                (old_timestamp, old_timestamp, old_job.id),
+            )
+            connection.commit()
+
+        report = run_reconciliation(
+            self.settings,
+            stale_running_age_seconds=None,
+            prune_finished_days=7,
+            prune_finished=False,
+            cleanup_runtime=False,
+        )
+
+        self.assertEqual(report["pruned_finished_jobs"], 0)
+        self.assertIsNone(report["prune_finished_days"])
+        self.assertIsNotNone(self.store.get_job(old_job.id))
+
     def test_reconciliation_uses_explicit_prune_days_and_can_skip_cleanup(self) -> None:
         report = run_reconciliation(
             self.settings,

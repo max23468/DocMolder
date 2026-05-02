@@ -30,6 +30,7 @@ class TextRequestParsingTest(unittest.TestCase):
         self.assertEqual(_parse_image_pdf_margin_choice("bordi stretti"), A4_MARGIN_NARROW_PX)
         self.assertEqual(_parse_document_photo_mode_choice("mantieni colore"), DocumentPhotoMode.COLOR)
         self.assertEqual(_parse_document_photo_mode_choice("bianco e nero pulito"), DocumentPhotoMode.BW)
+        self.assertEqual(_parse_document_photo_mode_choice("bianco/nero pulito"), DocumentPhotoMode.BW)
         self.assertEqual(_parse_document_photo_mode_choice("piu leggibile"), DocumentPhotoMode.READABLE)
 
     def test_page_selection_normalization_and_validation(self) -> None:

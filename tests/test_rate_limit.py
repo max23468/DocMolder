@@ -10,7 +10,13 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import BotDependencies, _consume_upload_slot, _has_capacity_for_new_job
+from docmolder.bot import (
+    BotDependencies,
+    _consume_upload_slot,
+    _has_capacity_for_new_job,
+    _load_persisted_upload_history,
+    _persist_upload_history,
+)
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
 from docmolder.session_store import InMemorySessionStore
@@ -76,6 +82,25 @@ class RateLimitHelpersTest(unittest.TestCase):
         )
 
         self.assertTrue(_consume_upload_slot(42, restarted_deps))
+        self.assertEqual(
+            self.store.get_meta("upload_burst:42"),
+            json.dumps([round(restarted_deps.upload_history[42][0].timestamp(), 3)], separators=(",", ":")),
+        )
+
+    def test_consume_upload_slot_prunes_empty_stale_persisted_history(self) -> None:
+        stale_time = datetime.now(timezone.utc) - timedelta(seconds=40)
+        self.store.set_meta("upload_burst:42", json.dumps([stale_time.timestamp()]))
+        restarted_deps = BotDependencies(
+            settings=self.deps.settings,
+            session_store=self.store,
+            processor=self.deps.processor,
+        )
+
+        history = _load_persisted_upload_history(42, restarted_deps)
+        restarted_deps.upload_history[42] = history
+        _persist_upload_history(42, restarted_deps, history)
+
+        self.assertIsNone(self.store.get_meta("upload_burst:42"))
 
     def test_has_capacity_for_new_job_reflects_active_jobs(self) -> None:
         self.assertTrue(_has_capacity_for_new_job(7, self.deps))

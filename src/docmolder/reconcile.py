@@ -41,9 +41,11 @@ def run_reconciliation(
         if cleanup_runtime
         else 0
     )
-    effective_prune_finished_days = prune_finished_days
-    if effective_prune_finished_days is None and prune_finished:
-        effective_prune_finished_days = settings.job_history_retention_days
+    effective_prune_finished_days = None
+    if prune_finished:
+        effective_prune_finished_days = prune_finished_days
+        if effective_prune_finished_days is None:
+            effective_prune_finished_days = settings.job_history_retention_days
     pruned_finished_jobs = 0
     if effective_prune_finished_days is not None:
         pruned_finished_jobs = store.prune_finished_jobs(retention_days=effective_prune_finished_days)
