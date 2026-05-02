@@ -87,6 +87,15 @@ Prima del commit, esegui i check rilevanti alla modifica:
 - test mirati: `.venv/bin/python -m unittest tests.<modulo>`;
 - smoke Telegram: `make smoke-ui`, solo quando serve e quando l'ambiente locale lo permette.
 
+Scegli i check locali in base al rischio, evitando doppioni costosi quando GitHub CI coprirà già il gate completo:
+- docs-only minuscolo (`AGENTS.md`, `README.md`, `docs/**`): `git diff --check`/preflight mirato e pubblicazione docs; niente suite completa salvo comandi o runbook critici;
+- solo test: suite mirate sui test toccati più static/preflight; lascia la matrice completa a GitHub CI se la PR la richiede;
+- codice runtime, pipeline documentale, bot, storage o helper condivisi: test mirati durante lo sviluppo e `bash scripts/ci_verify.sh` prima del push/PR;
+- config package/workflow/deploy/release/security: `bash scripts/ci_verify.sh`, preflight publish e CI GitHub completa prima del merge;
+- deploy o cambio operativo rilasciabile: oltre ai gate sopra, segui runbook/smoke pertinenti.
+
+`CI result` su GitHub resta il gate remoto autorevole per le PR non draft verso `main`; i check locali servono a intercettare errori prima del push, non a duplicare sempre tutta la CI.
+
 Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente con motivo e rischio residuo.
 Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: citale solo se sono richieste esplicitamente, se servono per PR/release/audit, se falliscono, se non sono eseguibili o se lasciano un rischio residuo utile da conoscere.
 
