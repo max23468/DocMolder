@@ -27,6 +27,17 @@ from telegram.ext import (
 )
 
 from docmolder.config import Settings
+from docmolder.access_control import (
+    ACCESS_STATUS_APPROVED as _ACCESS_STATUS_APPROVED,
+    ACCESS_STATUS_BLOCKED as _ACCESS_STATUS_BLOCKED,
+    ACCESS_STATUS_PENDING as _ACCESS_STATUS_PENDING,
+    ACCESS_STATUS_REJECTED as _ACCESS_STATUS_REJECTED,
+    get_dynamic_access_status as _get_dynamic_access_status,
+    is_admin as _is_admin,
+    is_authorized_for_deps as _is_authorized_for_deps,
+    list_dynamic_access_statuses as _list_dynamic_access_statuses,
+    set_dynamic_access_status as _set_dynamic_access_status,
+)
 from docmolder.branding import (
     LEGACY_MENU_LABELS,
     TELEGRAM_DESCRIPTION,
@@ -142,11 +153,6 @@ _PENDING_DOCUMENT_PHOTO_MODE = "document_photo_mode"
 _SERVICE_MODE_META_KEY = "service_mode"
 _SERVICE_MODE_NORMAL = "normal"
 _SERVICE_MODE_MAINTENANCE = "maintenance"
-_ACCESS_META_PREFIX = "access:"
-_ACCESS_STATUS_PENDING = "pending"
-_ACCESS_STATUS_APPROVED = "approved"
-_ACCESS_STATUS_BLOCKED = "blocked"
-_ACCESS_STATUS_REJECTED = "rejected"
 _TELEGRAM_RETRY_ATTEMPTS = 3
 _TELEGRAM_METRIC_PREFIX = "telegram_metric:"
 _UPLOAD_BURST_META_PREFIX = "upload_burst:"
@@ -228,61 +234,6 @@ def _configure_logging() -> None:
     # leaking full URLs with the bot token into service logs.
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
-
-
-def _is_authorized(user_id: int | None, settings: Settings) -> bool:
-    if user_id is None:
-        return False
-    if not settings.allowed_user_ids:
-        return True
-    return user_id in settings.allowed_user_ids
-
-
-def _access_meta_key(user_id: int) -> str:
-    return f"{_ACCESS_META_PREFIX}{user_id}:status"
-
-
-def _get_dynamic_access_status(deps: BotDependencies, user_id: int | None) -> str | None:
-    if user_id is None:
-        return None
-    value = deps.session_store.get_meta(_access_meta_key(user_id))
-    return value.strip().lower() if value else None
-
-
-def _set_dynamic_access_status(deps: BotDependencies, user_id: int, status: str) -> None:
-    deps.session_store.set_meta(_access_meta_key(user_id), status)
-
-
-def _is_authorized_for_deps(user_id: int | None, deps: BotDependencies) -> bool:
-    if user_id is None:
-        return False
-    if _is_admin(user_id, deps.settings):
-        return True
-    dynamic_status = _get_dynamic_access_status(deps, user_id)
-    if dynamic_status in {_ACCESS_STATUS_BLOCKED, _ACCESS_STATUS_REJECTED}:
-        return False
-    if dynamic_status == _ACCESS_STATUS_APPROVED:
-        return True
-    return _is_authorized(user_id, deps.settings)
-
-
-def _list_dynamic_access_statuses(deps: BotDependencies) -> list[tuple[int, str]]:
-    entries: list[tuple[int, str]] = []
-    for key, value in deps.session_store.list_meta(_ACCESS_META_PREFIX).items():
-        suffix = key.removeprefix(_ACCESS_META_PREFIX)
-        raw_user_id = suffix.split(":", 1)[0]
-        try:
-            user_id = int(raw_user_id)
-        except ValueError:
-            continue
-        entries.append((user_id, value))
-    return sorted(entries, key=lambda item: item[0])
-
-
-def _is_admin(user_id: int | None, settings: Settings) -> bool:
-    if user_id is None:
-        return False
-    return user_id in settings.admin_user_ids
 
 
 def _get_dependencies(context: ContextTypes.DEFAULT_TYPE) -> BotDependencies:
