@@ -88,13 +88,30 @@ class TextRequestParsingTest(unittest.TestCase):
         self.assertEqual(plain_pdf.action, SupportedAction.IMAGES_TO_PDF)
 
     def test_quick_action_guidance_handles_empty_and_mismatched_sessions(self) -> None:
+        empty_session = UserSession(user_id=7)
         image_session = UserSession(user_id=7, files=[build_session_file("img-1", "foto.jpg", FileKind.IMAGE)])
         pdf_session = UserSession(user_id=7, files=[build_session_file("pdf-1", "doc.pdf", FileKind.PDF)])
+        multi_pdf_session = UserSession(
+            user_id=7,
+            files=[
+                build_session_file("pdf-1", "doc-1.pdf", FileKind.PDF),
+                build_session_file("pdf-2", "doc-2.pdf", FileKind.PDF),
+            ],
+        )
 
         self.assertIn("Inviami una o più immagini", _build_quick_action_guidance(None, "Crea PDF"))
+        self.assertIn("foto o scansioni", _build_quick_action_guidance(pdf_session, "Crea PDF"))
+        self.assertIn("Inviami un PDF", _build_quick_action_guidance(empty_session, "Comprimi PDF"))
         self.assertIn("prima trasformare", _build_quick_action_guidance(image_session, "Comprimi PDF"))
+        self.assertIn("un solo PDF", _build_quick_action_guidance(multi_pdf_session, "Comprimi PDF"))
+        self.assertIn("due o più PDF", _build_quick_action_guidance(None, "Unisci PDF"))
+        self.assertIn("servono PDF", _build_quick_action_guidance(image_session, "Unisci PDF"))
         self.assertIn("almeno due", _build_quick_action_guidance(pdf_session, "Unisci PDF"))
+        self.assertIn("PDF impaginato in A4", _build_quick_action_guidance(None, "foto in a4"))
         self.assertIn("impaginazione A4", _build_quick_action_guidance(image_session, "foto in a4"))
+        self.assertIn("non da PDF", _build_quick_action_guidance(pdf_session, "foto in a4"))
+        self.assertIn("Inviami una o più foto", _build_quick_action_guidance(None, "scansiona e comprimi"))
+        self.assertIn("senza ricaricarlo", _build_quick_action_guidance(image_session, "scansiona e comprimi"))
         self.assertIn("comprimere direttamente", _build_quick_action_guidance(pdf_session, "scansiona e comprimi"))
         self.assertIsNone(_build_quick_action_guidance(pdf_session, "testo libero"))
 
