@@ -16,6 +16,8 @@ fi
 
 bash -n scripts/*.sh
 
+python3 scripts/check_test_hygiene.py
+
 python3 - <<'PY'
 import ast
 from pathlib import Path
