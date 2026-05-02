@@ -60,6 +60,49 @@ class DeployEnvLoadTest(unittest.TestCase):
             ],
         )
 
+    def test_empty_docmolder_venv_dir_does_not_clear_existing_venv_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            env_file = Path(tmp) / "docmolder.env"
+            env_file.write_text(
+                "\n".join(
+                    [
+                        "DOCMOLDER_VENV_DIR=",
+                        "DOCMOLDER_HEALTHCHECK_BIN=${VENV_DIR}/bin/docmolder-healthcheck",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            result = subprocess.run(
+                [
+                    "bash",
+                    "-c",
+                    (
+                        "source deploy/env-load.sh; "
+                        "VENV_DIR=/opt/docmolder/venv; "
+                        f"load_docmolder_env_file {env_file}; "
+                        "printf '%s\\n%s\\n%s\\n' "
+                        "\"${DOCMOLDER_VENV_DIR-unset}\" "
+                        "\"${VENV_DIR}\" "
+                        "\"${DOCMOLDER_HEALTHCHECK_BIN}\""
+                    ),
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+        self.assertEqual(
+            result.stdout.splitlines(),
+            [
+                "",
+                "/opt/docmolder/venv",
+                "/opt/docmolder/venv/bin/docmolder-healthcheck",
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
