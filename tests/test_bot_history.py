@@ -321,6 +321,78 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("compressione PDF", reply_text.await_args.args[0])
         self.assertIsNotNone(reply_text.await_args.kwargs["reply_markup"])
 
+    async def test_result_callback_reports_missing_pdf_without_starting_session(self) -> None:
+        reply_text = AsyncMock()
+        message = SimpleNamespace(
+            chat_id=99,
+            message_id=325,
+            document=None,
+            reply_text=reply_text,
+        )
+        query = SimpleNamespace(
+            data="result:pdf_grayscale",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=message,
+            answer=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_result_action_callback(update, context)
+
+        reply_text.assert_awaited_once()
+        self.assertIn("Inviamelo di nuovo", reply_text.await_args.args[0])
+        self.assertIsNone(self.store.get(7))
+
+    async def test_result_callback_rejects_unknown_followup_action(self) -> None:
+        reply_text = AsyncMock()
+        message = SimpleNamespace(
+            chat_id=99,
+            message_id=326,
+            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            reply_text=reply_text,
+        )
+        query = SimpleNamespace(
+            data="result:not_supported",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=message,
+            answer=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_result_action_callback(update, context)
+
+        reply_text.assert_awaited_once()
+        self.assertIn("non è supportata", reply_text.await_args.args[0])
+        self.assertIsNone(self.store.get(7))
+
+    async def test_result_callback_can_prompt_for_rotation_without_reupload(self) -> None:
+        reply_text = AsyncMock()
+        message = SimpleNamespace(
+            chat_id=99,
+            message_id=327,
+            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            reply_text=reply_text,
+        )
+        query = SimpleNamespace(
+            data="result:pdf_rotate",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=message,
+            answer=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_result_action_callback(update, context)
+
+        saved_session = self.store.get(7)
+        self.assertIsNotNone(saved_session)
+        self.assertEqual(saved_session.files[0].telegram_file_id, "telegram-pdf-id")
+        reply_text.assert_awaited_once()
+        self.assertIn("Di quanti gradi", reply_text.await_args.args[0])
+        self.assertIsNotNone(reply_text.await_args.kwargs["reply_markup"])
+
     async def test_result_callback_can_continue_with_watermark_without_reupload(self) -> None:
         reply_text = AsyncMock()
         message = SimpleNamespace(
@@ -403,6 +475,52 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(queued_jobs), 1)
         self.assertIn('"auto_rotate_pdf": false', queued_jobs[0].payload_json)
         reply_text.assert_awaited_once()
+
+    async def test_result_callback_rejects_invalid_undo_rotate_reference(self) -> None:
+        reply_text = AsyncMock()
+        message = SimpleNamespace(
+            chat_id=99,
+            message_id=445,
+            document=SimpleNamespace(file_id="generated-pdf", file_name="docmolder_compressed.pdf", mime_type="application/pdf"),
+            reply_text=reply_text,
+        )
+        query = SimpleNamespace(
+            data="result:undo_rotate:not-a-job-id",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=message,
+            answer=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_result_action_callback(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        reply_text.assert_awaited_once()
+        self.assertIn("Richiesta non valida o scaduta", reply_text.await_args.args[0])
+
+    async def test_result_callback_rejects_undo_rotate_for_missing_source_job(self) -> None:
+        reply_text = AsyncMock()
+        message = SimpleNamespace(
+            chat_id=99,
+            message_id=446,
+            document=SimpleNamespace(file_id="generated-pdf", file_name="docmolder_compressed.pdf", mime_type="application/pdf"),
+            reply_text=reply_text,
+        )
+        query = SimpleNamespace(
+            data="result:undo_rotate:999",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=message,
+            answer=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_result_action_callback(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        reply_text.assert_awaited_once()
+        self.assertIn("operazione originale", reply_text.await_args.args[0])
 
     async def test_history_command_lists_recent_jobs(self) -> None:
         job = self.store.create_job(
