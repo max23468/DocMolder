@@ -288,6 +288,61 @@ class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.store.get(7))
         message.reply_text.assert_awaited_once()
 
+    async def test_pending_split_text_reprompts_when_choice_is_unclear(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_split",
+            )
+        )
+        message = SimpleNamespace(
+            text="decidi tu",
+            chat_id=99,
+            message_id=7022,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        self.assertIsNotNone(self.store.get(7))
+        message.reply_text.assert_awaited_once()
+        self.assertIn("ZIP", message.reply_text.await_args.args[0])
+        self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
+
+    async def test_pending_page_selection_reprompts_after_invalid_input(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_extract_pages",
+            )
+        )
+        message = SimpleNamespace(
+            text="due e tre",
+            chat_id=99,
+            message_id=7023,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        self.assertIsNotNone(self.store.get(7))
+        message.reply_text.assert_awaited_once()
+        self.assertIn("1,3,5-7", message.reply_text.await_args.args[0])
+
     async def test_pending_reorder_pages_accepts_space_separated_values(self) -> None:
         self.store.save(
             UserSession(
@@ -340,6 +395,33 @@ class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn('"watermark_text": "BOZZA"', queued_job.payload_json)
         self.assertIsNone(self.store.get(7))
 
+    async def test_pending_watermark_text_reprompts_after_empty_input(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_watermark",
+            )
+        )
+        message = SimpleNamespace(
+            text="   ",
+            chat_id=99,
+            message_id=7024,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        self.assertIsNotNone(self.store.get(7))
+        message.reply_text.assert_awaited_once()
+        self.assertIn("non può essere vuoto", message.reply_text.await_args.args[0])
+
     async def test_pending_rotate_text_enqueues_job(self) -> None:
         self.store.save(
             UserSession(
@@ -366,6 +448,33 @@ class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn('"rotate_degrees": 90', queued_job.payload_json)
         self.assertIsNone(self.store.get(7))
         message.reply_text.assert_awaited_once()
+
+    async def test_pending_rotate_text_reprompts_after_missing_degrees(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="pdf_rotate",
+            )
+        )
+        message = SimpleNamespace(
+            text="ruotalo un po",
+            chat_id=99,
+            message_id=7025,
+            reply_text=AsyncMock(),
+        )
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        self.assertEqual(len(self.store._jobs), 0)
+        self.assertIsNotNone(self.store.get(7))
+        message.reply_text.assert_awaited_once()
+        self.assertIn("90", message.reply_text.await_args.args[0])
 
     async def test_rotate_callback_enqueues_manual_rotation_job(self) -> None:
         self.store.save(
