@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.6.5](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.4...docmolder-v1.6.5) (2026-05-02)
+
+
+### Correzioni
+
+* preserve venv dir on empty env override ([#134](https://github.com/max23468/DocMolder/issues/134)) ([d187caa](https://github.com/max23468/DocMolder/commit/d187caaa39e8b7fc1ef1e484bf24c5aa1620e491))
+
 ## [1.6.4](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.3...docmolder-v1.6.4) (2026-05-02)
 
 
