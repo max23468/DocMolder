@@ -46,7 +46,6 @@ from docmolder.bot import (
     _get_stored_image_pdf_margin,
     _get_stored_split_output_choice,
     _increment_meta_counter,
-    _is_authorized,
     _is_authorized_for_deps,
     _is_replayed_callback,
     _is_service_paused,
@@ -71,6 +70,7 @@ from docmolder.bot import (
     handle_menu_text,
     start_command,
 )
+from docmolder.access_control import is_authorized
 from docmolder.config import Settings
 from docmolder.branding import TELEGRAM_NAME, build_telegram_commands
 from docmolder.processing import DocumentProcessor
@@ -138,9 +138,9 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         restricted_settings = self.settings.model_copy(update={"allowed_user_ids": [1], "admin_user_ids": [99]})
         restricted_deps = BotDependencies(restricted_settings, InMemorySessionStore(), self.processor)
 
-        self.assertFalse(_is_authorized(None, restricted_settings))
-        self.assertTrue(_is_authorized(1, restricted_settings))
-        self.assertFalse(_is_authorized(7, restricted_settings))
+        self.assertFalse(is_authorized(None, restricted_settings))
+        self.assertTrue(is_authorized(1, restricted_settings))
+        self.assertFalse(is_authorized(7, restricted_settings))
         self.assertFalse(_is_authorized_for_deps(None, restricted_deps))
         self.assertTrue(_is_authorized_for_deps(99, restricted_deps))
         self.assertFalse(_is_authorized_for_deps(7, restricted_deps))
