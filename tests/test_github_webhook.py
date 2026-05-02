@@ -188,6 +188,37 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         self.assertEqual(app.state.last_error, "deploy exited with 2")
         self.assertFalse(app.state.last_result["ok"])
 
+    def test_worker_loop_records_successful_and_unexpected_results(self) -> None:
+        app = GitHubDeployWebhookApp(self._config())
+        job = self._job()
+        with patch.object(app, "_run_deploy") as run_deploy:
+            app.start()
+            try:
+                app.enqueue(job)
+                app.jobs.join()
+            finally:
+                app.stop()
+
+        run_deploy.assert_called_once_with(job)
+        self.assertFalse(app.state.busy)
+        self.assertEqual(app.state.last_job["delivery_id"], "delivery-1")
+        self.assertIsNone(app.state.last_error)
+        self.assertIsNotNone(app.state.last_finished_at)
+
+        failing_app = GitHubDeployWebhookApp(self._config())
+        with patch.object(failing_app, "_run_deploy", side_effect=RuntimeError("boom")):
+            failing_app.start()
+            try:
+                failing_app.enqueue(job)
+                failing_app.jobs.join()
+            finally:
+                failing_app.stop()
+
+        self.assertFalse(failing_app.state.busy)
+        self.assertEqual(failing_app.state.last_error, "boom")
+        self.assertFalse(failing_app.state.last_result["ok"])
+        self.assertEqual(failing_app.state.last_result["error"], "boom")
+
     def test_run_auto_release_executes_existing_script(self) -> None:
         with TemporaryDirectory() as temp_dir:
             release_script = Path(temp_dir) / "release.sh"
@@ -308,6 +339,89 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         self.assertEqual(bad_payload["error"], "invalid signature")
         self.assertEqual(ping_code, 200)
         self.assertEqual(ping_payload["event"], "ping")
+        self.assertTrue(app.jobs.empty())
+
+    def test_webhook_handler_rejects_unconfigured_invalid_json_and_ignored_events(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            missing_deploy_script = Path(temp_dir) / "missing-deploy.sh"
+            unconfigured_app = GitHubDeployWebhookApp(self._config(deploy_script=str(missing_deploy_script)))
+            unconfigured_server = GitHubDeployWebhookHTTPServer(
+                ("127.0.0.1", 0), GitHubDeployWebhookHandler, unconfigured_app
+            )
+            unconfigured_thread = threading.Thread(target=unconfigured_server.serve_forever, daemon=True)
+            unconfigured_thread.start()
+            try:
+                unavailable_code, unavailable_payload = self._request(
+                    unconfigured_server,
+                    "POST",
+                    "/webhooks/github/deploy",
+                    b"{}",
+                    {"X-GitHub-Event": "push"},
+                )
+            finally:
+                unconfigured_server.shutdown()
+                unconfigured_server.server_close()
+                unconfigured_thread.join(timeout=2)
+
+            deploy_script = Path(temp_dir) / "deploy.sh"
+            deploy_script.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+            app = GitHubDeployWebhookApp(self._config(deploy_script=str(deploy_script)))
+            server = GitHubDeployWebhookHTTPServer(("127.0.0.1", 0), GitHubDeployWebhookHandler, app)
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                invalid_body = b"{"
+                invalid_code, invalid_payload = self._request(
+                    server,
+                    "POST",
+                    "/webhooks/github/deploy",
+                    invalid_body,
+                    {
+                        "X-GitHub-Event": "push",
+                        "X-Hub-Signature-256": self._signature("secret", invalid_body),
+                    },
+                )
+                unsupported_body = b"{}"
+                unsupported_code, unsupported_payload = self._request(
+                    server,
+                    "POST",
+                    "/webhooks/github/deploy",
+                    unsupported_body,
+                    {
+                        "X-GitHub-Event": "pull_request",
+                        "X-Hub-Signature-256": self._signature("secret", unsupported_body),
+                    },
+                )
+                wrong_branch_body = json.dumps(
+                    {
+                        "repository": {"full_name": "Max23468/DocMolder"},
+                        "ref": "refs/heads/feature",
+                        "after": "abc123",
+                    }
+                ).encode("utf-8")
+                ignored_code, ignored_payload = self._request(
+                    server,
+                    "POST",
+                    "/webhooks/github/deploy",
+                    wrong_branch_body,
+                    {
+                        "X-GitHub-Event": "push",
+                        "X-Hub-Signature-256": self._signature("secret", wrong_branch_body),
+                    },
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(timeout=2)
+
+        self.assertEqual(unavailable_code, 503)
+        self.assertEqual(unavailable_payload["error"], "webhook listener not configured")
+        self.assertEqual(invalid_code, 400)
+        self.assertEqual(invalid_payload["error"], "invalid json")
+        self.assertEqual(unsupported_code, 202)
+        self.assertIn("unsupported event", unsupported_payload["reason"])
+        self.assertEqual(ignored_code, 202)
+        self.assertIn("ref mismatch", ignored_payload["reason"])
         self.assertTrue(app.jobs.empty())
 
     def test_main_stops_cleanly_after_keyboard_interrupt(self) -> None:

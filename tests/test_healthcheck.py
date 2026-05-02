@@ -13,7 +13,15 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.config import Settings
-from docmolder.healthcheck import build_health_report, main, render_text_report
+from docmolder.healthcheck import (
+    _directory_size_bytes,
+    _disk_usage,
+    _load_average,
+    _memory_info,
+    build_health_report,
+    main,
+    render_text_report,
+)
 from docmolder.session_store import SQLiteSessionStore
 
 
@@ -143,6 +151,81 @@ class HealthcheckTest(unittest.TestCase):
 
         self.assertTrue(report["ok"])
         self.assertIsNone(report["service"]["active"])
+
+    def test_system_helpers_handle_platform_and_filesystem_edges(self) -> None:
+        class FakeStat:
+            st_size = 5
+
+        class FakeCandidate:
+            def __init__(self, *, is_file: bool = True, raises: bool = False) -> None:
+                self._is_file = is_file
+                self._raises = raises
+
+            def is_file(self) -> bool:
+                return self._is_file
+
+            def stat(self) -> FakeStat:
+                if self._raises:
+                    raise OSError("cannot stat")
+                return FakeStat()
+
+        class FakePath:
+            def exists(self) -> bool:
+                return True
+
+            def rglob(self, pattern: str):
+                return [
+                    FakeCandidate(),
+                    FakeCandidate(raises=True),
+                    FakeCandidate(is_file=False),
+                ]
+
+        fake_path = FakePath()
+        self.assertEqual(_directory_size_bytes(fake_path), 5)
+        self.assertEqual(_directory_size_bytes(self.root / "missing-dir"), 0)
+
+        with patch("docmolder.healthcheck.shutil.disk_usage", side_effect=OSError("disk unavailable")):
+            self.assertIsNone(_disk_usage(self.runtime_dir))
+        with patch("docmolder.healthcheck.os.getloadavg", side_effect=OSError("load unavailable")):
+            self.assertIsNone(_load_average())
+
+    def test_memory_info_parses_linux_meminfo_and_handles_invalid_data(self) -> None:
+        meminfo_path = self.root / "meminfo"
+        meminfo_path.write_text(
+            "\n".join(
+                [
+                    "MemTotal:       1000 kB",
+                    "MemAvailable:    250 kB",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        with patch("docmolder.healthcheck.Path", return_value=meminfo_path):
+            parsed = _memory_info()
+
+        self.assertEqual(parsed, {"total_bytes": 1_024_000, "available_bytes": 256_000, "used_bytes": 768_000})
+
+        meminfo_path.write_text(
+            "\n".join(
+                [
+                    "MemTotal:       1000 kB",
+                    "MemFree:         100 kB",
+                ]
+            ),
+            encoding="utf-8",
+        )
+        with patch("docmolder.healthcheck.Path", return_value=meminfo_path):
+            fallback = _memory_info()
+
+        self.assertEqual(fallback["available_bytes"], 102_400)
+
+        meminfo_path.write_text("MemTotal: nope kB\n", encoding="utf-8")
+        with patch("docmolder.healthcheck.Path", return_value=meminfo_path):
+            self.assertIsNone(_memory_info())
+
+        missing_meminfo_path = self.root / "missing-meminfo"
+        with patch("docmolder.healthcheck.Path", return_value=missing_meminfo_path):
+            self.assertIsNone(_memory_info())
 
     def test_render_text_report_includes_reasons_warnings_and_alerts(self) -> None:
         report = build_health_report(self.settings, max_database_bytes=1)
