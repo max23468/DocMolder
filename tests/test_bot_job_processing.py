@@ -479,6 +479,23 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Comprimi PDF: 2", report)
         self.assertIn("Dividi PDF: 0", report)
 
+    def test_build_admin_report_uses_weekly_slow_job_label(self) -> None:
+        report = _build_admin_report(
+            self.store.build_admin_stats(),
+            [],
+            [],
+            [],
+            [],
+            [],
+            activity_window_label="della settimana",
+            completed_jobs_heading="Job completati della settimana",
+            failed_jobs_heading="Job falliti della settimana",
+            slow_jobs_heading="Job lenti della settimana",
+        )
+
+        self.assertIn("Job lenti della settimana", report)
+        self.assertNotIn("Job lenti ultime 24 ore", report)
+
     def test_build_limit_messages_include_current_values(self) -> None:
         self.assertIn("20 MB", _build_file_too_large_message(20))
         self.assertIn("12 file", _build_session_file_limit_message(12))
@@ -2194,6 +2211,29 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn('"document_photo_mode": "color"', queued_job.payload_json)
         self.assertIsNone(self.store.get(7))
         self.assertIn("Mantieni colore", query.edit_message_text.await_args.args[0])
+
+    async def test_document_photo_mode_callback_rejects_incompatible_session(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+                pending_action="document_photo_mode",
+            )
+        )
+        query = SimpleNamespace(
+            data="document_photo_mode:color",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=4573),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_document_photo_mode_callback(update, context)
+
+        self.assertEqual(self.store._jobs, {})
+        self.assertIn("non è più compatibile", query.edit_message_text.await_args.args[0])
 
     async def test_layout_callback_a4_prompts_for_margin_choice(self) -> None:
         self.store.save(

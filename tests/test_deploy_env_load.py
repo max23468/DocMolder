@@ -18,6 +18,7 @@ class DeployEnvLoadTest(unittest.TestCase):
                     [
                         "DOCMOLDER_SMOKE_CHECK_ATTEMPTS=12 # retry count",
                         "DOCMOLDER_SMOKE_CHECK_SLEEP_SECONDS=5" + "   ",
+                        "DOCMOLDER_VENV_DIR=${VENV_DIR}/custom",
                         "DOCMOLDER_HEALTHCHECK_BIN=${VENV_DIR}/bin/docmolder-healthcheck",
                         "DOCMOLDER_LITERAL='${VENV_DIR}/literal'",
                     ]
@@ -34,9 +35,10 @@ class DeployEnvLoadTest(unittest.TestCase):
                         "source deploy/env-load.sh; "
                         "VENV_DIR=/opt/docmolder/venv; "
                         f"load_docmolder_env_file {env_file}; "
-                        "printf '%s\\n%s\\n%s\\n%s\\n' "
+                        "printf '%s\\n%s\\n%s\\n%s\\n%s\\n' "
                         "\"${DOCMOLDER_SMOKE_CHECK_ATTEMPTS}\" "
                         "\"${DOCMOLDER_SMOKE_CHECK_SLEEP_SECONDS}\" "
+                        "\"${DOCMOLDER_VENV_DIR}\" "
                         "\"${DOCMOLDER_HEALTHCHECK_BIN}\" "
                         "\"${DOCMOLDER_LITERAL}\""
                     ),
@@ -52,7 +54,8 @@ class DeployEnvLoadTest(unittest.TestCase):
             [
                 "12",
                 "5",
-                "/opt/docmolder/venv/bin/docmolder-healthcheck",
+                "/opt/docmolder/venv/custom",
+                "/opt/docmolder/venv/custom/bin/docmolder-healthcheck",
                 "${VENV_DIR}/literal",
             ],
         )

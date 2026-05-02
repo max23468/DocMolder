@@ -65,7 +65,7 @@ def _parse_document_photo_mode_choice(text: str) -> DocumentPhotoMode | None:
         return DocumentPhotoMode.COLOR
     if _contains_any(
         normalized,
-        ("bianco e nero", "bianco nero", "b/n", "bn", "black white", "bw", "monocromatico"),
+        ("bianco e nero", "bianco nero", "bianco/nero", "b/n", "bn", "black white", "bw", "monocromatico"),
     ):
         return DocumentPhotoMode.BW
     if _contains_any(normalized, ("piu leggibile", "leggibile", "contrasto", "pulito")):

@@ -75,6 +75,7 @@ def build_plan(plan_name: str, assets: dict[str, Path]) -> list[Step]:
             Step("text", "/history", 1.0),
         ],
         "public-trust": [
+            Step("text", "/reset", 1.0),
             Step("text", "/start", 1.0),
             Step("text", "/help", 1.0),
             Step("text", "/start privacy", 1.0),

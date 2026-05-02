@@ -51,6 +51,7 @@ class SmokeTelegramDesktopScriptTest(unittest.TestCase):
             steps = build_plan("public-trust", assets)
 
             text_steps = [step.value for step in steps if step.kind == "text"]
+            self.assertEqual(text_steps[0], "/reset")
             self.assertIn("/start", text_steps)
             self.assertIn("/help", text_steps)
             self.assertIn("/start privacy", text_steps)

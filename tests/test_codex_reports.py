@@ -95,6 +95,18 @@ class CodexReportsTest(unittest.TestCase):
 
         self.assertTrue(any("Config/healthcheck" in action for action in actions))
 
+    def test_ops_report_fails_when_healthcheck_cannot_execute(self) -> None:
+        with (
+            patch.object(
+                ops_report,
+                "collect_report",
+                return_value={"ok": False, "health_error": "boom", "services": [], "commands": {}},
+            ),
+            patch.object(ops_report, "print_text"),
+            patch("sys.argv", ["ops_report.py"]),
+        ):
+            self.assertEqual(ops_report.main(), 1)
+
     def test_ops_next_actions_detects_stale_jobs(self) -> None:
         actions = ops_report.next_actions(
             {
@@ -158,6 +170,15 @@ class CodexReportsTest(unittest.TestCase):
         )
 
         self.assertEqual(comments, [])
+
+    def test_check_codex_bot_comments_reports_repo_lookup_failures_as_errors(self) -> None:
+        with (
+            patch.object(check_codex_bot_comments.shutil, "which", return_value="/usr/bin/gh"),
+            patch.object(check_codex_bot_comments, "current_pr_number", return_value=63),
+            patch.object(check_codex_bot_comments, "repo_owner_name", side_effect=RuntimeError("gh unavailable")),
+            patch("sys.argv", ["check_codex_bot_comments.py", "--fail"]),
+        ):
+            self.assertEqual(check_codex_bot_comments.main(), 2)
 
 
 if __name__ == "__main__":

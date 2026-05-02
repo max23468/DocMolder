@@ -68,6 +68,10 @@ class InMemorySessionStore:
         with self._lock:
             self._meta[key] = value
 
+    def delete_meta(self, key: str) -> None:
+        with self._lock:
+            self._meta.pop(key, None)
+
     def list_meta(self, prefix: str) -> dict[str, str]:
         with self._lock:
             return {key: value for key, value in self._meta.items() if key.startswith(prefix)}

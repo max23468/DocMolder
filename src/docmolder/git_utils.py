@@ -34,8 +34,10 @@ def list_index_lock_holders(lock_path: Path) -> list[str]:
             capture_output=True,
             text=True,
         )
-    except FileNotFoundError:
-        return []
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "`lsof` non è disponibile: non posso verificare se index.lock è ancora in uso."
+        ) from exc
     if result.returncode not in (0, 1):
         stderr = result.stderr.strip() or "errore sconosciuto"
         raise RuntimeError(f"Impossibile verificare i processi che tengono il lock: {stderr}")

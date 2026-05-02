@@ -732,7 +732,11 @@ def _load_persisted_upload_history(user_id: int, deps: BotDependencies) -> deque
 
 def _persist_upload_history(user_id: int, deps: BotDependencies, history: deque[datetime]) -> None:
     timestamps = [round(item.timestamp(), 3) for item in history]
-    deps.session_store.set_meta(_upload_burst_meta_key(user_id), json.dumps(timestamps, separators=(",", ":")))
+    meta_key = _upload_burst_meta_key(user_id)
+    if not timestamps:
+        deps.session_store.delete_meta(meta_key)
+        return
+    deps.session_store.set_meta(meta_key, json.dumps(timestamps, separators=(",", ":")))
 
 
 async def _sync_telegram_branding(
@@ -2274,6 +2278,13 @@ async def handle_document_photo_mode_callback(update: Update, context: ContextTy
         await query.edit_message_text(_invalid_callback_message())
         return
 
+    if SupportedAction.DOCUMENT_PHOTO_FIX not in infer_supported_actions(session):
+        await query.edit_message_text(
+            "Questa scelta non è più compatibile con la sessione corrente. "
+            "Inviami una foto del documento oppure usa /reset per ripartire."
+        )
+        return
+
     if not _has_capacity_for_new_job(user.id, deps):
         await query.edit_message_text(_build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
@@ -2551,6 +2562,7 @@ def _build_admin_report(
     activity_window_label: str = "ultimi 7 giorni",
     completed_jobs_heading: str = "Ultimi job completati",
     failed_jobs_heading: str = "Ultimi job falliti",
+    slow_jobs_heading: str = "Job lenti ultime 24 ore",
 ) -> str:
     timestamp = datetime.now(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y alle %H:%M")
     total_finished_jobs = stats.jobs_succeeded + stats.jobs_failed
@@ -2568,10 +2580,7 @@ def _build_admin_report(
     ) or "- Nessun pattern di errore rilevante"
     failed_jobs_block = "\n".join(_format_job_line(job) for job in recent_failed_jobs) or "- Nessun job fallito di recente"
     completed_jobs_block = "\n".join(_format_job_line(job) for job in recent_completed_jobs) or "- Nessun job completato di recente"
-    slow_jobs_block = (
-        "\n".join(_format_job_line(job) for job in slow_jobs or [])
-        or "- Nessun job lento rilevante nelle ultime 24 ore"
-    )
+    slow_jobs_block = "\n".join(_format_job_line(job) for job in slow_jobs or []) or "- Nessun job lento rilevante"
     return (
         "Riepilogo admin DocMolder\n"
         f"Aggiornato: {timestamp}\n\n"
@@ -2618,7 +2627,7 @@ def _build_admin_report(
         f"{top_users_block}\n\n"
         f"{completed_jobs_heading}:\n"
         f"{completed_jobs_block}\n\n"
-        "Job lenti ultime 24 ore:\n"
+        f"{slow_jobs_heading}:\n"
         f"{slow_jobs_block}\n\n"
         f"{failed_jobs_heading}:\n"
         f"{failed_jobs_block}"
@@ -3964,10 +3973,12 @@ def _build_periodic_admin_report(deps: BotDependencies, *, since_days: int, titl
         activity_window_label = "ultime 24 ore"
         completed_jobs_heading = "Job completati nelle ultime 24 ore"
         failed_jobs_heading = "Job falliti nelle ultime 24 ore"
+        slow_jobs_heading = "Job lenti nelle ultime 24 ore"
     else:
         activity_window_label = "della settimana"
         completed_jobs_heading = "Job completati della settimana"
         failed_jobs_heading = "Job falliti della settimana"
+        slow_jobs_heading = "Job lenti della settimana"
     report_body = _build_admin_report(
         stats,
         top_users,
@@ -3978,6 +3989,7 @@ def _build_periodic_admin_report(deps: BotDependencies, *, since_days: int, titl
         activity_window_label=activity_window_label,
         completed_jobs_heading=completed_jobs_heading,
         failed_jobs_heading=failed_jobs_heading,
+        slow_jobs_heading=slow_jobs_heading,
     )
     return f"{title}\n\n{report_body}"
 

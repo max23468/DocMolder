@@ -27,8 +27,7 @@
         },
         {
           "type": "docs",
-          "section": "Documentazione",
-          "hidden": true
+          "section": "Documentazione"
         },
         {
           "type": "chore",

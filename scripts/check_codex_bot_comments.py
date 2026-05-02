@@ -37,7 +37,12 @@ def gh_json(args: list[str]) -> object:
 
 
 def repo_owner_name() -> tuple[str, str]:
-    output = run(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"]).stdout.strip()
+    result = run(["gh", "repo", "view", "--json", "nameWithOwner", "--jq", ".nameWithOwner"], check=False)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip() or "gh repo view failed")
+    output = result.stdout.strip()
+    if "/" not in output:
+        raise RuntimeError("gh repo view returned an invalid repository name")
     owner, name = output.split("/", 1)
     return owner, name
 
@@ -213,8 +218,8 @@ def main() -> int:
         print("Nessuna PR corrente: salto controllo commenti Codex connector bot.")
         return 0
 
-    owner, repo = repo_owner_name()
     try:
+        owner, repo = repo_owner_name()
         head_oid = pr_head_oid(number)
         comments = find_bot_comments(
             load_pr_threads(owner, repo, number),

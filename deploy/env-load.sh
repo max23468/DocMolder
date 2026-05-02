@@ -68,6 +68,10 @@ load_docmolder_env_file() {
     esac
     if [ "${quoted}" != "single" ]; then
       value="$(_docmolder_expand_safe_env_value "${value}")"
+      if [ "${key}" = "DOCMOLDER_VENV_DIR" ]; then
+        VENV_DIR="${value}"
+        export VENV_DIR
+      fi
     fi
     export "${key}=${value}"
   done < "${env_file}"

@@ -919,6 +919,18 @@ class DocumentProcessor:
         finally:
             document.close()
 
+    def _normalize_pdf_cropbox_rect(self, page: fitz.Page, rect: fitz.Rect) -> fitz.Rect:
+        if page.rotation:
+            rect = rect * page.derotation_matrix
+        bounds = page.cropbox if not page.cropbox.is_empty else page.mediabox
+        rect = fitz.Rect(
+            max(bounds.x0, rect.x0),
+            max(bounds.y0, rect.y0),
+            min(bounds.x1, rect.x1),
+            min(bounds.y1, rect.y1),
+        )
+        return rect
+
     def _detect_pdf_page_content_rect(self, page: fitz.Page) -> fitz.Rect | None:
         page_rect = page.rect
         if page_rect.width < 40 or page_rect.height < 40:
@@ -966,7 +978,7 @@ class DocumentProcessor:
             return None
         if new_rect.width >= page_rect.width - 2 and new_rect.height >= page_rect.height - 2:
             return None
-        return new_rect
+        return self._normalize_pdf_cropbox_rect(page, new_rect)
 
     def _detect_pdf_image_content_rect(self, page: fitz.Page) -> fitz.Rect | None:
         content_rect: fitz.Rect | None = None
