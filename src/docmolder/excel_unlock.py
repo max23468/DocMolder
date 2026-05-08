@@ -148,17 +148,19 @@ class ExcelUnlocker:
         try:
             settings = getattr(workbook, "settings", None)
             if settings is not None and bool(getattr(settings, "is_protected", False)):
-                workbook.unprotect("")
+                _unprotect_aspose_workbook(workbook)
                 if not bool(getattr(settings, "is_protected", False)):
                     removed_count += 1
             worksheets = workbook.worksheets
             for index in range(len(worksheets)):
                 sheet = _get_aspose_worksheet(worksheets, index)
                 if bool(getattr(sheet, "is_protected", False)):
-                    sheet.unprotect()
+                    _unprotect_aspose_sheet(sheet)
                     if not bool(getattr(sheet, "is_protected", False)):
                         removed_count += 1
             workbook.save(str(output_path), cells.SaveFormat.XLSB)
+        except ExcelUnlockError:
+            raise
         except Exception as exc:
             logger.warning("Sblocco Excel .xlsb via Aspose.Cells non riuscito: %s", str(exc)[:500])
             raise ExcelUnlockError(
@@ -289,6 +291,27 @@ def _get_aspose_worksheet(worksheets: object, index: int) -> object:
     if callable(get_worksheet):
         return get_worksheet(index)
     return worksheets[index]  # type: ignore[index]
+
+
+def _unprotect_aspose_workbook(workbook: object) -> None:
+    try:
+        workbook.unprotect("")
+    except Exception as exc:
+        raise ExcelUnlockError(
+            "Questo Excel .xlsb ha la struttura workbook protetta da una password reale. "
+            "Non posso aggirarla senza password."
+        ) from exc
+
+
+def _unprotect_aspose_sheet(sheet: object) -> None:
+    sheet_name = str(getattr(sheet, "name", "") or "un foglio")
+    try:
+        sheet.unprotect()
+    except Exception as exc:
+        raise ExcelUnlockError(
+            f"Questo Excel .xlsb ha {sheet_name} protetto da una password reale. "
+            "Non posso aggirarla senza password."
+        ) from exc
 
 
 def _pick_local_port() -> int:

@@ -136,6 +136,44 @@ class ExcelUnlockerTest(unittest.TestCase):
         self.assertEqual(result.removed_protection_count, 2)
         self.assertEqual(result.path.read_bytes(), b"unlocked-xlsb")
 
+    def test_xlsb_reports_password_protected_sheet(self) -> None:
+        source = self.runtime_dir / "protetto.xlsb"
+        source.write_bytes(b"xlsb-placeholder")
+        license_path = self.runtime_dir / "Aspose.Cells.lic"
+        license_path.write_text("fake-license", encoding="utf-8")
+        unlocker = ExcelUnlocker(self.runtime_dir, aspose_cells_license_path=license_path)
+
+        class FakeLicense:
+            def set_license(self, path: str) -> None:
+                self.path = path
+
+        class FakeSheet:
+            name = "Foglio1"
+            is_protected = True
+
+            def unprotect(self) -> None:
+                raise RuntimeError("Invalid password")
+
+        class FakeWorkbook:
+            def __init__(self, path: str) -> None:
+                self.path = path
+                self.settings = SimpleNamespace(is_protected=False)
+                self.worksheets = [FakeSheet()]
+
+            def save(self, output_path: str, save_format: object) -> None:
+                Path(output_path).write_bytes(b"should-not-happen")
+
+        fake_cells = SimpleNamespace(
+            License=FakeLicense,
+            Workbook=FakeWorkbook,
+            SaveFormat=SimpleNamespace(XLSB="xlsb"),
+        )
+        with patch("docmolder.excel_unlock._load_aspose_cells_module", return_value=fake_cells):
+            with self.assertRaisesRegex(ExcelUnlockError, "Foglio1.*password"):
+                unlocker.unlock_editing(source, "protetto_unlocked")
+
+        self.assertFalse((self.runtime_dir / "protetto_unlocked.xlsb").exists())
+
 
 class ExcelProcessingTest(unittest.TestCase):
     def setUp(self) -> None:
