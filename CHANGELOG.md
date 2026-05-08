@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.7.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.5...docmolder-v1.7.0) (2026-05-08)
+
+
+### Funzionalità
+
+* support Excel editing unlock ([#146](https://github.com/max23468/DocMolder/issues/146)) ([40fe53b](https://github.com/max23468/DocMolder/commit/40fe53b20e24e60923bf44f09f3011347e8edfe8))
+
 ## [1.6.5](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.4...docmolder-v1.6.5) (2026-05-02)
 
 
