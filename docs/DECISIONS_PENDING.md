@@ -19,6 +19,7 @@ Questo documento non è una checklist di task: raccoglie scelte da chiarire prim
 - decidere il livello minimo di smoke test post-deploy da considerare bloccante
 - rivedere le soglie prudenziali Fase 13 dopo osservazione reale in produzione
 - decidere una migrazione fuori da SQLite/VPS singola se le soglie Fase 13 vengono superate in modo ricorrente
+- decidere se acquistare o richiedere una licenza temporanea Aspose.Cells per abilitare lo sblocco `.xlsb` mantenendo il formato originale; LibreOffice non è sufficiente perché non salva `.xlsb`
 
 ## Sicurezza
 

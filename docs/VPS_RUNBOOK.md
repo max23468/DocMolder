@@ -15,14 +15,22 @@ chmod +x deploy/oracle-setup.sh
 ./deploy/oracle-setup.sh
 ```
 
-Lo sblocco Excel `.xls`/`.xlsb` richiede LibreOffice Calc e il bridge Python
-UNO. Gli script di installazione versionati li installano insieme a Ghostscript;
+Lo sblocco Excel `.xls` richiede LibreOffice Calc e il bridge Python UNO. Gli
+script di installazione versionati li installano insieme a Ghostscript;
 per verifica manuale su Ubuntu:
 
 ```bash
 command -v soffice
 python3 -c "import uno"
 ```
+
+Lo sblocco `.xlsb` mantenendo il formato originale richiede invece Aspose.Cells
+licenziato: installa l'extra `docmolder[xlsb]`, conserva la licenza fuori repo e
+valorizza `DOCMOLDER_ASPOSE_CELLS_LICENSE_PATH`.
+
+Warning Aspose: non usare l'evaluation mode sui file utente. Senza licenza valida
+Aspose.Cells può aggiungere fogli watermark al workbook; DocMolder deve quindi
+fallire il job `.xlsb` finché la licenza non è configurata correttamente.
 
 Configura ambiente:
 

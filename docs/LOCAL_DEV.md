@@ -32,6 +32,14 @@ Opzionale per lo sblocco Excel `.xls`/`.xlsb`:
 - bridge Python UNO (`python3-uno` su Debian/Ubuntu)
 - `DOCMOLDER_LIBREOFFICE_TIMEOUT_SECONDS`
 
+Opzionale solo per mantenere il formato originale `.xlsb`:
+
+- installa l'extra `.[xlsb]`
+- configura `DOCMOLDER_ASPOSE_CELLS_LICENSE_PATH` con una licenza Aspose.Cells valida
+
+Senza licenza, Aspose.Cells gira in evaluation mode e aggiunge fogli watermark:
+non usarlo in produzione per file utente.
+
 Lo sblocco `.xlsx`/`.xlsm` non richiede LibreOffice.
 
 ## Avvio rapido

@@ -10,13 +10,16 @@ import tempfile
 import textwrap
 import zipfile
 from dataclasses import dataclass
+from importlib import import_module, util
 from pathlib import Path
+from types import ModuleType
 
 logger = logging.getLogger(__name__)
 
 OOXML_EXCEL_SUFFIXES = {".xlsx", ".xlsm"}
-BINARY_EXCEL_SUFFIXES = {".xls", ".xlsb"}
-SUPPORTED_EXCEL_SUFFIXES = OOXML_EXCEL_SUFFIXES | BINARY_EXCEL_SUFFIXES
+LIBREOFFICE_EXCEL_SUFFIXES = {".xls"}
+ASPOSE_EXCEL_SUFFIXES = {".xlsb"}
+SUPPORTED_EXCEL_SUFFIXES = OOXML_EXCEL_SUFFIXES | LIBREOFFICE_EXCEL_SUFFIXES | ASPOSE_EXCEL_SUFFIXES
 
 _OOXML_PROTECTION_TAGS = (
     "sheetProtection",
@@ -48,9 +51,16 @@ class ExcelUnlockError(Exception):
 
 
 class ExcelUnlocker:
-    def __init__(self, runtime_dir: Path, *, libreoffice_timeout_seconds: int = 120) -> None:
+    def __init__(
+        self,
+        runtime_dir: Path,
+        *,
+        libreoffice_timeout_seconds: int = 120,
+        aspose_cells_license_path: Path | None = None,
+    ) -> None:
         self.runtime_dir = runtime_dir
         self.libreoffice_timeout_seconds = max(1, libreoffice_timeout_seconds)
+        self.aspose_cells_license_path = aspose_cells_license_path
 
     def unlock_editing(self, input_path: Path, output_stem: str) -> ExcelUnlockResult:
         suffix = input_path.suffix.lower()
@@ -67,6 +77,14 @@ class ExcelUnlocker:
                 name=output_path.name,
                 removed_protection_count=removed_count,
                 mode="ooxml",
+            )
+        if suffix in ASPOSE_EXCEL_SUFFIXES:
+            removed_count = self._unlock_xlsb_with_aspose(input_path, output_path)
+            return ExcelUnlockResult(
+                path=output_path,
+                name=output_path.name,
+                removed_protection_count=removed_count,
+                mode="aspose",
             )
         removed_count = self._unlock_binary_excel_with_libreoffice(input_path, output_path)
         return ExcelUnlockResult(
@@ -102,11 +120,65 @@ class ExcelUnlocker:
             )
         return removed_count
 
+    def _unlock_xlsb_with_aspose(self, input_path: Path, output_path: Path) -> int:
+        if self.aspose_cells_license_path is None:
+            raise ExcelUnlockError(
+                "Per sbloccare Excel .xlsb mantenendo il formato originale serve Aspose.Cells con licenza "
+                "configurata sul server. Non uso Aspose in modalità evaluation perché aggiunge fogli watermark "
+                "al file; con LibreOffice non posso salvare una copia .xlsb affidabile."
+            )
+        if not self.aspose_cells_license_path.is_file():
+            raise ExcelUnlockError(
+                "La licenza Aspose.Cells configurata per sbloccare .xlsb non è disponibile sul server."
+            )
+        try:
+            cells = _load_aspose_cells_module()
+            license_obj = cells.License()
+            license_obj.set_license(str(self.aspose_cells_license_path))
+            workbook = cells.Workbook(str(input_path))
+        except ExcelUnlockError:
+            raise
+        except Exception as exc:
+            logger.warning("Configurazione Aspose.Cells non utilizzabile per .xlsb: %s", str(exc)[:500])
+            raise ExcelUnlockError(
+                "Aspose.Cells non è configurato correttamente per sbloccare Excel .xlsb sul server."
+            ) from exc
+
+        removed_count = 0
+        try:
+            settings = getattr(workbook, "settings", None)
+            if settings is not None and bool(getattr(settings, "is_protected", False)):
+                workbook.unprotect("")
+                if not bool(getattr(settings, "is_protected", False)):
+                    removed_count += 1
+            worksheets = workbook.worksheets
+            for index in range(len(worksheets)):
+                sheet = _get_aspose_worksheet(worksheets, index)
+                if bool(getattr(sheet, "is_protected", False)):
+                    sheet.unprotect()
+                    if not bool(getattr(sheet, "is_protected", False)):
+                        removed_count += 1
+            workbook.save(str(output_path), cells.SaveFormat.XLSB)
+        except Exception as exc:
+            logger.warning("Sblocco Excel .xlsb via Aspose.Cells non riuscito: %s", str(exc)[:500])
+            raise ExcelUnlockError(
+                "Aspose.Cells non è riuscito a rimuovere la protezione di modifica da questo Excel .xlsb. "
+                "Se il foglio richiede davvero una password per essere sbloccato, non posso aggirarla senza password."
+            ) from exc
+
+        if not output_path.exists() or output_path.stat().st_size == 0:
+            raise ExcelUnlockError("Aspose.Cells non ha creato una copia .xlsb valida.")
+        if removed_count == 0:
+            raise ExcelUnlockError(
+                "Non ho trovato fogli o workbook protetti da sbloccare in questo Excel .xlsb."
+            )
+        return removed_count
+
     def _unlock_binary_excel_with_libreoffice(self, input_path: Path, output_path: Path) -> int:
         libreoffice = _find_libreoffice_binary()
         if libreoffice is None:
             raise ExcelUnlockError(
-                "Per sbloccare Excel .xls o .xlsb mantenendo il formato originale serve LibreOffice sul server. "
+                "Per sbloccare Excel .xls mantenendo il formato originale serve LibreOffice sul server. "
                 "Installa LibreOffice e riprova, oppure invia una copia .xlsx/.xlsm."
             )
 
@@ -199,6 +271,26 @@ def _find_uno_python() -> str:
     return shutil.which("python3") or shutil.which("python") or "python3"
 
 
+def _load_aspose_cells_module() -> ModuleType:
+    try:
+        module_spec = util.find_spec("aspose.cells")
+    except ModuleNotFoundError:
+        module_spec = None
+    if module_spec is None:
+        raise ExcelUnlockError(
+            "Il supporto .xlsb richiede il pacchetto Python aspose-cells-python installato sul server."
+        )
+    os.environ.setdefault("DOTNET_SYSTEM_GLOBALIZATION_INVARIANT", "1")
+    return import_module("aspose.cells")
+
+
+def _get_aspose_worksheet(worksheets: object, index: int) -> object:
+    get_worksheet = getattr(worksheets, "get", None)
+    if callable(get_worksheet):
+        return get_worksheet(index)
+    return worksheets[index]  # type: ignore[index]
+
+
 def _pick_local_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
@@ -208,8 +300,6 @@ def _pick_local_port() -> int:
 def _libreoffice_filter_for_suffix(suffix: str) -> str:
     if suffix == ".xls":
         return "MS Excel 97"
-    if suffix == ".xlsb":
-        return "Calc MS Excel 2007 Binary"
     raise ExcelUnlockError("Formato Excel binario non supportato.")
 
 
