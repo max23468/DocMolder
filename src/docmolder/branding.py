@@ -40,7 +40,7 @@ MAIN_MENU_ROWS: tuple[tuple[str, str], ...] = (
     ("Storico lavori", "Sessione attiva"),
 )
 
-MAIN_MENU_PLACEHOLDER = "Invia PDF o immagini, oppure scegli un'azione rapida"
+MAIN_MENU_PLACEHOLDER = "Invia PDF, immagini o Excel, oppure scegli un'azione rapida"
 
 LEGACY_MENU_LABELS: dict[str, str] = {
     "Cosa posso fare": "Guida rapida",

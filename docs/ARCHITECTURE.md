@@ -22,7 +22,7 @@ Documenti collegati:
 
 ## Scopo
 
-`DocMolder` è un bot Telegram-first per trasformazioni guidate di PDF e immagini.
+`DocMolder` è un bot Telegram-first per trasformazioni guidate di PDF, immagini ed Excel.
 
 Il prodotto resta:
 
@@ -64,6 +64,10 @@ Non è:
   - trasformazioni PDF e immagini, dispatch azione -> handler, fallback, downscale preventivo immagini enormi, cleanup job e metriche di processing
 - `docs/PDF_PIPELINE.md`
   - dettaglia compromessi tra percorsi nativi, Ghostscript e fallback raster
+- `src/docmolder/excel_unlock.py`
+  - sblocco modifica Excel per file già apribili, con percorso nativo per `.xlsx/.xlsm` e LibreOffice headless per `.xls/.xlsb`
+- `docs/EXCEL_PIPELINE.md`
+  - dettaglia limiti, dipendenze e comportamento del flusso Excel
 
 ### Persistenza
 
@@ -92,7 +96,7 @@ Non è:
 
 ### Upload e sessione
 
-1. L'utente invia PDF o immagini via Telegram.
+1. L'utente invia PDF, immagini o un file Excel via Telegram.
 2. Il bot valida tipo, dimensione e limiti operativi.
 3. La sessione utente viene aggiornata in SQLite.
 4. Il bot propone azioni compatibili tramite il catalogo centrale.
@@ -196,3 +200,4 @@ Eventi e log devono permettere di correlare almeno:
 - i log non devono contenere contenuti dei documenti
 - i fallback raster possono produrre output meno ricchi del PDF nativo
 - Ghostscript è opzionale ma utile per alcuni flussi PDF
+- LibreOffice Calc e `python3-uno` sono necessari per sbloccare `.xls` e `.xlsb` mantenendo il formato originale

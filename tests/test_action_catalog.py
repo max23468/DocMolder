@@ -116,7 +116,7 @@ class ActionCatalogHelpersTest(unittest.TestCase):
         )
         mixed_analysis = infer_session_analysis(mixed_session)
         self.assertEqual(mixed_analysis.supported_actions, ())
-        self.assertIn("PDF e immagini", " ".join(mixed_analysis.warnings))
+        self.assertIn("tipi di file diversi", " ".join(mixed_analysis.warnings))
         self.assertIn("compatibile", mixed_analysis.next_step)
 
         image_session = UserSession(
@@ -136,6 +136,20 @@ class ActionCatalogHelpersTest(unittest.TestCase):
             UserSession(user_id=4, files=[build_session_file("pdf-1", "Doc.pdf", FileKind.PDF)])
         )
         self.assertIn("Altre azioni disponibili", single_pdf_recap)
+
+    def test_single_excel_session_exposes_unlock_action(self) -> None:
+        session = UserSession(
+            user_id=4,
+            files=[build_session_file("excel-1", "Budget.xlsb", FileKind.EXCEL)],
+        )
+
+        analysis = infer_session_analysis(session)
+
+        self.assertEqual(analysis.inventory.short_label, "1 Excel")
+        self.assertEqual(analysis.exposed_actions, (SupportedAction.EXCEL_UNLOCK_EDITING,))
+        self.assertEqual(analysis.recommended_actions, (SupportedAction.EXCEL_UNLOCK_EDITING,))
+        self.assertIn("sblocca questo Excel", analysis.next_step)
+        self.assertEqual(build_output_stem(SupportedAction.EXCEL_UNLOCK_EDITING, session.files), "Budget_unlocked")
 
     def test_session_analysis_distinguishes_recommended_and_advanced_actions(self) -> None:
         session = UserSession(

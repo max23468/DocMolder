@@ -28,6 +28,7 @@ Le tastiere inline sono contestuali alla sessione:
 - con immagini mostra solo le azioni consigliate per quel set di file, con le azioni meno frequenti dietro `Altre azioni`
 - con un singolo PDF mette davanti le azioni più comuni e lascia modifica pagine, rotazione e watermark nella vista espansa
 - con più PDF espone come scelta primaria l'unione
+- con un singolo Excel espone lo sblocco modifica quando il formato è supportato
 - quando un flusso richiede un dettaglio, come compressione, split, rotazione, impaginazione A4 o profilo foto documento, mostra solo le opzioni di quel passo
 - per compressione, split e immagini verso PDF può mostrare una scorciatoia `Usa preset` quando l'utente ha ripetuto la stessa impostazione più volte
 

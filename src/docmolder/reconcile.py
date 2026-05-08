@@ -30,6 +30,7 @@ def run_reconciliation(
         runtime_dir=settings.runtime_dir,
         ghostscript_timeout_seconds=settings.ghostscript_timeout_seconds,
         image_pdf_max_source_side_px=settings.image_pdf_max_source_side_px,
+        libreoffice_timeout_seconds=settings.libreoffice_timeout_seconds,
     )
     requeued_jobs = (
         store.requeue_stale_running_jobs(max_age_seconds=stale_running_age_seconds)

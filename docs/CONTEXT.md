@@ -7,13 +7,14 @@ Ultimo aggiornamento del contesto:
 
 ## Cos'e DocMolder
 
-`DocMolder` è un bot Telegram-first per trasformazioni documentali guidate (PDF e immagini), con coda asincrona e retention breve dei temporanei.
+`DocMolder` è un bot Telegram-first per trasformazioni documentali guidate (PDF, immagini e interventi Excel mirati), con coda asincrona e retention breve dei temporanei.
 
 ## Componenti principali
 
 - `src/docmolder/main.py`: entrypoint applicazione.
 - `src/docmolder/bot.py`: handler Telegram, orchestrazione flussi utente.
 - `src/docmolder/processing.py`: pipeline documentale.
+- `src/docmolder/excel_unlock.py`: sblocco modifica Excel e integrazione LibreOffice per formati binari.
 - `src/docmolder/session_store.py`: facciata store sessioni/job.
 - `src/docmolder/sqlite_session_store.py`: persistenza sessioni/job su SQLite.
 - `src/docmolder/sqlite_backup.py`: backup e restore verificati del database SQLite.
@@ -34,6 +35,7 @@ Ultimo aggiornamento del contesto:
 - Processo rilascio: [RELEASE_PROCESS.md](./RELEASE_PROCESS.md)
 - Policy versioni e changelog: [VERSIONING.md](./VERSIONING.md)
 - Strategia pipeline PDF: [PDF_PIPELINE.md](./PDF_PIPELINE.md)
+- Strategia pipeline Excel: [EXCEL_PIPELINE.md](./EXCEL_PIPELINE.md)
 - Decisioni tecniche: [DECISIONS.md](./DECISIONS.md)
 - Decisioni aperte: [DECISIONS_PENDING.md](./DECISIONS_PENDING.md)
 - Milestone: [MILESTONE_BOARD.md](./MILESTONE_BOARD.md)

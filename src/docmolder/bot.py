@@ -66,6 +66,7 @@ from docmolder.job_flow import (
     enqueue_job_from_existing_payload as enqueue_job_from_existing_payload_flow,
     run_job_payload as run_job_payload_flow,
 )
+from docmolder.excel_unlock import SUPPORTED_EXCEL_SUFFIXES
 from docmolder.healthcheck import build_health_report
 from docmolder.logging_utils import log_event
 from docmolder.messages import (
@@ -980,7 +981,7 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     jobs = deps.session_store.list_user_jobs(user.id, limit=5)
     if not jobs:
         await message.reply_text(
-            "Non hai ancora uno storico lavori. Inviami immagini o PDF e terrò traccia degli ultimi job qui.",
+            "Non hai ancora uno storico lavori. Inviami immagini, PDF o un file Excel e terrò traccia degli ultimi job qui.",
             reply_markup=build_main_menu_keyboard(),
         )
         return
@@ -1016,7 +1017,7 @@ async def _rerun_latest_user_job(
     jobs = deps.session_store.list_user_jobs(user_id, limit=1)
     if not jobs:
         await message.reply_text(
-            "Non ho ancora un job da rilanciare per te. Inviami immagini o PDF e poi potrò ripetere l'ultimo flusso.",
+            "Non ho ancora un job da rilanciare per te. Inviami immagini, PDF o un file Excel e poi potrò ripetere l'ultimo flusso.",
             reply_markup=build_main_menu_keyboard(),
         )
         return
@@ -1697,9 +1698,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         session=session,
     )
     deps.session_store.delete(user.id)
-    await query.edit_message_text(
-        f"Operazione presa in carico. Job #{job.id} in coda.\nTi scrivo qui appena ho finito."
-    )
+    await query.edit_message_text(_build_text_request_queued_message(resolved_action, job.id, None))
 
 
 async def handle_compression_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -2428,7 +2427,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     await message.reply_text(
-        "Per iniziare, inviami immagini o PDF. Se vuoi una guida rapida, usa /help oppure il menu qui sotto.",
+        "Per iniziare, inviami immagini, PDF o un file Excel. Se vuoi una guida rapida, usa /help oppure il menu qui sotto.",
         reply_markup=build_main_menu_keyboard(),
     )
 
@@ -2984,7 +2983,7 @@ async def _handle_start_payload(
         jobs = deps.session_store.list_user_jobs(user_id, limit=5)
         if not jobs:
             await message.reply_text(
-                "Non hai ancora uno storico lavori. Inviami immagini o PDF e terrò traccia degli ultimi job qui.",
+                "Non hai ancora uno storico lavori. Inviami immagini, PDF o un file Excel e terrò traccia degli ultimi job qui.",
                 reply_markup=build_main_menu_keyboard(),
             )
         else:
@@ -3053,6 +3052,7 @@ def build_application(settings: Settings) -> Application:
         runtime_dir=settings.runtime_dir,
         ghostscript_timeout_seconds=settings.ghostscript_timeout_seconds,
         image_pdf_max_source_side_px=settings.image_pdf_max_source_side_px,
+        libreoffice_timeout_seconds=settings.libreoffice_timeout_seconds,
     )
     deps = BotDependencies(settings=settings, session_store=session_store, processor=processor)
 
@@ -3095,10 +3095,18 @@ def build_application(settings: Settings) -> Application:
 def _infer_document_kind(document: Document) -> FileKind | None:
     mime_type = document.mime_type or ""
     file_name = (document.file_name or "").lower()
+    suffix = Path(file_name).suffix.lower()
     if mime_type == "application/pdf" or file_name.endswith(".pdf"):
         return FileKind.PDF
     if mime_type.startswith("image/") or file_name.endswith((".jpg", ".jpeg", ".png", ".webp")):
         return FileKind.IMAGE
+    if suffix in SUPPORTED_EXCEL_SUFFIXES or mime_type in {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/vnd.ms-excel.sheet.macroenabled.12",
+        "application/vnd.ms-excel",
+        "application/vnd.ms-excel.sheet.binary.macroenabled.12",
+    }:
+        return FileKind.EXCEL
     return None
 
 

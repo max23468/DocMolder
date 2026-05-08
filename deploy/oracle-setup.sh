@@ -11,7 +11,7 @@ BACKUP_DIR="${DATA_DIR}/backups"
 ENV_DIR="/etc/docmolder"
 
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip git ghostscript
+sudo apt install -y python3 python3-venv python3-pip git ghostscript libreoffice-calc python3-uno
 
 if ! id -u "${APP_USER}" >/dev/null 2>&1; then
   sudo useradd --system --create-home --home /var/lib/docmolder --shell /usr/sbin/nologin "${APP_USER}"

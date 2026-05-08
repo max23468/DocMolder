@@ -140,6 +140,7 @@ class MessageGoldenTest(unittest.TestCase):
         self.assertIn('"BOZZA"', build_pending_action_queued_message(SupportedAction.PDF_WATERMARK, 3, " BOZZA "))
         self.assertIn("ripiego", build_processing_started_message(SupportedAction.PDF_GRAYSCALE, 4))
         self.assertIn("compressione", build_processing_started_message(SupportedAction.PDF_COMPRESS, 5))
+        self.assertIn("file Excel", build_processing_started_message(SupportedAction.EXCEL_UNLOCK_EDITING, 6))
         self.assertIn("Job #6", build_processing_started_message(SupportedAction.PDF_MERGE, 6))
 
     def test_text_request_queued_messages_cover_high_value_actions(self) -> None:
@@ -160,9 +161,12 @@ class MessageGoldenTest(unittest.TestCase):
             SupportedAction.AUTO_ORIENT,
             SupportedAction.PDF_ROTATE,
             SupportedAction.PDF_WATERMARK,
+            SupportedAction.EXCEL_UNLOCK_EDITING,
         ]
 
         for index, action in enumerate(cases, start=1):
             with self.subTest(action=action):
                 message = build_text_request_queued_message(action, index, None)
                 self.assertIn(f"Job #{index}", message)
+                if action == SupportedAction.EXCEL_UNLOCK_EDITING:
+                    self.assertIn("Excel", message)

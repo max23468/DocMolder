@@ -87,6 +87,14 @@ class TextRequestParsingTest(unittest.TestCase):
         plain_pdf = _resolve_text_request(session, "mettile in pdf")
         self.assertEqual(plain_pdf.action, SupportedAction.IMAGES_TO_PDF)
 
+    def test_excel_text_request_resolves_unlock_action(self) -> None:
+        session = UserSession(user_id=7, files=[build_session_file("excel-1", "budget.xlsx", FileKind.EXCEL)])
+
+        unlocked = _resolve_text_request(session, "togli protezione dai fogli excel")
+
+        self.assertEqual(unlocked.kind, "enqueue")
+        self.assertEqual(unlocked.action, SupportedAction.EXCEL_UNLOCK_EDITING)
+
     def test_quick_action_guidance_handles_empty_and_mismatched_sessions(self) -> None:
         empty_session = UserSession(user_id=7)
         image_session = UserSession(user_id=7, files=[build_session_file("img-1", "foto.jpg", FileKind.IMAGE)])

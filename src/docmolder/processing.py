@@ -19,6 +19,7 @@ from PIL import Image, ImageChops, ImageOps
 from pypdf import PdfReader, PdfWriter
 from pypdf.errors import FileNotDecryptedError, PdfReadError
 
+from docmolder.excel_unlock import ExcelUnlockError, ExcelUnlocker
 from docmolder.models import CompressionPreset, DocumentPhotoMode, SupportedAction
 
 logger = logging.getLogger(__name__)
@@ -85,10 +86,16 @@ class DocumentProcessor:
         runtime_dir: Path,
         ghostscript_timeout_seconds: int = 120,
         image_pdf_max_source_side_px: int = IMAGE_PDF_DEFAULT_MAX_SOURCE_SIDE,
+        libreoffice_timeout_seconds: int = 120,
     ) -> None:
         self.runtime_dir = runtime_dir
         self.ghostscript_timeout_seconds = max(1, ghostscript_timeout_seconds)
         self.image_pdf_max_source_side_px = max(800, image_pdf_max_source_side_px)
+        self.libreoffice_timeout_seconds = max(1, libreoffice_timeout_seconds)
+        self.excel_unlocker = ExcelUnlocker(
+            runtime_dir=runtime_dir,
+            libreoffice_timeout_seconds=self.libreoffice_timeout_seconds,
+        )
         self._action_handlers: dict[
             SupportedAction,
             Callable[[SupportedAction, list[Path], str, _ProcessOptions], ProcessingResult],
@@ -108,6 +115,7 @@ class DocumentProcessor:
             SupportedAction.PDF_COMPRESS: self._process_pdf_compress_action,
             SupportedAction.PDF_ROTATE: self._process_pdf_rotate_action,
             SupportedAction.PDF_WATERMARK: self._process_pdf_watermark_action,
+            SupportedAction.EXCEL_UNLOCK_EDITING: self._process_excel_unlock_action,
             SupportedAction.AUTO_ORIENT: self._process_auto_orient_action,
         }
 
@@ -313,6 +321,15 @@ class DocumentProcessor:
             raise ValueError("Testo watermark mancante.")
         return self.add_text_watermark(input_paths[0], output_stem, watermark_text=options.watermark_text)
 
+    def _process_excel_unlock_action(
+        self,
+        _action: SupportedAction,
+        input_paths: list[Path],
+        output_stem: str,
+        _options: _ProcessOptions,
+    ) -> ProcessingResult:
+        return self.unlock_excel_editing(input_paths[0], output_stem)
+
     def _process_auto_orient_action(
         self,
         _action: SupportedAction,
@@ -432,6 +449,21 @@ class DocumentProcessor:
                 mode=mode,
             ),
             processing_mode="opencv" if perspective_count else "fallback",
+        )
+
+    def unlock_excel_editing(self, excel_path: Path, output_stem: str) -> ProcessingResult:
+        try:
+            unlocked = self.excel_unlocker.unlock_editing(excel_path, output_stem)
+        except ExcelUnlockError as exc:
+            raise ProcessingUserError(str(exc)) from exc
+        return ProcessingResult(
+            output_path=unlocked.path,
+            output_name=unlocked.name,
+            message=(
+                "Excel pronto. Ho creato una copia nello stesso formato rimuovendo le protezioni di modifica "
+                f"trovate ({unlocked.removed_protection_count})."
+            ),
+            processing_mode=f"excel-{unlocked.mode}",
         )
 
     def merge_pdfs(self, pdf_paths: list[Path], output_stem: str, auto_rotate_pdf: bool = True) -> ProcessingResult:

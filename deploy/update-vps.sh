@@ -7,6 +7,32 @@ VENV_DIR="/opt/docmolder/venv"
 SERVICE_NAME="docmolder"
 TARGET_REF="${1:-origin/main}"
 
+ensure_excel_system_dependencies() {
+  if command -v soffice >/dev/null 2>&1 && python3 -c "import uno" >/dev/null 2>&1; then
+    return
+  fi
+
+  echo "[system deps]"
+  if command -v apt >/dev/null 2>&1; then
+    sudo apt update
+    sudo apt install -y libreoffice-calc python3-uno
+    return
+  fi
+
+  if command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y libreoffice-calc python3-uno || sudo dnf install -y libreoffice-calc libreoffice-pyuno
+    return
+  fi
+
+  if command -v yum >/dev/null 2>&1; then
+    sudo yum install -y libreoffice-calc python3-uno || sudo yum install -y libreoffice-calc libreoffice-pyuno
+    return
+  fi
+
+  echo "LibreOffice dependencies missing and no supported package manager was found." >&2
+  exit 1
+}
+
 sudo -u "${APP_USER}" git config --global --add safe.directory "${APP_DIR}" >/dev/null 2>&1 || true
 
 cd "${APP_DIR}"
@@ -18,6 +44,7 @@ echo "[reset]"
 sudo -u "${APP_USER}" git reset --hard "${TARGET_REF}"
 
 echo "[install]"
+ensure_excel_system_dependencies
 sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}"
 
 echo "[systemd]"

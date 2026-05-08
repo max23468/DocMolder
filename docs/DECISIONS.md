@@ -16,7 +16,7 @@ Questo file raccoglie decisioni architetturali e di prodotto già prese, in form
 ## Perimetro prodotto: utility documentale chat-first
 
 Decisione:
-- `DocMolder` resta una utility documentale chat-first, semplice, guidata e affidabile, focalizzata su trasformazioni pratiche di PDF e foto di documenti
+- `DocMolder` resta una utility documentale chat-first, semplice, guidata e affidabile, focalizzata su trasformazioni pratiche di PDF, foto di documenti e interventi Excel mirati
 
 Motivazione:
 - il valore del prodotto oggi e nella rapidità, chiarezza e affidabilità del flusso via Telegram
@@ -25,6 +25,7 @@ Motivazione:
 
 Conseguenze:
 - le nuove feature vanno accettate solo se rafforzano semplicità, qualità del risultato, chiarezza UX o affidabilità operativa
+- gli interventi Excel ammessi restano trasformazioni puntuali su file già apribili, non gestione documentale o recupero password
 - vanno invece trattate con molta prudenza feature che aprono mondi nuovi come document management, OCR esteso, workflow troppo complessi o automazioni poco controllabili
 - la roadmap deve essere letta dentro questo perimetro: meglio poche evoluzioni coerenti che accumulo di funzioni eterogenee
 - salvo decisione esplicita futura, consideriamo `bloat` o `too much` tutte le proposte che spingono il prodotto verso editor PDF generalista, piattaforma documentale ampia o assistente conversazionale troppo aperto

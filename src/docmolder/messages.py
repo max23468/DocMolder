@@ -16,15 +16,16 @@ WELCOME_MESSAGE = (
     "- comprimere, tagliare bordi, unire, dividere e convertire PDF\n"
     "- estrarre, riordinare, eliminare o ruotare pagine\n"
     "- aggiungere watermark testuali\n"
+    "- sbloccare fogli Excel già apribili ma protetti dalla modifica\n"
     "- correggere l'orientamento di PDF e immagini quando serve\n\n"
-    "Per partire, inviami immagini o PDF.\n"
+    "Per partire, inviami immagini, PDF o un file Excel.\n"
     "Per limiti, dati e cancellazione usa /help o leggi la pagina privacy:\n"
     f"{PUBLIC_PRIVACY_URL}"
 )
 
 HELP_MESSAGE = (
     f"Ecco come usare {BRAND_NAME}.\n\n"
-    "1. Inviami immagini oppure PDF.\n"
+    "1. Inviami immagini, PDF oppure un file Excel.\n"
     "2. Ti proporrò solo le azioni compatibili con i file ricevuti.\n"
     "3. Se crei un PDF da immagini, ti chiederò anche se vuoi impaginarlo in A4 e con quali bordi.\n"
     "4. Ti restituirò il file finale qui in chat.\n\n"
@@ -56,6 +57,7 @@ HELP_MESSAGE = (
     "- estrai pagine 2-4\n"
     "- ruota questo pdf di 90 gradi\n"
     "- aggiungi watermark BOZZA\n"
+    "- sblocca questo Excel\n"
     "- foto in A4\n"
     "- scansiona e comprimi\n\n"
     "Comandi utili:\n"
@@ -73,18 +75,18 @@ UNAUTHORIZED_MESSAGE = (
 
 SESSION_EMPTY_MESSAGE = (
     "Non vedo ancora file nella tua sessione. "
-    "Inviami immagini o PDF e poi ti proporrò le azioni disponibili."
+    "Inviami immagini, PDF o un file Excel e poi ti proporrò le azioni disponibili."
 )
 
 MIXED_SESSION_MESSAGE = (
     "La sessione corrente contiene già un tipo di file diverso. "
-    "Per evitare combinazioni ambigue, usa /reset e riparti con soli PDF oppure sole immagini."
+    "Per evitare combinazioni ambigue, usa /reset e riparti con soli PDF, sole immagini oppure un solo Excel."
 )
 
 UNSUPPORTED_DOCUMENT_MESSAGE = (
     "Non riesco a lavorare questo tipo di file. "
-    "Per ora supporto PDF e immagini JPG, PNG o WEBP. "
-    "Prossimo passo: esportalo in PDF o immagine e reinvialo qui."
+    "Per ora supporto PDF, immagini JPG/PNG/WEBP ed Excel .xlsx, .xlsm, .xls o .xlsb. "
+    "Prossimo passo: esportalo in uno di questi formati e reinvialo qui."
 )
 
 FILE_TOO_LARGE_MESSAGE = (
@@ -232,6 +234,11 @@ def build_text_request_queued_message(
         return f"Rotazione manuale presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
     if action == SupportedAction.PDF_WATERMARK:
         return f"Watermark testuale preso in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
+    if action == SupportedAction.EXCEL_UNLOCK_EDITING:
+        return (
+            f"Sblocco modifica Excel preso in carico. Job #{job_id} in coda.\n"
+            "Ti invio una copia nello stesso formato appena è pronta."
+        )
     return f"Operazione presa in carico. Job #{job_id} in coda."
 
 
@@ -247,5 +254,11 @@ def build_processing_started_message(action: SupportedAction, job_id: int) -> st
             f"Sto elaborando i file. Potrebbe volerci qualche secondo.\n"
             f"Job #{job_id} in elaborazione.\n"
             "Nei casi più difficili la compressione può richiedere un po' di più per trovare il fallback più adatto."
+        )
+    if action == SupportedAction.EXCEL_UNLOCK_EDITING:
+        return (
+            f"Sto elaborando il file Excel. Potrebbe volerci qualche secondo.\n"
+            f"Job #{job_id} in elaborazione.\n"
+            "Rimuovo solo protezioni di modifica da file già apribili, senza tentare recuperi password."
         )
     return f"{PROCESSING_MESSAGE}\nJob #{job_id} in elaborazione."
