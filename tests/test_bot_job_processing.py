@@ -831,6 +831,56 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         reply_text = document_message.reply_text.await_args.args[0]
         self.assertIn("Sblocca modifica Excel", reply_text)
 
+    async def test_document_upload_preserves_excel_suffix_when_inferred_from_mime(self) -> None:
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+        user = SimpleNamespace(id=7, username=None, first_name="Test", last_name=None)
+        document_message = SimpleNamespace(
+            chat_id=99,
+            message_id=1198,
+            document=SimpleNamespace(
+                file_id="excel-telegram-id",
+                file_name="budget",
+                mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                file_size=1024,
+            ),
+            reply_text=AsyncMock(),
+        )
+
+        await handle_document(
+            SimpleNamespace(effective_user=user, effective_message=document_message),
+            context,
+        )
+
+        session = self.store.get(7)
+        self.assertIsNotNone(session)
+        self.assertEqual(session.files[0].kind, FileKind.EXCEL)
+        self.assertEqual(session.files[0].file_name, "budget.xlsx")
+
+    async def test_document_upload_adds_excel_suffix_when_filename_is_missing(self) -> None:
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+        user = SimpleNamespace(id=7, username=None, first_name="Test", last_name=None)
+        document_message = SimpleNamespace(
+            chat_id=99,
+            message_id=1198,
+            document=SimpleNamespace(
+                file_id="excel-telegram-id",
+                file_name=None,
+                mime_type="application/vnd.ms-excel.sheet.binary.macroenabled.12",
+                file_size=1024,
+            ),
+            reply_text=AsyncMock(),
+        )
+
+        await handle_document(
+            SimpleNamespace(effective_user=user, effective_message=document_message),
+            context,
+        )
+
+        session = self.store.get(7)
+        self.assertIsNotNone(session)
+        self.assertEqual(session.files[0].kind, FileKind.EXCEL)
+        self.assertEqual(session.files[0].file_name, "excel_excel-te.xlsb")
+
     async def test_pseudo_e2e_document_upload_to_compress_flow(self) -> None:
         context = SimpleNamespace(application=self.application, bot=self.bot)
         user = SimpleNamespace(id=7, username=None, first_name="Test", last_name=None)
