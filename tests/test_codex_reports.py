@@ -54,7 +54,7 @@ class CodexReportsTest(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertIn("GitHub CLI", report["errors"][0])
 
-    def test_github_maintenance_report_filters_failed_runs_by_current_sha(self) -> None:
+    def test_github_maintenance_report_filters_failed_runs_and_reports_codex_inbox(self) -> None:
         failed_runs = [
             {
                 "databaseId": 1,
@@ -71,24 +71,41 @@ class CodexReportsTest(unittest.TestCase):
                 "url": "https://example.invalid/new",
             },
         ]
-        merged_prs = [{"number": 95, "title": "fix deploy", "url": "https://example.invalid/pr/95", "mergedAt": "now"}]
+        inbox_issues = [
+            {
+                "number": 12,
+                "title": "Codex feedback inbox",
+                "state": "OPEN",
+                "url": "https://example.invalid/issues/12",
+                "updatedAt": "now",
+            }
+        ]
 
         with (
             patch.object(github_maintenance_report, "has_gh", return_value=True),
             patch.object(github_maintenance_report, "current_branch", return_value="main"),
             patch.object(github_maintenance_report, "current_sha", return_value="newsha"),
             patch.object(github_maintenance_report, "run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")),
-            patch.object(github_maintenance_report, "gh_json", side_effect=[([], None), (failed_runs, None), (merged_prs, None), ([], None)]),
             patch.object(
                 github_maintenance_report,
-                "codex_bot_comments_for_pr",
-                return_value={"ok": True, "has_open_comments": True, "lines": ["open"]},
+                "gh_json",
+                side_effect=[([], None), (failed_runs, None), (inbox_issues, None), ([], None)],
             ),
         ):
             report = github_maintenance_report.collect_report(limit=5)
 
         self.assertEqual([item["databaseId"] for item in report["current_branch_failed_runs"]], [2])
-        self.assertEqual(report["codex_bot_comment_prs"][0]["number"], 95)
+        self.assertEqual(report["codex_feedback_inbox"]["number"], 12)
+
+    def test_codex_feedback_inbox_workflow_is_versioned_with_docmolder_markers(self) -> None:
+        workflow = ROOT / ".github" / "workflows" / "codex-pr-comments.yml"
+        handler = ROOT / ".github" / "scripts" / "handle-codex-pr-comments.mjs"
+
+        self.assertIn("pull_request_target:", workflow.read_text(encoding="utf-8"))
+        handler_text = handler.read_text(encoding="utf-8")
+        self.assertIn("docmolder-codex-feedback-inbox", handler_text)
+        self.assertIn("docmolder-codex-feedback-request", handler_text)
+        self.assertNotIn("pratix-codex-feedback", handler_text)
 
     def test_ops_next_actions_warns_when_health_missing(self) -> None:
         actions = ops_report.next_actions({"health": None})

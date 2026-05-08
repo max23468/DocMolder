@@ -5,11 +5,9 @@ import argparse
 import json
 import shutil
 import subprocess
-import sys
-from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[1]
+CODEX_INBOX_TITLE = "Codex feedback inbox"
 
 
 def run(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -38,17 +36,6 @@ def current_branch() -> str:
 def current_sha() -> str:
     result = run(["git", "rev-parse", "HEAD"])
     return result.stdout.strip() if result.returncode == 0 else ""
-
-
-def codex_bot_comments_for_pr(number: int) -> dict[str, object]:
-    checker = ROOT / "scripts" / "check_codex_bot_comments.py"
-    result = run([sys.executable, str(checker), "--pr", str(number), "--fail"])
-    output = (result.stdout.strip() or result.stderr.strip()).splitlines()
-    if result.returncode == 0:
-        return {"ok": True, "has_open_comments": False, "lines": output}
-    if result.returncode == 1:
-        return {"ok": True, "has_open_comments": True, "lines": output}
-    return {"ok": False, "has_open_comments": False, "lines": output, "returncode": result.returncode}
 
 
 def collect_report(*, limit: int) -> dict[str, object]:
@@ -129,30 +116,32 @@ def collect_report(*, limit: int) -> dict[str, object]:
         if isinstance(item, dict) and item.get("headBranch") == branch and item.get("headSha") == sha
     ]
 
-    recent_merged_prs, error = gh_json(
+    inbox_issues, error = gh_json(
         [
-            "pr",
+            "issue",
             "list",
+            "--search",
+            f'"{CODEX_INBOX_TITLE}" in:title',
             "--state",
-            "merged",
+            "all",
             "--limit",
-            str(min(limit, 10)),
+            "10",
             "--json",
-            "number,title,url,mergedAt",
+            "number,title,state,url,updatedAt",
         ]
     )
     if error:
-        errors.append(f"PR mergeate recenti non leggibili: {error}")
-        recent_merged_prs = []
-    report["recent_merged_prs"] = recent_merged_prs or []
-    codex_comment_prs = []
-    for pr in report["recent_merged_prs"]:
-        if not isinstance(pr, dict) or not isinstance(pr.get("number"), int):
-            continue
-        bot_check = codex_bot_comments_for_pr(pr["number"])
-        if not bot_check.get("ok") or bot_check.get("has_open_comments"):
-            codex_comment_prs.append({**pr, "codex_bot_comments": bot_check})
-    report["codex_bot_comment_prs"] = codex_comment_prs
+        errors.append(f"Codex feedback inbox non leggibile: {error}")
+        inbox_issues = []
+    report["codex_feedback_inbox_issues"] = inbox_issues or []
+    report["codex_feedback_inbox"] = next(
+        (
+            issue
+            for issue in report["codex_feedback_inbox_issues"]
+            if isinstance(issue, dict) and issue.get("title") == CODEX_INBOX_TITLE and issue.get("state") == "OPEN"
+        ),
+        None,
+    )
 
     security_alerts, error = gh_json(
         [
@@ -221,14 +210,20 @@ def print_text(report: dict[str, object]) -> None:
     else:
         print("- Nessuna run failed recente per branch e SHA corrente.")
 
-    print("\n## Commenti Codex connector recenti")
-    codex_comment_prs = report.get("codex_bot_comment_prs") or []
-    if codex_comment_prs:
-        for pr in codex_comment_prs:
-            status = "errore lettura" if not pr.get("codex_bot_comments", {}).get("ok") else "commenti aperti"
-            print(f"- #{pr.get('number')} {status}: {pr.get('title')} ({pr.get('url')})")
+    print("\n## Codex feedback inbox")
+    inbox = report.get("codex_feedback_inbox")
+    inbox_issues = report.get("codex_feedback_inbox_issues") or []
+    if isinstance(inbox, dict):
+        print(f"- Aperta: #{inbox.get('number')} {inbox.get('title')} ({inbox.get('url')})")
+        duplicates = [
+            issue
+            for issue in inbox_issues
+            if isinstance(issue, dict) and issue.get("title") == CODEX_INBOX_TITLE and issue.get("number") != inbox.get("number")
+        ]
+        if duplicates:
+            print(f"- Duplicati/storici da controllare: {len(duplicates)}")
     else:
-        print("- Nessun commento Codex aperto nelle PR mergeate recenti leggibili.")
+        print("- Nessuna inbox aperta rilevata; il workflow la creerà al prossimo evento utile.")
 
     print("\n## Actions failed recenti globali")
     failed_runs = report.get("failed_runs") or []
@@ -242,7 +237,8 @@ def print_text(report: dict[str, object]) -> None:
     print("\n## Prossime azioni")
     print("- Se ci sono run failed sul branch/SHA corrente, usa `scripts/current_failed_runs.py` e `gh run view`.")
     print("- Le run globali servono per trend/manutenzione: non bloccare lavoro corrente su failure non correlate.")
-    print("- Se il report segnala commenti Codex aperti su PR mergeate, apri una PR correttiva mirata o documenta il falso positivo.")
+    print("- Se la Codex feedback inbox segnala thread actionable, risolvili prima del merge o apri un follow-up mirato.")
+    print("- Usa `scripts/check_codex_bot_comments.py --pr <numero> --fail` come guardrail sulla PR corrente.")
     print("- Se c’è una Release PR aperta, verifica versione/changelog generati prima del merge.")
     print("- Se ci sono PR Dependabot, tratta prima security update o incompatibilita runtime.")
 

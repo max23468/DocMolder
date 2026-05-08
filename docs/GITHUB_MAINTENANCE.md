@@ -15,11 +15,13 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - VPS Backup: `.github/workflows/vps-backup.yml`
 - Rollback VPS: `.github/workflows/rollback-vps.yml`
 - Update VPS Env: `.github/workflows/update-vps-env.yml`
+- Codex PR comments: `.github/workflows/codex-pr-comments.yml`
 - Dependabot: `.github/dependabot.yml`
+- Codex feedback handler: `.github/scripts/handle-codex-pr-comments.mjs`
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
 - Ownership: `.github/CODEOWNERS`
 
-Con budget GitHub Actions ripristinato, l'automazione ordinaria resta prudente: `CI` parte sulle PR non draft verso `main`, `Release Please` parte sui push a `main`, `VPS Check` gira una volta a settimana e `GitHub Maintenance` una volta al mese. `Deploy VPS`, `VPS Backup`, `Rollback VPS`, `Update VPS Env`, `Release Sanity` e `CodeQL` restano manuali; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) restano il primo filtro economico prima del push.
+Con budget GitHub Actions ripristinato, l'automazione ordinaria resta prudente: `CI` parte sulle PR non draft verso `main`, `Release Please` parte sui push a `main`, `Codex PR comments` sincronizza la issue `Codex feedback inbox`, `VPS Check` gira una volta a settimana e `GitHub Maintenance` una volta al mese. `Deploy VPS`, `VPS Backup`, `Rollback VPS`, `Update VPS Env`, `Release Sanity` e `CodeQL` restano manuali; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) restano il primo filtro economico prima del push.
 
 Il deploy automatico resta affidato al servizio `docmolder-github-webhook` sulla VPS. Dopo il deploy, il listener può ancora lanciare `deploy/auto-release.sh`, ma nel flusso standard deve restare disabilitato con `DOCMOLDER_AUTO_RELEASE_ENABLED=false`: versioni, changelog, tag e GitHub Release spettano a `Release Please`.
 
@@ -35,7 +37,7 @@ Canale GitHub preferito:
 Strumenti locali:
 
 - `scripts/codex_dev_report.py` o `make codex-dev-report`: riepiloga impatto del diff, rischi e check consigliati prima di delegare, aprire PR o pubblicare.
-- `scripts/github_maintenance_report.py` o `make github-maintenance`: riepiloga PR aperte, Release PR, PR Dependabot, alert Dependabot leggibili e run Actions fallite recenti.
+- `scripts/github_maintenance_report.py` o `make github-maintenance`: riepiloga PR aperte, Release PR, PR Dependabot, alert Dependabot leggibili, run Actions fallite recenti e issue `Codex feedback inbox`.
 - `scripts/ops_report.py` o `make ops-report`: produce un report operativo locale/VPS con healthcheck, stato systemd quando disponibile e prossime azioni.
 - `scripts/classify_changes.py`: classifica il diff in docs/test/CI/code/ops/deploy e segnala file riservati a `release-please`.
 - `scripts/preflight_publish.sh` o `make preflight-publish`: blocca branch sbagliati e version bump/changelog manuali prima del push.
@@ -72,6 +74,27 @@ Usa poi una sola corsia, dichiarandola nella risposta finale:
 - **PR + deploy/release follow-through**: solo quando il classificatore indica `deploy_relevant` o il titolo produce release. Dopo il merge controlla webhook VPS, servizio, log recenti e la Release PR aggiornata da `Release Please`.
 
 Se `publish_doctor` segnala branch indietro/divergente, detached HEAD, run failed correnti o commenti bot aperti, correggi quello prima di creare o aggiornare la PR.
+
+### Codex feedback inbox
+
+La gestione globale dei commenti Codex vive in GitHub, non in file di stato del repository.
+
+Il workflow `Codex PR comments`:
+
+- parte su eventi PR trusted, commenti issue, `workflow_dispatch` e scansione programmata ogni 6 ore;
+- esegue lo script dalla default branch trusted;
+- aggiorna o crea la issue unica `Codex feedback inbox`;
+- chiude eventuali inbox duplicate;
+- separa thread actionable e storico compatto;
+- pubblica `@codex address that feedback` sulle PR con thread actionable.
+
+Per la PR corrente resta valido il guardrail locale:
+
+```bash
+python3 scripts/check_codex_bot_comments.py --pr <numero> --fail
+```
+
+Quando la inbox segnala feedback actionable, il prossimo passo in chat deve essere esplicito: risolvere nella PR corrente se coerente, aprire una PR correttiva mirata se la PR originale e chiusa/mergiata, oppure dichiarare il falso positivo/non azionabile.
 
 ## CI automatica a consumo ridotto
 
