@@ -50,8 +50,8 @@ class ExcelUnlockerTest(unittest.TestCase):
         with self.assertRaisesRegex(ExcelUnlockError, "Non ho trovato protezioni"):
             self.unlocker.unlock_editing(source, "libero_unlocked")
 
-    def test_binary_excel_uses_libreoffice_and_keeps_suffix(self) -> None:
-        source = self.runtime_dir / "protetto.xlsb"
+    def test_binary_excel_uses_libreoffice_for_xls_and_keeps_suffix(self) -> None:
+        source = self.runtime_dir / "protetto.xls"
         source.write_bytes(b"binary-excel-placeholder")
 
         def fake_run(args, **kwargs):
@@ -68,10 +68,73 @@ class ExcelUnlockerTest(unittest.TestCase):
         ):
             result = self.unlocker.unlock_editing(source, "protetto_unlocked")
 
-        self.assertEqual(result.path.suffix, ".xlsb")
+        self.assertEqual(result.path.suffix, ".xls")
         self.assertEqual(result.mode, "libreoffice")
         self.assertEqual(result.removed_protection_count, 2)
         self.assertEqual(result.path.read_bytes(), b"unlocked-binary-excel")
+
+    def test_xlsb_requires_configured_aspose_license(self) -> None:
+        source = self.runtime_dir / "protetto.xlsb"
+        source.write_bytes(b"xlsb-placeholder")
+
+        with self.assertRaisesRegex(ExcelUnlockError, "Aspose.Cells con licenza"):
+            self.unlocker.unlock_editing(source, "protetto_unlocked")
+
+    def test_xlsb_requires_aspose_package_when_license_is_configured(self) -> None:
+        source = self.runtime_dir / "protetto.xlsb"
+        source.write_bytes(b"xlsb-placeholder")
+        license_path = self.runtime_dir / "Aspose.Cells.lic"
+        license_path.write_text("fake-license", encoding="utf-8")
+        unlocker = ExcelUnlocker(self.runtime_dir, aspose_cells_license_path=license_path)
+
+        with patch("docmolder.excel_unlock.util.find_spec", return_value=None):
+            with self.assertRaisesRegex(ExcelUnlockError, "aspose-cells-python"):
+                unlocker.unlock_editing(source, "protetto_unlocked")
+
+    def test_xlsb_uses_aspose_when_license_is_configured(self) -> None:
+        source = self.runtime_dir / "protetto.xlsb"
+        source.write_bytes(b"xlsb-placeholder")
+        license_path = self.runtime_dir / "Aspose.Cells.lic"
+        license_path.write_text("fake-license", encoding="utf-8")
+        unlocker = ExcelUnlocker(self.runtime_dir, aspose_cells_license_path=license_path)
+
+        class FakeLicense:
+            def set_license(self, path: str) -> None:
+                self.path = path
+
+        class FakeSettings:
+            is_protected = True
+
+        class FakeSheet:
+            is_protected = True
+
+            def unprotect(self) -> None:
+                self.is_protected = False
+
+        class FakeWorkbook:
+            def __init__(self, path: str) -> None:
+                self.path = path
+                self.settings = FakeSettings()
+                self.worksheets = [FakeSheet()]
+
+            def unprotect(self, password: str) -> None:
+                self.settings.is_protected = False
+
+            def save(self, output_path: str, save_format: object) -> None:
+                Path(output_path).write_bytes(b"unlocked-xlsb")
+
+        fake_cells = SimpleNamespace(
+            License=FakeLicense,
+            Workbook=FakeWorkbook,
+            SaveFormat=SimpleNamespace(XLSB="xlsb"),
+        )
+        with patch("docmolder.excel_unlock._load_aspose_cells_module", return_value=fake_cells):
+            result = unlocker.unlock_editing(source, "protetto_unlocked")
+
+        self.assertEqual(result.path.suffix, ".xlsb")
+        self.assertEqual(result.mode, "aspose")
+        self.assertEqual(result.removed_protection_count, 2)
+        self.assertEqual(result.path.read_bytes(), b"unlocked-xlsb")
 
 
 class ExcelProcessingTest(unittest.TestCase):

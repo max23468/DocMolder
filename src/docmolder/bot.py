@@ -3060,6 +3060,7 @@ def build_application(settings: Settings) -> Application:
         ghostscript_timeout_seconds=settings.ghostscript_timeout_seconds,
         image_pdf_max_source_side_px=settings.image_pdf_max_source_side_px,
         libreoffice_timeout_seconds=settings.libreoffice_timeout_seconds,
+        aspose_cells_license_path=settings.aspose_cells_license_path,
     )
     deps = BotDependencies(settings=settings, session_store=session_store, processor=processor)
 
