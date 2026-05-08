@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.7.2](https://github.com/max23468/DocMolder/compare/docmolder-v1.7.1...docmolder-v1.7.2) (2026-05-08)
+
+
+### Correzioni
+
+* **excel:** gate XLSB unlock behind licensed engine ([#152](https://github.com/max23468/DocMolder/issues/152)) ([1fd1d68](https://github.com/max23468/DocMolder/commit/1fd1d686ddbbacf27b3cc67b0d91ed67030eec26))
+
 ## [1.7.1](https://github.com/max23468/DocMolder/compare/docmolder-v1.7.0...docmolder-v1.7.1) (2026-05-08)
 
 
