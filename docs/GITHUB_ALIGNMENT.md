@@ -12,6 +12,7 @@ Elementi già presenti o introdotti:
 - `.github/workflows/ci.yml` per gate PR prudente e test manuali completi via `workflow_dispatch`
 - `.github/workflows/dependabot-auto-merge.yml` per automerge prudente delle PR Dependabot dopo CI riuscita
 - `.github/workflows/github-maintenance.yml` per report mensile leggero
+- `.github/workflows/codex-pr-comments.yml` per sincronizzare la issue `Codex feedback inbox`
 - `.github/workflows/release-sanity.yml` per controlli manuali su metadata release
 - `.github/dependabot.yml` per aggiornamenti dipendenze
 - `.github/ISSUE_TEMPLATE/` per bug/feature standardizzati
@@ -69,6 +70,13 @@ Regola aggiuntiva fondamentale:
 - quei file vengono aggiornati solo dalla Release PR generata da `Release Please` o da manutenzione esplicita del flusso;
 - se compaiono in una PR normale, la PR va corretta prima del merge;
 - per il dettaglio operativo della policy, fai sempre riferimento a [VERSIONING.md](./VERSIONING.md).
+
+Regola commenti Codex:
+
+- usa la issue `Codex feedback inbox` come backlog globale dei commenti del Codex connector bot;
+- non mantenere file Markdown/JSON committati per lo stato dei commenti;
+- prima di ready/merge controlla sia la inbox sia la PR corrente con `scripts/check_codex_bot_comments.py --pr <numero> --fail`;
+- quando restano azioni aperte, indicare in chat il prossimo passo concreto: fix nella PR corrente, follow-up dedicato o falso positivo motivato.
 
 ## 4) Convenzioni leggere ad alto rendimento
 

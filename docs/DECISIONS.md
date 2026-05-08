@@ -8,6 +8,7 @@ Questo file raccoglie decisioni architetturali e di prodotto già prese, in form
 - [Roadmap 1.x: soft launch prima, feature dopo](#roadmap-1x-soft-launch-prima-feature-dopo)
 - [Polling invece di webhook pubblici](#polling-invece-di-webhook-pubblici)
 - [Webhook privato per deploy e hook locali](#webhook-privato-per-deploy-e-hook-locali)
+- [Inbox event-driven per commenti Codex](#inbox-event-driven-per-commenti-codex)
 - [Retention breve dei file temporanei](#retention-breve-dei-file-temporanei)
 - [Auto-orientamento PDF invece di rotazione manuale come azione primaria](#auto-orientamento-pdf-invece-di-rotazione-manuale-come-azione-primaria)
 - [Fallback conservativi nella pipeline PDF](#fallback-conservativi-nella-pipeline-pdf)
@@ -94,6 +95,27 @@ Conseguenze:
 - gli hook locali possono bloccare push non pronti prima che arrivino su GitHub
 - se il webhook o gli hook non sono configurati, il percorso resta manuale ma non si rompe il bot
 - i commit `chore(main): release docmolder X.Y.Z` non producono una nuova release, evitando loop di release/deploy
+
+## Inbox event-driven per commenti Codex
+
+Decisione:
+- i commenti del Codex connector bot vengono gestiti tramite una issue unica `Codex feedback inbox`
+- il workflow `.github/workflows/codex-pr-comments.yml` aggiorna la inbox su eventi PR trusted, commenti issue, dispatch manuale e scansione programmata ogni 6 ore
+- la scansione usa i review thread GitHub come fonte di verita, separando thread actionable e storico compatto
+- il workflow commenta `@codex address that feedback` sulle PR con thread actionable, senza duplicare richieste gia pubblicate per gli stessi thread
+- non si usano piu file Markdown/JSON committati o report locali come inbox dei commenti Codex
+- i prossimi passi operativi restano dichiarati in chat e nei report locali, partendo dalla inbox quando segnala feedback da gestire
+
+Motivazione:
+- i commenti Codex devono diventare lavoro visibile appena arrivano, senza attendere controlli manuali periodici
+- lo stato dei commenti appartiene a GitHub, non al repository sorgente
+- una inbox unica riduce il rischio di perdere thread su PR chiuse, mergiate o non correnti
+
+Conseguenze:
+- prima di dichiarare pronta o pubblicata una PR, si controllano la PR corrente e la `Codex feedback inbox`
+- i commenti su PR non piu modificabili diventano follow-up mirati quando sono azionabili
+- il workflow esegue sempre lo script dalla default branch trusted, non dal codice proposto nella PR che ha generato l'evento
+- il click "Resolve conversation" non ha un trigger dedicato affidabile: la inbox si riallinea con eventi successivi, dispatch manuale o scansione programmata
 
 ## Retention breve dei file temporanei
 
