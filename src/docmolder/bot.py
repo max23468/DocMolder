@@ -166,6 +166,12 @@ _COMPRESSION_PRESET_KEY = "compression_preset"
 _SPLIT_OUTPUT_KEY = "split_output"
 _IMAGE_PDF_LAYOUT_KEY = "image_pdf_layout"
 _IMAGE_PDF_MARGIN_KEY = "image_pdf_margin_px"
+_EXCEL_SUFFIX_BY_MIME_TYPE = {
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+    "application/vnd.ms-excel.sheet.macroenabled.12": ".xlsm",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.ms-excel.sheet.binary.macroenabled.12": ".xlsb",
+}
 
 
 class PendingActionEnqueueKwargs(TypedDict, total=False):
@@ -1542,7 +1548,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await message.reply_text(validation_error)
         return
 
-    _save_uploaded_file(session, build_session_file(document.file_id, document.file_name, kind), deps)
+    file_name = _build_document_session_file_name(document, kind)
+    _save_uploaded_file(session, build_session_file(document.file_id, file_name, kind), deps)
 
     if kind == FileKind.IMAGE:
         _schedule_image_session_notification(chat_id=message.chat_id, user_id=user.id, context=context)
@@ -3108,6 +3115,25 @@ def _infer_document_kind(document: Document) -> FileKind | None:
     }:
         return FileKind.EXCEL
     return None
+
+
+def _build_document_session_file_name(document: Document, kind: FileKind) -> str | None:
+    if kind != FileKind.EXCEL:
+        return document.file_name
+
+    file_name = document.file_name
+    suffix = Path(file_name or "").suffix.lower()
+    if suffix in SUPPORTED_EXCEL_SUFFIXES:
+        return file_name
+
+    fallback_suffix = _EXCEL_SUFFIX_BY_MIME_TYPE.get(document.mime_type or "")
+    if fallback_suffix is None:
+        return file_name
+
+    if not file_name:
+        return f"excel_{document.file_id[:8]}{fallback_suffix}"
+
+    return Path(file_name).with_suffix(fallback_suffix).name
 
 
 def _build_unsupported_document_message(document: Document) -> str:
