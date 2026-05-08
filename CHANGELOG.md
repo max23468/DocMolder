@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.7.1](https://github.com/max23468/DocMolder/compare/docmolder-v1.7.0...docmolder-v1.7.1) (2026-05-08)
+
+
+### Correzioni
+
+* **bot:** preserve Excel suffix inferred from MIME ([#150](https://github.com/max23468/DocMolder/issues/150)) ([4921e2a](https://github.com/max23468/DocMolder/commit/4921e2ab4a51a4907d376a808e6ccf40b80cd887))
+
 ## [1.7.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.6.5...docmolder-v1.7.0) (2026-05-08)
 
 
