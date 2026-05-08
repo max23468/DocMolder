@@ -29,6 +29,7 @@ class SupportedAction(StrEnum):
     PDF_DELETE_PAGES = "pdf_delete_pages"
     PDF_ROTATE = "pdf_rotate"
     PDF_WATERMARK = "pdf_watermark"
+    EXCEL_UNLOCK_EDITING = "excel_unlock_editing"
     AUTO_ORIENT = "auto_orient"
 
 
@@ -48,6 +49,7 @@ SupportedActionValue: TypeAlias = Literal[
     "pdf_delete_pages",
     "pdf_rotate",
     "pdf_watermark",
+    "excel_unlock_editing",
     "auto_orient",
 ]
 
@@ -78,6 +80,7 @@ class DocumentPhotoMode(StrEnum):
 class FileKind(StrEnum):
     IMAGE = "image"
     PDF = "pdf"
+    EXCEL = "excel"
 
 
 class JobStatus(StrEnum):

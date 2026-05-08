@@ -117,6 +117,30 @@ class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Meno azioni", labels)
         self.assertIn("Aggiungi watermark", labels)
 
+    async def test_excel_unlock_action_callback_enqueues_job(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("excel-1", "budget.xlsm", FileKind.EXCEL)],
+            )
+        )
+        query = SimpleNamespace(
+            data="action:excel_unlock_editing",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=702),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+        update = SimpleNamespace(callback_query=query)
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_action_callback(update, context)
+
+        queued_job = next(iter(self.store._jobs.values()))
+        self.assertEqual(queued_job.action, SupportedAction.EXCEL_UNLOCK_EDITING.value)
+        self.assertIsNone(self.store.get(7))
+        self.assertIn("Excel", query.edit_message_text.await_args.args[0])
+
     async def test_invalid_compression_callback_returns_expired_message(self) -> None:
         self.store.save(
             UserSession(

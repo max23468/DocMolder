@@ -15,17 +15,17 @@ PYTHON_BIN=""
 install_packages() {
   if command -v apt >/dev/null 2>&1; then
     sudo apt update
-    sudo apt install -y python3.11 python3.11-venv python3-pip git ghostscript curl || sudo apt install -y python3 python3-venv python3-pip git ghostscript curl
+    sudo apt install -y python3.11 python3.11-venv python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo apt install -y python3 python3-venv python3-pip git ghostscript curl libreoffice-calc python3-uno
     return
   fi
 
   if command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y python3.11 python3.11-pip git ghostscript curl || sudo dnf install -y python3 python3-pip git ghostscript curl
+    sudo dnf install -y python3.11 python3.11-pip git ghostscript curl libreoffice-calc python3-uno || sudo dnf install -y python3.11 python3.11-pip git ghostscript curl libreoffice-calc libreoffice-pyuno || sudo dnf install -y python3 python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo dnf install -y python3 python3-pip git ghostscript curl libreoffice-calc libreoffice-pyuno
     return
   fi
 
   if command -v yum >/dev/null 2>&1; then
-    sudo yum install -y python3.11 python3.11-pip git ghostscript curl || sudo yum install -y python3 python3-pip git ghostscript curl
+    sudo yum install -y python3.11 python3.11-pip git ghostscript curl libreoffice-calc python3-uno || sudo yum install -y python3.11 python3.11-pip git ghostscript curl libreoffice-calc libreoffice-pyuno || sudo yum install -y python3 python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo yum install -y python3 python3-pip git ghostscript curl libreoffice-calc libreoffice-pyuno
     return
   fi
 

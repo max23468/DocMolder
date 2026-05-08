@@ -79,6 +79,7 @@ Enum centrale delle azioni supportate:
 - estrazione, riordino ed eliminazione pagine
 - rotazione
 - watermark
+- sblocco modifica Excel
 - auto-orientamento
 
 Uso:

@@ -26,6 +26,14 @@ Opzionale per funzioni admin:
 
 - `DOCMOLDER_ADMIN_USER_IDS`
 
+Opzionale per lo sblocco Excel `.xls`/`.xlsb`:
+
+- LibreOffice Calc
+- bridge Python UNO (`python3-uno` su Debian/Ubuntu)
+- `DOCMOLDER_LIBREOFFICE_TIMEOUT_SECONDS`
+
+Lo sblocco `.xlsx`/`.xlsm` non richiede LibreOffice.
+
 ## Avvio rapido
 
 ```bash

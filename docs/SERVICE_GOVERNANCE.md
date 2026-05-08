@@ -72,7 +72,7 @@ Scelta operativa 1.x:
 Il prodotto è:
 
 - utility documentale guidata
-- trasformazione rapida di PDF e immagini
+- trasformazione rapida di PDF, immagini ed Excel già apribili
 - esperienza conversazionale semplice
 - servizio operativo con coda, admin console e retention breve
 
@@ -80,6 +80,7 @@ Il prodotto non è:
 
 - archivio documentale
 - editor PDF generalista
+- recupero o cracking password documentali
 - suite OCR completa
 - piattaforma collaborativa
 - dashboard web-first
@@ -109,6 +110,7 @@ Il servizio tratta:
 
 - file PDF caricati
 - immagini caricate
+- file Excel caricati
 - output PDF, ZIP o file derivati
 - metadati tecnici come nome file, dimensioni e tipo
 

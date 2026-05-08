@@ -2,7 +2,7 @@
 
 `DocMolder` è un bot Telegram-first pubblico per trasformazioni documentali semplici e guidate.
 
-Posizionamento sintetico: utility professionale, smart e amichevole per PDF, scansioni e immagini direttamente in chat.
+Posizionamento sintetico: utility professionale, smart e amichevole per PDF, scansioni, immagini ed Excel direttamente in chat.
 
 L'utente apre [`@docmolder_bot`](https://t.me/docmolder_bot), invia file al bot, sceglie l'azione desiderata e riceve l'output direttamente in chat.
 
@@ -18,7 +18,7 @@ L'utente apre [`@docmolder_bot`](https://t.me/docmolder_bot), invia file al bot,
 
 `DocMolder` vuole restare una utility documentale chat-first:
 
-- focalizzata su trasformazioni pratiche di PDF e foto di documenti
+- focalizzata su trasformazioni pratiche di PDF, foto di documenti e piccoli interventi Excel mirati
 - semplice, guidata e affidabile
 - orientata a una operazione chiara per volta
 
@@ -44,6 +44,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Eliminazione pagine da un PDF
 - Rotazione manuale delle pagine di un PDF
 - Watermark testuale su PDF
+- Sblocco modifica Excel per file già apribili con fogli o struttura protetti
 - Correzione automatica dell'orientamento dei PDF quando serve, con possibilità di rifare il file senza auto-rotazione
 - Correzione automatica orientamento per immagini
 - Raddrizzamento foto documento con profili `Più leggibile`, `Mantieni colore` e `Bianco/nero pulito`
@@ -90,6 +91,7 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - eliminazione pagine PDF
 - rotazione manuale pagine PDF
 - watermark testuale PDF
+- sblocco modifica Excel per file `.xlsx`, `.xlsm`, `.xls` e `.xlsb` già apribili
 - conversione PDF in scala di grigi
 - compressione PDF con livelli semplici
 - feedback compressione quando la riduzione è minima o non conviene

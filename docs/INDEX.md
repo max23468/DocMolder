@@ -31,6 +31,7 @@ Indice unico della documentazione operativa.
 - [ARCHITECTURE.md](./ARCHITECTURE.md): mappa di moduli, flussi, runtime e limiti architetturali.
 - [DATA_MODEL.md](./DATA_MODEL.md): modelli applicativi, tabelle SQLite e stati persistenti.
 - [PDF_PIPELINE.md](./PDF_PIPELINE.md): strategia pipeline PDF e fallback.
+- [EXCEL_PIPELINE.md](./EXCEL_PIPELINE.md): strategia sblocco modifica Excel e dipendenze LibreOffice.
 - [TELEGRAM_OPERATIONS.md](./TELEGRAM_OPERATIONS.md): comandi, deep link, console admin, metriche e hardening del bot Telegram.
 - [DECISIONS.md](./DECISIONS.md): decisioni tecniche persistenti.
 - [DECISIONS_PENDING.md](./DECISIONS_PENDING.md): decisioni aperte distinte dai task di roadmap.

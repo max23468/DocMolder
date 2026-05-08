@@ -45,6 +45,7 @@ from docmolder.bot import (
     _get_stored_image_pdf_layout,
     _get_stored_image_pdf_margin,
     _get_stored_split_output_choice,
+    _infer_document_kind,
     _increment_meta_counter,
     _is_authorized_for_deps,
     _is_replayed_callback,
@@ -394,7 +395,16 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             ),
         )
         text_file_message = _build_unsupported_document_message(SimpleNamespace(file_name="note.txt", mime_type=None))
-        self.assertIn("esportalo in PDF", text_file_message)
+        self.assertIn("uno di questi formati", text_file_message)
+        self.assertEqual(
+            _infer_document_kind(
+                SimpleNamespace(
+                    file_name="bloccato.xlsb",
+                    mime_type="application/vnd.ms-excel.sheet.binary.macroenabled.12",
+                )
+            ),
+            FileKind.EXCEL,
+        )
         self.assertIn("4 job attivi", _build_job_queue_limit_message(4))
         self.assertIn("Watermark", _build_user_history_job_detail(
             self.store.create_job(
@@ -792,8 +802,34 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         document_message.reply_text.assert_awaited_once()
         reply_text = document_message.reply_text.await_args.args[0]
         self.assertIn("Non riesco a lavorare questo tipo di file", reply_text)
-        self.assertIn("esportalo in PDF", reply_text)
+        self.assertIn("uno di questi formati", reply_text)
         self.assertIn("application/vnd.openxmlformats-officedocument.wordprocessingml.document", reply_text)
+
+    async def test_document_upload_accepts_excel_session(self) -> None:
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+        user = SimpleNamespace(id=7, username=None, first_name="Test", last_name=None)
+        document_message = SimpleNamespace(
+            chat_id=99,
+            message_id=1198,
+            document=SimpleNamespace(
+                file_id="excel-telegram-id",
+                file_name="budget.xlsx",
+                mime_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                file_size=1024,
+            ),
+            reply_text=AsyncMock(),
+        )
+
+        await handle_document(
+            SimpleNamespace(effective_user=user, effective_message=document_message),
+            context,
+        )
+
+        session = self.store.get(7)
+        self.assertIsNotNone(session)
+        self.assertEqual(session.files[0].kind, FileKind.EXCEL)
+        reply_text = document_message.reply_text.await_args.args[0]
+        self.assertIn("Sblocca modifica Excel", reply_text)
 
     async def test_pseudo_e2e_document_upload_to_compress_flow(self) -> None:
         context = SimpleNamespace(application=self.application, bot=self.bot)

@@ -306,6 +306,26 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
         tokens,
         ("watermark", "filigrana", "timbro"),
     )
+    mentions_excel_unlock = _matches_keyword_group(
+        keyword_text,
+        tokens,
+        (
+            "sblocca excel",
+            "sblocca questo excel",
+            "sblocca fogli",
+            "sblocca modifica",
+            "sblocca modifiche",
+            "togli protezione",
+            "rimuovi protezione",
+            "rimuovi password",
+            "togli password",
+            "protezione fogli",
+            "foglio protetto",
+            "fogli protetti",
+            "excel protetto",
+            "modifica excel",
+        ),
+    )
     mentions_pdf_creation = _matches_keyword_group(
         keyword_text,
         tokens,
@@ -328,6 +348,9 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
     compression_preset = _extract_compression_preset(keyword_text, tokens)
     split_output_zip = _infer_split_output_zip(keyword_text, tokens)
     document_photo_mode = _parse_document_photo_mode_choice(text)
+
+    if SupportedAction.EXCEL_UNLOCK_EDITING in supported and mentions_excel_unlock:
+        return TextRequestResolution(kind="enqueue", action=SupportedAction.EXCEL_UNLOCK_EDITING)
 
     if SupportedAction.PDF_ROTATE in supported and mentions_rotate:
         if rotate_degrees is not None:

@@ -23,6 +23,7 @@ ACTION_LABELS: dict[SupportedAction, str] = {
     SupportedAction.PDF_DELETE_PAGES: "Elimina pagine",
     SupportedAction.PDF_ROTATE: "Ruota pagine",
     SupportedAction.PDF_WATERMARK: "Watermark testuale",
+    SupportedAction.EXCEL_UNLOCK_EDITING: "Sblocca modifica Excel",
     SupportedAction.AUTO_ORIENT: "Correggi orientamento",
 }
 
@@ -42,6 +43,7 @@ OUTPUT_SUFFIX_BY_ACTION: dict[SupportedAction, str] = {
     SupportedAction.PDF_DELETE_PAGES: "deleted_pages",
     SupportedAction.PDF_ROTATE: "rotated",
     SupportedAction.PDF_WATERMARK: "watermarked",
+    SupportedAction.EXCEL_UNLOCK_EDITING: "unlocked",
     SupportedAction.AUTO_ORIENT: "oriented",
 }
 
@@ -64,6 +66,10 @@ SINGLE_PDF_ACTIONS: tuple[SupportedAction, ...] = (
     SupportedAction.PDF_DELETE_PAGES,
     SupportedAction.PDF_ROTATE,
     SupportedAction.PDF_WATERMARK,
+)
+
+SINGLE_EXCEL_ACTIONS: tuple[SupportedAction, ...] = (
+    SupportedAction.EXCEL_UNLOCK_EDITING,
 )
 
 RESULT_FOLLOWUP_ACTIONS: tuple[SupportedAction, ...] = (
@@ -99,6 +105,7 @@ EXPOSED_ACTION_ORDER: tuple[SupportedAction, ...] = (
     SupportedAction.PDF_ROTATE,
     SupportedAction.PDF_WATERMARK,
     SupportedAction.AUTO_ORIENT,
+    SupportedAction.EXCEL_UNLOCK_EDITING,
 )
 
 
@@ -107,6 +114,7 @@ class SessionInventory:
     total_files: int
     image_count: int
     pdf_count: int
+    excel_count: int
     file_preview: str
 
     @property
@@ -116,6 +124,8 @@ class SessionInventory:
             kinds.add(FileKind.IMAGE)
         if self.pdf_count:
             kinds.add(FileKind.PDF)
+        if self.excel_count:
+            kinds.add(FileKind.EXCEL)
         return frozenset(kinds)
 
     @property
@@ -125,6 +135,8 @@ class SessionInventory:
             parts.append(f"{self.image_count} immagini")
         if self.pdf_count:
             parts.append(f"{self.pdf_count} PDF")
+        if self.excel_count:
+            parts.append(f"{self.excel_count} Excel")
         return ", ".join(parts) if parts else "nessun file"
 
 
@@ -210,15 +222,19 @@ def build_next_step_hint(session: UserSession) -> str:
 def _build_session_inventory(files: list[SessionFile]) -> SessionInventory:
     image_count = 0
     pdf_count = 0
+    excel_count = 0
     for item in files:
         if item.kind == FileKind.IMAGE:
             image_count += 1
         elif item.kind == FileKind.PDF:
             pdf_count += 1
+        elif item.kind == FileKind.EXCEL:
+            excel_count += 1
     return SessionInventory(
         total_files=len(files),
         image_count=image_count,
         pdf_count=pdf_count,
+        excel_count=excel_count,
         file_preview=_build_file_preview(files),
     )
 
@@ -235,6 +251,9 @@ def _infer_supported_actions(inventory: SessionInventory) -> tuple[SupportedActi
             return (SupportedAction.PDF_MERGE,)
         if inventory.pdf_count == 1:
             return SINGLE_PDF_ACTIONS
+
+    if inventory.kinds == frozenset({FileKind.EXCEL}) and inventory.excel_count == 1:
+        return SINGLE_EXCEL_ACTIONS
 
     return ()
 
@@ -257,6 +276,8 @@ def _infer_recommended_actions(
         )
     elif inventory.kinds == frozenset({FileKind.PDF}) and inventory.pdf_count > 1:
         ordered_candidates = (SupportedAction.PDF_MERGE,)
+    elif inventory.kinds == frozenset({FileKind.EXCEL}):
+        ordered_candidates = (SupportedAction.EXCEL_UNLOCK_EDITING,)
     else:
         ordered_candidates = (
             SupportedAction.PDF_COMPRESS,
@@ -276,7 +297,7 @@ def _infer_session_warnings(
 ) -> tuple[str, ...]:
     warnings: list[str] = []
     if len(inventory.kinds) > 1:
-        warnings.append("La sessione contiene PDF e immagini insieme: usa /reset e invia un solo tipo di file.")
+        warnings.append("La sessione contiene tipi di file diversi: usa /reset e invia un solo tipo di file.")
     elif inventory.total_files and not supported_actions:
         warnings.append("Non vedo azioni compatibili con i file correnti.")
     if session.pending_action:
@@ -296,6 +317,8 @@ def _build_next_step_hint(session: UserSession, inventory: SessionInventory) -> 
         if inventory.pdf_count > 1:
             return 'se vuoi unirli, scegli "Unisci PDF" qui sotto.'
         return 'scegli un\'azione qui sotto oppure scrivimi ad esempio "comprimi questo pdf".'
+    if inventory.kinds == frozenset({FileKind.EXCEL}):
+        return 'scegli "Sblocca modifica Excel" qui sotto oppure scrivimi "sblocca questo Excel".'
     return "scegli un'azione compatibile qui sotto."
 
 

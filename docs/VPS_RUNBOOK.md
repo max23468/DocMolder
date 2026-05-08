@@ -15,6 +15,15 @@ chmod +x deploy/oracle-setup.sh
 ./deploy/oracle-setup.sh
 ```
 
+Lo sblocco Excel `.xls`/`.xlsb` richiede LibreOffice Calc e il bridge Python
+UNO. Gli script di installazione versionati li installano insieme a Ghostscript;
+per verifica manuale su Ubuntu:
+
+```bash
+command -v soffice
+python3 -c "import uno"
+```
+
 Configura ambiente:
 
 ```bash
@@ -33,6 +42,7 @@ Variabili minime:
 - soglia job lenti admin (`DOCMOLDER_ADMIN_SLOW_JOB_THRESHOLD_MS`)
 - `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS` per retention live dello storico job, default 30 giorni
 - `DOCMOLDER_IMAGE_PDF_MAX_SOURCE_SIDE_PX` per controllare il downscale preventivo delle immagini molto grandi
+- `DOCMOLDER_LIBREOFFICE_TIMEOUT_SECONDS` per il timeout dello sblocco Excel binario, default 120 secondi
 
 Avvia servizio:
 
