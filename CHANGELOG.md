@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [1.7.3](https://github.com/max23468/DocMolder/compare/docmolder-v1.7.2...docmolder-v1.7.3) (2026-05-08)
+
+
+### Correzioni
+
+* **excel:** report password-protected XLSB sheets ([#154](https://github.com/max23468/DocMolder/issues/154)) ([305a06f](https://github.com/max23468/DocMolder/commit/305a06f840881e75e1a14187edd526b2d467d7d6))
+
 ## [1.7.2](https://github.com/max23468/DocMolder/compare/docmolder-v1.7.1...docmolder-v1.7.2) (2026-05-08)
 
 
