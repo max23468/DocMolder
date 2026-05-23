@@ -664,8 +664,17 @@ function parseGitHubJson(text, path, options = {}) {
 
 function shouldRetryGitHubRequest(response, text) {
   if ([429, 500, 502, 503, 504].includes(response.status)) return true;
+  if (response.status === 403 && isGitHubRateLimitResponse(response, text)) return true;
 
   return response.status === 401 && text.includes("Bad credentials");
+}
+
+function isGitHubRateLimitResponse(response, text) {
+  if (response.headers.get("x-ratelimit-remaining") === "0") return true;
+
+  const normalizedText = text.toLowerCase();
+
+  return normalizedText.includes("rate limit") || normalizedText.includes("abuse detection");
 }
 
 function githubRetryDelayMs(response, attempt) {
