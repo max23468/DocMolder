@@ -24,13 +24,8 @@ command -v soffice
 python3 -c "import uno"
 ```
 
-Lo sblocco `.xlsb` mantenendo il formato originale richiede invece Aspose.Cells
-licenziato: installa l'extra `docmolder[xlsb]`, conserva la licenza fuori repo e
-valorizza `DOCMOLDER_ASPOSE_CELLS_LICENSE_PATH`.
-
-Warning Aspose: non usare l'evaluation mode sui file utente. Senza licenza valida
-Aspose.Cells può aggiungere fogli watermark al workbook; DocMolder deve quindi
-fallire il job `.xlsb` finché la licenza non è configurata correttamente.
+Il formato `.xlsb` non è supportato: il runtime non installa engine dedicati e
+non espone configurazione di licenza per quel percorso.
 
 Configura ambiente:
 

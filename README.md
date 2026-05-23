@@ -91,7 +91,7 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - eliminazione pagine PDF
 - rotazione manuale pagine PDF
 - watermark testuale PDF
-- sblocco modifica Excel per file `.xlsx`, `.xlsm` e `.xls` già apribili; `.xlsb` richiede engine Aspose.Cells licenziato, mai evaluation mode su file utente
+- sblocco modifica Excel per file `.xlsx`, `.xlsm` e `.xls` già apribili
 - conversione PDF in scala di grigi
 - compressione PDF con livelli semplici
 - feedback compressione quando la riduzione è minima o non conviene

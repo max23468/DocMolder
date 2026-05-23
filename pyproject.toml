@@ -33,9 +33,6 @@ dev = [
   "coverage>=7.10.7",
   "ruff==0.15.9",
 ]
-xlsb = [
-  "aspose-cells-python>=26.4,<27.0",
-]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

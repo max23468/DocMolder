@@ -140,7 +140,7 @@ class ActionCatalogHelpersTest(unittest.TestCase):
     def test_single_excel_session_exposes_unlock_action(self) -> None:
         session = UserSession(
             user_id=4,
-            files=[build_session_file("excel-1", "Budget.xlsb", FileKind.EXCEL)],
+            files=[build_session_file("excel-1", "Budget.xlsx", FileKind.EXCEL)],
         )
 
         analysis = infer_session_analysis(session)

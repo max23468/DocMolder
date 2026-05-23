@@ -85,7 +85,7 @@ MIXED_SESSION_MESSAGE = (
 
 UNSUPPORTED_DOCUMENT_MESSAGE = (
     "Non riesco a lavorare questo tipo di file. "
-    "Per ora supporto PDF, immagini JPG/PNG/WEBP ed Excel .xlsx, .xlsm, .xls o .xlsb se configurato. "
+    "Per ora supporto PDF, immagini JPG/PNG/WEBP ed Excel .xlsx, .xlsm o .xls. "
     "Prossimo passo: esportalo in uno di questi formati e reinvialo qui."
 )
 

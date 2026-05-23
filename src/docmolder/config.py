@@ -23,7 +23,6 @@ class Settings(BaseSettings):
     job_history_retention_days: int = Field(default=30, alias="DOCMOLDER_JOB_HISTORY_RETENTION_DAYS")
     ghostscript_timeout_seconds: int = Field(default=120, alias="DOCMOLDER_GHOSTSCRIPT_TIMEOUT_SECONDS")
     libreoffice_timeout_seconds: int = Field(default=120, alias="DOCMOLDER_LIBREOFFICE_TIMEOUT_SECONDS")
-    aspose_cells_license_path: Path | None = Field(default=None, alias="DOCMOLDER_ASPOSE_CELLS_LICENSE_PATH")
     admin_daily_report_hour: int = Field(default=8, alias="DOCMOLDER_ADMIN_DAILY_REPORT_HOUR")
     admin_weekly_report_day: int = Field(default=0, alias="DOCMOLDER_ADMIN_WEEKLY_REPORT_DAY")
     admin_weekly_report_hour: int = Field(default=8, alias="DOCMOLDER_ADMIN_WEEKLY_REPORT_HOUR")

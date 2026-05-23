@@ -403,7 +403,16 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
                     mime_type="application/vnd.ms-excel.sheet.binary.macroenabled.12",
                 )
             ),
-            FileKind.EXCEL,
+            None,
+        )
+        self.assertEqual(
+            _infer_document_kind(
+                SimpleNamespace(
+                    file_name="bloccato.xlsb",
+                    mime_type="application/vnd.ms-excel",
+                )
+            ),
+            None,
         )
         self.assertIn("4 job attivi", _build_job_queue_limit_message(4))
         self.assertIn("Watermark", _build_user_history_job_detail(
@@ -856,7 +865,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(session.files[0].kind, FileKind.EXCEL)
         self.assertEqual(session.files[0].file_name, "budget.xlsx")
 
-    async def test_document_upload_adds_excel_suffix_when_filename_is_missing(self) -> None:
+    async def test_document_upload_rejects_xlsb_when_filename_is_missing(self) -> None:
         context = SimpleNamespace(application=self.application, bot=self.bot)
         user = SimpleNamespace(id=7, username=None, first_name="Test", last_name=None)
         document_message = SimpleNamespace(
@@ -877,9 +886,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         )
 
         session = self.store.get(7)
-        self.assertIsNotNone(session)
-        self.assertEqual(session.files[0].kind, FileKind.EXCEL)
-        self.assertEqual(session.files[0].file_name, "excel_excel-te.xlsb")
+        self.assertIsNone(session)
+        reply_text = document_message.reply_text.await_args.args[0]
+        self.assertIn("Non riesco a lavorare questo tipo di file", reply_text)
+        self.assertIn(".xlsx, .xlsm o .xls", reply_text)
 
     async def test_pseudo_e2e_document_upload_to_compress_flow(self) -> None:
         context = SimpleNamespace(application=self.application, bot=self.bot)
