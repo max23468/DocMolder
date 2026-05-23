@@ -22,6 +22,14 @@ const historyPrLimit = parsePositiveInteger(process.env.CODEX_HISTORY_PR_LIMIT, 
 const historyThreadLimit = parsePositiveInteger(process.env.CODEX_HISTORY_THREAD_LIMIT, 5);
 const githubApiAttempts = parsePositiveInteger(process.env.CODEX_GITHUB_API_ATTEMPTS, 4);
 const githubApiRetryBaseMs = parsePositiveInteger(process.env.CODEX_GITHUB_API_RETRY_BASE_MS, 1500);
+const githubApiSecondaryRateLimitDelayMs = parsePositiveInteger(
+  process.env.CODEX_GITHUB_API_SECONDARY_RATE_LIMIT_DELAY_MS,
+  60_000,
+);
+const githubApiMaxRateLimitResetDelayMs = parsePositiveInteger(
+  process.env.CODEX_GITHUB_API_MAX_RATE_LIMIT_RESET_DELAY_MS,
+  300_000,
+);
 
 if (!repository) {
   fail("GITHUB_REPOSITORY non impostato.");
@@ -638,7 +646,7 @@ async function githubRequest(path, init) {
       return { payload, response, text };
     }
 
-    const delayMs = githubRetryDelayMs(response, attempt);
+    const delayMs = githubRetryDelayMs(response, text, attempt);
     console.warn(
       `GitHub API ${path} ha risposto ${response.status}; ritento tra ${Math.round(
         delayMs / 1000,
@@ -664,9 +672,22 @@ function parseGitHubJson(text, path, options = {}) {
 
 function shouldRetryGitHubRequest(response, text) {
   if ([429, 500, 502, 503, 504].includes(response.status)) return true;
-  if (response.status === 403 && isGitHubRateLimitResponse(response, text)) return true;
+  if (response.status === 403 && isRetryableGitHubRateLimitResponse(response, text)) return true;
 
   return response.status === 401 && text.includes("Bad credentials");
+}
+
+function isRetryableGitHubRateLimitResponse(response, text) {
+  if (!isGitHubRateLimitResponse(response, text)) return false;
+  if (githubRetryAfterDelayMs(response) !== null) return true;
+
+  if (response.headers.get("x-ratelimit-remaining") === "0") {
+    const resetDelayMs = githubRateLimitResetDelayMs(response);
+
+    return resetDelayMs !== null && resetDelayMs <= githubApiMaxRateLimitResetDelayMs;
+  }
+
+  return true;
 }
 
 function isGitHubRateLimitResponse(response, text) {
@@ -677,12 +698,40 @@ function isGitHubRateLimitResponse(response, text) {
   return normalizedText.includes("rate limit") || normalizedText.includes("abuse detection");
 }
 
-function githubRetryDelayMs(response, attempt) {
+function githubRetryDelayMs(response, text, attempt) {
+  const retryAfter = githubRetryAfterDelayMs(response);
+
+  if (retryAfter !== null) return retryAfter;
+
+  const rateLimitResetDelayMs = githubRateLimitResetDelayMs(response);
+
+  if (response.headers.get("x-ratelimit-remaining") === "0" && rateLimitResetDelayMs !== null) {
+    return rateLimitResetDelayMs;
+  }
+
+  const backoffDelayMs = githubApiRetryBaseMs * 2 ** (attempt - 1);
+
+  if (response.status === 403 && isGitHubRateLimitResponse(response, text)) {
+    return Math.max(githubApiSecondaryRateLimitDelayMs, backoffDelayMs);
+  }
+
+  return backoffDelayMs;
+}
+
+function githubRetryAfterDelayMs(response) {
   const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
 
   if (Number.isInteger(retryAfter) && retryAfter > 0) return retryAfter * 1000;
 
-  return githubApiRetryBaseMs * 2 ** (attempt - 1);
+  return null;
+}
+
+function githubRateLimitResetDelayMs(response) {
+  const resetEpochSeconds = Number.parseInt(response.headers.get("x-ratelimit-reset") ?? "", 10);
+
+  if (!Number.isInteger(resetEpochSeconds) || resetEpochSeconds <= 0) return null;
+
+  return Math.max(resetEpochSeconds * 1000 - Date.now() + 1000, 0);
 }
 
 function sleep(delayMs) {
