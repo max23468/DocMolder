@@ -10,22 +10,22 @@ DATA_DIR="${APP_ROOT}/data/runtime"
 BACKUP_DIR="${DATA_DIR}/backups"
 ENV_DIR="/etc/docmolder"
 ENV_FILE="${ENV_DIR}/docmolder.env"
-PYTHON_BIN=""
+PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"
 
 install_packages() {
   if command -v apt >/dev/null 2>&1; then
     sudo apt update
-    sudo apt install -y python3.11 python3.11-venv python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo apt install -y python3 python3-venv python3-pip git ghostscript curl libreoffice-calc python3-uno
+    sudo apt install -y python3.13 python3.13-venv python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo apt install -y python3.12 python3.12-venv python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo apt install -y python3 python3-venv python3-pip git ghostscript curl libreoffice-calc python3-uno
     return
   fi
 
   if command -v dnf >/dev/null 2>&1; then
-    sudo dnf install -y python3.11 python3.11-pip git ghostscript curl libreoffice-calc python3-uno || sudo dnf install -y python3.11 python3.11-pip git ghostscript curl libreoffice-calc libreoffice-pyuno || sudo dnf install -y python3 python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo dnf install -y python3 python3-pip git ghostscript curl libreoffice-calc libreoffice-pyuno
+    sudo dnf install -y python3.13 python3.13-pip git ghostscript curl libreoffice-calc python3-uno || sudo dnf install -y python3.13 python3.13-pip git ghostscript curl libreoffice-calc libreoffice-pyuno || sudo dnf install -y python3.12 python3.12-pip git ghostscript curl libreoffice-calc python3-uno || sudo dnf install -y python3.12 python3.12-pip git ghostscript curl libreoffice-calc libreoffice-pyuno || sudo dnf install -y python3 python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo dnf install -y python3 python3-pip git ghostscript curl libreoffice-calc libreoffice-pyuno
     return
   fi
 
   if command -v yum >/dev/null 2>&1; then
-    sudo yum install -y python3.11 python3.11-pip git ghostscript curl libreoffice-calc python3-uno || sudo yum install -y python3.11 python3.11-pip git ghostscript curl libreoffice-calc libreoffice-pyuno || sudo yum install -y python3 python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo yum install -y python3 python3-pip git ghostscript curl libreoffice-calc libreoffice-pyuno
+    sudo yum install -y python3.13 python3.13-pip git ghostscript curl libreoffice-calc python3-uno || sudo yum install -y python3.13 python3.13-pip git ghostscript curl libreoffice-calc libreoffice-pyuno || sudo yum install -y python3.12 python3.12-pip git ghostscript curl libreoffice-calc python3-uno || sudo yum install -y python3.12 python3.12-pip git ghostscript curl libreoffice-calc libreoffice-pyuno || sudo yum install -y python3 python3-pip git ghostscript curl libreoffice-calc python3-uno || sudo yum install -y python3 python3-pip git ghostscript curl libreoffice-calc libreoffice-pyuno
     return
   fi
 
@@ -34,12 +34,19 @@ install_packages() {
 }
 
 choose_python() {
-  for candidate in python3.13 python3.12 python3.11 python3; do
-    if command -v "${candidate}" >/dev/null 2>&1; then
-      PYTHON_BIN="$(command -v "${candidate}")"
-      break
+  if [ -n "${PYTHON_BIN}" ]; then
+    if [ ! -x "${PYTHON_BIN}" ]; then
+      echo "Configured DOCMOLDER_PYTHON_BIN is not executable: ${PYTHON_BIN}" >&2
+      exit 1
     fi
-  done
+  else
+    for candidate in python3.13 python3.12 python3.11 python3; do
+      if command -v "${candidate}" >/dev/null 2>&1; then
+        PYTHON_BIN="$(command -v "${candidate}")"
+        break
+      fi
+    done
+  fi
 
   if [ -z "${PYTHON_BIN}" ]; then
     echo "No supported Python interpreter found." >&2
@@ -63,8 +70,13 @@ venv_python_supported() {
     return 1
   fi
 
-  local version
+  local selected_version version
+  selected_version="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
   version="$("${VENV_DIR}/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  if [ "${version}" != "${selected_version}" ]; then
+    return 1
+  fi
+
   case "${version}" in
     3.11|3.12|3.13)
       return 0

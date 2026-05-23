@@ -1,11 +1,12 @@
 VENV := .venv
+PYTHON_BOOTSTRAP ?= $(shell command -v python3.13 2>/dev/null || command -v python3)
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
 .PHONY: setup run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor publish-docs cleanup-branches codex-dev-report github-maintenance ops-report release-sanity profile-processing install-hooks
 
 setup:
-	python3 -m venv $(VENV)
+	$(PYTHON_BOOTSTRAP) -m venv $(VENV)
 	$(PIP) install -e .
 
 run:

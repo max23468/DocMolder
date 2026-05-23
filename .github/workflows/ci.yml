@@ -154,7 +154,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
           cache: pip
           cache-dependency-path: pyproject.toml
 
@@ -197,11 +197,11 @@ jobs:
           pip install -e .[dev]
 
       - name: Run tests with coverage
-        if: matrix.python-version == '3.12'
+        if: matrix.python-version == '3.13'
         run: bash scripts/ci_test.sh --coverage
 
       - name: Run tests without coverage
-        if: matrix.python-version != '3.12'
+        if: matrix.python-version != '3.13'
         run: bash scripts/ci_test.sh --no-coverage
 
   package-build:
@@ -219,7 +219,7 @@ jobs:
         if: needs.classify.outputs.no_runtime_impact != 'true'
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
           cache: pip
           cache-dependency-path: pyproject.toml
 

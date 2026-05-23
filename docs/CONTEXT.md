@@ -84,3 +84,4 @@ Ultimo aggiornamento del contesto:
 - la Fase 12 è implementata: "Raddrizza foto documento" propone profili leggeri per leggibilità, colore o bianco/nero pulito, segnala input scuri/sfocati/col bordo incerto e la compressione PDF indica quando la riduzione è minima
 - la Fase 13 è implementata: `/admin`, healthcheck e runbook espongono soglie prudenziali su job/giorno, utenti attivi, database, failure rate e coda, con alert più azionabili e criteri per fermare crescita o rivalutare SQLite/VPS
 - dopo `docmolder-v1.5.0` non c’è una nuova fase attiva: lo sviluppo feature è in pausa finché non emergono bugfix, priorità prodotto, segnali operativi o decisioni esplicite; il focus corrente è stabilizzazione, smoke mirati e osservazione del soft launch
+- il runtime applicativo preferito per sviluppo, CI operativa e VPS è Python 3.13 in virtualenv isolata; sulla VPS non va sostituito `/usr/bin/python3`, ma usato un interprete 3.13 side-by-side per `/opt/docmolder/venv`
