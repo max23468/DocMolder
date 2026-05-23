@@ -671,7 +671,8 @@ function parseGitHubJson(text, path, options = {}) {
 }
 
 function shouldRetryGitHubRequest(response, text) {
-  if ([429, 500, 502, 503, 504].includes(response.status)) return true;
+  if ([500, 502, 503, 504].includes(response.status)) return true;
+  if (response.status === 429 && isRetryableGitHubRateLimitResponse(response, text)) return true;
   if (response.status === 403 && isRetryableGitHubRateLimitResponse(response, text)) return true;
 
   return response.status === 401 && text.includes("Bad credentials");
@@ -691,6 +692,7 @@ function isRetryableGitHubRateLimitResponse(response, text) {
 }
 
 function isGitHubRateLimitResponse(response, text) {
+  if (response.status === 429) return true;
   if (response.headers.get("x-ratelimit-remaining") === "0") return true;
 
   const normalizedText = text.toLowerCase();
@@ -705,7 +707,11 @@ function githubRetryDelayMs(response, text, attempt) {
 
   const rateLimitResetDelayMs = githubRateLimitResetDelayMs(response);
 
-  if (response.headers.get("x-ratelimit-remaining") === "0" && rateLimitResetDelayMs !== null) {
+  if (
+    response.headers.get("x-ratelimit-remaining") === "0" &&
+    rateLimitResetDelayMs !== null &&
+    rateLimitResetDelayMs <= githubApiMaxRateLimitResetDelayMs
+  ) {
     return rateLimitResetDelayMs;
   }
 
