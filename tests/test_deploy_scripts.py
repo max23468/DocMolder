@@ -41,6 +41,8 @@ class DeployScriptsTest(unittest.TestCase):
         runtime_script = (ROOT / "deploy" / "install-python313.sh").read_text(encoding="utf-8")
 
         self.assertIn('PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"', install_script)
+        self.assertIn("python3.11 python3.11-venv", install_script)
+        self.assertIn("python3.11 python3.11-pip", install_script)
         self.assertIn('for candidate in python3.13 python3.12 python3.11 python3', install_script)
         self.assertIn('if [ "${version}" != "${selected_version}" ]; then', install_script)
         self.assertIn('PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"', update_script)
