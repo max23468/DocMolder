@@ -707,7 +707,7 @@ function githubRetryDelayMs(response, text, attempt) {
 
   const backoffDelayMs = githubApiRetryBaseMs * 2 ** (attempt - 1);
 
-  if (response.status === 403 && isGitHubRateLimitResponse(response, text)) {
+  if ([403, 429].includes(response.status) && isGitHubRateLimitResponse(response, text)) {
     return Math.max(githubApiSecondaryRateLimitDelayMs, backoffDelayMs);
   }
 
