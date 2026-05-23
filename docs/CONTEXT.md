@@ -14,7 +14,7 @@ Ultimo aggiornamento del contesto:
 - `src/docmolder/main.py`: entrypoint applicazione.
 - `src/docmolder/bot.py`: handler Telegram, orchestrazione flussi utente.
 - `src/docmolder/processing.py`: pipeline documentale.
-- `src/docmolder/excel_unlock.py`: sblocco modifica Excel e integrazione LibreOffice per formati binari.
+- `src/docmolder/excel_unlock.py`: sblocco modifica Excel e integrazione LibreOffice per `.xls`.
 - `src/docmolder/session_store.py`: facciata store sessioni/job.
 - `src/docmolder/sqlite_session_store.py`: persistenza sessioni/job su SQLite.
 - `src/docmolder/sqlite_backup.py`: backup e restore verificati del database SQLite.

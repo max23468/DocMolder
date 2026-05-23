@@ -65,7 +65,7 @@ Non è:
 - `docs/PDF_PIPELINE.md`
   - dettaglia compromessi tra percorsi nativi, Ghostscript e fallback raster
 - `src/docmolder/excel_unlock.py`
-  - sblocco modifica Excel per file già apribili, con percorso nativo per `.xlsx/.xlsm`, LibreOffice headless per `.xls` e percorso Aspose licenziato per `.xlsb`
+  - sblocco modifica Excel per file già apribili, con percorso nativo per `.xlsx/.xlsm` e LibreOffice headless per `.xls`
 - `docs/EXCEL_PIPELINE.md`
   - dettaglia limiti, dipendenze e comportamento del flusso Excel
 
@@ -200,4 +200,4 @@ Eventi e log devono permettere di correlare almeno:
 - i log non devono contenere contenuti dei documenti
 - i fallback raster possono produrre output meno ricchi del PDF nativo
 - Ghostscript è opzionale ma utile per alcuni flussi PDF
-- LibreOffice Calc e `python3-uno` sono necessari per sbloccare `.xls` mantenendo il formato originale; `.xlsb` richiede Aspose.Cells licenziato
+- LibreOffice Calc e `python3-uno` sono necessari per sbloccare `.xls` mantenendo il formato originale; `.xlsb` non è supportato

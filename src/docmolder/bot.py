@@ -170,7 +170,6 @@ _EXCEL_SUFFIX_BY_MIME_TYPE = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
     "application/vnd.ms-excel.sheet.macroenabled.12": ".xlsm",
     "application/vnd.ms-excel": ".xls",
-    "application/vnd.ms-excel.sheet.binary.macroenabled.12": ".xlsb",
 }
 
 
@@ -3060,7 +3059,6 @@ def build_application(settings: Settings) -> Application:
         ghostscript_timeout_seconds=settings.ghostscript_timeout_seconds,
         image_pdf_max_source_side_px=settings.image_pdf_max_source_side_px,
         libreoffice_timeout_seconds=settings.libreoffice_timeout_seconds,
-        aspose_cells_license_path=settings.aspose_cells_license_path,
     )
     deps = BotDependencies(settings=settings, session_store=session_store, processor=processor)
 
@@ -3108,11 +3106,12 @@ def _infer_document_kind(document: Document) -> FileKind | None:
         return FileKind.PDF
     if mime_type.startswith("image/") or file_name.endswith((".jpg", ".jpeg", ".png", ".webp")):
         return FileKind.IMAGE
+    if suffix == ".xlsb":
+        return None
     if suffix in SUPPORTED_EXCEL_SUFFIXES or mime_type in {
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         "application/vnd.ms-excel.sheet.macroenabled.12",
         "application/vnd.ms-excel",
-        "application/vnd.ms-excel.sheet.binary.macroenabled.12",
     }:
         return FileKind.EXCEL
     return None

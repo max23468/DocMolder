@@ -87,7 +87,6 @@ class DocumentProcessor:
         ghostscript_timeout_seconds: int = 120,
         image_pdf_max_source_side_px: int = IMAGE_PDF_DEFAULT_MAX_SOURCE_SIDE,
         libreoffice_timeout_seconds: int = 120,
-        aspose_cells_license_path: Path | None = None,
     ) -> None:
         self.runtime_dir = runtime_dir
         self.ghostscript_timeout_seconds = max(1, ghostscript_timeout_seconds)
@@ -96,7 +95,6 @@ class DocumentProcessor:
         self.excel_unlocker = ExcelUnlocker(
             runtime_dir=runtime_dir,
             libreoffice_timeout_seconds=self.libreoffice_timeout_seconds,
-            aspose_cells_license_path=aspose_cells_license_path,
         )
         self._action_handlers: dict[
             SupportedAction,
