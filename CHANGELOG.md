@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.1](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.0...docmolder-v2.0.1) (2026-05-23)
+
+
+### Correzioni
+
+* **ops:** migrate runtime to Python 3.13 ([#162](https://github.com/max23468/DocMolder/issues/162)) ([bc9058f](https://github.com/max23468/DocMolder/commit/bc9058f39b175934363743f57f9db02dfa6f5d0d))
+
 ## [2.0.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.7.3...docmolder-v2.0.0) (2026-05-23)
 
 
