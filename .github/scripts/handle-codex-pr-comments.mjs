@@ -26,10 +26,6 @@ const githubApiSecondaryRateLimitDelayMs = parsePositiveInteger(
   process.env.CODEX_GITHUB_API_SECONDARY_RATE_LIMIT_DELAY_MS,
   60_000,
 );
-const githubApiMaxRateLimitResetDelayMs = parsePositiveInteger(
-  process.env.CODEX_GITHUB_API_MAX_RATE_LIMIT_RESET_DELAY_MS,
-  300_000,
-);
 
 if (!repository) {
   fail("GITHUB_REPOSITORY non impostato.");
@@ -683,9 +679,7 @@ function isRetryableGitHubRateLimitResponse(response, text) {
   if (githubRetryAfterDelayMs(response) !== null) return true;
 
   if (response.headers.get("x-ratelimit-remaining") === "0") {
-    const resetDelayMs = githubRateLimitResetDelayMs(response);
-
-    return resetDelayMs !== null && resetDelayMs <= githubApiMaxRateLimitResetDelayMs;
+    return githubRateLimitResetDelayMs(response) !== null;
   }
 
   return true;
@@ -707,11 +701,7 @@ function githubRetryDelayMs(response, text, attempt) {
 
   const rateLimitResetDelayMs = githubRateLimitResetDelayMs(response);
 
-  if (
-    response.headers.get("x-ratelimit-remaining") === "0" &&
-    rateLimitResetDelayMs !== null &&
-    rateLimitResetDelayMs <= githubApiMaxRateLimitResetDelayMs
-  ) {
+  if (response.headers.get("x-ratelimit-remaining") === "0" && rateLimitResetDelayMs !== null) {
     return rateLimitResetDelayMs;
   }
 
