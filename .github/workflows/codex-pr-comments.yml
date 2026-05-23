@@ -28,7 +28,7 @@ jobs:
   codex-pr-comments:
     name: Sync Codex feedback inbox
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 75
 
     steps:
       - name: Checkout trusted workflow code
