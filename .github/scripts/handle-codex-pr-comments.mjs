@@ -603,7 +603,7 @@ async function githubJson(path, body, method) {
 }
 
 async function githubGraphql(query, variables) {
-  const { payload, response } = await githubRequest("/graphql", {
+  const { payload, response, text } = await githubRequest("/graphql", {
     body: JSON.stringify({
       query,
       variables,
@@ -616,8 +616,10 @@ async function githubGraphql(query, variables) {
     method: "POST",
   });
 
-  if (!response.ok || payload.errors) {
-    fail(`GitHub GraphQL ha risposto con errore: ${JSON.stringify(payload.errors ?? payload)}`);
+  if (!response.ok || payload?.errors || !payload?.data) {
+    fail(
+      `GitHub GraphQL ha risposto con errore: ${JSON.stringify(payload?.errors ?? payload ?? text)}`,
+    );
   }
 
   return payload.data;
@@ -629,9 +631,10 @@ async function githubRequest(path, init) {
   for (let attempt = 1; attempt <= githubApiAttempts; attempt++) {
     const response = await fetch(url, init);
     const text = await response.text();
-    const payload = parseGitHubJson(text, path);
 
     if (!shouldRetryGitHubRequest(response, text) || attempt === githubApiAttempts) {
+      const payload = parseGitHubJson(text, path, { allowInvalidJson: !response.ok });
+
       return { payload, response, text };
     }
 
@@ -647,12 +650,14 @@ async function githubRequest(path, init) {
   fail(`GitHub API ${path} non completata.`);
 }
 
-function parseGitHubJson(text, path) {
+function parseGitHubJson(text, path, options = {}) {
   if (!text) return null;
 
   try {
     return JSON.parse(text);
   } catch (error) {
+    if (options.allowInvalidJson) return null;
+
     fail(`GitHub API ${path} ha restituito JSON non valido: ${error.message}`);
   }
 }
