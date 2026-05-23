@@ -8,6 +8,17 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.0](https://github.com/max23468/DocMolder/compare/docmolder-v1.7.3...docmolder-v2.0.0) (2026-05-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* **excel:** DocMolder no longer supports Excel .xlsb files. Users must export binary workbooks to .xlsx, .xlsm, or .xls before using the Excel unlock action.
+
+### Funzionalità
+
+* **excel:** remove xlsb and Aspose support ([#160](https://github.com/max23468/DocMolder/issues/160)) ([f3898f8](https://github.com/max23468/DocMolder/commit/f3898f80d0e66ab6dffc264c02f1db2ea0cc3ba6))
+
 ## [1.7.3](https://github.com/max23468/DocMolder/compare/docmolder-v1.7.2...docmolder-v1.7.3) (2026-05-08)
 
 
