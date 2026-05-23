@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Analizza senza commentare PR o aggiornare la issue inbox"
+        description: "Analizza senza aggiornare la issue inbox"
         required: false
         type: boolean
         default: false
@@ -36,6 +36,11 @@ jobs:
         with:
           ref: ${{ github.event.repository.default_branch }}
           persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
 
       - name: Sync Codex feedback inbox
         env:

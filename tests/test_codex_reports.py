@@ -97,15 +97,16 @@ class CodexReportsTest(unittest.TestCase):
         self.assertEqual([item["databaseId"] for item in report["current_branch_failed_runs"]], [2])
         self.assertEqual(report["codex_feedback_inbox"]["number"], 12)
 
-    def test_codex_feedback_inbox_workflow_is_versioned_with_docmolder_markers(self) -> None:
+    def test_codex_feedback_inbox_workflow_uses_shared_inbox_contract(self) -> None:
         workflow = ROOT / ".github" / "workflows" / "codex-pr-comments.yml"
         handler = ROOT / ".github" / "scripts" / "handle-codex-pr-comments.mjs"
 
         self.assertIn("pull_request_target:", workflow.read_text(encoding="utf-8"))
         handler_text = handler.read_text(encoding="utf-8")
-        self.assertIn("docmolder-codex-feedback-inbox", handler_text)
-        self.assertIn("docmolder-codex-feedback-request", handler_text)
-        self.assertNotIn("pratix-codex-feedback", handler_text)
+        self.assertIn("CODEX_INBOX_MARKER", handler_text)
+        self.assertIn("normalizeInboxMarkerName(repositoryName)", handler_text)
+        self.assertIn("automaticPrComments: false", handler_text)
+        self.assertNotIn("codex-feedback-request", handler_text)
 
     def test_ops_next_actions_warns_when_health_missing(self) -> None:
         actions = ops_report.next_actions({"health": None})

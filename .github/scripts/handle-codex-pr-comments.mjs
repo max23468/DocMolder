@@ -7,9 +7,10 @@ const repository = process.env.GITHUB_REPOSITORY;
 const token = process.env.GITHUB_TOKEN;
 const codexLoginPattern = new RegExp(process.env.CODEX_BOT_LOGIN_PATTERN ?? "codex", "i");
 const inboxIssueTitle = process.env.CODEX_INBOX_ISSUE_TITLE ?? "Codex feedback inbox";
-const codexCommand = process.env.CODEX_AUTOFIX_COMMENT ?? "@codex address that feedback";
-const inboxMarker = "<!-- docmolder-codex-feedback-inbox -->";
-const requestMarker = "<!-- docmolder-codex-feedback-request -->";
+const repositoryName = repository?.split("/")[1] ?? "repository";
+const inboxMarker =
+  process.env.CODEX_INBOX_MARKER ??
+  `<!-- ${normalizeInboxMarkerName(repositoryName)}-codex-feedback-inbox -->`;
 const dryRun = process.env.DRY_RUN === "true";
 const eventName = process.env.GITHUB_EVENT_NAME ?? "";
 const eventPayload = await readGitHubEventPayload();
@@ -36,7 +37,6 @@ if (!owner || !repo) {
 
 const prs = await listPullRequests();
 const inboxEntries = [];
-const requestedPrs = [];
 
 for (const pr of prs) {
   const threads = await listReviewThreads(pr.number);
@@ -56,15 +56,6 @@ for (const pr of prs) {
     url: pr.html_url,
     wasMerged: Boolean(pr.merged_at),
   });
-
-  if (actionableThreads.length === 0) continue;
-
-  const alreadyRequested = await hasAutomationRequest(pr.number, actionableThreads);
-
-  if (!alreadyRequested) {
-    const posted = await requestCodexHandling(pr, actionableThreads);
-    if (posted) requestedPrs.push(pr.number);
-  }
 }
 
 const inboxIssue = await upsertInboxIssue(inboxEntries);
@@ -72,6 +63,7 @@ const inboxIssue = await upsertInboxIssue(inboxEntries);
 console.log(
   JSON.stringify(
     {
+      automaticPrComments: false,
       closedDuplicateInboxIssues: inboxIssue.closedDuplicateNumbers,
       dryRun,
       eventName,
@@ -79,7 +71,6 @@ console.log(
       inboxIssue: inboxIssue.issue?.html_url ?? null,
       prsScanned: prs.length,
       prsWithCodexThreads: inboxEntries.length,
-      requestedPrs,
       totalActionableThreads: inboxEntries.reduce(
         (total, entry) => total + entry.actionableThreads.length,
         0,
@@ -107,6 +98,15 @@ async function listPullRequests() {
     prsByNumber.set(pr.number, pr);
   }
 
+  for (const prNumber of await listInboxPullRequestNumbers()) {
+    if (prsByNumber.has(prNumber)) continue;
+
+    const inboxPr = await getPullRequestFromInbox(prNumber);
+    if (!inboxPr) continue;
+
+    prsByNumber.set(inboxPr.number, inboxPr);
+  }
+
   if (eventPullRequestNumber && !prsByNumber.has(eventPullRequestNumber)) {
     const eventPr = await githubJson(`/repos/${owner}/${repo}/pulls/${eventPullRequestNumber}`);
     prsByNumber.set(eventPr.number, eventPr);
@@ -119,6 +119,35 @@ async function listPullRequests() {
 
 async function listAllPullRequests() {
   return listPullRequestPages({ state: "all" });
+}
+
+async function getPullRequestFromInbox(prNumber) {
+  try {
+    return await githubJson(`/repos/${owner}/${repo}/pulls/${prNumber}`);
+  } catch (error) {
+    if (error.status === 404) {
+      console.warn(`PR #${prNumber} presente nella inbox ma non trovata: la salto.`);
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+async function listInboxPullRequestNumbers() {
+  const existingIssue = chooseCanonicalInboxIssue(await findInboxIssues());
+
+  return existingIssue ? extractInboxPullRequestNumbers(existingIssue.body ?? "") : [];
+}
+
+function extractInboxPullRequestNumbers(body) {
+  return [
+    ...new Set(
+      [...body.matchAll(/^### PR #(\d+) - /gm)]
+        .map((match) => Number.parseInt(match[1], 10))
+        .filter(Number.isInteger),
+    ),
+  ];
 }
 
 async function listOpenPullRequests() {
@@ -220,47 +249,6 @@ function isCodexThread(thread) {
 
 function isActionableThread(thread) {
   return isCodexThread(thread) && !thread.isResolved && !thread.isOutdated;
-}
-
-async function hasAutomationRequest(prNumber, threads) {
-  const comments = await githubJson(
-    `/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=100`,
-  );
-  const threadUrls = threads.map(getCodexThreadUrl).filter(Boolean);
-
-  return comments.some((comment) => {
-    if (!comment.body?.includes(requestMarker)) return false;
-    if (threadUrls.length === 0) return true;
-
-    return threadUrls.every((url) => comment.body.includes(url));
-  });
-}
-
-async function requestCodexHandling(pr, threads) {
-  const threadList = threads.map(renderThreadForRequest).join("\n");
-  const prState = pr.state === "open" ? "aperta" : pr.merged_at ? "mergiata" : "chiusa";
-  const body = `${requestMarker}
-${codexCommand}
-
-Ho trovato ${threads.length} thread Codex actionable in questa PR (${prState}):
-${threadList}
-
-Risolvi i problemi segnalati, controlla anche la issue "${inboxIssueTitle}" per il backlog completo dei commenti Codex e aggiorna la PR o apri un follow-up se questa PR non è più modificabile.`;
-
-  if (dryRun) {
-    console.log(`DRY RUN: commento non pubblicato su PR #${pr.number}:\n${body}`);
-    return true;
-  }
-
-  try {
-    await githubJson(`/repos/${owner}/${repo}/issues/${pr.number}/comments`, {
-      body,
-    });
-    return true;
-  } catch (error) {
-    console.warn(`Impossibile commentare la PR #${pr.number}: ${error.message}`);
-    return false;
-  }
 }
 
 async function upsertInboxIssue(entries) {
@@ -479,23 +467,10 @@ function renderThread(thread) {
   return `\`${location}\` - ${summary} (${state})${link}`;
 }
 
-function renderThreadForRequest(thread) {
-  const firstCodexComment = getFirstCodexComment(thread);
-  const summary = firstLine(firstCodexComment?.body ?? "commento Codex") ?? "commento Codex";
-  const threadUrl = firstCodexComment?.url;
-  const link = threadUrl ? ` - ${threadUrl}` : "";
-
-  return `- ${renderThreadLocation(thread)}: ${summary}${link}`;
-}
-
 function renderThreadLocation(thread) {
   const line = thread.line ?? thread.originalLine;
 
   return line ? `${thread.path}:${line}` : thread.path;
-}
-
-function getCodexThreadUrl(thread) {
-  return getFirstCodexComment(thread)?.url;
 }
 
 function getFirstCodexComment(thread) {
@@ -546,6 +521,15 @@ function parsePositiveInteger(value, fallback) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+function normalizeInboxMarkerName(value) {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") || "repository"
+  );
+}
+
 async function githubJson(path, body, method) {
   const response = await fetch(`https://api.github.com${path}`, {
     body: body ? JSON.stringify(body) : undefined,
@@ -560,7 +544,9 @@ async function githubJson(path, body, method) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(`GitHub REST ${path} ha risposto ${response.status}: ${text}`);
+    const error = new Error(`GitHub REST ${path} ha risposto ${response.status}: ${text}`);
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();
