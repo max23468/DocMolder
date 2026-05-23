@@ -206,8 +206,13 @@ async function listReviewThreads(prNumber) {
             path
             line
             originalLine
-            comments(first: 50) {
+            comments(first: 100) {
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
               nodes {
+                id
                 author {
                   login
                 }
@@ -238,7 +243,53 @@ async function listReviewThreads(prNumber) {
     cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
   } while (cursor);
 
+  for (const thread of threads) {
+    if (!thread.comments.pageInfo.hasNextPage) continue;
+
+    thread.comments.nodes.push(
+      ...(await listReviewThreadComments(thread.id, thread.comments.pageInfo.endCursor)),
+    );
+  }
+
   return threads;
+}
+
+async function listReviewThreadComments(threadId, cursor) {
+  const query = `query($threadId: ID!, $cursor: String) {
+    node(id: $threadId) {
+      ... on PullRequestReviewThread {
+        comments(first: 100, after: $cursor) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          nodes {
+            id
+            author {
+              login
+            }
+            body
+            createdAt
+            url
+          }
+        }
+      }
+    }
+  }`;
+  const comments = [];
+
+  do {
+    const data = await githubGraphql(query, {
+      cursor,
+      threadId,
+    });
+    const page = data.node.comments;
+
+    comments.push(...page.nodes);
+    cursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+  } while (cursor);
+
+  return comments;
 }
 
 function isCodexThread(thread) {
@@ -313,9 +364,7 @@ async function findInboxIssues() {
 }
 
 function isManagedInboxIssue(issue) {
-  return (
-    issue.title === inboxIssueTitle && (issue.body?.includes(inboxMarker) || issue.state === "open")
-  );
+  return issue.title === inboxIssueTitle && issue.body?.includes(inboxMarker);
 }
 
 function chooseCanonicalInboxIssue(issues) {
