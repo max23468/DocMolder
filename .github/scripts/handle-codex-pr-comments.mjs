@@ -701,7 +701,7 @@ function githubRetryDelayMs(response, text, attempt) {
 
   const rateLimitResetDelayMs = githubRateLimitResetDelayMs(response);
 
-  if (response.headers.get("x-ratelimit-remaining") === "0" && rateLimitResetDelayMs !== null) {
+  if (rateLimitResetDelayMs !== null && isGitHubRateLimitResponse(response, text)) {
     return rateLimitResetDelayMs;
   }
 
