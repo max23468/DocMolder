@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.2](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.1...docmolder-v2.0.2) (2026-05-23)
+
+
+### Correzioni
+
+* **ops:** restore Python 3.11 installer fallback ([#164](https://github.com/max23468/DocMolder/issues/164)) ([c951f68](https://github.com/max23468/DocMolder/commit/c951f687727820eaa890de2f238d0bab863dc25a))
+
 ## [2.0.1](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.0...docmolder-v2.0.1) (2026-05-23)
 
 
