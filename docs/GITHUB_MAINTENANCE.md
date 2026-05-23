@@ -106,8 +106,8 @@ Il workflow è diviso in gate indipendenti:
 - `PR policy`: valida titolo Conventional Commit e blocca file release-owned nelle PR normali, lasciandoli passare nelle Release PR di `Release Please`.
 - `Dependency review`: parte solo su PR con cambi a dipendenze; sui repository privati richiede GitHub Code Security/GHAS, quindi resta disattivata salvo repository variable `DOCMOLDER_ENABLE_DEPENDENCY_REVIEW=true`.
 - `Fast gate`: controlli statici rapidi su workflow, shell script, script Python e whitespace.
-- `Quality gate`: compile e lint una sola volta su Python 3.12, solo per cambi runtime/test.
-- `Python 3.11/3.12/3.13`: test completi solo per cambi runtime/test; coverage solo su Python 3.12.
+- `Quality gate`: compile e lint una sola volta su Python 3.13, solo per cambi runtime/test.
+- `Python 3.11/3.12/3.13`: test completi solo per cambi runtime/test; coverage solo su Python 3.13.
 - `package-build`: build del pacchetto solo per cambi a `src/**`, packaging o dipendenze.
 - `CI result`: job finale unico da usare come status check required in branch protection.
 

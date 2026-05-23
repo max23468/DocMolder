@@ -6,6 +6,61 @@ APP_DIR="/opt/docmolder/app"
 VENV_DIR="/opt/docmolder/venv"
 SERVICE_NAME="docmolder"
 TARGET_REF="${1:-origin/main}"
+PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"
+
+choose_python() {
+  if [ -n "${PYTHON_BIN}" ]; then
+    if [ ! -x "${PYTHON_BIN}" ]; then
+      echo "Configured DOCMOLDER_PYTHON_BIN is not executable: ${PYTHON_BIN}" >&2
+      exit 1
+    fi
+  else
+    for candidate in python3.13 python3.12 python3.11 python3; do
+      if command -v "${candidate}" >/dev/null 2>&1; then
+        PYTHON_BIN="$(command -v "${candidate}")"
+        break
+      fi
+    done
+  fi
+
+  if [ -z "${PYTHON_BIN}" ]; then
+    echo "No supported Python interpreter found." >&2
+    exit 1
+  fi
+
+  local version
+  version="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  case "${version}" in
+    3.11|3.12|3.13)
+      ;;
+    *)
+      echo "Unsupported Python version ${version}; DocMolder requires Python 3.11, 3.12, or 3.13." >&2
+      exit 1
+      ;;
+  esac
+}
+
+venv_matches_selected_python() {
+  if [ ! -x "${VENV_DIR}/bin/python" ]; then
+    return 1
+  fi
+
+  local selected_version version
+  selected_version="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  version="$("${VENV_DIR}/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  [ "${version}" = "${selected_version}" ]
+}
+
+ensure_venv() {
+  if venv_matches_selected_python; then
+    return
+  fi
+
+  echo "[venv] recreating with ${PYTHON_BIN}"
+  sudo systemctl stop "${SERVICE_NAME}" || true
+  sudo rm -rf "${VENV_DIR}"
+  sudo -u "${APP_USER}" "${PYTHON_BIN}" -m venv "${VENV_DIR}"
+}
 
 ensure_excel_system_dependencies() {
   if command -v soffice >/dev/null 2>&1 && python3 -c "import uno" >/dev/null 2>&1; then
@@ -45,6 +100,9 @@ sudo -u "${APP_USER}" git reset --hard "${TARGET_REF}"
 
 echo "[install]"
 ensure_excel_system_dependencies
+choose_python
+ensure_venv
+sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --upgrade pip
 sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}"
 
 echo "[systemd]"

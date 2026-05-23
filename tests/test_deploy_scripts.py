@@ -35,6 +35,28 @@ class DeployScriptsTest(unittest.TestCase):
         self.assertIn('DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER="${DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER:-}"', script)
         self.assertIn('bash "${APP_DIR}/deploy/install-github-webhook.sh"', script)
 
+    def test_vps_installers_prefer_python_313_without_replacing_system_python(self) -> None:
+        install_script = (ROOT / "deploy" / "install-vps.sh").read_text(encoding="utf-8")
+        update_script = (ROOT / "deploy" / "update-vps.sh").read_text(encoding="utf-8")
+        runtime_script = (ROOT / "deploy" / "install-python313.sh").read_text(encoding="utf-8")
+
+        self.assertIn('PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"', install_script)
+        self.assertIn('for candidate in python3.13 python3.12 python3.11 python3', install_script)
+        self.assertIn('if [ "${version}" != "${selected_version}" ]; then', install_script)
+        self.assertIn('PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"', update_script)
+        self.assertIn('ensure_venv', update_script)
+        self.assertIn('sudo systemctl stop "${SERVICE_NAME}" || true', update_script)
+        self.assertIn('/opt/python/${PYTHON_VERSION}', runtime_script)
+        self.assertIn('/usr/local/bin/python3.13', runtime_script)
+        self.assertNotIn('/usr/bin/python3.13', runtime_script)
+
+    def test_oracle_setup_installs_python_313_side_by_side_before_creating_venv(self) -> None:
+        script = (ROOT / "deploy" / "oracle-setup.sh").read_text(encoding="utf-8")
+
+        self.assertIn('sudo bash "${APP_DIR}/deploy/install-python313.sh"', script)
+        self.assertIn('for candidate in python3.13 python3.12 python3.11 python3', script)
+        self.assertIn('sudo -u "${APP_USER}" "${PYTHON_BIN}" -m venv "${VENV_DIR}"', script)
+
 
 if __name__ == "__main__":
     unittest.main()

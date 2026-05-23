@@ -10,6 +10,13 @@ Questa guida unifica setup locale e test.
 make setup
 ```
 
+Il runtime locale preferito è Python 3.13. `make setup` usa `python3.13` se
+presente, altrimenti ripiega su `python3`. Per forzare un interprete specifico:
+
+```bash
+make setup PYTHON_BOOTSTRAP=/percorso/a/python3.13
+```
+
 2. Crea `.env`:
 
 ```bash

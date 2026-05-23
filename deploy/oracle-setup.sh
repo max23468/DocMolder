@@ -9,6 +9,54 @@ VENV_DIR="${APP_ROOT}/venv"
 DATA_DIR="${APP_ROOT}/data/runtime"
 BACKUP_DIR="${DATA_DIR}/backups"
 ENV_DIR="/etc/docmolder"
+PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"
+
+choose_python() {
+  if [ -n "${PYTHON_BIN}" ]; then
+    if [ ! -x "${PYTHON_BIN}" ]; then
+      echo "Configured DOCMOLDER_PYTHON_BIN is not executable: ${PYTHON_BIN}" >&2
+      exit 1
+    fi
+  else
+    if ! command -v python3.13 >/dev/null 2>&1; then
+      sudo bash "${APP_DIR}/deploy/install-python313.sh"
+    fi
+
+    for candidate in python3.13 python3.12 python3.11 python3; do
+      if command -v "${candidate}" >/dev/null 2>&1; then
+        PYTHON_BIN="$(command -v "${candidate}")"
+        break
+      fi
+    done
+  fi
+
+  if [ -z "${PYTHON_BIN}" ]; then
+    echo "No supported Python interpreter found." >&2
+    exit 1
+  fi
+
+  local version
+  version="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  case "${version}" in
+    3.11|3.12|3.13)
+      ;;
+    *)
+      echo "Unsupported Python version ${version}; DocMolder requires Python 3.11, 3.12, or 3.13." >&2
+      exit 1
+      ;;
+  esac
+}
+
+venv_matches_selected_python() {
+  if [ ! -x "${VENV_DIR}/bin/python" ]; then
+    return 1
+  fi
+
+  local selected_version version
+  selected_version="$("${PYTHON_BIN}" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  version="$("${VENV_DIR}/bin/python" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  [ "${version}" = "${selected_version}" ]
+}
 
 sudo apt update
 sudo apt install -y python3 python3-venv python3-pip git ghostscript libreoffice-calc python3-uno
@@ -29,8 +77,11 @@ fi
 
 sudo -u "${APP_USER}" git config --global --add safe.directory "${APP_DIR}" || true
 
-if [ ! -d "${VENV_DIR}" ]; then
-  sudo -u "${APP_USER}" python3 -m venv "${VENV_DIR}"
+choose_python
+
+if ! venv_matches_selected_python; then
+  sudo rm -rf "${VENV_DIR}"
+  sudo -u "${APP_USER}" "${PYTHON_BIN}" -m venv "${VENV_DIR}"
 fi
 
 sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --upgrade pip

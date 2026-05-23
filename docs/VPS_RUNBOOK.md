@@ -27,6 +27,25 @@ python3 -c "import uno"
 Il formato `.xlsb` non è supportato: il runtime non installa engine dedicati e
 non espone configurazione di licenza per quel percorso.
 
+Il runtime applicativo preferito è Python 3.13 in virtualenv isolata. Su Ubuntu
+24.04 non sostituire `/usr/bin/python3`: installa Python 3.13 side-by-side e
+lascia che DocMolder usi solo `/opt/docmolder/venv`. Il percorso versionato
+consigliato compila CPython 3.13.13 da sorgente ufficiale, verifica lo SHA-256 e
+crea il symlink `/usr/local/bin/python3.13`:
+
+```bash
+sudo /opt/docmolder/app/deploy/install-python313.sh
+sudo /opt/docmolder/app/deploy/update-vps.sh
+```
+
+Se usi un interprete 3.13 diverso, passalo esplicitamente senza toccare Python
+di sistema:
+
+```bash
+sudo DOCMOLDER_PYTHON_BIN=/percorso/a/python3.13 /opt/docmolder/app/deploy/install-vps.sh
+sudo DOCMOLDER_PYTHON_BIN=/percorso/a/python3.13 /opt/docmolder/app/deploy/update-vps.sh
+```
+
 Configura ambiente:
 
 ```bash

@@ -73,7 +73,7 @@ jobs:
         if: ${{ !github.event.repository.private && steps.changes.outputs.code_changed == 'true' }}
         uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install package
         if: ${{ !github.event.repository.private && steps.changes.outputs.code_changed == 'true' }}
