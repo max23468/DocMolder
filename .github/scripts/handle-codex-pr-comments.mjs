@@ -20,6 +20,8 @@ const recentPrLimit = parsePositiveInteger(process.env.CODEX_RECENT_PR_LIMIT, 50
 const recentPrDays = parsePositiveInteger(process.env.CODEX_RECENT_PR_DAYS, 30);
 const historyPrLimit = parsePositiveInteger(process.env.CODEX_HISTORY_PR_LIMIT, 8);
 const historyThreadLimit = parsePositiveInteger(process.env.CODEX_HISTORY_THREAD_LIMIT, 5);
+const githubApiAttempts = parsePositiveInteger(process.env.CODEX_GITHUB_API_ATTEMPTS, 4);
+const githubApiRetryBaseMs = parsePositiveInteger(process.env.CODEX_GITHUB_API_RETRY_BASE_MS, 1500);
 
 if (!repository) {
   fail("GITHUB_REPOSITORY non impostato.");
@@ -580,7 +582,7 @@ function normalizeInboxMarkerName(value) {
 }
 
 async function githubJson(path, body, method) {
-  const response = await fetch(`https://api.github.com${path}`, {
+  const { payload, response, text } = await githubRequest(path, {
     body: body ? JSON.stringify(body) : undefined,
     headers: {
       Accept: "application/vnd.github+json",
@@ -592,17 +594,16 @@ async function githubJson(path, body, method) {
   });
 
   if (!response.ok) {
-    const text = await response.text();
     const error = new Error(`GitHub REST ${path} ha risposto ${response.status}: ${text}`);
     error.status = response.status;
     throw error;
   }
 
-  return response.json();
+  return payload;
 }
 
 async function githubGraphql(query, variables) {
-  const response = await fetch("https://api.github.com/graphql", {
+  const { payload, response } = await githubRequest("/graphql", {
     body: JSON.stringify({
       query,
       variables,
@@ -615,13 +616,65 @@ async function githubGraphql(query, variables) {
     method: "POST",
   });
 
-  const payload = await response.json();
-
   if (!response.ok || payload.errors) {
     fail(`GitHub GraphQL ha risposto con errore: ${JSON.stringify(payload.errors ?? payload)}`);
   }
 
   return payload.data;
+}
+
+async function githubRequest(path, init) {
+  const url = `https://api.github.com${path}`;
+
+  for (let attempt = 1; attempt <= githubApiAttempts; attempt++) {
+    const response = await fetch(url, init);
+    const text = await response.text();
+    const payload = parseGitHubJson(text, path);
+
+    if (!shouldRetryGitHubRequest(response, text) || attempt === githubApiAttempts) {
+      return { payload, response, text };
+    }
+
+    const delayMs = githubRetryDelayMs(response, attempt);
+    console.warn(
+      `GitHub API ${path} ha risposto ${response.status}; ritento tra ${Math.round(
+        delayMs / 1000,
+      )}s (${attempt}/${githubApiAttempts}).`,
+    );
+    await sleep(delayMs);
+  }
+
+  fail(`GitHub API ${path} non completata.`);
+}
+
+function parseGitHubJson(text, path) {
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    fail(`GitHub API ${path} ha restituito JSON non valido: ${error.message}`);
+  }
+}
+
+function shouldRetryGitHubRequest(response, text) {
+  if ([429, 500, 502, 503, 504].includes(response.status)) return true;
+
+  return response.status === 401 && text.includes("Bad credentials");
+}
+
+function githubRetryDelayMs(response, attempt) {
+  const retryAfter = Number.parseInt(response.headers.get("retry-after") ?? "", 10);
+
+  if (Number.isInteger(retryAfter) && retryAfter > 0) return retryAfter * 1000;
+
+  return githubApiRetryBaseMs * 2 ** (attempt - 1);
+}
+
+function sleep(delayMs) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
 }
 
 function fail(message) {
