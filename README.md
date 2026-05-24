@@ -158,9 +158,11 @@ sudo /opt/docmolder/app/deploy/update-vps.sh
 Documenti utili:
 
 - [`CHANGELOG.md`](CHANGELOG.md)
+- [`docs/BACKLOG.md`](docs/BACKLOG.md)
 - [`docs/BRAND.md`](docs/BRAND.md)
 - [`docs/CONTEXT.md`](docs/CONTEXT.md)
 - [`docs/DECISIONS.md`](docs/DECISIONS.md)
+- [`docs/decisions/`](docs/decisions/)
 - [`docs/INDEX.md`](docs/INDEX.md)
 - [`docs/LOCAL_DEV.md`](docs/LOCAL_DEV.md)
 - [`docs/VPS_RUNBOOK.md`](docs/VPS_RUNBOOK.md)
@@ -170,6 +172,7 @@ Documenti utili:
 - [`docs/RELEASE_PROCESS.md`](docs/RELEASE_PROCESS.md)
 - [`docs/VERSIONING.md`](docs/VERSIONING.md)
 - [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- [`docs/TOOLCHAIN.md`](docs/TOOLCHAIN.md)
 - [`docs/GITHUB_ALIGNMENT.md`](docs/GITHUB_ALIGNMENT.md)
 - [`docs/GITHUB_MAINTENANCE.md`](docs/GITHUB_MAINTENANCE.md)
 

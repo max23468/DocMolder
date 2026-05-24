@@ -18,6 +18,7 @@ Indice unico della documentazione operativa.
 - [CODEX_CLOUD_DEPLOY.md](./CODEX_CLOUD_DEPLOY.md): flusso consigliato per lavorare da Codex web/cloud, con CI prudente, Release Please e webhook GitHub privato come deploy standard.
 - [RELEASE_PROCESS.md](./RELEASE_PROCESS.md): checklist di rilascio e deploy.
 - [VERSIONING.md](./VERSIONING.md): policy ufficiale per versioni, changelog e release.
+- [TOOLCHAIN.md](./TOOLCHAIN.md): runtime, comandi, tool esterni e guardrail di versione.
 - [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md): criteri, checklist e record della promozione DocMolder a `1.0.0`.
 - [OPERATIONS_SECURITY.md](./OPERATIONS_SECURITY.md): sicurezza operativa, segreti, log, backup e incident response.
 - [SERVICE_GOVERNANCE.md](./SERVICE_GOVERNANCE.md): dati trattati, retention, cancellazione e limiti del servizio.
@@ -35,8 +36,10 @@ Indice unico della documentazione operativa.
 - [TELEGRAM_OPERATIONS.md](./TELEGRAM_OPERATIONS.md): comandi, deep link, console admin, metriche e hardening del bot Telegram.
 - [DECISIONS.md](./DECISIONS.md): decisioni tecniche persistenti.
 - [DECISIONS_PENDING.md](./DECISIONS_PENDING.md): decisioni aperte distinte dai task di roadmap.
+- [decisions/](./decisions/): ADR leggere per nuove decisioni strutturali o migrazioni progressive.
 - [MILESTONE_BOARD.md](./MILESTONE_BOARD.md): milestone locali, dipendenze e deliverable principali.
 - [ROADMAP.md](./ROADMAP.md): prossimi blocchi evolutivi.
+- [BACKLOG.md](./BACKLOG.md): idee, debiti e decisioni non ancora promosse in roadmap.
 - [../CHANGELOG.md](../CHANGELOG.md): changelog versionato delle release.
 
 ## Contesto persistente
