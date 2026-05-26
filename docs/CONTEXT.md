@@ -3,9 +3,23 @@
 Questo file è un handoff rapido: descrive il minimo contesto utile e punta alla documentazione specialistica.
 
 Ultimo aggiornamento del contesto:
-- data di riferimento: `2026-04-28`
+- data di riferimento: `2026-05-26`
 
-## Cos'e DocMolder
+## Stato progetto
+
+- Fase: linea stabile `1.x`, sviluppo feature in pausa salvo bugfix, priorità
+  prodotto o decisioni esplicite.
+- Versione/release: `release-please`, tag `docmolder-v*`, GitHub Release e
+  documenti `VERSIONING.md` / `RELEASE_PROCESS.md`.
+- Deploy corrente: VPS DocMolder via webhook privato GitHub -> VPS; deploy
+  manuale solo fallback documentato in `VPS_RUNBOOK.md`.
+- Eccezione `OK equivalente`: PR title e publish docs-only sono governati da
+  policy/script locali invece di copiare un template Atlas identico.
+- Pubblicazione proporzionata: docs-only/governance-only richiede review
+  documentale, preflight mirato e `git diff --check`, senza release o deploy se
+  il diff non è rilasciabile.
+
+## Cos'è DocMolder
 
 `DocMolder` è un bot Telegram-first per trasformazioni documentali guidate (PDF, immagini e interventi Excel mirati), con coda asincrona e retention breve dei temporanei.
 
@@ -20,7 +34,7 @@ Ultimo aggiornamento del contesto:
 - `src/docmolder/sqlite_backup.py`: backup e restore verificati del database SQLite.
 - `src/docmolder/action_catalog.py`: regole azioni supportate e naming output.
 
-## Dove trovare le informazioni
+## Fonti primarie e handoff
 
 - Setup locale e test: [LOCAL_DEV.md](./LOCAL_DEV.md)
 - Architettura: [ARCHITECTURE.md](./ARCHITECTURE.md)
@@ -52,6 +66,8 @@ Ultimo aggiornamento del contesto:
 - non introdurre dipendenze senza motivazione
 - aggiornare docs e usare il changelog versionato quando cambia comportamento utente/operativo
 - validare con test rilevanti prima del deploy
+- mantenere `docs/DECISIONS.md`, `docs/DECISIONS_PENDING.md` e ADR in
+  `docs/decisions/` come modello decisionale pieno
 
 ## Ultime note rilevanti
 
