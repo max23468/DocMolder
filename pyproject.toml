@@ -15,7 +15,7 @@ dependencies = [
   "pydantic-settings>=2.2,<3.0",
   "pillow>=12.1.1,<13.0",
   "pymupdf>=1.24,<2.0",
-  "pypdf>=6.10.0,<7.0",
+  "pypdf>=6.12.2,<7.0",
 ]
 
 [project.scripts]
@@ -31,7 +31,7 @@ docmolder-sqlite-backup = "docmolder.sqlite_backup:main"
 dev = [
   "build>=1.2.2",
   "coverage>=7.10.7",
-  "ruff==0.15.9",
+  "ruff==0.15.14",
 ]
 
 [tool.setuptools]
