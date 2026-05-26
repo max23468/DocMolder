@@ -36,7 +36,7 @@ Indice unico della documentazione operativa.
 - [TELEGRAM_OPERATIONS.md](./TELEGRAM_OPERATIONS.md): comandi, deep link, console admin, metriche e hardening del bot Telegram.
 - [DECISIONS.md](./DECISIONS.md): decisioni tecniche persistenti.
 - [DECISIONS_PENDING.md](./DECISIONS_PENDING.md): decisioni aperte distinte dai task di roadmap.
-- [decisions/](./decisions/): ADR leggere per nuove decisioni strutturali o migrazioni progressive.
+- [decisions/](./decisions/): ADR leggere per nuove decisioni strutturali o migrazioni progressive; l'indice decisionale resta [DECISIONS.md](./DECISIONS.md).
 - [MILESTONE_BOARD.md](./MILESTONE_BOARD.md): milestone locali, dipendenze e deliverable principali.
 - [ROADMAP.md](./ROADMAP.md): prossimi blocchi evolutivi.
 - [BACKLOG.md](./BACKLOG.md): idee, debiti e decisioni non ancora promosse in roadmap.

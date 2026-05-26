@@ -4,6 +4,7 @@ Questo file raccoglie decisioni architetturali e di prodotto già prese, in form
 
 ## Indice
 
+- [ADR puntuali e basename Markdown](#adr-puntuali-e-basename-markdown)
 - [Perimetro prodotto: utility documentale chat-first](#perimetro-prodotto-utility-documentale-chat-first)
 - [Roadmap 1.x: soft launch prima, feature dopo](#roadmap-1x-soft-launch-prima-feature-dopo)
 - [Polling invece di webhook pubblici](#polling-invece-di-webhook-pubblici)
@@ -13,6 +14,29 @@ Questo file raccoglie decisioni architetturali e di prodotto già prese, in form
 - [Auto-orientamento PDF invece di rotazione manuale come azione primaria](#auto-orientamento-pdf-invece-di-rotazione-manuale-come-azione-primaria)
 - [Fallback conservativi nella pipeline PDF](#fallback-conservativi-nella-pipeline-pdf)
 - [SQLite come persistenza locale del progetto](#sqlite-come-persistenza-locale-del-progetto)
+
+## ADR puntuali e basename Markdown
+
+Decisione:
+- `docs/DECISIONS.md` resta il riepilogo storico delle decisioni stabili già prese
+- `docs/DECISIONS_PENDING.md` resta il registro delle decisioni aperte
+- `docs/decisions/` ospita nuove decisioni autonome in formato ADR leggero,
+  usando `docs/decisions/0000-template.md`
+- non si usa `docs/decisions/README.md`, per mantenere un solo `README.md` nella
+  repository
+
+Motivazione:
+- i basename Markdown univoci rendono ricerca, handoff e riferimenti più chiari
+- DocMolder aveva già `docs/DECISIONS.md` come fonte decisionale viva
+- mantenere un secondo `README.md` solo per indicizzare gli ADR duplicherebbe
+  informazione già collegata da `docs/INDEX.md`
+
+Conseguenze:
+- la migrazione delle decisioni storiche da `docs/DECISIONS.md` a ADR puntuali
+  va fatta progressivamente, preservando contenuti, motivazioni e conseguenze
+  operative
+- quando una decisione diventa autonoma, va aggiunta in `docs/decisions/` e
+  linkata da `docs/DECISIONS.md` e `docs/INDEX.md`
 
 ## Perimetro prodotto: utility documentale chat-first
 

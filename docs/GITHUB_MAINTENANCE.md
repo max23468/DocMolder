@@ -103,7 +103,7 @@ Il workflow `CI` parte sulle PR non draft verso `main`, con job condizionali per
 Il workflow è diviso in gate indipendenti:
 
 - `Classify change impact`: decide se servono test completi, package build, coverage e deploy.
-- `PR policy`: valida titolo Conventional Commit e blocca file release-owned nelle PR normali, lasciandoli passare nelle Release PR di `Release Please`.
+- `PR policy`: valida titolo Conventional Commit e blocca file release-owned nelle PR normali, lasciandoli passare nelle Release PR di `Release Please`; non duplicarlo con un workflow `pr-title.yml` separato.
 - `Dependency review`: parte solo su PR con cambi a dipendenze; sui repository privati richiede GitHub Code Security/GHAS, quindi resta disattivata salvo repository variable `DOCMOLDER_ENABLE_DEPENDENCY_REVIEW=true`.
 - `Fast gate`: controlli statici rapidi su workflow, shell script, script Python e whitespace.
 - `Quality gate`: compile e lint una sola volta su Python 3.13, solo per cambi runtime/test.

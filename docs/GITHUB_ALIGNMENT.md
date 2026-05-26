@@ -18,6 +18,11 @@ Elementi già presenti o introdotti:
 - `.github/ISSUE_TEMPLATE/` per bug/feature standardizzati
 - `.github/pull_request_template.md` per PR coerenti
 
+Non aggiungere un workflow separato `pr-title.yml`: il titolo PR è già validato
+dal job `PR policy` dentro `.github/workflows/ci.yml`, tramite
+`scripts/check_pr_policy.py`. Duplicare quel controllo creerebbe due gate con lo
+stesso scopo.
+
 Per un maintainer unico questa struttura riduce il carico cognitivo quando torni sul progetto dopo settimane.
 
 ## 2) Impostazioni GitHub repository (consigliate)
