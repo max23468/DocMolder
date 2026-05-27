@@ -21,7 +21,7 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
 - Ownership: `.github/CODEOWNERS`
 
-Con budget GitHub Actions ripristinato, l'automazione ordinaria resta prudente: `CI` parte sulle PR non draft verso `main`, `Release Please` parte sui push a `main`, `Codex PR comments` sincronizza la issue `Codex feedback inbox`, `VPS Check` gira una volta a settimana e `GitHub Maintenance` una volta al mese. `Deploy VPS`, `VPS Backup`, `Rollback VPS`, `Update VPS Env`, `Release Sanity` e `CodeQL` restano manuali; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) restano il primo filtro economico prima del push.
+L'automazione ordinaria resta prudente: `CI` parte sulle PR non draft verso `main`, `Release Please` parte sui push a `main`, `Codex PR comments` sincronizza la issue `Codex feedback inbox`, `VPS Check` gira una volta a settimana e `GitHub Maintenance` una volta al mese. `Deploy VPS`, `VPS Backup`, `Rollback VPS`, `Update VPS Env`, `Release Sanity` e `CodeQL` restano manuali; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) restano il primo filtro prima del push.
 
 Il deploy automatico resta affidato al servizio `docmolder-github-webhook` sulla VPS. Dopo il deploy, il listener può ancora lanciare `deploy/auto-release.sh`, ma nel flusso standard deve restare disabilitato con `DOCMOLDER_AUTO_RELEASE_ENABLED=false`: versioni, changelog, tag e GitHub Release spettano a `Release Please`.
 

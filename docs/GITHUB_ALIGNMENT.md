@@ -67,7 +67,7 @@ Vantaggi principali:
 - minor rischio di rompere deploy con commit diretti su `main`;
 - versioni e GitHub Releases allineate senza doppia manutenzione manuale.
 
-Questa non è una preferenza soft: per DocMolder il flusso ufficiale resta PR squashate verso `main`, salvo la scorciatoia documentale esplicita descritta sopra. Con budget Actions ripristinato, `CI result` è il guardrail remoto prudente da richiedere sulle PR non draft.
+Questa non è una preferenza soft: per DocMolder il flusso ufficiale resta PR squashate verso `main`, salvo la scorciatoia documentale esplicita descritta sopra. `CI result` è il guardrail remoto prudente da richiedere sulle PR non draft.
 
 Regola aggiuntiva fondamentale:
 
@@ -95,7 +95,7 @@ Regola commenti Codex:
 
 Per non complicare troppo in fase iniziale, abilita solo se c'è beneficio chiaro:
 
-- **CodeQL**: opzionale, solo se vuoi riattivarlo esplicitamente in una finestra di budget.
+- **CodeQL**: opzionale, attivabile solo in finestre operative dedicate.
 - **Release Please**: attivo su push a `main` per versioning, changelog e GitHub Releases.
 - **Dependabot auto-merge**: attivo solo per aggiornamenti Dependabot conservativi e dopo `CI` riuscita.
 - **Deploy workflow**: utile solo come fallback esplicito; il percorso automatico di deploy usa webhook VPS e hook locali.
