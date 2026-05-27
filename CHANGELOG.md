@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.3](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.2...docmolder-v2.0.3) (2026-05-27)
+
+
+### Documentazione
+
+* align Atlas semantic governance [skip ci] ([ff26f1f](https://github.com/max23468/DocMolder/commit/ff26f1f458bd75165401aadf2842f1cc245b6bdc))
+
 ## [2.0.2](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.1...docmolder-v2.0.2) (2026-05-23)
 
 
