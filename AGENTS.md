@@ -155,7 +155,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.
 - Per deploy o manutenzione VPS, seguire `docs/VPS_RUNBOOK.md` e riportare sempre comandi eseguiti, esito e verifiche.
 - Dopo un deploy, non limitarti allo stato `active`: controlla anche log recenti e percorso utente minimo quando possibile.
-- Con budget GitHub Actions ripristinato, la CI prudente parte sulle PR non draft verso `main` e `Release Please` parte su push a `main`; deploy, VPS check, backup, rollback, update env e CodeQL restano manuali salvo richiesta esplicita.
+- La CI prudente parte sulle PR non draft verso `main` e `Release Please` parte su push a `main`; deploy, VPS check, backup, rollback, update env e CodeQL restano manuali salvo richiesta esplicita.
 - Per automazione senza Actions, usa `make install-hooks` sul repo locale e il listener `docmolder-github-webhook.service` sulla VPS; il webhook privato deve verificare repository, branch e firma HMAC prima di lanciare `update-vps.sh` e, se configurato, `auto-release.sh`.
 
 ## 11) Definizione di Done
