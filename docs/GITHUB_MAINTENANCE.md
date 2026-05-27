@@ -69,8 +69,8 @@ make publish-doctor
 Usa poi una sola corsia, dichiarandola nella risposta finale:
 
 - **Docs minuscoli diretti**: solo `AGENTS.md`, `README.md` o `docs/**`, titolo `chore(docs): ...`, nessun deploy/release atteso. Da `main` aggiornato usa `make publish-docs TITLE="chore(docs): <descrizione>"`: lo script esegue publish doctor, preflight, commit e push diretto senza PR. Evita questa corsia se il cambio tocca workflow, script, codice runtime, configurazione, release-owned files o istruzioni operative ambigue.
-- **PR standard**: default per codice, CI, script, test, configurazione e docs operative non banali. Usa `scripts/publish_change.sh "<titolo conventional>"`, poi review/merge e verifica webhook VPS.
-- **PR draft esplicita**: usa `DOCMOLDER_PUBLISH_DRAFT=1 scripts/publish_change.sh "<titolo conventional>"` solo quando vuoi aprire review anticipata senza dichiarare il cambio pronto.
+- **PR standard**: default per codice, CI, script, test, configurazione e docs operative non banali. Usa `scripts/publish_change.sh "<titolo conventional>"`, poi self-review/merge e verifica webhook VPS.
+- **PR draft esplicita**: usa `DOCMOLDER_PUBLISH_DRAFT=1 scripts/publish_change.sh "<titolo conventional>"` solo quando vuoi aprire un confronto anticipato senza dichiarare il cambio pronto.
 - **PR + deploy/release follow-through**: solo quando il classificatore indica `deploy_relevant` o il titolo produce release. Dopo il merge controlla webhook VPS, servizio, log recenti e la Release PR aggiornata da `Release Please`.
 
 Se `publish_doctor` segnala branch indietro/divergente, detached HEAD, run failed correnti o commenti bot aperti, correggi quello prima di creare o aggiornare la PR.
@@ -130,6 +130,7 @@ Il workflow è diviso in gate indipendenti:
 Richiedere almeno:
 
 - pull request prima del merge;
+- non richiedere approvazioni esterne nel flusso standard per maintainer singolo;
 - `CI result` come unico status check Actions obbligatorio sulle PR non draft, se branch protection e disponibile sul piano/account;
 - titolo PR convenzionale;
 - linear history;

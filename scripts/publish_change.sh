@@ -90,7 +90,7 @@ if [ "${USE_GH_ACTIONS}" != "1" ]; then
     exit 0
   fi
   echo "PR pronta: ${PR_URL}"
-  echo "Prossimo passo: review/merge PR; dopo il merge verifica webhook VPS, deploy e Release Please."
+  echo "Prossimo passo: self-review/merge PR; dopo il merge verifica webhook VPS, deploy e Release Please."
   exit 0
 fi
 

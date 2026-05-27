@@ -33,6 +33,7 @@ Configura da **Settings**:
    - abilita "Automatically delete head branches".
 2. **Branches → Branch protection (main)**
    - se disponibile sul piano/account, richiedi PR prima del merge, linear history e status check `CI result`.
+   - per contesto maintainer singolo mantieni la revisione PR come self-review: non richiedere approvazioni esterne.
    - non rendere obbligatori i singoli job condizionali della CI: usa solo `CI result`.
 3. **Actions → General**
    - consenti solo actions verificate (GitHub + verified creators) per ridurre rischio supply-chain.

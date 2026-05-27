@@ -20,7 +20,7 @@ Percorso standard:
 1. lavora su branch dedicata da `origin/main`, non in `HEAD detached`
 2. esegui i test locali rilevanti per il cambio
 3. pubblica con `scripts/publish_change.sh "<titolo conventional>"`
-4. fai review/merge della PR pronta
+4. fai self-review e merge della PR pronta (in contesto maintainer singolo non richiedere approvazione esterna)
 5. dopo il merge, verifica webhook VPS, deploy e Release PR aggiornata da Release Please
 6. se la Release PR esiste per la modifica appena pubblicata, mergeala nello stesso flusso e verifica tag, GitHub Release, deploy del commit di release e smoke/health VPS
 
@@ -39,9 +39,10 @@ automatico o manutenzione esplicita del flusso.
 Regole operative essenziali:
 
 - branch focalizzati su una singola modifica logica
-- nessun push diretto su `main`
+- nessun push diretto su `main` (salvo eccezioni esplicitamente documentate)
 - PR con titolo in formato Conventional Commits
 - squash merge su `main`
+- la review esterna non è requisito formale nel contesto maintainer singolo: si richiedono self-review, CI locale e `CI result` secondo il flusso.
 - eccezione: modifiche minuscole solo documentali (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`) si pubblicano direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR
 - niente bump manuali di versione o changelog nelle PR normali
 - per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"`: di default crea una PR pronta, non draft, e si ferma con il prossimo passo operativo
