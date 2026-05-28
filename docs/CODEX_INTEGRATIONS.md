@@ -39,7 +39,7 @@ Usa `make github-maintenance` per il giro periodico o prima di riprendere una PR
 Il report controlla:
 
 - PR aperte;
-- Release PR aperte;
+- PR legate al rilascio aperte;
 - PR Dependabot;
 - alert Dependabot leggibili via GitHub API;
 - run GitHub Actions fallite recenti.
@@ -47,7 +47,7 @@ Il report controlla:
 Regola pratica:
 
 - run failed del branch corrente: investigare prima con `scripts/current_failed_runs.py` e `gh run view`;
-- Release PR aperta: verificare versione, changelog e manifest prima del merge;
+- PR con scope release aperte: verificare versione, changelog e manifest prima del merge/rilascio;
 - PR Dependabot/security: priorità alta se tocca runtime o CVE rilevanti.
 
 ## 3) Observability e operations
