@@ -8,6 +8,14 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.4](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.3...docmolder-v2.0.4) (2026-05-28)
+
+
+### Documentazione
+
+* address Codex feedback in security operations docs ([#174](https://github.com/max23468/DocMolder/issues/174)) ([9c52887](https://github.com/max23468/DocMolder/commit/9c5288770d881784c99bb5ccbabf06b82aa51d71))
+* align DocMolder publish policy with single-maintainer flow ([#171](https://github.com/max23468/DocMolder/issues/171)) ([73bbcbd](https://github.com/max23468/DocMolder/commit/73bbcbdaa16e98d9c7d3f68029dc98c3a6b0fbde))
+
 ## [2.0.3](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.2...docmolder-v2.0.3) (2026-05-27)
 
 
