@@ -230,7 +230,19 @@ async function listPullRequestPages({ limit = Infinity, state, stopAfterBatch } 
       sort: "updated",
       state,
     });
-    const batch = await githubJson(`/repos/${owner}/${repo}/pulls?${query}`);
+    let batch;
+    try {
+      batch = await githubJson(`/repos/${owner}/${repo}/pulls?${query}`);
+    } catch (error) {
+      if (error.status === 404 && page > 1) {
+        console.warn(
+          `Endpoint pull requests non più disponibile da pagina ${page}; interrompo la scansione paginata.`,
+        );
+        break;
+      }
+
+      throw error;
+    }
 
     if (batch.length === 0) break;
 
