@@ -110,7 +110,7 @@ In incidente, l'obiettivo immediato è contenere il rischio operativo.
 Procedura minima in incidente:
 
 1. isolare l'impatto del bot (chat e flussi critici) e bloccare il runtime Telegram fino a verifica
-2. aggiornare file env in produzione
+2. revocare o invalidare nel provider il token Telegram compromesso, ottenere e applicare un nuovo token, poi aggiornare file env in produzione solo se l'incidente conferma esposizione o compromissione delle credenziali
 3. riavviare `docmolder`
 4. verificare health e smoke Telegram minimo
 
