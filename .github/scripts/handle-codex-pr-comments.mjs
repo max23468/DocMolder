@@ -92,16 +92,40 @@ console.log(
 );
 
 async function listPullRequests() {
-  if (fullScan) return listAllPullRequests();
+  if (fullScan) {
+    try {
+      return listAllPullRequests();
+    } catch (error) {
+      if (error.status === 404) {
+        console.warn(
+          "Endpoint pull requests non accessibile per scansione completa; uso fallback PR evento + inbox.",
+        );
+        return listFallbackPullRequests();
+      }
+
+      throw error;
+    }
+  }
 
   const prsByNumber = new Map();
 
-  for (const pr of await listOpenPullRequests()) {
-    prsByNumber.set(pr.number, pr);
-  }
+  try {
+    for (const pr of await listOpenPullRequests()) {
+      prsByNumber.set(pr.number, pr);
+    }
 
-  for (const pr of await listRecentPullRequests()) {
-    prsByNumber.set(pr.number, pr);
+    for (const pr of await listRecentPullRequests()) {
+      prsByNumber.set(pr.number, pr);
+    }
+  } catch (error) {
+    if (error.status === 404) {
+      console.warn(
+        "Endpoint pull requests non accessibile in scansione parziale; uso fallback PR evento + inbox.",
+      );
+      return listFallbackPullRequests();
+    }
+
+    throw error;
   }
 
   for (const prNumber of await listInboxPullRequestNumbers()) {
@@ -116,6 +140,28 @@ async function listPullRequests() {
   if (eventPullRequestNumber && !prsByNumber.has(eventPullRequestNumber)) {
     const eventPr = await githubJson(`/repos/${owner}/${repo}/pulls/${eventPullRequestNumber}`);
     prsByNumber.set(eventPr.number, eventPr);
+  }
+
+  return [...prsByNumber.values()].sort(
+    (left, right) => new Date(right.updated_at) - new Date(left.updated_at),
+  );
+}
+
+async function listFallbackPullRequests() {
+  const prsByNumber = new Map();
+  const fallbackPrNumbers = new Set();
+
+  if (eventPullRequestNumber) fallbackPrNumbers.add(eventPullRequestNumber);
+
+  for (const prNumber of await listInboxPullRequestNumbers()) {
+    fallbackPrNumbers.add(prNumber);
+  }
+
+  for (const prNumber of fallbackPrNumbers) {
+    const inboxPr = await getPullRequestFromInbox(prNumber);
+    if (!inboxPr) continue;
+
+    prsByNumber.set(inboxPr.number, inboxPr);
   }
 
   return [...prsByNumber.values()].sort(
@@ -354,16 +400,55 @@ async function findInboxIssues() {
     per_page: "100",
     q: `repo:${owner}/${repo} is:issue in:title "${inboxIssueTitle}"`,
   });
-  const result = await githubJson(`/search/issues?${query}`);
-  const exactTitleIssues = result.items.filter((issue) => issue.title === inboxIssueTitle);
-  const issues = [];
 
-  for (const issue of exactTitleIssues) {
-    const issueDetails = await githubJson(`/repos/${owner}/${repo}/issues/${issue.number}`);
+  try {
+    const result = await githubJson(`/search/issues?${query}`);
+    const exactTitleIssues = result.items.filter((issue) => issue.title === inboxIssueTitle);
+    const issues = [];
 
-    if (isManagedInboxIssue(issueDetails)) {
-      issues.push(issueDetails);
+    for (const issue of exactTitleIssues) {
+      const issueDetails = await githubJson(`/repos/${owner}/${repo}/issues/${issue.number}`);
+
+      if (isManagedInboxIssue(issueDetails)) {
+        issues.push(issueDetails);
+      }
     }
+
+    return issues;
+  } catch (error) {
+    if (error.status === 404) {
+      console.warn(
+        "Endpoint /search/issues non disponibile nel contesto corrente. Uso fallback su /issues e filtro lato client.",
+      );
+      return findInboxIssuesViaIssueList();
+    }
+
+    throw error;
+  }
+}
+
+async function findInboxIssuesViaIssueList() {
+  const issues = [];
+  const query = new URLSearchParams({
+    direction: "desc",
+    page: "1",
+    per_page: "100",
+    sort: "updated",
+    state: "all",
+  });
+
+  for (let page = 1; page <= 10; page++) {
+    query.set("page", String(page));
+    const batch = await githubJson(`/repos/${owner}/${repo}/issues?${query}`);
+
+    if (!Array.isArray(batch) || batch.length === 0) break;
+
+    for (const issue of batch) {
+      if (issue.pull_request) continue;
+      if (isManagedInboxIssue(issue)) issues.push(issue);
+    }
+
+    if (batch.length < 100) break;
   }
 
   return issues;
