@@ -14,7 +14,7 @@ la versione live e `docmolder-v1.0.1`.
 ## Baseline corrente
 
 - release stabile corrente: `docmolder-v1.0.1`
-- canale ordinario corrente: PR su `main`, CI prudente, Release Please e deploy via webhook privato GitHub -> VPS
+- canale ordinario corrente: PR su `main`, CI prudente, rilascio manuale e deploy via webhook privato GitHub -> VPS
 - perimetro prodotto: utility documentale Telegram-first, non storage permanente, non editor PDF generalista
 
 ## Stato audit corrente
@@ -122,9 +122,9 @@ release. Il percorso atteso è:
 1. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder X.0`
 2. includere in PR il risultato della checklist di questo documento
 3. includere nel corpo PR la sezione `Major release rationale`
-4. coordinare il target major nel flusso Release Please prima del merge finale
+4. coordinare il target major nel flusso manuale prima del merge finale
 5. mergeare la PR su `main`, lasciando che il webhook esegua il deploy
-6. attendere conferma di Release Please, tag `docmolder-vX.0.0` e deploy del commit release
+6. attendere conferma del passaggio manuale, tag `docmolder-vX.0.0` e deploy del commit release
 7. verificare GitHub Release, health, smoke tecnico e log post-release
 
 Una major non va ottenuta con bump manuali casuali dei file release-owned dentro
@@ -139,7 +139,7 @@ breaking change.
   `/history`, `/status`, `/reset`; i flussi principali PDF/immagini sono
   definiti e verificati.
 - Contratto operativo stabile: il percorso ordinario resta PR su `main`,
-  Release Please, webhook privato GitHub -> VPS, healthcheck e smoke
+  rilascio manuale, webhook privato GitHub -> VPS, healthcheck e smoke
   post-deploy.
 - Contratto dati dichiarato: file utente temporanei, retention breve, job
   history non permanente e assenza di cancellazione completa self-service nel

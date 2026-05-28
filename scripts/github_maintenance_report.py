@@ -189,9 +189,9 @@ def print_text(report: dict[str, object]) -> None:
     release_prs = report.get("release_prs") or []
     if release_prs:
         for pr in release_prs:
-            print(f"- Release PR: {print_pr(pr)}")
+            print(f"- PR con scope release: {print_pr(pr)}")
     else:
-        print("- Nessuna Release PR aperta rilevata.")
+        print("- Nessuna PR aperta con scope rilasciabile rilevata.")
 
     print("\n## Dependabot")
     dependabot_prs = report.get("dependabot_prs") or []
@@ -239,7 +239,7 @@ def print_text(report: dict[str, object]) -> None:
     print("- Le run globali servono per trend/manutenzione: non bloccare lavoro corrente su failure non correlate.")
     print("- Se la Codex feedback inbox segnala thread actionable, risolvili prima del merge o apri un follow-up mirato.")
     print("- Usa `scripts/check_codex_bot_comments.py --pr <numero> --fail` come guardrail sulla PR corrente.")
-    print("- Se c’è una Release PR aperta, verifica versione/changelog generati prima del merge.")
+    print("- Se ci sono PR con scope release aperte, verifica versione/changelog prima del merge.")
     print("- Se ci sono PR Dependabot, tratta prima security update o incompatibilita runtime.")
 
 

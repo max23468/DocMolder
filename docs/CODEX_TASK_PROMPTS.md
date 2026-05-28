@@ -57,7 +57,7 @@ Non modificare file.
 ```text
 Repo: /Users/Matteo/Documents/DocMolder.
 Esegui make github-maintenance e interpreta il report.
-Concentrati solo su PR aperte, Release PR, PR Dependabot, alert Dependabot leggibili e run Actions fallite recenti.
+Concentrati solo su PR aperte, PR legate al rilascio, PR Dependabot, alert Dependabot leggibili e run Actions fallite recenti.
 Non modificare file senza un task separato; riporta priorità, rischio e prossimo passo.
 ```
 

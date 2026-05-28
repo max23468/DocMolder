@@ -70,7 +70,7 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 
 ## Release, deploy e verifiche
 
-- `Release Please` è il flusso primario per changelog, tag e GitHub Release.
+- `scripts/auto_release.py` gestisce in modo manuale e verificabile changelog, tag e GitHub Release.
 - Le PR ordinarie non devono modificare `CHANGELOG.md`,
   `.release-please-manifest.json`, `pyproject.toml` version o
   `src/docmolder/__init__.py`.
