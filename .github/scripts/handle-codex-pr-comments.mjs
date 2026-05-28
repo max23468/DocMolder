@@ -94,7 +94,7 @@ console.log(
 async function listPullRequests() {
   if (fullScan) {
     try {
-      return listAllPullRequests();
+      return await listAllPullRequests();
     } catch (error) {
       if (error.status === 404) {
         console.warn(
