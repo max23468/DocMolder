@@ -32,7 +32,6 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         deploy_script: str = "/tmp/deploy.sh",
         *,
         secret: str = "secret",
-        auto_release_script: str = "/tmp/release.sh",
         restart_marker_path: str = "/tmp/restart-requested",
     ) -> WebhookConfig:
         return WebhookConfig(
@@ -45,8 +44,6 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
             secret=secret,
             deploy_script=deploy_script,
             deploy_timeout_seconds=10,
-            auto_release_script=auto_release_script,
-            auto_release_timeout_seconds=10,
             max_body_bytes=1024,
             restart_marker_path=restart_marker_path,
             service_name="docmolder-github-webhook.service",
@@ -152,16 +149,11 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         self.assertEqual(config.health_path, "/webhooks/github/healthz")
         self.assertTrue(ready)
 
-    def test_run_deploy_records_success_and_skips_missing_auto_release(self) -> None:
+    def test_run_deploy_records_success_and_marks_restart_marker_absent(self) -> None:
         with TemporaryDirectory() as temp_dir:
             deploy_script = Path(temp_dir) / "deploy.sh"
             deploy_script.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
-            app = GitHubDeployWebhookApp(
-                self._config(
-                    deploy_script=str(deploy_script),
-                    auto_release_script=str(Path(temp_dir) / "missing-auto-release.sh"),
-                )
-            )
+            app = GitHubDeployWebhookApp(self._config(deploy_script=str(deploy_script)))
             job = self._job()
             completed = MagicMock(returncode=0, stdout="deployed\n", stderr="warn\n")
 
@@ -170,8 +162,8 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
 
         self.assertTrue(app.state.last_result["ok"])
         self.assertEqual(app.state.last_result["delivery_id"], "delivery-1")
-        self.assertEqual(app.state.last_result["auto_release"]["reason"], "script missing")
         self.assertFalse(app.state.last_result["webhook_restart"]["requested"])
+        self.assertEqual(run.call_args.args[0], [str(deploy_script), "abc123"])
         self.assertEqual(run.call_args.kwargs["env"]["DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER"], "1")
 
     def test_run_deploy_records_failure(self) -> None:
@@ -219,20 +211,6 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         self.assertFalse(failing_app.state.last_result["ok"])
         self.assertEqual(failing_app.state.last_result["error"], "boom")
 
-    def test_run_auto_release_executes_existing_script(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            release_script = Path(temp_dir) / "release.sh"
-            release_script.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
-            app = GitHubDeployWebhookApp(self._config(auto_release_script=str(release_script)))
-            completed = MagicMock(returncode=3, stdout="out\n", stderr="err\n")
-
-            with patch("docmolder.github_webhook.subprocess.run", return_value=completed) as run:
-                result = app._run_auto_release()
-
-        self.assertFalse(result["ok"])
-        self.assertEqual(result["returncode"], 3)
-        self.assertEqual(run.call_args.args[0], [str(release_script)])
-
     def test_restart_marker_schedules_service_restart_after_job(self) -> None:
         with TemporaryDirectory() as temp_dir:
             marker = Path(temp_dir) / "restart-requested"
@@ -248,8 +226,6 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
                     secret="secret",
                     deploy_script="/tmp/deploy.sh",
                     deploy_timeout_seconds=10,
-                    auto_release_script="/tmp/release.sh",
-                    auto_release_timeout_seconds=10,
                     max_body_bytes=1024,
                     restart_marker_path=str(marker),
                     service_name="docmolder-github-webhook.service",

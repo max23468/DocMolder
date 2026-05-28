@@ -62,7 +62,7 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 - build package: `make build`
 - smoke Telegram: `make smoke-ui`
 - maintenance GitHub: `make github-maintenance`
-- release sanity: `make release-sanity`
+- release sanity: verifica presente in `ci_verify`/`publish-doctor` (nessun target dedicato separato nel `Makefile` attuale)
 - publish standard PR: `scripts/publish_change.sh "<titolo conventional>"`
 - publish docs-only minuscolo: `make publish-docs TITLE="chore(docs): <descrizione>"`
 - deploy ordinario: webhook privato GitHub -> VPS
@@ -70,9 +70,9 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 
 ## Release, deploy e verifiche
 
-- `scripts/auto_release.py` gestisce in modo manuale e verificabile changelog, tag e GitHub Release.
+- `Release Please` gestisce in modo verificabile changelog, tag e GitHub Release.
 - Le PR ordinarie non devono modificare `CHANGELOG.md`,
-  `.release-please-manifest.json`, `pyproject.toml` version o
+  `pyproject.toml` version o
   `src/docmolder/__init__.py`.
 - Il deploy ordinario passa dal webhook privato GitHub -> VPS; GitHub Actions
   operative (`Deploy VPS`, `Rollback VPS`, `VPS Check`) restano manuali o

@@ -10,7 +10,7 @@ Indice unico della documentazione operativa.
 - [CODEX_TASK_PACKET.md](./CODEX_TASK_PACKET.md): template per deleghe a sub-agenti o istanze parallele.
 - [CODEX_TASK_PROMPTS.md](./CODEX_TASK_PROMPTS.md): prompt operativi riutilizzabili per Codex.
 - [CODEX_INTEGRATIONS.md](./CODEX_INTEGRATIONS.md): integrazioni scelte per sviluppo Codex, GitHub release e operations.
-- Tool locali: `make codex-dev-report`, `make github-maintenance`, `make release-sanity`, `make ops-report` per sviluppo Codex, release GitHub e osservabilità.
+- Tool locali: `make codex-dev-report`, `make github-maintenance`, `make ops-report` per sviluppo Codex, release GitHub e osservabilità.
 
 ## Esercizio e deploy
 

@@ -108,9 +108,8 @@ sudo -u docmolder git -C /opt/docmolder/app rev-parse --short HEAD
 
 Il percorso standard è il webhook privato GitHub -> VPS per il deploy: riceve il
 push su `main`, verifica firma/repository/branch e lancia `update-vps.sh`.
-Versioni, changelog, tag e GitHub Release sono gestiti dal passaggio manuale con
-`scripts/auto_release.py`; il fallback `deploy/auto-release.sh` resta disabilitato
-in esercizio standard con `DOCMOLDER_AUTO_RELEASE_ENABLED=false`.
+Versioni, changelog, tag e GitHub Release sono gestiti dal passaggio ufficiale
+con `Release Please`; il commit di release viene poi deployato dal webhook VPS.
 
 Deploy manuale mirato, solo come fallback esplicito:
 
@@ -133,23 +132,19 @@ sudo cat /etc/docmolder/github-webhook.env
 Il listener webhook riceve gli eventi GitHub su `/webhooks/github/deploy`, verifica la firma HMAC e lancia `update-vps.sh` sul commit ricevuto. L'endpoint di health del listener è `/webhooks/github/healthz`.
 Quando il deploy aggiorna unit o script del listener già attivo, `install-github-webhook.sh` evita il restart dentro al processo che sta servendo il webhook: se gira nel worker scrive un marker in `/run/docmolder-github-webhook/restart-requested`, poi il listener lo consuma a fine job e pianifica il restart con `systemd-run --on-active=1s`. Fuori dal worker il restart è immediato.
 
-Il listener può ancora lanciare `deploy/auto-release.sh`, ma in esercizio
-ordinario `/etc/docmolder/release.env` deve contenere
-`DOCMOLDER_AUTO_RELEASE_ENABLED=false`. Se lo script viene riabilitato come
-fallback, richiede un `DOCMOLDER_RELEASE_GITHUB_TOKEN` valido per le API GitHub
-e, quando diverso, un `DOCMOLDER_RELEASE_GIT_TOKEN` valido per push Git HTTPS.
-Riabilitalo solo dopo aver escluso collisioni con il passaggio manuale di release.
+Il listener non include step di rilascio non supportati dal percorso ufficiale.
+In questa fase non sono previsti riavvii automatici di release esterne al flusso
+`Release Please`.
 
 Per configurarlo:
 
 ```bash
 sudo /opt/docmolder/app/deploy/install-github-webhook.sh
 sudo nano /etc/docmolder/github-webhook.env
-sudo nano /etc/docmolder/release.env
 sudo systemctl restart docmolder-github-webhook.service
 ```
 
-Il file `/etc/docmolder/github-webhook.env` contiene il secret da copiare nel webhook GitHub. Il file `/etc/docmolder/release.env` contiene solo eventuali token per il fallback auto-release e deve restare `root:root` con permessi `600`. Dopo modifiche al flusso release, controlla i log recenti del webhook senza stampare il file env e verifica che non compaiano valori token nelle righe `sudo`.
+Il file `/etc/docmolder/github-webhook.env` contiene il secret da copiare nel webhook GitHub. Dopo modifiche al flusso release, controlla i log recenti del webhook senza stampare il file env e verifica che non compaiano valori token nelle righe `sudo`.
 
 Backup manuale SQLite:
 

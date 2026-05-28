@@ -14,14 +14,14 @@
 <!-- La label skip-changelog vale per le release note generate da GitHub. -->
 
 ## Release policy
-<!-- Salvo rilascio manuale tramite scripts/auto_release.py, non modificare CHANGELOG.md, .release-please-manifest.json, il campo version di pyproject.toml o src/docmolder/__init__.py -->
+<!-- Non modificare file di versione/changelog nelle PR funzionali, salvo il percorso release operativo previsto. -->
 
 ## Classificazione cambio
 - [ ] Docs/istruzioni only
 - [ ] Test/CI only
 - [ ] Codice runtime o packaging
 - [ ] Operativo/deploy-relevant
-- [ ] File release-owned toccati solo da rilascio manuale
+- [ ] File release-owned toccati (verifica per il percorso di rilascio previsto)
 
 ## Deploy VPS
 - [ ] Deploy VPS automatico atteso al merge su `main`
@@ -39,7 +39,7 @@
 - [ ] Ho aggiornato la documentazione necessaria
 - [ ] Ho eseguito i test/check rilevanti in locale
 - [ ] Non ho introdotto segreti o dati sensibili
-- [ ] Non ho fatto bump manuali di versione o changelog fuori dal flusso di rilascio manuale
+- [ ] Non ho fatto bump manuali di versione o changelog fuori dal flusso di rilascio previsto
 
 ## Evidenze test
 <!-- Comandi e output sintetico. -->

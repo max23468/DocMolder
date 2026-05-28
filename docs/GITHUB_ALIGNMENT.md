@@ -13,7 +13,7 @@ Elementi già presenti o introdotti:
 - `.github/workflows/dependabot-auto-merge.yml` per automerge prudente delle PR Dependabot dopo CI riuscita
 - `.github/workflows/github-maintenance.yml` per report mensile leggero
 - `.github/workflows/codex-pr-comments.yml` per sincronizzare la issue `Codex feedback inbox`
-- `.github/workflows/release-sanity.yml` per controlli manuali su metadata release
+- controllo release manuale supportato dal flusso release corrente (documentato in `docs/VERSIONING.md`)
 - `.github/dependabot.yml` per aggiornamenti dipendenze
 - `.github/ISSUE_TEMPLATE/` per bug/feature standardizzati
 - `.github/pull_request_template.md` per PR coerenti
@@ -55,7 +55,7 @@ Anche da solo conviene mantenere un mini-flusso PR:
 2. commit piccoli e coesi
 3. PR verso `main` con titolo Conventional Commits
 4. squash merge dopo verifiche locali rilevanti e `CI result` verde sulla PR non draft
-5. lasciare release, changelog e tag al passaggio manuale con `scripts/auto_release.py`
+5. lasciare release, changelog e tag al passaggio manuale con `Release Please`
 6. usare i workflow deploy solo come fallback manuali espliciti
 
 Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre con branch dedicato + PR + squash merge.
@@ -72,8 +72,8 @@ Questa non è una preferenza soft: per DocMolder il flusso ufficiale resta PR sq
 
 Regola aggiuntiva fondamentale:
 
-- le PR ordinarie non devono toccare `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py`;
-- quei file vengono aggiornati dal flusso manuale (`scripts/auto_release.py`) o da manutenzione esplicita del flusso;
+- le PR ordinarie non devono toccare `CHANGELOG.md`, `pyproject.toml` (campo `version`) o `src/docmolder/__init__.py`;
+- quei file vengono aggiornati dal flusso `Release Please` o da manutenzione esplicita del flusso;
 - se compaiono in una PR normale, la PR va corretta prima del merge;
 - per il dettaglio operativo della policy, fai sempre riferimento a [VERSIONING.md](./VERSIONING.md).
 
@@ -97,7 +97,7 @@ Regola commenti Codex:
 Per non complicare troppo in fase iniziale, abilita solo se c'è beneficio chiaro:
 
 - **CodeQL**: opzionale, attivabile solo in finestre operative dedicate.
-- **Release manuale**: `scripts/auto_release.py` su checkout pulita per versioning, changelog e GitHub Releases.
+- **Release manuale**: `Release Please` su checkout pulita per versioning, changelog e GitHub Releases.
 - **Dependabot auto-merge**: attivo solo per aggiornamenti Dependabot conservativi e dopo `CI` riuscita.
 - **Deploy workflow**: utile solo come fallback esplicito; il percorso automatico di deploy usa webhook VPS e hook locali.
 

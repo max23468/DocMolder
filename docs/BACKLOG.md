@@ -56,7 +56,7 @@ decisioni stabili.
 - Eseguire `make github-maintenance` prima di publish, merge, release o giro sui
   commenti Codex.
 - Usare `make ops-report` o i comandi del runbook per verifiche operative e VPS.
-- Usare `make release-sanity` quando si toccano o si verificano release e tag
+- Verificare il riallineamento release/tag in `publish_doctor`/`preflight_publish` prima di commit o merge quando si toccano i file di rilascio
   o ci sono dubbi di allineamento del release metadata.
 - Usare smoke Telegram mirati quando il cambio tocca flussi utente, deploy o
   comportamento operativo.

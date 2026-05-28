@@ -8,7 +8,7 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - CodeQL: `.github/workflows/codeql.yml`
 - Dependabot Auto Merge: `.github/workflows/dependabot-auto-merge.yml`
 - GitHub Maintenance: `.github/workflows/github-maintenance.yml`
-- Release Sanity: `.github/workflows/release-sanity.yml`
+- Release Sanity: workflow dismesso
 - Deploy VPS: `.github/workflows/deploy-vps.yml`
 - VPS Check: `.github/workflows/vps-check.yml`
 - VPS Backup: `.github/workflows/vps-backup.yml`
@@ -22,7 +22,7 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 
 L'automazione ordinaria resta prudente: `CI` parte sulle PR non draft verso `main`, `Codex PR comments` sincronizza la issue `Codex feedback inbox`, `VPS Check` gira una volta a settimana e `GitHub Maintenance` una volta al mese. `Deploy VPS`, `VPS Backup`, `Rollback VPS`, `Update VPS Env` e `CodeQL` restano manuali; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) restano il primo filtro prima del push.
 
-Il deploy automatico resta affidato al servizio `docmolder-github-webhook` sulla VPS. Dopo il deploy, il listener può ancora lanciare `deploy/auto-release.sh`, ma nel flusso standard deve restare disabilitato con `DOCMOLDER_AUTO_RELEASE_ENABLED=false`: versioni, changelog, tag e GitHub Release sono prodotti dal passaggio manuale di rilascio con `scripts/auto_release.py`.
+Il deploy automatico resta affidato al servizio `docmolder-github-webhook` sulla VPS. Dopo il deploy, il listener non lancia più script di release automatica legacy.
 
 ## Pubblicazione più fluida
 
@@ -45,8 +45,8 @@ Strumenti locali:
 - `scripts/publish_doctor.py` o `make publish-doctor`: verifica in un unico punto branch/base, detached HEAD, divergenza da `origin/main`, file riservati, run failed correnti e commenti bot aperti.
 - `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
 - `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR pronta; con `DOCMOLDER_PUBLISH_DRAFT=1` apri una draft esplicita, con `DOCMOLDER_PUBLISH_MERGE=1` chiedi merge assistito local-first, con `DOCMOLDER_USE_GH_ACTIONS=1` riattivi il fallback legacy watch/check/ready/auto-merge.
-- `scripts/auto_release.py`: fallback spento di default per creare release senza Actions da una checkout pulita, aggiornando changelog, manifest, versioni, tag e GitHub Release.
-- `scripts/release_sanity.py` o `make release-sanity`: controlla allineamento tra metadata di release, versione pacchetto, `__version__`, changelog e ultimo tag locale.
+- `Release Please`: gestisce la release dalla PR/branch di release, aggiornando changelog, versioni, tag e GitHub Release.
+- `scripts/publish_doctor.py` e `scripts/preflight_publish.sh`: verificano allineamento tra metadata di release, versione pacchetto, `__version__`, changelog e ultimo tag locale.
 - `make install-hooks`: installa i hook Git locali che eseguono i controlli prima del push.
 - `docmolder-github-webhook.service`: listener systemd sulla VPS che riceve il webhook GitHub privato e lancia il deploy.
 - `scripts/cleanup_merged_branches.sh` o `make cleanup-branches`: elimina branch locali `codex/*` già mergiati.
@@ -116,11 +116,11 @@ Il workflow è diviso in gate indipendenti:
 
 ## Rilascio manuale operativo
 
-`scripts/auto_release.py` aggiorna changelog, `CHANGELOG.md`, `.release-please-manifest.json`, `pyproject.toml` e `src/docmolder/__init__.py` dopo il merge di una PR rilasciabile, creando tag e GitHub Release da checkout pulita.
+`Release Please` aggiorna changelog, `CHANGELOG.md`, `pyproject.toml` e `src/docmolder/__init__.py` dopo il merge di una PR rilasciabile, creando tag e GitHub Release da checkout pulita.
 
-`deploy/auto-release.sh` resta nel repository come fallback operativo, ma deve restare disabilitato sulla VPS con `DOCMOLDER_AUTO_RELEASE_ENABLED=false`. Se lo si riabilita per emergenza, farlo solo dopo aver sospeso il flusso manuale standard per evitare bump/tag duplicati.
+Il fallback legacy non rientra più nel percorso operativo standard.
 
-`Release Sanity` è un dispatch manuale leggero prima o dopo il rilascio: verifica che manifest, changelog, `pyproject.toml`, `src/docmolder/__init__.py` e tag locale siano coerenti.
+I controlli di coerenza release sono eseguiti nei report/check locali e nel processo di PR.
 
 ## Configurazione consigliata nella UI GitHub
 
@@ -163,7 +163,7 @@ Frequenza minima mensile:
 3. verificare PR Dependabot aperte;
 4. verificare alert Security e Dependabot;
 5. controllare che i ruleset di `main` siano coerenti con il flusso reale;
-6. controllare che i file di release (`.release-please-manifest.json`, `CHANGELOG.md`, versioni) siano coerenti con l'ultimo commit di release.
+6. controllare che i file di release (`CHANGELOG.md`, versioni) siano coerenti con l'ultimo commit di release.
 7. verificare che i secret VPS e release siano ancora presenti e non scaduti.
 
 ## Fallback operativo

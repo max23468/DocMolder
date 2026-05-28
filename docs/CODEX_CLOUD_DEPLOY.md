@@ -11,8 +11,8 @@ Nel flusso standard con GitHub Actions prudente, il percorso consigliato è:
 1. Codex cloud prepara e pubblica il codice su GitHub.
 2. La PR non draft verso `main` passa `CI result`.
 3. Il maintainer mergea la PR e lascia che il webhook privato GitHub -> VPS lanci `sudo /opt/docmolder/app/deploy/update-vps.sh`.
-4. Se la PR richiede un rilascio, esegui `scripts/auto_release.py` da una copia pulita del `main`.
-5. Il flusso manuale crea changelog, tag e GitHub Release; il webhook VPS deploya anche il commit di release.
+4. Se la PR richiede un rilascio, esegui `Release Please` da una copia pulita del `main`.
+5. Release Please crea changelog, tag e GitHub Release; il webhook VPS deploya anche il commit di release.
 6. Le verifiche operative si eseguono via SSH diretto o con i comandi locali del repo.
 
 ## Flusso consigliato da mobile
@@ -42,7 +42,7 @@ Configura questi valori sulla VPS in `/etc/docmolder/github-webhook.env`:
 - `DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY`
 - `DOCMOLDER_GITHUB_WEBHOOK_BRANCH`
 - `DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT`
-- `DOCMOLDER_RELEASE_GITHUB_TOKEN`, solo in `/etc/docmolder/release.env` se usi il fallback auto-release VPS (non richiesto per il rilascio manuale da macchina operativa)
+- `DOCMOLDER_RELEASE_GITHUB_TOKEN` è stato rimosso dalla macchina VPS nel flusso attuale.
 
 Note operative:
 
@@ -50,7 +50,7 @@ Note operative:
 - `DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY` dovrebbe restare `max23468/DocMolder`
 - `DOCMOLDER_GITHUB_WEBHOOK_BRANCH` dovrebbe restare `main`
 - `DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT` dovrebbe restare `/opt/docmolder/app/deploy/update-vps.sh`
-- se usato per il fallback auto-release, `DOCMOLDER_RELEASE_GITHUB_TOKEN` deve avere permessi sufficienti a pushare su `main`, creare tag e creare GitHub Release; non va mai committato
+- in questa fase non sono previsti automatismi release aggiuntivi lato VPS; i permessi token sono documentati solo per i flussi ufficiali previsti da `Release Please`.
 
 ## Fallback locale
 
@@ -64,7 +64,7 @@ Il webhook GitHub esegue:
 
 - sincronizzazione del repository verso `/opt/docmolder/app`
 - installazione o aggiornamento locale con `deploy/update-vps.sh`
-- fallback auto-release con `deploy/auto-release.sh`, solo se esplicitamente riabilitato; nel flusso standard deve restare disabilitato
+- eventuale fallback esterno di release non è attivo nel flusso standard
 - controllo `systemctl status docmolder --no-pager`
 - controllo `systemctl status docmolder-db-backup.timer --no-pager`
 - stato operativo del listener nel journal di systemd

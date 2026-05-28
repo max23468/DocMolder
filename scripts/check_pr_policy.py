@@ -36,7 +36,7 @@ def check_pr_policy(*, title: str, head_ref: str, release_owned: bool) -> list[s
     if release_owned:
         errors.append(
             "La PR tocca file release-owned (VERSIONE/CHANGELOG/manifest). "
-            "Deve essere gestita dallo script di release manuale, non in PR funzionali."
+            "Deve essere gestita dal flusso di rilascio dedicato, non in PR funzionali."
         )
 
     return errors

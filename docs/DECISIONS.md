@@ -100,10 +100,10 @@ Conseguenze:
 Decisione:
 - l'automazione ordinaria usa CI prudente sulle PR non draft verso `main` e webhook privati GitHub -> VPS per il deploy
 - il listener webhook gira sulla VPS dietro Nginx e verifica firma HMAC, repository e branch prima di lanciare `deploy/update-vps.sh`
-- il listener può ancora lanciare `deploy/auto-release.sh`, ma resta fallback spento di default; in esercizio ordinario `DOCMOLDER_AUTO_RELEASE_ENABLED=false`
-- il bump versione, il changelog, i tag e le GitHub Release sono gestiti da `scripts/auto_release.py`
+- il listener non include più passaggi extra di rilascio nel flusso standard; il rilascio operativo passa dal percorso `Release Please`
+- il bump versione, il changelog, i tag e le GitHub Release sono gestiti da `Release Please`
 - i controlli di qualità locale vivono in hook `git` installabili con `make install-hooks`
-- eventuali token GitHub per il fallback auto-release vivono solo sulla VPS in `/etc/docmolder/release.env`, con permessi root-only
+- eventuali token GitHub usati per operazioni manuali non sono parte del percorso operativo standard; in caso di necessità si usano secret GitHub e non file env persistenti non più presenti in questo flusso
 
 Motivazione:
 - mantiene il consumo Actions controllato: CI PR e workflow operativi solo manuali
@@ -113,12 +113,12 @@ Motivazione:
 
 Conseguenze:
 - il deploy automatico dipende da un webhook GitHub configurato esplicitamente sulla repository
-- le release ordinarie dipendono dal passaggio manuale `scripts/auto_release.py` dopo merge su `main`
+- le release ordinarie dipendono dal passaggio con `Release Please` dopo merge su `main`
 - la release automatica VPS, se riabilitata come fallback, dipende da un token GitHub con permessi di scrittura sui contenuti del repository
 - la VPS deve esporre un endpoint HTTPS dedicato al listener, ma non un runtime web applicativo generalista
 - gli hook locali possono bloccare push non pronti prima che arrivino su GitHub
 - se il webhook o gli hook non sono configurati, il percorso resta manuale ma non si rompe il bot
-- (deprecato) i commit `chore(main): release docmolder X.Y.Z` non producono una nuova release; oggi la release passa per `scripts/auto_release.py`
+- (deprecato) i commit `chore(main): release docmolder X.Y.Z` non producono una nuova release; oggi la release passa per `Release Please`
 
 ## Inbox event-driven per commenti Codex
 
