@@ -75,10 +75,10 @@ class PublishDoctorTest(unittest.TestCase):
                 base_branch="main",
                 skip_fetch=False,
                 skip_github=True,
-            )
+        )
 
         self.assertTrue(details["release_owned"])
-        self.assertTrue(any(issue.level == "blocker" and "release-please" in issue.message for issue in issues))
+        self.assertTrue(any(issue.level == "blocker" and "flusso di release" in issue.message for issue in issues))
 
     def test_main_branch_allows_docs_only_shortcut(self) -> None:
         impact = {
