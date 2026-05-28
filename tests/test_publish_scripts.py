@@ -88,7 +88,7 @@ class PublishScriptsTest(unittest.TestCase):
         result = run(["bash", "scripts/preflight_publish.sh", "origin/main"], self.repo, check=False)
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("release-please", result.stderr)
+        self.assertIn("flusso di release", result.stderr)
 
     def test_classify_skips_dependency_review_for_pyproject_version_only(self) -> None:
         run(["git", "switch", "-c", "codex/release-version"], self.repo)

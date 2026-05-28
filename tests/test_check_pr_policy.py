@@ -51,14 +51,14 @@ class CheckPrPolicyTest(unittest.TestCase):
 
         self.assertTrue(any("release-owned" in error for error in errors))
 
-    def test_allows_release_files_in_release_please_pr(self) -> None:
+    def test_rejects_release_files_even_on_release_branch(self) -> None:
         errors = check_pr_policy.check_pr_policy(
             title="chore(main): release docmolder 1.5.2",
-            head_ref="release-please--branches--main",
+            head_ref="main",
             release_owned=True,
         )
 
-        self.assertEqual(errors, [])
+        self.assertTrue(any("release-owned" in error for error in errors))
 
 
 if __name__ == "__main__":
