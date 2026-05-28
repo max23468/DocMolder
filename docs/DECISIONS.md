@@ -95,30 +95,30 @@ Conseguenze:
 - il vhost pubblico resta un sito statico di presentazione e ingresso verso Telegram finché non viene deciso un endpoint DocMolder specifico
 - eventuali evoluzioni API-first, webhook Telegram o UI web richiederebbero una decisione nuova
 
-## Webhook privato per deploy, Release Please e hook locali
+## Webhook privato per deploy e hook locali
 
 Decisione:
-- l'automazione ordinaria usa CI prudente sulle PR non draft verso `main`, `Release Please` su push a `main` e webhook privati GitHub -> VPS per il deploy
+- l'automazione ordinaria usa CI prudente sulle PR non draft verso `main` e webhook privati GitHub -> VPS per il deploy
 - il listener webhook gira sulla VPS dietro Nginx e verifica firma HMAC, repository e branch prima di lanciare `deploy/update-vps.sh`
 - il listener può ancora lanciare `deploy/auto-release.sh`, ma resta fallback spento di default; in esercizio ordinario `DOCMOLDER_AUTO_RELEASE_ENABLED=false`
-- il bump versione, il changelog, i tag e le GitHub Release sono gestiti da `Release Please`
+- il bump versione, il changelog, i tag e le GitHub Release sono gestiti da `scripts/auto_release.py`
 - i controlli di qualità locale vivono in hook `git` installabili con `make install-hooks`
 - eventuali token GitHub per il fallback auto-release vivono solo sulla VPS in `/etc/docmolder/release.env`, con permessi root-only
 
 Motivazione:
-- mantiene il consumo Actions controllato: CI PR e Release Please automatici, workflow operativi solo manuali
+- mantiene il consumo Actions controllato: CI PR e workflow operativi solo manuali
 - mantiene versioni, changelog, tag e GitHub Releases allineati nel flusso standard GitHub
 - mantiene il listener semplice e confinato alla VPS, non al runtime Telegram
 - mantiene gate locali e hook come primo feedback economico prima del push
 
 Conseguenze:
 - il deploy automatico dipende da un webhook GitHub configurato esplicitamente sulla repository
-- le release ordinarie dipendono dal workflow `Release Please` e dalla Release PR generata su `main`
+- le release ordinarie dipendono dal passaggio manuale `scripts/auto_release.py` dopo merge su `main`
 - la release automatica VPS, se riabilitata come fallback, dipende da un token GitHub con permessi di scrittura sui contenuti del repository
 - la VPS deve esporre un endpoint HTTPS dedicato al listener, ma non un runtime web applicativo generalista
 - gli hook locali possono bloccare push non pronti prima che arrivino su GitHub
 - se il webhook o gli hook non sono configurati, il percorso resta manuale ma non si rompe il bot
-- i commit `chore(main): release docmolder X.Y.Z` non producono una nuova release, evitando loop di release/deploy
+- (deprecato) i commit `chore(main): release docmolder X.Y.Z` non producono una nuova release; oggi la release passa per `scripts/auto_release.py`
 
 ## Inbox event-driven per commenti Codex
 

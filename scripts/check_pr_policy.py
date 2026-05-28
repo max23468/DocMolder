@@ -9,7 +9,6 @@ import sys
 CONVENTIONAL_TITLE_RE = re.compile(
     r"^(feat|fix|deps|docs|refactor|test|chore|build|ci)(\([a-z0-9._-]+\))?!?: .+"
 )
-RELEASE_PLEASE_TITLE_RE = re.compile(r"^chore\(main\): release docmolder \d+\.\d+\.\d+$")
 
 
 def parse_bool(value: str) -> bool:
@@ -25,11 +24,8 @@ def is_conventional_title(title: str) -> bool:
     return bool(CONVENTIONAL_TITLE_RE.match(title.strip()))
 
 
-def is_release_please_pr(title: str, head_ref: str) -> bool:
-    return head_ref.startswith("release-please--") or bool(RELEASE_PLEASE_TITLE_RE.match(title.strip()))
-
-
 def check_pr_policy(*, title: str, head_ref: str, release_owned: bool) -> list[str]:
+    del head_ref
     errors: list[str] = []
     if not is_conventional_title(title):
         errors.append(
@@ -37,9 +33,10 @@ def check_pr_policy(*, title: str, head_ref: str, release_owned: bool) -> list[s
             "fix(bot): handle protected PDFs more clearly"
         )
 
-    if release_owned and not is_release_please_pr(title, head_ref):
+    if release_owned:
         errors.append(
-            "La PR tocca file release-owned; sono ammessi solo nella Release PR generata da Release Please."
+            "La PR tocca file release-owned (VERSIONE/CHANGELOG/manifest). "
+            "Deve essere gestita dallo script di release manuale, non in PR funzionali."
         )
 
     return errors

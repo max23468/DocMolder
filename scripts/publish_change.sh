@@ -86,11 +86,11 @@ if [ "${USE_GH_ACTIONS}" != "1" ]; then
       gh pr ready "${PR_NUMBER}"
     fi
     gh pr merge "${PR_NUMBER}" --squash --delete-branch --subject "${TITLE} (#${PR_NUMBER})"
-    echo "PR #${PR_NUMBER} mergeata. Prossimo passo: verifica webhook VPS, deploy e Release Please."
+    echo "PR #${PR_NUMBER} mergeata. Prossimo passo: verifica webhook VPS, deploy e rilascio manuale."
     exit 0
   fi
   echo "PR pronta: ${PR_URL}"
-  echo "Prossimo passo: self-review/merge PR; dopo il merge verifica webhook VPS, deploy e Release Please."
+  echo "Prossimo passo: self-review/merge PR; dopo il merge verifica webhook VPS, deploy e rilascio manuale."
   exit 0
 fi
 

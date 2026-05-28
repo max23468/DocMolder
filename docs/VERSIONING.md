@@ -15,9 +15,8 @@ La fonte di verità della release è composta da:
 
 - tag Git `docmolder-vX.Y.Z`
 - [CHANGELOG.md](../CHANGELOG.md) in root
-- `.release-please-manifest.json` come stato corrente della versione gestita
 
-Il campo `version` di `pyproject.toml` e `src/docmolder/__init__.py` sono derivati e vengono aggiornati dalla Release PR generata da `Release Please`. La release automatica VPS resta solo un fallback spento di default.
+I campi version in `pyproject.toml` e `src/docmolder/__init__.py` sono allineati dal flusso manuale (`scripts/auto_release.py`) dopo il merge della PR funzionale.
 
 I seguenti file sono quindi **riservati al flusso di release**:
 
@@ -58,7 +57,7 @@ Esempi validi:
 
 - `feat(bot): add history relaunch shortcuts`
 - `fix(pdf): handle encrypted files more clearly`
-- `fix(release): require explicit release PR follow-through`
+- `fix(release): require explicit manual release follow-through`
 - `fix(security): harden release-owned file guardrails`
 - `docs(smoke): clarify post-deploy smoke levels`
 - `feat(api)!: rename admin report payload`
@@ -128,7 +127,7 @@ Ogni PR che prepara una major deve includere nel corpo PR una sezione
 3. quali smoke, rollback e note operative sono richiesti;
 4. quali limiti o migrazioni restano dichiarati.
 
-La major deve essere coordinata nel flusso Release Please prima del merge della
+La major deve essere coordinata nel flusso manuale prima del merge della
 PR finale. Non basta cambiare un numero versione: serve una decisione esplicita
 e tracciabile nel corpo PR.
 
@@ -193,16 +192,12 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 2. la PR viene squash-mergeata su `main`
 3. `CI result` passa sulla PR non draft
 4. il webhook VPS deploya il merge su `main`
-5. `Release Please` apre o aggiorna la Release PR se ci sono commit rilasciabili
-6. il merge della Release PR aggiorna versione, changelog, manifest, tag `docmolder-vX.Y.Z` e GitHub Release
+5. se la PR merita rilascio, esegui `scripts/auto_release.py` dalla copia pulita di `main`
+6. lo script aggiorna `CHANGELOG.md`, `pyproject.toml`, `src/docmolder/__init__.py`, tag `docmolder-vX.Y.Z` e GitHub Release
 7. il commit di release viene deployato dal webhook VPS
 
 Se l'utente ha chiesto di pubblicare o procedere con una modifica rilasciabile,
-il flusso operativo standard include anche il merge della Release PR generata
-da `Release Please` e la verifica di tag, GitHub Release, deploy del commit di
-release e smoke/health VPS. Non fermarti dopo avere solo osservato che la
-Release PR è stata aperta, a meno che l'utente abbia chiesto esplicitamente di
-fermarsi o ci sia un blocco reale.
+il flusso operativo standard include anche il passaggio manuale `scripts/auto_release.py` e la verifica di tag, GitHub Release, deploy del commit di release e smoke/health VPS.
 
 Non usare `main` per commit manuali o push diretti. Se una modifica è urgente,
 si apre comunque una PR piccola e la si squash-mergea dopo i gate locali
@@ -212,7 +207,7 @@ rilevanti e `CI result`.
 
 DocMolder è già nella linea stabile `1.x`. La checklist storica resta in
 [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md); nuove major seguono il
-criterio `X.0.0` sopra e il flusso Release Please primario.
+criterio `X.0.0` sopra e il flusso manuale con `scripts/auto_release.py`.
 
 ## Regola pratica per gli agenti e per il maintainer
 
@@ -221,7 +216,7 @@ Per evitare i disallineamenti visti nei tentativi precedenti:
 - non fare mai bump manuali "già dentro" una feature PR;
 - non aggiornare il changelog di release dentro una feature PR;
 - non riallineare a mano manifest o version file salvo manutenzione eccezionale del flusso release;
-- se serve una release, si mergea la PR funzionale, si lascia lavorare `Release Please`, poi si mergea la Release PR generata nello stesso flusso quando è pronta;
+- se serve una release, si mergea la PR funzionale, si completa il passaggio manuale con `scripts/auto_release.py` e si verifica il commit di release in VPS e changelog.
 - `deploy/auto-release.sh` resta solo come fallback esplicito e spento di default sulla VPS.
 
 Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR è da considerare sbagliata e va corretta prima del merge.

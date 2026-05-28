@@ -198,7 +198,12 @@ def collect_report(*, base_branch: str, skip_fetch: bool, skip_github: bool) -> 
             add_issue(issues, "blocker", f"Sei su {branch}: pubblica da una branch dedicata.")
         if impact.get("release_owned"):
             files = ", ".join(str(path) for path in impact.get("release_owned_files", []))
-            add_issue(issues, "blocker", f"Il diff tocca file riservati a release-please: {files}.")
+            add_issue(
+                issues,
+                "blocker",
+                f"Il diff tocca file riservati al flusso di release: {files}. "
+                "Usa lo script manuale di rilascio per aggiornarli.",
+            )
         if impact.get("deploy_relevant"):
             add_issue(issues, "notice", "Il merge attivera Deploy VPS: verifica che sia davvero atteso.")
         if not impact.get("changed_count") and not ahead:

@@ -228,7 +228,7 @@ Documenti utili:
 La roadmap corrente del progetto è in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 Le modifiche rilevanti vengono annotate in [`CHANGELOG.md`](CHANGELOG.md), mentre policy e bump versioni sono descritte in [`docs/VERSIONING.md`](docs/VERSIONING.md).
 
-Per il versioning ordinario, feature PR e fix PR non devono aggiornare manualmente versione o changelog di release. Quei file vengono gestiti dalla release automatica sulla VPS dopo il deploy; `release-please` resta un fallback manuale esplicito.
+Per il versioning, feature PR e fix PR non devono aggiornare manualmente versione o changelog di release. Il rilascio ufficiale resta un passaggio separato su `main` dopo il merge funzionale, con `scripts/auto_release.py` per creare commit/tag/GitHub Release e deploy del commit di release via VPS.
 
 In sintesi, la priorità attuale è:
 

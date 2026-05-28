@@ -56,7 +56,7 @@ Modifica focalizzata sui file elencati sotto.
 - [ ] Ho aggiornato la documentazione necessaria
 - [ ] Ho eseguito i test/check rilevanti
 - [ ] Non ho introdotto segreti o dati sensibili
-- [ ] Non ho fatto bump manuali di versione o changelog fuori dalla Release PR
+- [ ] Non ho fatto bump manuali di versione o changelog fuori dal flusso manuale di release
 
 ## Evidenze test
 Da compilare prima del merge.
