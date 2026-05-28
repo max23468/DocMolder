@@ -38,8 +38,21 @@ jobs:
           persist-credentials: false
 
       - name: Checkout PR head for same-repo pull_request_target
-        if: github.event_name == 'pull_request_target' && github.event.pull_request.head.repo.full_name == github.repository
         run: |
+          if [ "${{ github.event_name }}" != "pull_request_target" ]; then
+            exit 0
+          fi
+
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+            echo "PR esterna alla repo: mantengo checkout su default branch"
+            exit 0
+          fi
+
+          if [ -z "${{ github.event.pull_request.head.ref }}" ]; then
+            echo "PR senza head ref: nessun checkout extra."
+            exit 0
+          fi
+
           git fetch origin "${{ github.event.pull_request.head.ref }}"
           git checkout "${{ github.event.pull_request.head.ref }}"
 
