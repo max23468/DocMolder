@@ -2,8 +2,7 @@
 
 Questa guida descrive il processo standard per portare una modifica da PR a release e deploy.
 Il percorso ordinario resta local-first per lo sviluppo, con guardrail GitHub
-prudente: controlli locali, PR pronta, `CI result`, merge su `main`, Release
-Please e webhook VPS.
+prudente: controlli locali, PR pronta, `CI result`, merge su `main` e webhook VPS.
 
 ## Indice
 
@@ -21,8 +20,8 @@ Percorso standard:
 2. esegui i test locali rilevanti per il cambio
 3. pubblica con `scripts/publish_change.sh "<titolo conventional>"`
 4. fai self-review e merge della PR pronta (in contesto maintainer singolo non richiedere approvazione esterna)
-5. dopo il merge, verifica webhook VPS, deploy e Release PR aggiornata da Release Please
-6. se la Release PR esiste per la modifica appena pubblicata, mergeala nello stesso flusso e verifica tag, GitHub Release, deploy del commit di release e smoke/health VPS
+5. dopo il merge, verifica webhook VPS e deploy del commit funzionale
+6. se la modifica richiede release, esegui `scripts/auto_release.py`, verifica tag, GitHub Release, deploy del commit di release e smoke/health VPS
 
 `publish_change.sh` esegue già `publish_doctor`, `preflight_publish`, commit
 se necessario, push, generazione body PR e controllo commenti Codex connector.
@@ -32,7 +31,7 @@ verso `main` deve però passare `CI result`.
 Prima del merge resta valido il divieto di modificare manualmente
 `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di
 `pyproject.toml` o `src/docmolder/__init__.py`, salvo commit di release
-automatico o manutenzione esplicita del flusso.
+manuale (`scripts/auto_release.py`) o manutenzione esplicita del flusso.
 
 ## PR e merge
 
@@ -71,20 +70,19 @@ quando `workflow_dispatch` forza `full_tests`.
 
 ## Release
 
-Il flusso ufficiale con Release Please primario è:
+Il flusso ufficiale manuale con `scripts/auto_release.py` è:
 
 1. merge della PR su `main`
 2. il webhook privato GitHub -> VPS esegue il deploy del commit funzionale
-3. `Release Please` apre o aggiorna la Release PR se ci sono commit rilasciabili
-4. merge della Release PR
-5. `Release Please` crea tag `docmolder-vX.Y.Z` e GitHub Release
-6. il webhook VPS deploya anche il commit di release con bump/changelog
+3. avvia il comando `scripts/auto_release.py` dal `main` aggiornato
+4. lo script aggiorna `CHANGELOG.md`, versioni e tag `docmolder-vX.Y.Z`, crea la GitHub Release
+5. il webhook VPS deploya anche il commit di release con bump/changelog
 
 Quando una richiesta dell'utente implica pubblicare una modifica rilasciabile,
 il lavoro non è concluso al solo merge della PR funzionale. L'agente deve
-proseguire fino al merge della Release PR generata da `Release Please` e alla
-verifica della release ufficiale, salvo istruzione esplicita di fermarsi prima
-o blocco reale da riportare.
+proseguire fino alla fase manuale `scripts/auto_release.py` e alla verifica della
+release ufficiale (tag, GitHub Release, deploy, smoke/health), salvo istruzione
+esplicita di fermarsi prima o blocco reale da riportare.
 
 Il changelog ufficiale e [../CHANGELOG.md](../CHANGELOG.md).
 
@@ -105,10 +103,10 @@ In pratica:
 3. chiarisci quali contratti cambiano o vengono dichiarati stabili: UX utente,
    dati/sicurezza, operatività, deploy/release o perimetro prodotto;
 4. completa smoke e rollback coerenti con il rischio della major;
-5. se serve una major intenzionale, coordina il target nel flusso Release Please
+5. se serve una major intenzionale, definisci il target in `scripts/auto_release.py`
    prima del merge della PR finale;
-6. verifica che Release Please abbia creato tag `X.0.0`, GitHub Release e che
-   il commit di release sia stato deployato.
+6. verifica che esistano tag `X.0.0`, GitHub Release e che il commit di release
+   sia stato deployato.
 
 Se la motivazione è solo "abbiamo accumulato abbastanza feature", resta una
 minor release. Se il cambio è solo interno e compatibile, resta patch/minor
@@ -118,7 +116,7 @@ secondo il tipo Conventional Commit.
 
 DocMolder è già nella linea stabile `1.x`. Le note storiche e la checklist
 restano in [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md); nuove major
-seguono la regola `X.0.0` sopra e il flusso Release Please primario.
+ seguono la regola `X.0.0` sopra e il flusso manuale con `scripts/auto_release.py`.
 
 ## Verifica locale
 
@@ -152,6 +150,6 @@ In breve:
 
 1. per deploy standard da remoto, lasciare che il webhook privato GitHub -> VPS aggiorni la VPS su push a `main`
 2. controllare servizio, log recenti e revisione live
-3. verificare che, quando ci sono commit rilasciabili, la release automatica crei tag e GitHub Release coerenti
+3. verificare che, quando ci sono commit rilasciabili, `scripts/auto_release.py` crei tag e GitHub Release coerenti
 4. eseguire lo smoke test coerente con il tipo di modifica
 5. usare deploy manuale, `VPS Check` o `Rollback VPS` solo come fallback espliciti

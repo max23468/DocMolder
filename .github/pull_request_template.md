@@ -10,18 +10,18 @@
 
 ## Release note
 <!-- Se questa PR deve produrre una release, scrivi 1-3 frasi leggibili da utenti/admin/maintainer. -->
-<!-- Se non deve produrre changelog release-please, usa un tipo non rilasciabile. -->
+<!-- Se non deve produrre changelog, usa un tipo non rilasciabile. -->
 <!-- La label skip-changelog vale per le release note generate da GitHub. -->
 
 ## Release policy
-<!-- Salvo Release PR automatica, non modificare CHANGELOG.md, .release-please-manifest.json, il campo version di pyproject.toml o src/docmolder/__init__.py -->
+<!-- Salvo rilascio manuale tramite scripts/auto_release.py, non modificare CHANGELOG.md, .release-please-manifest.json, il campo version di pyproject.toml o src/docmolder/__init__.py -->
 
 ## Classificazione cambio
 - [ ] Docs/istruzioni only
 - [ ] Test/CI only
 - [ ] Codice runtime o packaging
 - [ ] Operativo/deploy-relevant
-- [ ] File release-owned toccati solo da Release PR
+- [ ] File release-owned toccati solo da rilascio manuale
 
 ## Deploy VPS
 - [ ] Deploy VPS automatico atteso al merge su `main`
@@ -39,7 +39,7 @@
 - [ ] Ho aggiornato la documentazione necessaria
 - [ ] Ho eseguito i test/check rilevanti in locale
 - [ ] Non ho introdotto segreti o dati sensibili
-- [ ] Non ho fatto bump manuali di versione o changelog fuori dalla Release PR
+- [ ] Non ho fatto bump manuali di versione o changelog fuori dal flusso di rilascio manuale
 
 ## Evidenze test
 <!-- Comandi e output sintetico. -->

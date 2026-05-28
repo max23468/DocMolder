@@ -55,7 +55,7 @@ Anche da solo conviene mantenere un mini-flusso PR:
 2. commit piccoli e coesi
 3. PR verso `main` con titolo Conventional Commits
 4. squash merge dopo verifiche locali rilevanti e `CI result` verde sulla PR non draft
-5. lasciare release, changelog e tag alla Release PR generata da `Release Please`
+5. lasciare release, changelog e tag al passaggio manuale con `scripts/auto_release.py`
 6. usare i workflow deploy solo come fallback manuali espliciti
 
 Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre con branch dedicato + PR + squash merge.
@@ -73,7 +73,7 @@ Questa non è una preferenza soft: per DocMolder il flusso ufficiale resta PR sq
 Regola aggiuntiva fondamentale:
 
 - le PR ordinarie non devono toccare `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py`;
-- quei file vengono aggiornati solo dalla Release PR generata da `Release Please` o da manutenzione esplicita del flusso;
+- quei file vengono aggiornati dal flusso manuale (`scripts/auto_release.py`) o da manutenzione esplicita del flusso;
 - se compaiono in una PR normale, la PR va corretta prima del merge;
 - per il dettaglio operativo della policy, fai sempre riferimento a [VERSIONING.md](./VERSIONING.md).
 
@@ -97,7 +97,7 @@ Regola commenti Codex:
 Per non complicare troppo in fase iniziale, abilita solo se c'è beneficio chiaro:
 
 - **CodeQL**: opzionale, attivabile solo in finestre operative dedicate.
-- **Release Please**: attivo su push a `main` per versioning, changelog e GitHub Releases.
+- **Release manuale**: `scripts/auto_release.py` su checkout pulita per versioning, changelog e GitHub Releases.
 - **Dependabot auto-merge**: attivo solo per aggiornamenti Dependabot conservativi e dopo `CI` riuscita.
 - **Deploy workflow**: utile solo come fallback esplicito; il percorso automatico di deploy usa webhook VPS e hook locali.
 

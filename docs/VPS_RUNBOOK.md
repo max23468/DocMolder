@@ -108,9 +108,9 @@ sudo -u docmolder git -C /opt/docmolder/app rev-parse --short HEAD
 
 Il percorso standard è il webhook privato GitHub -> VPS per il deploy: riceve il
 push su `main`, verifica firma/repository/branch e lancia `update-vps.sh`.
-Versioni, changelog, tag e GitHub Release sono gestiti da `Release Please`; il
-fallback `deploy/auto-release.sh` deve restare disabilitato con
-`DOCMOLDER_AUTO_RELEASE_ENABLED=false`.
+Versioni, changelog, tag e GitHub Release sono gestiti dal passaggio manuale con
+`scripts/auto_release.py`; il fallback `deploy/auto-release.sh` resta disabilitato
+in esercizio standard con `DOCMOLDER_AUTO_RELEASE_ENABLED=false`.
 
 Deploy manuale mirato, solo come fallback esplicito:
 
@@ -138,7 +138,7 @@ ordinario `/etc/docmolder/release.env` deve contenere
 `DOCMOLDER_AUTO_RELEASE_ENABLED=false`. Se lo script viene riabilitato come
 fallback, richiede un `DOCMOLDER_RELEASE_GITHUB_TOKEN` valido per le API GitHub
 e, quando diverso, un `DOCMOLDER_RELEASE_GIT_TOKEN` valido per push Git HTTPS.
-Riabilitalo solo dopo aver escluso collisioni con `Release Please`.
+Riabilitalo solo dopo aver escluso collisioni con il passaggio manuale di release.
 
 Per configurarlo:
 
