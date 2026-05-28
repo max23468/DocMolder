@@ -439,7 +439,20 @@ async function findInboxIssuesViaIssueList() {
 
   for (let page = 1; page <= 10; page++) {
     query.set("page", String(page));
-    const batch = await githubJson(`/repos/${owner}/${repo}/issues?${query}`);
+    let batch;
+
+    try {
+      batch = await githubJson(`/repos/${owner}/${repo}/issues?${query}`);
+    } catch (error) {
+      if (error.status === 404) {
+        console.warn(
+          "Endpoint /issues non accessibile nel contesto corrente. Proseguo senza lista inbox persistita.",
+        );
+        break;
+      }
+
+      throw error;
+    }
 
     if (!Array.isArray(batch) || batch.length === 0) break;
 
