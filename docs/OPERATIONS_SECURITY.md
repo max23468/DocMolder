@@ -103,15 +103,20 @@ In produzione:
 
 ## Sostituzione in incidente
 
-Nel flusso hardening corrente la sostituzione credenziali è trattata come misura
-di risposta rapida a incidente, non come attività ricorrente ordinaria.
+Nel flusso hardening corrente la sostituzione credenziali non viene gestita in
+maniera automatica e non prevede rotazioni periodiche.
+In incidente, l'obiettivo immediato è contenere il rischio operativo.
 
 Procedura minima in incidente:
 
-1. applicare la sostituzione del token Telegram nel runtime in modo controllato
+1. isolare l'impatto del bot (chat e flussi critici) e bloccare il runtime Telegram fino a verifica
 2. aggiornare file env in produzione
 3. riavviare `docmolder`
 4. verificare health e smoke Telegram minimo
+
+Nota operativa:
+- riallineamento credenziali e isolamento incidentale sono azioni da incidente;
+- non viene proposta alcuna rotazione programmata preventiva in assenza di evento.
 
 ## Incident response minima
 
