@@ -77,7 +77,7 @@ fi
 
 if [ "${release_owned}" = "true" ]; then
   echo "Errore: il diff tocca file riservati al flusso di release." >&2
-  echo "Rimuovi eventuali bump/version/changelog manuali; gli aggiornamenti di release restano allo script manuale." >&2
+  echo "Rimuovi eventuali bump/version/changelog manuali e applica il flusso release previsto dal repository." >&2
   exit 1
 fi
 

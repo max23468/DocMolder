@@ -144,7 +144,6 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
   - dopo il merge di una PR funzionale, controlla che `Release Please` abbia aperto o aggiornato la Release PR quando ci sono commit rilasciabili;
   - se `Release Please` apre o aggiorna una Release PR per la modifica appena pubblicata, non considerare concluso il flusso: verifica la Release PR, controlla eventuali commenti bot, mergeala quando è pronta e poi verifica tag/GitHub Release;
   - dopo il merge della Release PR, il webhook VPS deploya il commit di release; controlla revisione live, versione installata, health/log VPS e smoke check;
-  - `deploy/auto-release.sh` resta solo fallback operativo spento di default sulla VPS (`DOCMOLDER_AUTO_RELEASE_ENABLED=false`);
   - se una modifica ordinaria tocca quei file, fermati e riallinea la PR al flusso ufficiale prima del merge.
 
 ## 10) Deploy e operazioni
@@ -156,7 +155,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Per deploy o manutenzione VPS, seguire `docs/VPS_RUNBOOK.md` e riportare sempre comandi eseguiti, esito e verifiche.
 - Dopo un deploy, non limitarti allo stato `active`: controlla anche log recenti e percorso utente minimo quando possibile.
 - La CI prudente parte sulle PR non draft verso `main` e `Release Please` parte su push a `main`; deploy, VPS check, backup, rollback, update env e CodeQL restano manuali salvo richiesta esplicita.
-- Per automazione senza Actions, usa `make install-hooks` sul repo locale e il listener `docmolder-github-webhook.service` sulla VPS; il webhook privato deve verificare repository, branch e firma HMAC prima di lanciare `update-vps.sh` e, se configurato, `auto-release.sh`.
+- Per automazione senza Actions, usa `make install-hooks` sul repo locale e il listener `docmolder-github-webhook.service` sulla VPS; il webhook privato deve verificare repository, branch e firma HMAC prima di lanciare `update-vps.sh`.
 
 ## 11) Definizione di Done
 

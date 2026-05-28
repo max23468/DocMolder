@@ -32,8 +32,7 @@ release `1.0.1`:
   - job `pdf_grayscale` riuscito sul PDF generato
 
 Questa baseline conferma che la promozione e il follow-up `1.0.1` sono stati
-pubblicati e verificati. Il target temporaneo `DOCMOLDER_RELEASE_TARGET_VERSION`
-deve restare assente da `/etc/docmolder/release.env` dopo la release.
+pubblicati e verificati.
 
 ## Criteri per dire "1.0"
 
@@ -71,7 +70,7 @@ deve restare assente da `/etc/docmolder/release.env` dopo la release.
 ### Operatività
 
 - deploy standard via webhook VPS funzionante
-- auto-release VPS funzionante
+- processo release gestito da webhook VPS + Release Please
 - healthcheck e smoke tecnico post-deploy funzionanti
 - backup SQLite recente e verificabile
 - runbook VPS aggiornato rispetto al comportamento reale
@@ -122,7 +121,7 @@ release. Il percorso atteso è:
 1. aprire una PR dedicata, ad esempio `docs(release): prepare DocMolder X.0`
 2. includere in PR il risultato della checklist di questo documento
 3. includere nel corpo PR la sezione `Major release rationale`
-4. coordinare il target major nel flusso manuale prima del merge finale
+4. coordinare il target major nel flusso `Release Please` prima del merge finale
 5. mergeare la PR su `main`, lasciando che il webhook esegua il deploy
 6. attendere conferma del passaggio manuale, tag `docmolder-vX.0.0` e deploy del commit release
 7. verificare GitHub Release, health, smoke tecnico e log post-release

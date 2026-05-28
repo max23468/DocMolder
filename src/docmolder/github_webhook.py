@@ -66,8 +66,6 @@ class WebhookConfig:
     secret: str
     deploy_script: str
     deploy_timeout_seconds: int
-    auto_release_script: str
-    auto_release_timeout_seconds: int
     max_body_bytes: int
     restart_marker_path: str
     service_name: str
@@ -84,8 +82,6 @@ class WebhookConfig:
             secret=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SECRET", "").strip(),
             deploy_script=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT", "/opt/docmolder/app/deploy/update-vps.sh").strip(),
             deploy_timeout_seconds=env_int("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_TIMEOUT_SECONDS", 3600),
-            auto_release_script=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_SCRIPT", "/opt/docmolder/app/deploy/auto-release.sh").strip(),
-            auto_release_timeout_seconds=env_int("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_TIMEOUT_SECONDS", 1200),
             max_body_bytes=env_int("DOCMOLDER_GITHUB_WEBHOOK_MAX_BODY_BYTES", 1_048_576),
             restart_marker_path=os.getenv(
                 "DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER",
@@ -160,7 +156,6 @@ class GitHubDeployWebhookApp:
             "health_path": self.config.health_path,
             "repository": self.config.repository,
             "branch": self.config.branch,
-            "auto_release_script": self.config.auto_release_script,
             "restart_marker_path": self.config.restart_marker_path,
             "service_name": self.config.service_name,
             "last_job": self.state.last_job,
@@ -245,46 +240,12 @@ class GitHubDeployWebhookApp:
             raise RuntimeError(f"Deploy script exited with {result.returncode}")
 
         print(f"[webhook] deploy OK for {job.target_ref}", flush=True)
-        release_result = self._run_auto_release()
-        self.state.last_result["auto_release"] = release_result
         restart_result = self._restart_webhook_if_requested()
         self.state.last_result["webhook_restart"] = restart_result
-        self.state.last_result["ok"] = release_result["ok"] and restart_result["ok"]
-        if not release_result["ok"]:
-            self.state.last_error = f"auto release exited with {release_result['returncode']}"
-            raise RuntimeError(self.state.last_error)
+        self.state.last_result["ok"] = restart_result["ok"]
         if not restart_result["ok"]:
             self.state.last_error = str(restart_result.get("error") or "webhook restart scheduling failed")
             raise RuntimeError(self.state.last_error)
-
-    def _run_auto_release(self) -> dict[str, Any]:
-        script = Path(self.config.auto_release_script)
-        if not script.exists():
-            print(f"[webhook] auto release script missing: {script}; skipping", flush=True)
-            return {"ok": True, "skipped": True, "reason": "script missing", "script": str(script), "returncode": 0}
-
-        command = [str(script)]
-        print(f"[webhook] running auto release: {' '.join(command)}", flush=True)
-        result = subprocess.run(
-            command,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=self.config.auto_release_timeout_seconds,
-        )
-        if result.stdout:
-            for line in result.stdout.splitlines():
-                print(f"[release stdout] {line}", flush=True)
-        if result.stderr:
-            for line in result.stderr.splitlines():
-                print(f"[release stderr] {line}", flush=True)
-
-        return {
-            "ok": result.returncode == 0,
-            "returncode": result.returncode,
-            "script": str(script),
-            "finished_at": utc_now(),
-        }
 
     def _restart_webhook_if_requested(self) -> dict[str, Any]:
         marker = Path(self.config.restart_marker_path)
@@ -461,18 +422,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--secret", default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SECRET", ""))
     parser.add_argument("--deploy-script", default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT", "/opt/docmolder/app/deploy/update-vps.sh"))
     parser.add_argument(
-        "--auto-release-script",
-        default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_SCRIPT", "/opt/docmolder/app/deploy/auto-release.sh"),
-    )
-    parser.add_argument(
         "--deploy-timeout-seconds",
         type=int,
         default=env_int("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_TIMEOUT_SECONDS", 3600),
-    )
-    parser.add_argument(
-        "--auto-release-timeout-seconds",
-        type=int,
-        default=env_int("DOCMOLDER_GITHUB_WEBHOOK_AUTO_RELEASE_TIMEOUT_SECONDS", 1200),
     )
     parser.add_argument(
         "--max-body-bytes",
@@ -502,8 +454,6 @@ def main(argv: list[str] | None = None) -> None:
         secret=args.secret.strip(),
         deploy_script=args.deploy_script,
         deploy_timeout_seconds=args.deploy_timeout_seconds,
-        auto_release_script=args.auto_release_script,
-        auto_release_timeout_seconds=args.auto_release_timeout_seconds,
         max_body_bytes=args.max_body_bytes,
         restart_marker_path=args.restart_marker_path,
         service_name=args.service_name,
@@ -521,7 +471,6 @@ def main(argv: list[str] | None = None) -> None:
                 "health_path": config.health_path,
                 "repository": config.repository,
                 "branch": config.branch,
-                "auto_release_script": config.auto_release_script,
                 "restart_marker_path": config.restart_marker_path,
                 "service_name": config.service_name,
                 "configured": config.ready,

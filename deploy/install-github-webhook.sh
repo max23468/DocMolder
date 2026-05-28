@@ -4,10 +4,7 @@ set -euo pipefail
 APP_DIR="${DOCMOLDER_VPS_APP_DIR:-/opt/docmolder/app}"
 ENV_FILE="${DOCMOLDER_GITHUB_WEBHOOK_ENV_FILE:-/etc/docmolder/github-webhook.env}"
 ENV_TEMPLATE="${APP_DIR}/deploy/github-webhook.env.example"
-AUTO_RELEASE_ENV_FILE="${DOCMOLDER_AUTO_RELEASE_ENV_FILE:-/etc/docmolder/release.env}"
-AUTO_RELEASE_ENV_TEMPLATE="${APP_DIR}/deploy/release.env.example"
 SERVICE_FILE="${APP_DIR}/deploy/docmolder-github-webhook.service"
-AUTO_RELEASE_SCRIPT="${APP_DIR}/deploy/auto-release.sh"
 WEBHOOK_SERVICE="docmolder-github-webhook.service"
 WEBHOOK_RESTART_MARKER="${DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER:-/run/docmolder-github-webhook/restart-requested}"
 
@@ -22,14 +19,9 @@ if sudo systemctl is-active --quiet "${WEBHOOK_SERVICE}" 2>/dev/null; then
 fi
 
 sudo install -D -m 644 "${SERVICE_FILE}" "/etc/systemd/system/${WEBHOOK_SERVICE}"
-sudo install -D -m 755 "${AUTO_RELEASE_SCRIPT}" /opt/docmolder/bin/auto-release.sh
 
 if [ ! -f "${ENV_FILE}" ]; then
   sudo install -D -m 600 "${ENV_TEMPLATE}" "${ENV_FILE}"
-fi
-
-if [ ! -f "${AUTO_RELEASE_ENV_FILE}" ]; then
-  sudo install -D -m 600 "${AUTO_RELEASE_ENV_TEMPLATE}" "${AUTO_RELEASE_ENV_FILE}"
 fi
 
 if sudo grep -q '^DOCMOLDER_GITHUB_WEBHOOK_SECRET=changeme$' "${ENV_FILE}" || ! sudo grep -q '^DOCMOLDER_GITHUB_WEBHOOK_SECRET=' "${ENV_FILE}"; then
@@ -60,8 +52,6 @@ fi
 
 sudo chown root:root "${ENV_FILE}"
 sudo chmod 600 "${ENV_FILE}"
-sudo chown root:root "${AUTO_RELEASE_ENV_FILE}"
-sudo chmod 600 "${AUTO_RELEASE_ENV_FILE}"
 sudo systemctl daemon-reload
 sudo systemctl enable --now "${WEBHOOK_SERVICE}"
 

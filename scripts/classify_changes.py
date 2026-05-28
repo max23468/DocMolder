@@ -67,7 +67,6 @@ DEPENDENCY_PATTERNS = (
 )
 
 RELEASE_OWNED_FILES = {
-    ".release-please-manifest.json",
     "CHANGELOG.md",
     "src/docmolder/__init__.py",
 }

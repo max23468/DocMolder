@@ -202,7 +202,7 @@ def collect_report(*, base_branch: str, skip_fetch: bool, skip_github: bool) -> 
                 issues,
                 "blocker",
                 f"Il diff tocca file riservati al flusso di release: {files}. "
-                "Usa lo script manuale di rilascio per aggiornarli.",
+                "Usa il percorso di rilascio previsto, non una PR funzionale.",
             )
         if impact.get("deploy_relevant"):
             add_issue(issues, "notice", "Il merge attivera Deploy VPS: verifica che sia davvero atteso.")
