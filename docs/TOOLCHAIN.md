@@ -70,7 +70,7 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 
 ## Release, deploy e verifiche
 
-- `Release Please` gestisce in modo verificabile changelog, tag e GitHub Release.
+- La procedura release manuale documentata gestisce in modo verificabile changelog, tag e GitHub Release.
 - Le PR ordinarie non devono modificare `CHANGELOG.md`,
   `pyproject.toml` version o
   `src/docmolder/__init__.py`.

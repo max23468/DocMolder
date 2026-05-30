@@ -9,7 +9,7 @@ Ultimo aggiornamento del contesto:
 
 - Fase: linea stabile `1.x`, sviluppo feature in pausa salvo bugfix, priorità
   prodotto o decisioni esplicite.
-- Versione/release: `Release Please`, tag `docmolder-v*`, GitHub Release e
+- Versione/release: procedura release manuale documentata, tag `docmolder-v*`, GitHub Release e
   documenti `VERSIONING.md` / `RELEASE_PROCESS.md`.
 - Deploy corrente: VPS DocMolder via webhook privato GitHub -> VPS; deploy
   manuale solo fallback documentato in `VPS_RUNBOOK.md`.
@@ -78,7 +78,7 @@ Ultimo aggiornamento del contesto:
 - lo storico distingue ora anche i job rilanciati come entità separate, mantenendo il riferimento al job di origine
 - la Fase 2 ha introdotto alert admin anti-spam per failure rate anomali o errori ripetuti nelle ultime finestre operative
 - la VPS ha ora backup SQLite giornaliero con timer systemd, script manuali di backup/restore e retention corta verificabile
-- il flusso GitHub Actions prudente usa CI automatica sulle PR non draft verso `main`; il rilascio ufficiale parte poi con `Release Please` dopo il merge, e il listener webhook GitHub privato sulla VPS resta responsabile del deploy, mentre lo script legacy di release automatico locale non è più in uso.
+- il flusso GitHub Actions prudente usa CI automatica sulle PR non draft verso `main`; il rilascio ufficiale parte poi con la procedura release manuale documentata dopo il merge, e il listener webhook GitHub privato sulla VPS resta responsabile del deploy, mentre lo script legacy di release automatico locale non è più in uso.
 - la copertura pseudo end-to-end include ora anche flussi più realistici di upload Telegram, wizard immagini->PDF e follow-up sul PDF risultato
 - la comprensione testuale è ora più tollerante su richieste naturali, sinonimi e piccoli refusi, con estrazione diretta di pagine, rotazioni, watermark e livello di compressione
 - quando un comando testuale è ambiguo o incompleto, il bot prova a chiarire l'azione o chiede il dettaglio mancante invece di fermarsi su una lettura fragile

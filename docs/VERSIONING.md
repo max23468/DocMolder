@@ -16,7 +16,7 @@ La fonte di verità della release è composta da:
 - tag Git `docmolder-vX.Y.Z`
 - [CHANGELOG.md](../CHANGELOG.md) in root
 
-I campi version in `pyproject.toml` e `src/docmolder/__init__.py` sono allineati dal flusso manuale (`Release Please`) dopo il merge della PR funzionale.
+I campi version in `pyproject.toml` e `src/docmolder/__init__.py` sono allineati dal flusso manuale (procedura release manuale documentata) dopo il merge della PR funzionale.
 
 I seguenti file sono quindi **riservati al flusso di release**:
 
@@ -191,12 +191,12 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 2. la PR viene squash-mergeata su `main`
 3. `CI result` passa sulla PR non draft
 4. il webhook VPS deploya il merge su `main`
-5. se la PR merita rilascio, esegui `Release Please` dalla copia pulita di `main`
+5. se la PR merita rilascio, completa la procedura release manuale documentata dalla copia pulita di `main`
 6. lo script aggiorna `CHANGELOG.md`, `pyproject.toml`, `src/docmolder/__init__.py`, tag `docmolder-vX.Y.Z` e GitHub Release
 7. il commit di release viene deployato dal webhook VPS
 
 Se l'utente ha chiesto di pubblicare o procedere con una modifica rilasciabile,
-il flusso operativo standard include anche il passaggio manuale `Release Please` e la verifica di tag, GitHub Release, deploy del commit di release e smoke/health VPS.
+il flusso operativo standard include anche il passaggio manuale della procedura release manuale documentata e la verifica di tag, GitHub Release, deploy del commit di release e smoke/health VPS.
 
 Non usare `main` per commit manuali o push diretti. Se una modifica è urgente,
 si apre comunque una PR piccola e la si squash-mergea dopo i gate locali
@@ -206,7 +206,7 @@ rilevanti e `CI result`.
 
 DocMolder è già nella linea stabile `1.x`. La checklist storica resta in
 [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md); nuove major seguono il
-criterio `X.0.0` sopra e il flusso `Release Please`.
+criterio `X.0.0` sopra e il flusso della procedura release manuale documentata.
 
 ## Regola pratica per gli agenti e per il maintainer
 
@@ -215,7 +215,7 @@ Per evitare i disallineamenti visti nei tentativi precedenti:
 - non fare mai bump manuali "già dentro" una feature PR;
 - non aggiornare il changelog di release dentro una feature PR;
 - non riallineare a mano manifest o version file salvo manutenzione eccezionale del flusso release;
-- se serve una release, si mergea la PR funzionale, si completa il passaggio con `Release Please` e si verifica il commit di release in VPS e changelog.
+- se serve una release, si mergea la PR funzionale, si completa il passaggio con la procedura release manuale documentata e si verifica il commit di release in VPS e changelog.
 
 Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR è da considerare sbagliata e va corretta prima del merge.
 
