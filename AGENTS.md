@@ -3,6 +3,12 @@
 Questo file definisce linee guida persistenti per gli agenti che lavorano in questa repository.
 Scope: intera repository, salvo override in `AGENTS.md` più specifici in sottocartelle.
 
+Priorità: istruzioni di sistema/developer, eventuali `AGENTS.md` più profondi
+nella cartella toccata, richiesta utente corrente per scope e preferenze
+operative che non contraddicono sicurezza/policy, questo `AGENTS.md`, documenti
+canonici della repo, convenzioni reali di codice/test/configurazione e
+assunzioni solo marginali.
+
 ## 1) Contesto da leggere prima
 
 Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
@@ -117,6 +123,9 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Non aggiornare il changelog di release nelle PR normali.
 - Nella roadmap, gli item completati vanno rimossi dalla checklist; non usare checkbox segnate come completate per elementi già fatti.
 - Non aggiungere roadmap laterali se la task può essere chiusa con un intervento piccolo e verificabile.
+- Non creare documenti doppi con stesso scopo o basename. Durante migrazioni,
+  rinomini o merge documentali preserva i contenuti utili, aggiorna i link e
+  dichiara nel riepilogo ciò che viene rimosso perché superato.
 
 ## 9) Commit, PR e release
 
@@ -146,6 +155,9 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Se apri una PR come draft, fallo per review anticipata o dubbi residui espliciti; il percorso standard crea PR già pronte e non usa lo stato draft solo per far partire check.
 - Per il versioning, il flusso primario è manuale e repo-specifico:
   - valuta sempre se la PR richiede versione, changelog, tag o GitHub Release;
+  - Release Please non è un flusso attivo di DocMolder: changelog, versioni,
+    tag e GitHub Release restano manuali secondo `docs/VERSIONING.md` e
+    `docs/RELEASE_PROCESS.md`;
   - non aggiornare `CHANGELOG.md`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py` in modo opportunistico nelle PR normali;
   - quando serve una release, prepara versione, changelog, tag e GitHub Release secondo `docs/VERSIONING.md` e `docs/RELEASE_PROCESS.md`;
   - dopo una release, il webhook VPS deploya il commit di release quando il deploy è previsto; controlla revisione live, versione installata, health/log VPS e smoke check;
@@ -154,6 +166,10 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 ## 10) Deploy e operazioni
 
 - La VPS corretta di DocMolder è quella dietro `docmolder.duckdns.org`: usa sempre questo host per deploy e verifiche, non host diversi del perimetro personale. La combinazione SSH da ricordare è `ssh -i ~/.ssh/docmolder_oracle ubuntu@docmolder.duckdns.org`. Per i deploy ordinari, il default è il webhook privato GitHub -> VPS; il deploy manuale sulla VPS (`sudo /opt/docmolder/app/deploy/update-vps.sh`) resta fallback. Per verifiche senza deploy usa `VPS Check`; per ripristinare una revisione usa `Rollback VPS`; GitHub Actions si usa solo su richiesta esplicita o quando il canale webhook/manuale non è praticabile.
+- Per API Telegram, provider esterni, limiti, costi o policy variabili, verifica
+  fonti ufficiali correnti prima di fissare decisioni operative. DocMolder non
+  ha UI React; se verrà introdotta una dashboard, aggiungi verifiche browser,
+  responsive e accessibilità proporzionate prima di considerarla completa.
 - Non fare deploy inutili: prima di mergeare o avviare workflow che possono deployare, verifica che il diff sia davvero deploy-relevant e che il deploy sia coerente con la richiesta corrente.
 - Se target, rischio, intento o consenso operativo sono ambigui, fermati e chiedi conferma prima di procedere.
 - Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.
