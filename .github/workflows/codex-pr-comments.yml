@@ -38,26 +38,36 @@ jobs:
           persist-credentials: false
 
       - name: Checkout PR head for same-repo pull_request_target
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_HEAD_REPO_FULL_NAME: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY_NAME: ${{ github.repository }}
         run: |
-          if [ "${{ github.event_name }}" != "pull_request_target" ]; then
+          if [ "${EVENT_NAME}" != "pull_request_target" ]; then
             exit 0
           fi
 
-          if [ "${{ github.event.pull_request.head.repo.full_name }}" != "${{ github.repository }}" ]; then
+          if [ "${PR_HEAD_REPO_FULL_NAME}" != "${REPOSITORY_NAME}" ]; then
             echo "PR esterna alla repo: mantengo checkout su default branch"
             exit 0
           fi
 
-          if [ -z "${{ github.event.pull_request.head.ref }}" ]; then
+          if [ -z "${PR_HEAD_REF}" ]; then
             echo "PR senza head ref: nessun checkout extra."
             exit 0
           fi
 
-          if ! git fetch origin "${{ github.event.pull_request.head.ref }}"; then
-            echo "Impossibile fare fetch del branch PR ${{ github.event.pull_request.head.ref }} (probabilmente cancellato): mantengo checkout su default branch."
+          if ! git check-ref-format --branch "${PR_HEAD_REF}" >/dev/null 2>&1; then
+            echo "Head ref PR non valido: mantengo checkout su default branch."
             exit 0
           fi
-          git checkout "${{ github.event.pull_request.head.ref }}"
+
+          if ! git fetch origin "${PR_HEAD_REF}"; then
+            echo "Impossibile fare fetch del branch PR ${PR_HEAD_REF} (probabilmente cancellato): mantengo checkout su default branch."
+            exit 0
+          fi
+          git checkout "${PR_HEAD_REF}"
 
       - name: Setup Node
         uses: actions/setup-node@v5

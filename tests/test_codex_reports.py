@@ -97,6 +97,29 @@ class CodexReportsTest(unittest.TestCase):
         self.assertEqual([item["databaseId"] for item in report["current_branch_failed_runs"]], [2])
         self.assertEqual(report["codex_feedback_inbox"]["number"], 12)
 
+    def test_github_maintenance_report_flags_conventional_releasable_prs(self) -> None:
+        open_prs = [
+            {"number": 1, "title": "fix(bot): handle retry safely", "labels": []},
+            {"number": 2, "title": "chore: update internal notes", "labels": []},
+            {"number": 3, "title": "refactor(api)!: rename payload", "labels": []},
+            {"number": 4, "title": "chore(main): release docmolder 2.0.5", "labels": []},
+        ]
+
+        with (
+            patch.object(github_maintenance_report, "has_gh", return_value=True),
+            patch.object(github_maintenance_report, "current_branch", return_value="main"),
+            patch.object(github_maintenance_report, "current_sha", return_value="sha"),
+            patch.object(github_maintenance_report, "run", return_value=SimpleNamespace(returncode=0, stdout="", stderr="")),
+            patch.object(
+                github_maintenance_report,
+                "gh_json",
+                side_effect=[(open_prs, None), ([], None), ([], None), ([], None)],
+            ),
+        ):
+            report = github_maintenance_report.collect_report(limit=5)
+
+        self.assertEqual([item["number"] for item in report["release_prs"]], [1, 3, 4])
+
     def test_codex_feedback_inbox_workflow_uses_shared_inbox_contract(self) -> None:
         workflow = ROOT / ".github" / "workflows" / "codex-pr-comments.yml"
         handler = ROOT / ".github" / "scripts" / "handle-codex-pr-comments.mjs"
@@ -107,6 +130,22 @@ class CodexReportsTest(unittest.TestCase):
         self.assertIn("normalizeInboxMarkerName(repositoryName)", handler_text)
         self.assertIn("automaticPrComments: false", handler_text)
         self.assertNotIn("codex-feedback-request", handler_text)
+        workflow_text = workflow.read_text(encoding="utf-8")
+        self.assertIn("PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}", workflow_text)
+        self.assertIn('git check-ref-format --branch "${PR_HEAD_REF}"', workflow_text)
+        self.assertNotIn("${{ github.event.pull_request.head.ref }}\"; then", workflow_text)
+
+    def test_ci_workflow_does_not_reference_doppler_secret_in_step_conditions(self) -> None:
+        workflow_text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN != '' }}", workflow_text)
+        self.assertIn("env.DOPPLER_TOKEN_PRESENT == 'true'", workflow_text)
+        self.assertNotIn("if: ${{ secrets.DOPPLER_TOKEN", workflow_text)
+        self.assertNotIn("DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}", workflow_text)
+        self.assertNotIn("          project: ${{ vars.DOPPLER_PROJECT }}", workflow_text)
+        self.assertNotIn("          config: ${{ vars.DOPPLER_CONFIG }}", workflow_text)
+        self.assertIn("          doppler-project: ${{ vars.DOPPLER_PROJECT }}", workflow_text)
+        self.assertIn("          doppler-config: ${{ vars.DOPPLER_CONFIG }}", workflow_text)
 
     def test_ops_next_actions_warns_when_health_missing(self) -> None:
         actions = ops_report.next_actions({"health": None})
