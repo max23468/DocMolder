@@ -79,13 +79,19 @@ Il flusso ufficiale manuale è:
    ```bash
    git switch main
    git pull --ff-only
+   git switch -c codex/release-docmolder-X.Y.Z
    # scegli X.Y.Z secondo docs/VERSIONING.md
    $EDITOR CHANGELOG.md pyproject.toml src/docmolder/__init__.py
    bash scripts/ci_verify.sh
    git add CHANGELOG.md pyproject.toml src/docmolder/__init__.py
    git commit -m "chore(release): docmolder-vX.Y.Z"
+   git push -u origin codex/release-docmolder-X.Y.Z
+   gh pr create --base main --head codex/release-docmolder-X.Y.Z --title "chore(release): docmolder-vX.Y.Z" --body "Release DocMolder X.Y.Z"
+   # mergea la PR di release solo dopo gate verdi e inbox pulita
+   git switch main
+   git pull --ff-only
    git tag docmolder-vX.Y.Z
-   git push origin main docmolder-vX.Y.Z
+   git push origin docmolder-vX.Y.Z
    gh release create docmolder-vX.Y.Z --title "DocMolder X.Y.Z" --notes "Sintesi release da CHANGELOG.md"
    ```
 

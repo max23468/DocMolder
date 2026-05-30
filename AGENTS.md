@@ -3,9 +3,11 @@
 Questo file definisce linee guida persistenti per gli agenti che lavorano in questa repository.
 Scope: intera repository, salvo override in `AGENTS.md` più specifici in sottocartelle.
 
-Priorità: istruzioni di sistema/developer, questo `AGENTS.md`, eventuali
-`AGENTS.md` più profondi, documenti canonici della repo, richiesta utente,
-convenzioni reali di codice/test/configurazione e assunzioni solo marginali.
+Priorità: istruzioni di sistema/developer, eventuali `AGENTS.md` più profondi
+nella cartella toccata, richiesta utente corrente per scope e preferenze
+operative che non contraddicono sicurezza/policy, questo `AGENTS.md`, documenti
+canonici della repo, convenzioni reali di codice/test/configurazione e
+assunzioni solo marginali.
 
 ## 1) Contesto da leggere prima
 
