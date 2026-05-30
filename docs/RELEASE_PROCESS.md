@@ -74,8 +74,22 @@ Il flusso ufficiale manuale è:
 
 1. merge della PR su `main`
 2. il webhook privato GitHub -> VPS esegue il deploy del commit funzionale
-3. completa la procedura release manuale documentata dal `main` aggiornato
-4. lo script aggiorna `CHANGELOG.md`, versioni e tag `docmolder-vX.Y.Z`, crea la GitHub Release
+3. completa la procedura release manuale dal `main` aggiornato:
+
+   ```bash
+   git switch main
+   git pull --ff-only
+   # scegli X.Y.Z secondo docs/VERSIONING.md
+   $EDITOR CHANGELOG.md pyproject.toml src/docmolder/__init__.py
+   bash scripts/ci_verify.sh
+   git add CHANGELOG.md pyproject.toml src/docmolder/__init__.py
+   git commit -m "chore(release): docmolder-vX.Y.Z"
+   git tag docmolder-vX.Y.Z
+   git push origin main docmolder-vX.Y.Z
+   gh release create docmolder-vX.Y.Z --title "DocMolder X.Y.Z" --notes "Sintesi release da CHANGELOG.md"
+   ```
+
+4. il passaggio manuale aggiorna `CHANGELOG.md`, versioni e tag `docmolder-vX.Y.Z`, crea la GitHub Release
 5. il webhook VPS deploya anche il commit di release con bump/changelog
 
 Quando una richiesta dell'utente implica pubblicare una modifica rilasciabile,
