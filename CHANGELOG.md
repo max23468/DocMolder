@@ -8,6 +8,15 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.5](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.4...docmolder-v2.0.5) (2026-05-30)
+
+
+### Bug Fixes
+
+* **ci:** repair workflow review guardrails ([#188](https://github.com/max23468/DocMolder/issues/188)) ([4a2d25d](https://github.com/max23468/DocMolder/commit/4a2d25d7995e26a889ab06693404085d1c8f2329))
+* harden Doppler secret check ([#187](https://github.com/max23468/DocMolder/issues/187)) ([8b94a86](https://github.com/max23468/DocMolder/commit/8b94a86abd7b2517dc5933878eca89b35a90cc48))
+* **ops:** remove legacy manual release artifacts ([#182](https://github.com/max23468/DocMolder/issues/182)) ([d6b6fab](https://github.com/max23468/DocMolder/commit/d6b6fabd30af254b0a00bf2263ac557cc48804ba))
+
 ## [2.0.4](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.3...docmolder-v2.0.4) (2026-05-28)
 
 
