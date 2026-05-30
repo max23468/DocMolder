@@ -16,6 +16,11 @@ Questo progetto è pronto per l'iniezione dei segreti da Doppler in CI/ambiente 
 - `DOPPLER_PROJECT` impostato a: `DocMolder`
 - `DOPPLER_CONFIG` impostato a: `production`
 
+## Stato GitHub verificato
+- Verifica del `2026-05-30`: variabili `DOPPLER_PROJECT` e `DOPPLER_CONFIG` presenti nel repository GitHub.
+- Verifica del `2026-05-30`: secret `DOPPLER_TOKEN` presente nel repository GitHub; il valore non è stato letto né stampato.
+- Il workflow usa `dopplerhq/secrets-fetch-action@v2.0.0` con input `doppler-project` e `doppler-config`.
+
 ## Workflow pronto
 È stato aggiunto `.github/workflows/doppler-check.yml`.
 

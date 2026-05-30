@@ -13,6 +13,10 @@ jobs:
   validate:
     name: Verifica variabili Doppler
     runs-on: ubuntu-latest
+    env:
+      DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
+      DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
+      DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN != '' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -30,24 +34,20 @@ jobs:
             echo "::error::DOPPLER_CONFIG non impostata"
             exit 1
           fi
-          if [ -z "${DOPPLER_TOKEN_PRESENT:-}" ]; then
+          if [ "${DOPPLER_TOKEN_PRESENT}" != "true" ]; then
             echo "::warning::DOPPLER_TOKEN assente: il fetch non verrà eseguito."
           fi
-        env:
-          DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
-          DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
-          DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}
 
       - name: Fetch Doppler secrets
-        if: ${{ env.DOPPLER_TOKEN_PRESENT != '' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
+        if: ${{ env.DOPPLER_TOKEN_PRESENT == 'true' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
         uses: dopplerhq/secrets-fetch-action@v2.0.0
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          project: ${{ vars.DOPPLER_PROJECT }}
-          config: ${{ vars.DOPPLER_CONFIG }}
+          doppler-project: ${{ vars.DOPPLER_PROJECT }}
+          doppler-config: ${{ vars.DOPPLER_CONFIG }}
           inject-env-vars: true
 
       - name: Skip fetch
-        if: ${{ env.DOPPLER_TOKEN_PRESENT == '' || vars.DOPPLER_PROJECT == '' || vars.DOPPLER_CONFIG == '' }}
+        if: ${{ env.DOPPLER_TOKEN_PRESENT != 'true' || vars.DOPPLER_PROJECT == '' || vars.DOPPLER_CONFIG == '' }}
         run: |
           echo "::notice::Doppler fetch saltato: imposta DOPPLER_TOKEN, DOPPLER_PROJECT e DOPPLER_CONFIG nelle impostazioni GitHub."
