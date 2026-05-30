@@ -21,7 +21,7 @@ Percorso standard:
 3. pubblica con `scripts/publish_change.sh "<titolo conventional>"`
 4. fai self-review e merge della PR pronta (in contesto maintainer singolo non richiedere approvazione esterna)
 5. dopo il merge, verifica webhook VPS e deploy del commit funzionale
-6. se la modifica richiede release, esegui `Release Please`, verifica tag, GitHub Release, deploy del commit di release e smoke/health VPS
+6. se la modifica richiede release, completa la procedura release manuale documentata, verifica tag, GitHub Release, deploy del commit di release e smoke/health VPS
 
 `publish_change.sh` esegue già `publish_doctor`, `preflight_publish`, commit
 se necessario, push, generazione body PR e controllo commenti Codex connector.
@@ -31,7 +31,7 @@ verso `main` deve però passare `CI result`.
 Prima del merge resta valido il divieto di modificare manualmente
 `CHANGELOG.md`, il campo `version` di
 `pyproject.toml` o `src/docmolder/__init__.py`, salvo commit di release
-manuale (`Release Please`) o manutenzione esplicita del flusso.
+manuale (procedura release manuale documentata) o manutenzione esplicita del flusso.
 
 ## PR e merge
 
@@ -70,17 +70,17 @@ quando `workflow_dispatch` forza `full_tests`.
 
 ## Release
 
-Il flusso ufficiale con `Release Please` è:
+Il flusso ufficiale manuale è:
 
 1. merge della PR su `main`
 2. il webhook privato GitHub -> VPS esegue il deploy del commit funzionale
-3. avvia il comando `Release Please` dal `main` aggiornato
+3. completa la procedura release manuale documentata dal `main` aggiornato
 4. lo script aggiorna `CHANGELOG.md`, versioni e tag `docmolder-vX.Y.Z`, crea la GitHub Release
 5. il webhook VPS deploya anche il commit di release con bump/changelog
 
 Quando una richiesta dell'utente implica pubblicare una modifica rilasciabile,
 il lavoro non è concluso al solo merge della PR funzionale. L'agente deve
-proseguire fino alla fase di release con `Release Please` e alla verifica della
+proseguire fino alla fase di release con la procedura release manuale documentata e alla verifica della
 release ufficiale (tag, GitHub Release, deploy, smoke/health), salvo istruzione
 esplicita di fermarsi prima o blocco reale da riportare.
 
@@ -102,7 +102,7 @@ In pratica:
 3. chiarisci quali contratti cambiano o vengono dichiarati stabili: UX utente,
    dati/sicurezza, operatività, deploy/release o perimetro prodotto;
 4. completa smoke e rollback coerenti con il rischio della major;
-5. se serve una major intenzionale, definisci il target in `Release Please`
+5. se serve una major intenzionale, definisci il target nella procedura release manuale documentata
    prima del merge della PR finale;
 6. verifica che esistano tag `X.0.0`, GitHub Release e che il commit di release
    sia stato deployato.
@@ -115,7 +115,7 @@ secondo il tipo Conventional Commit.
 
 DocMolder è già nella linea stabile `1.x`. Le note storiche e la checklist
 restano in [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md); nuove major
- seguono la regola `X.0.0` sopra e il flusso manuale con `Release Please`.
+ seguono la regola `X.0.0` sopra e il flusso manuale con la procedura release manuale documentata.
 
 ## Verifica locale
 
@@ -149,6 +149,6 @@ In breve:
 
 1. per deploy standard da remoto, lasciare che il webhook privato GitHub -> VPS aggiorni la VPS su push a `main`
 2. controllare servizio, log recenti e revisione live
-3. verificare che, quando ci sono commit rilasciabili, `Release Please` crei tag e GitHub Release coerenti
+3. verificare che, quando ci sono commit rilasciabili, la procedura release manuale documentata crei tag e GitHub Release coerenti
 4. eseguire lo smoke test coerente con il tipo di modifica
 5. usare deploy manuale, `VPS Check` o `Rollback VPS` solo come fallback espliciti

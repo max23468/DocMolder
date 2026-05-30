@@ -1,6 +1,6 @@
 # Prompt Operativi Codex
 
-Prompt riutilizzabili per lavorare con Codex e sub-agenti su DocMolder.
+Prompt riutilizzabili per lavorare con Codex e filoni paralleli su DocMolder.
 
 Sostituisci i placeholder tra `<...>` prima di usarli.
 

@@ -45,7 +45,7 @@ Strumenti locali:
 - `scripts/publish_doctor.py` o `make publish-doctor`: verifica in un unico punto branch/base, detached HEAD, divergenza da `origin/main`, file riservati, run failed correnti e commenti bot aperti.
 - `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
 - `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR pronta; con `DOCMOLDER_PUBLISH_DRAFT=1` apri una draft esplicita, con `DOCMOLDER_PUBLISH_MERGE=1` chiedi merge assistito local-first, con `DOCMOLDER_USE_GH_ACTIONS=1` riattivi il fallback legacy watch/check/ready/auto-merge.
-- `Release Please`: gestisce la release dalla PR/branch di release, aggiornando changelog, versioni, tag e GitHub Release.
+- La procedura release manuale documentata: gestisce la release dalla PR/branch di release, aggiornando changelog, versioni, tag e GitHub Release.
 - `scripts/publish_doctor.py` e `scripts/preflight_publish.sh`: verificano allineamento tra metadata di release, versione pacchetto, `__version__`, changelog e ultimo tag locale.
 - `make install-hooks`: installa i hook Git locali che eseguono i controlli prima del push.
 - `docmolder-github-webhook.service`: listener systemd sulla VPS che riceve il webhook GitHub privato e lancia il deploy.
@@ -116,7 +116,7 @@ Il workflow è diviso in gate indipendenti:
 
 ## Rilascio manuale operativo
 
-`Release Please` aggiorna changelog, `CHANGELOG.md`, `pyproject.toml` e `src/docmolder/__init__.py` dopo il merge di una PR rilasciabile, creando tag e GitHub Release da checkout pulita.
+La procedura release manuale documentata aggiorna changelog, `CHANGELOG.md`, `pyproject.toml` e `src/docmolder/__init__.py` dopo il merge di una PR rilasciabile, creando tag e GitHub Release da checkout pulita.
 
 Il fallback legacy non rientra più nel percorso operativo standard.
 

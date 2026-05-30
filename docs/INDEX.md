@@ -7,7 +7,7 @@ Indice unico della documentazione operativa.
 - [README](../README.md): panoramica prodotto e funzionalità principali.
 - [LOCAL_DEV.md](./LOCAL_DEV.md): setup locale, flusso quotidiano e testing.
 - [AGENTS.md](../AGENTS.md): istruzioni operative persistenti per agenti, scope, coordinamento, test, PR e deploy.
-- [CODEX_TASK_PACKET.md](./CODEX_TASK_PACKET.md): template per deleghe a sub-agenti o istanze parallele.
+- [CODEX_TASK_PACKET.md](./CODEX_TASK_PACKET.md): template per assegnare sotto-task a istanze parallele o filoni di lavoro separati.
 - [CODEX_TASK_PROMPTS.md](./CODEX_TASK_PROMPTS.md): prompt operativi riutilizzabili per Codex.
 - [CODEX_INTEGRATIONS.md](./CODEX_INTEGRATIONS.md): integrazioni scelte per sviluppo Codex, GitHub release e operations.
 - Tool locali: `make codex-dev-report`, `make github-maintenance`, `make ops-report` per sviluppo Codex, release GitHub e osservabilità.

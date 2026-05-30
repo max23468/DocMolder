@@ -199,13 +199,13 @@ def print_text(report: dict[str, object]) -> None:
     else:
         print("- Nessuna PR aperta o dati non disponibili.")
 
-    print("\n## Release")
+    print("\n## PR da valutare per release")
     release_prs = report.get("release_prs") or []
     if release_prs:
         for pr in release_prs:
-            print(f"- PR con scope release: {print_pr(pr)}")
+            print(f"- PR potenzialmente rilasciabile: {print_pr(pr)}")
     else:
-        print("- Nessuna PR aperta con scope rilasciabile rilevata.")
+        print("- Nessuna PR aperta potenzialmente rilasciabile rilevata.")
 
     print("\n## Dependabot")
     dependabot_prs = report.get("dependabot_prs") or []

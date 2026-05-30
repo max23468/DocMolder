@@ -30,7 +30,7 @@ Regole:
 - non incollare token in issue, PR, log o documentazione
 - limitare permessi del file env in produzione
 - non salvare copie superflue del file env fuori dai backup amministrativi controllati
-- non passare token release a `sudo --preserve-env` o in argomenti CLI; usare secret management sicuro e logica `Release Please` come da policy
+- non passare token release a `sudo --preserve-env` o in argomenti CLI; usare secret management sicuro e logica procedura release manuale documentata come da policy
 
 ## Dati utente
 
@@ -110,7 +110,7 @@ In incidente, l'obiettivo immediato è contenere il rischio operativo.
 Procedura minima in incidente:
 
 1. isolare l'impatto del bot (chat e flussi critici) e bloccare il runtime Telegram fino a verifica
-2. revocare o invalidare nel provider il token Telegram compromesso, ottenere e applicare un nuovo token, poi aggiornare file env in produzione solo se l'incidente conferma esposizione o compromissione delle credenziali
+2. se l'incidente conferma esposizione o compromissione delle credenziali, revocare o invalidare nel provider il token Telegram compromesso prima di applicare il nuovo token; non limitarsi ad aggiornare il file env
 3. riavviare `docmolder`
 4. verificare health e smoke Telegram minimo
 

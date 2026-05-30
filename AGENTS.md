@@ -6,9 +6,11 @@ Scope: intera repository, salvo override in `AGENTS.md` più specifici in sottoc
 ## 1) Contesto da leggere prima
 
 Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
+- `README.md` e `docs/INDEX.md` per orientamento e catalogo;
 - `docs/CONTEXT.md` per lo stato sintetico del progetto;
 - `docs/DECISIONS.md` per il perimetro prodotto;
 - `docs/ROADMAP.md` per le priorità correnti;
+- `docs/BACKLOG.md` e `docs/TOOLCHAIN.md` per debiti e comandi;
 - `docs/LOCAL_DEV.md` per setup e comandi di verifica;
 - `docs/VERSIONING.md` e `docs/RELEASE_PROCESS.md` quando la task riguarda commit, PR, release o deploy.
 
@@ -29,6 +31,7 @@ Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
 - Non revertire modifiche già presenti se non richiesto esplicitamente.
 - Se la richiesta è ambigua, fermati e fai domande mirate all'utente prima di scegliere approccio, scope o comportamento.
 - Procedi con un'assunzione dichiarata solo per dettagli marginali che non cambiano il risultato sostanziale.
+- Prima di chiudere, valuta impatto su documentazione, changelog, versione, release e deploy anche quando la conclusione è "non applicabile".
 
 ## 4) Stile e qualità del codice
 
@@ -40,14 +43,14 @@ Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
 - Non introdurre nuove dipendenze senza avvisare prima l'utente e spiegare motivazione, impatto e alternative.
 - I file `.DS_Store` non fanno parte della repository: ignorali sempre e rimuovi quelli creati localmente quando li incontri.
 
-## 4.1) Lavoro parallelo tra agenti
+## 4.1) Lavoro parallelo e ownership
 
-Quando più chat, agenti o istanze Codex lavorano sul progetto nello stesso periodo, il coordinamento deve essere esplicito e leggibile dal repository.
+Quando più chat o istanze Codex lavorano sul progetto nello stesso periodo, il coordinamento deve essere esplicito e leggibile dal repository.
 
 - Usa una chat principale come coordinatore quando il lavoro e ampio: definisce scope, assegna sotto-task, integra i risultati e prende decisioni finali su merge, PR, deploy o prodotto.
-- Usa sub-agenti o istanze parallele solo per sotto-task separabili e circoscritti: esplorazione di una zona del codice, patch su un modulo specifico, test mirati, review del diff o controllo documentale/deploy impact.
-- Assegna ownership chiara prima di iniziare: ogni agente deve sapere quali file, moduli o responsabilità può toccare; evita che due agenti modifichino lo stesso flusso senza coordinamento esplicito.
-- Non usare sub-agenti per task piccoli, decisioni prodotto ambigue, refactor trasversali o modifiche dove il coordinatore dipende subito dal risultato per il passo successivo.
+- Spezza il lavoro solo in sotto-task separabili e circoscritti: esplorazione di una zona del codice, patch su un modulo specifico, test mirati, review del diff o controllo documentale/deploy impact.
+- Assegna ownership chiara prima di iniziare: ogni filone deve sapere quali file, moduli o responsabilità può toccare; evita che due filoni modifichino lo stesso flusso senza coordinamento esplicito.
+- Non separare task piccoli, decisioni prodotto ambigue, refactor trasversali o modifiche dove il coordinatore dipende subito dal risultato per il passo successivo.
 - Quando deleghi, prepara un task packet con `docs/CODEX_TASK_PACKET.md` e, se utile, usa i prompt di `docs/CODEX_TASK_PROMPTS.md`.
 - Preferisci branch o worktree dedicati per filone di lavoro, con nomi `codex/<tema>` quando crei nuove branch operative.
 - All'avvio di una nuova chat che deve modificare file, se la branch/worktree corrente è già sporca per altre modifiche, separa automaticamente il nuovo lavoro: non riusare la stessa working tree, crea una branch/worktree dedicata da una base pulita e mantieni i due filoni distinti fino a PR/merge.
@@ -94,6 +97,8 @@ Scegli i check locali in base al rischio, evitando doppioni costosi quando GitHu
 - config package/workflow/deploy/release/security: `bash scripts/ci_verify.sh`, preflight publish e CI GitHub completa prima del merge;
 - deploy o cambio operativo rilasciabile: oltre ai gate sopra, segui runbook/smoke pertinenti.
 
+In termini operativi usa tre corsie: `veloce` per docs/governance a basso rischio, `standard` per codice/config ordinari, `completa` per release, deploy, sicurezza, dati utente, bot, pipeline documentale o VPS.
+
 `CI result` su GitHub resta il gate remoto autorevole per le PR non draft verso `main`; i check locali servono a intercettare errori prima del push, non a duplicare sempre tutta la CI.
 
 Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente con motivo e rischio residuo.
@@ -120,9 +125,10 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Per operazioni GitHub usa dove possibile il tool/plugin GitHub come canale primario per repository, PR, issue, commenti, review, metadata e creazione PR; ricorri a `gh`/git locali solo quando il plugin non copre bene l'operazione, ad esempio branch/commit/push locali, stato auth, log GitHub Actions o inspect di run CI.
 - Per togliere una PR dallo stato draft usa `gh pr ready <numero>` invece del tool GitHub connector `mark_pull_request_ready_for_review`: il connector attuale inciampa su `PullRequest.htmlUrl`, campo non valido nello schema GraphQL GitHub, mentre `gh` usa il percorso affidabile.
 - Il flusso ufficiale è branch dedicato, PR verso `main`, gate locali rilevanti, `CI result` verde sulle PR non draft e squash merge.
-- Il titolo PR deve seguire Conventional Commits perché guida `release-please`; scrivilo come frase da changelog, orientata al cambiamento rilasciabile e non all'attività interna.
+- Il titolo PR deve seguire Conventional Commits perché guida changelog, versioning e release manuale; scrivilo come frase da changelog, orientata al cambiamento rilasciabile e non all'attività interna.
 - Prima di aprire o mergiare una PR, usa `scripts/preflight_publish.sh` o `make preflight-publish` per classificare il diff, bloccare tocchi accidentali ai file release-owned e capire se il deploy VPS è davvero atteso.
-- Quando l'utente chiede di "caricare", "pubblicare", "pubblica", "procedi" dopo una modifica rilasciabile o formule simili, considera incluso l'intero flusso GitHub e release: branch/commit mirato, push, PR funzionale, controlli locali/remoti, merge, verifica post-merge, Release PR generata da `Release Please`, merge della Release PR, tag/GitHub Release, deploy del commit di release e smoke/health VPS. Fermati prima della Release PR solo se l'utente lo chiede esplicitamente, se la modifica non è rilasciabile o se c'è un blocco reale da segnalare. Per i deploy, il default operativo è il webhook privato GitHub -> VPS; la procedura manuale sulla VPS (`sudo /opt/docmolder/app/deploy/update-vps.sh`) resta fallback. Usa `Deploy VPS` via GitHub Actions solo se l'utente lo chiede esplicitamente. In ogni caso segui `docs/VPS_RUNBOOK.md` e riporta comandi, esito e verifiche. Dove possibile usa `scripts/publish_change.sh "<titolo conventional>"`.
+- Quando l'utente chiede di "caricare", "pubblicare", "pubblica", "procedi" dopo una modifica rilasciabile o formule simili, considera incluso l'intero flusso GitHub e release proporzionato: branch/commit mirato, push, PR funzionale, controlli locali/remoti, merge, verifica post-merge, valutazione release manuale, eventuale tag/GitHub Release, eventuale deploy del commit di release e smoke/health VPS. Fermati prima della release solo se l'utente lo chiede esplicitamente, se la modifica non è rilasciabile o se c'è un blocco reale da segnalare. Per i deploy, il default operativo è il webhook privato GitHub -> VPS; la procedura manuale sulla VPS (`sudo /opt/docmolder/app/deploy/update-vps.sh`) resta fallback. Usa `Deploy VPS` via GitHub Actions solo se l'utente lo chiede esplicitamente. In ogni caso segui `docs/VPS_RUNBOOK.md` e riporta comandi, esito e verifiche. Dove possibile usa `scripts/publish_change.sh "<titolo conventional>"`.
+- Release e deploy vanno valutati insieme quando entrambi sono applicabili: non chiudere una release senza dichiarare lo stato del deploy, e non chiudere un deploy senza dichiarare se la release è necessaria o `N/A`.
 - Per modifiche minuscole e a basso rischio, chiaramente solo documentali o di istruzioni operative, evita la trafila lunga branch/PR/release se non aggiunge valore: stai su `main` aggiornato e usa `make publish-docs TITLE="chore(docs): <descrizione>"`, che deve fare preflight/check mirati, commit diretto e push senza PR. Questa scorciatoia vale solo per `AGENTS.md`, `README.md` o `docs/**`, senza deploy/release attesi, e non vale per codice runtime, script, workflow CI, configurazione, deploy, dati, release-owned files o cambi ambigui.
 - Al termine di un flusso pubblicato e mergiato, elimina sempre la branch remota e la branch locale di lavoro quando non servono più, poi verifica con `git fetch --prune`, `git branch --list 'codex/*'` e, se utile, `git ls-remote --heads origin <branch>`. Se la branch corrente non può essere eliminata perché è checkoutata, spostati su una base sicura o su `origin/main` detached e completa il cleanup prima della risposta finale.
 - Quando fai squash merge, non sovrascrivere il subject rimuovendo il suffisso `(#PR)`: la policy locale richiede commit nel formato `docs: esempio (#123)`. Se usi `gh pr merge`, lascia che GitHub/CLI mantenga il titolo PR con suffisso oppure passa esplicitamente un subject completo come `docs: esempio (#123)`.
@@ -136,15 +142,14 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Prima di aprire o mergiare una PR, fai una review interna del diff e correggi automaticamente solo problemi chiari, locali e non ambigui.
 - Non lasciare commenti bot su GitHub per la review salvo richiesta esplicita dell'utente; riporta eventuali rilievi in chat.
 - Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi, classificazione del cambio, impatto deploy/release e test effettuati.
-- Se una PR deve produrre una release, includi una sezione `Release note` di 1-3 frasi in linguaggio naturale; se è solo manutenzione interna, usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`). Usa `skip-changelog` solo per escludere la PR dalle release note generate da GitHub, non come sostituto del tipo PR per `release-please`.
+- Se una PR deve produrre una release, includi una sezione `Release note` di 1-3 frasi in linguaggio naturale; se è solo manutenzione interna, usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`). Usa `skip-changelog` solo per escludere la PR dalle release note generate da GitHub, non come sostituto del tipo PR.
 - Se apri una PR come draft, fallo per review anticipata o dubbi residui espliciti; il percorso standard crea PR già pronte e non usa lo stato draft solo per far partire check.
-- Per il versioning, `release-please` è di nuovo il flusso primario:
-  - non aggiornare manualmente `CHANGELOG.md`, `.release-please-manifest.json`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py` nelle PR normali;
-  - il bump versione, il changelog, i tag e le GitHub Release spettano alla Release PR generata da `Release Please`;
-  - dopo il merge di una PR funzionale, controlla che `Release Please` abbia aperto o aggiornato la Release PR quando ci sono commit rilasciabili;
-  - se `Release Please` apre o aggiorna una Release PR per la modifica appena pubblicata, non considerare concluso il flusso: verifica la Release PR, controlla eventuali commenti bot, mergeala quando è pronta e poi verifica tag/GitHub Release;
-  - dopo il merge della Release PR, il webhook VPS deploya il commit di release; controlla revisione live, versione installata, health/log VPS e smoke check;
-  - se una modifica ordinaria tocca quei file, fermati e riallinea la PR al flusso ufficiale prima del merge.
+- Per il versioning, il flusso primario è manuale e repo-specifico:
+  - valuta sempre se la PR richiede versione, changelog, tag o GitHub Release;
+  - non aggiornare `CHANGELOG.md`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py` in modo opportunistico nelle PR normali;
+  - quando serve una release, prepara versione, changelog, tag e GitHub Release secondo `docs/VERSIONING.md` e `docs/RELEASE_PROCESS.md`;
+  - dopo una release, il webhook VPS deploya il commit di release quando il deploy è previsto; controlla revisione live, versione installata, health/log VPS e smoke check;
+  - se una modifica ordinaria tocca file release-owned senza essere una release, fermati e riallinea la PR al flusso ufficiale prima del merge.
 
 ## 10) Deploy e operazioni
 
@@ -154,7 +159,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 - Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.
 - Per deploy o manutenzione VPS, seguire `docs/VPS_RUNBOOK.md` e riportare sempre comandi eseguiti, esito e verifiche.
 - Dopo un deploy, non limitarti allo stato `active`: controlla anche log recenti e percorso utente minimo quando possibile.
-- La CI prudente parte sulle PR non draft verso `main` e `Release Please` parte su push a `main`; deploy, VPS check, backup, rollback, update env e CodeQL restano manuali salvo richiesta esplicita.
+- La CI prudente parte sulle PR non draft verso `main`; release, deploy, VPS check, backup, rollback, update env e CodeQL restano manuali salvo richiesta esplicita o policy documentata.
 - Per automazione senza Actions, usa `make install-hooks` sul repo locale e il listener `docmolder-github-webhook.service` sulla VPS; il webhook privato deve verificare repository, branch e firma HMAC prima di lanciare `update-vps.sh`.
 
 ## 11) Definizione di Done
@@ -165,3 +170,4 @@ Una modifica è “done” se:
 - include verifiche eseguite e limiti noti;
 - aggiorna documentazione o roadmap solo quando serve davvero;
 - non lascia file temporanei, dati utente o modifiche non correlate.
+- publish, release e deploy sono stati completati oppure dichiarati non applicabili con motivo.

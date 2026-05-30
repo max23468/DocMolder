@@ -11,8 +11,8 @@ Nel flusso standard con GitHub Actions prudente, il percorso consigliato è:
 1. Codex cloud prepara e pubblica il codice su GitHub.
 2. La PR non draft verso `main` passa `CI result`.
 3. Il maintainer mergea la PR e lascia che il webhook privato GitHub -> VPS lanci `sudo /opt/docmolder/app/deploy/update-vps.sh`.
-4. Se la PR richiede un rilascio, esegui `Release Please` da una copia pulita del `main`.
-5. Release Please crea changelog, tag e GitHub Release; il webhook VPS deploya anche il commit di release.
+4. Se la PR richiede un rilascio, completa la procedura release manuale documentata da una copia pulita del `main`.
+5. La procedura release manuale documentata crea changelog, tag e GitHub Release; il webhook VPS deploya anche il commit di release.
 6. Le verifiche operative si eseguono via SSH diretto o con i comandi locali del repo.
 
 ## Flusso consigliato da mobile
@@ -50,7 +50,7 @@ Note operative:
 - `DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY` dovrebbe restare `max23468/DocMolder`
 - `DOCMOLDER_GITHUB_WEBHOOK_BRANCH` dovrebbe restare `main`
 - `DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT` dovrebbe restare `/opt/docmolder/app/deploy/update-vps.sh`
-- in questa fase non sono previsti automatismi release aggiuntivi lato VPS; i permessi token sono documentati solo per i flussi ufficiali previsti da `Release Please`.
+- in questa fase non sono previsti automatismi release aggiuntivi lato VPS; i permessi token sono documentati solo per i flussi ufficiali previsti da procedura release manuale documentata.
 
 ## Fallback locale
 
