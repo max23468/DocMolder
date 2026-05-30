@@ -3,11 +3,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 from typing import Any
 
 CODEX_INBOX_TITLE = "Codex feedback inbox"
+RELEASABLE_PR_TYPES = {"feat", "fix", "deps", "docs"}
 
 
 def run(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -36,6 +38,22 @@ def current_branch() -> str:
 def current_sha() -> str:
     result = run(["git", "rev-parse", "HEAD"])
     return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def is_release_scope_pr(pr: dict[str, object]) -> bool:
+    title = str(pr.get("title") or "")
+    labels = pr.get("labels") or []
+    if "release" in title.lower():
+        return True
+    if any(isinstance(label, dict) and "release" in str(label.get("name", "")).lower() for label in labels):
+        return True
+
+    match = re.match(r"^(?P<type>[A-Za-z]+)(?:\([^)]+\))?(?P<breaking>!)?:", title)
+    if not match:
+        return False
+
+    pr_type = match.group("type").lower()
+    return pr_type in RELEASABLE_PR_TYPES or bool(match.group("breaking"))
 
 
 def collect_report(*, limit: int) -> dict[str, object]:
@@ -77,11 +95,7 @@ def collect_report(*, limit: int) -> dict[str, object]:
     release_prs = [
         pr
         for pr in report["open_prs"]
-        if isinstance(pr, dict)
-        and (
-            "release" in str(pr.get("title", "")).lower()
-            or any("release" in str(label.get("name", "")).lower() for label in pr.get("labels", []))
-        )
+        if isinstance(pr, dict) and is_release_scope_pr(pr)
     ]
     report["release_prs"] = release_prs
 

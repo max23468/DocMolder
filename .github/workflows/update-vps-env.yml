@@ -100,6 +100,7 @@ jobs:
           telegram_token_quoted="$(printf '%q' "${DOCMOLDER_TELEGRAM_TOKEN}")"
           telegram_brand_sync_enabled_quoted="$(printf '%q' "${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}")"
 
+          # shellcheck disable=SC2087
           ssh \
             -i "${HOME}/.ssh/docmolder_vps" \
             -p "${DOCMOLDER_VPS_PORT}" \

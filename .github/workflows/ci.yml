@@ -21,6 +21,9 @@ permissions:
   contents: read
   pull-requests: read
 
+env:
+  DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN != '' }}
+
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -49,7 +52,7 @@ jobs:
         env:
           DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
           DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
-          DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}
+          DOPPLER_TOKEN_PRESENT: ${{ env.DOPPLER_TOKEN_PRESENT }}
         run: |
           if [ -z "${DOPPLER_PROJECT:-}" ]; then
             echo "::warning::DOPPLER_PROJECT non impostato"
@@ -57,17 +60,17 @@ jobs:
           if [ -z "${DOPPLER_CONFIG:-}" ]; then
             echo "::warning::DOPPLER_CONFIG non impostata"
           fi
-          if [ -z "${DOPPLER_TOKEN_PRESENT:-}" ]; then
+          if [ "${DOPPLER_TOKEN_PRESENT:-false}" != "true" ]; then
             echo "::notice::DOPPLER_TOKEN assente: il fetch non verrà eseguito."
           fi
 
       - name: Fetch secrets from Doppler
-        if: ${{ secrets.DOPPLER_TOKEN != '' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
+        if: ${{ env.DOPPLER_TOKEN_PRESENT == 'true' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
         uses: dopplerhq/secrets-fetch-action@v2.0.0
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          project: ${{ vars.DOPPLER_PROJECT }}
-          config: ${{ vars.DOPPLER_CONFIG }}
+          doppler-project: ${{ vars.DOPPLER_PROJECT }}
+          doppler-config: ${{ vars.DOPPLER_CONFIG }}
           inject-env-vars: true
 
       - name: Classify diff
@@ -121,7 +124,7 @@ jobs:
         env:
           DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
           DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
-          DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}
+          DOPPLER_TOKEN_PRESENT: ${{ env.DOPPLER_TOKEN_PRESENT }}
         run: |
           if [ -z "${DOPPLER_PROJECT:-}" ]; then
             echo "::warning::DOPPLER_PROJECT non impostato"
@@ -129,17 +132,17 @@ jobs:
           if [ -z "${DOPPLER_CONFIG:-}" ]; then
             echo "::warning::DOPPLER_CONFIG non impostata"
           fi
-          if [ -z "${DOPPLER_TOKEN_PRESENT:-}" ]; then
+          if [ "${DOPPLER_TOKEN_PRESENT:-false}" != "true" ]; then
             echo "::notice::DOPPLER_TOKEN assente: il fetch non verrà eseguito."
           fi
 
       - name: Fetch secrets from Doppler
-        if: ${{ secrets.DOPPLER_TOKEN != '' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
+        if: ${{ env.DOPPLER_TOKEN_PRESENT == 'true' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
         uses: dopplerhq/secrets-fetch-action@v2.0.0
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          project: ${{ vars.DOPPLER_PROJECT }}
-          config: ${{ vars.DOPPLER_CONFIG }}
+          doppler-project: ${{ vars.DOPPLER_PROJECT }}
+          doppler-config: ${{ vars.DOPPLER_CONFIG }}
           inject-env-vars: true
 
       - name: Validate PR title and release files
@@ -163,7 +166,7 @@ jobs:
         env:
           DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
           DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
-          DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}
+          DOPPLER_TOKEN_PRESENT: ${{ env.DOPPLER_TOKEN_PRESENT }}
         run: |
           if [ -z "${DOPPLER_PROJECT:-}" ]; then
             echo "::warning::DOPPLER_PROJECT non impostato"
@@ -171,17 +174,17 @@ jobs:
           if [ -z "${DOPPLER_CONFIG:-}" ]; then
             echo "::warning::DOPPLER_CONFIG non impostata"
           fi
-          if [ -z "${DOPPLER_TOKEN_PRESENT:-}" ]; then
+          if [ "${DOPPLER_TOKEN_PRESENT:-false}" != "true" ]; then
             echo "::notice::DOPPLER_TOKEN assente: il fetch non verrà eseguito."
           fi
 
       - name: Fetch secrets from Doppler
-        if: ${{ secrets.DOPPLER_TOKEN != '' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
+        if: ${{ env.DOPPLER_TOKEN_PRESENT == 'true' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
         uses: dopplerhq/secrets-fetch-action@v2.0.0
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          project: ${{ vars.DOPPLER_PROJECT }}
-          config: ${{ vars.DOPPLER_CONFIG }}
+          doppler-project: ${{ vars.DOPPLER_PROJECT }}
+          doppler-config: ${{ vars.DOPPLER_CONFIG }}
           inject-env-vars: true
 
       - name: Review dependency changes
@@ -203,7 +206,7 @@ jobs:
         env:
           DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
           DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
-          DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}
+          DOPPLER_TOKEN_PRESENT: ${{ env.DOPPLER_TOKEN_PRESENT }}
         run: |
           if [ -z "${DOPPLER_PROJECT:-}" ]; then
             echo "::warning::DOPPLER_PROJECT non impostato"
@@ -211,17 +214,17 @@ jobs:
           if [ -z "${DOPPLER_CONFIG:-}" ]; then
             echo "::warning::DOPPLER_CONFIG non impostata"
           fi
-          if [ -z "${DOPPLER_TOKEN_PRESENT:-}" ]; then
+          if [ "${DOPPLER_TOKEN_PRESENT:-false}" != "true" ]; then
             echo "::notice::DOPPLER_TOKEN assente: il fetch non verrà eseguito."
           fi
 
       - name: Fetch secrets from Doppler
-        if: ${{ secrets.DOPPLER_TOKEN != '' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
+        if: ${{ env.DOPPLER_TOKEN_PRESENT == 'true' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
         uses: dopplerhq/secrets-fetch-action@v2.0.0
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          project: ${{ vars.DOPPLER_PROJECT }}
-          config: ${{ vars.DOPPLER_CONFIG }}
+          doppler-project: ${{ vars.DOPPLER_PROJECT }}
+          doppler-config: ${{ vars.DOPPLER_CONFIG }}
           inject-env-vars: true
 
       - name: Run static workflow and script checks
@@ -255,7 +258,7 @@ jobs:
         env:
           DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
           DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
-          DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}
+          DOPPLER_TOKEN_PRESENT: ${{ env.DOPPLER_TOKEN_PRESENT }}
         run: |
           if [ -z "${DOPPLER_PROJECT:-}" ]; then
             echo "::warning::DOPPLER_PROJECT non impostato"
@@ -263,17 +266,17 @@ jobs:
           if [ -z "${DOPPLER_CONFIG:-}" ]; then
             echo "::warning::DOPPLER_CONFIG non impostata"
           fi
-          if [ -z "${DOPPLER_TOKEN_PRESENT:-}" ]; then
+          if [ "${DOPPLER_TOKEN_PRESENT:-false}" != "true" ]; then
             echo "::notice::DOPPLER_TOKEN assente: il fetch non verrà eseguito."
           fi
 
       - name: Fetch secrets from Doppler
-        if: ${{ secrets.DOPPLER_TOKEN != '' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
+        if: ${{ env.DOPPLER_TOKEN_PRESENT == 'true' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
         uses: dopplerhq/secrets-fetch-action@v2.0.0
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          project: ${{ vars.DOPPLER_PROJECT }}
-          config: ${{ vars.DOPPLER_CONFIG }}
+          doppler-project: ${{ vars.DOPPLER_PROJECT }}
+          doppler-config: ${{ vars.DOPPLER_CONFIG }}
           inject-env-vars: true
 
       - name: Setup Python
@@ -312,7 +315,7 @@ jobs:
         env:
           DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
           DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
-          DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}
+          DOPPLER_TOKEN_PRESENT: ${{ env.DOPPLER_TOKEN_PRESENT }}
         run: |
           if [ -z "${DOPPLER_PROJECT:-}" ]; then
             echo "::warning::DOPPLER_PROJECT non impostato"
@@ -320,17 +323,17 @@ jobs:
           if [ -z "${DOPPLER_CONFIG:-}" ]; then
             echo "::warning::DOPPLER_CONFIG non impostata"
           fi
-          if [ -z "${DOPPLER_TOKEN_PRESENT:-}" ]; then
+          if [ "${DOPPLER_TOKEN_PRESENT:-false}" != "true" ]; then
             echo "::notice::DOPPLER_TOKEN assente: il fetch non verrà eseguito."
           fi
 
       - name: Fetch secrets from Doppler
-        if: ${{ secrets.DOPPLER_TOKEN != '' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
+        if: ${{ env.DOPPLER_TOKEN_PRESENT == 'true' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
         uses: dopplerhq/secrets-fetch-action@v2.0.0
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          project: ${{ vars.DOPPLER_PROJECT }}
-          config: ${{ vars.DOPPLER_CONFIG }}
+          doppler-project: ${{ vars.DOPPLER_PROJECT }}
+          doppler-config: ${{ vars.DOPPLER_CONFIG }}
           inject-env-vars: true
 
       - name: Setup Python
@@ -369,7 +372,7 @@ jobs:
         env:
           DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
           DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
-          DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}
+          DOPPLER_TOKEN_PRESENT: ${{ env.DOPPLER_TOKEN_PRESENT }}
         run: |
           if [ -z "${DOPPLER_PROJECT:-}" ]; then
             echo "::warning::DOPPLER_PROJECT non impostato"
@@ -377,17 +380,17 @@ jobs:
           if [ -z "${DOPPLER_CONFIG:-}" ]; then
             echo "::warning::DOPPLER_CONFIG non impostata"
           fi
-          if [ -z "${DOPPLER_TOKEN_PRESENT:-}" ]; then
+          if [ "${DOPPLER_TOKEN_PRESENT:-false}" != "true" ]; then
             echo "::notice::DOPPLER_TOKEN assente: il fetch non verrà eseguito."
           fi
 
       - name: Fetch secrets from Doppler
-        if: ${{ secrets.DOPPLER_TOKEN != '' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
+        if: ${{ env.DOPPLER_TOKEN_PRESENT == 'true' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
         uses: dopplerhq/secrets-fetch-action@v2.0.0
         with:
           doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          project: ${{ vars.DOPPLER_PROJECT }}
-          config: ${{ vars.DOPPLER_CONFIG }}
+          doppler-project: ${{ vars.DOPPLER_PROJECT }}
+          doppler-config: ${{ vars.DOPPLER_CONFIG }}
           inject-env-vars: true
 
       - name: Setup Python

@@ -48,6 +48,12 @@ class DeployScriptsTest(unittest.TestCase):
         self.assertIn('for candidate in python3.13 python3.12 python3.11 python3', script)
         self.assertIn('sudo -u "${APP_USER}" "${PYTHON_BIN}" -m venv "${VENV_DIR}"', script)
 
+    def test_update_vps_env_documents_intentional_local_heredoc_expansion(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "update-vps-env.yml").read_text(encoding="utf-8")
+
+        self.assertIn("# shellcheck disable=SC2087", workflow)
+        self.assertIn("<<REMOTE", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
