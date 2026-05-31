@@ -125,7 +125,7 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
   backlog, decisioni e documenti di governance vivono in `docs/`.
 - Aggiorna la documentazione quando l'utente lo chiede o quando cambia un comportamento utente, operativo o di sviluppo.
 - Non aggiornare il changelog di release nelle PR normali.
-- Nella roadmap, gli item completati vanno rimossi dalla checklist; non usare checkbox segnate come completate per elementi già fatti.
+- Nella roadmap traccia direzione, priorità e prossimi passi correnti; gli item completati vanno rimossi dalla checklist o sintetizzati come fatto recente, non conservati come archivio.
 - Non aggiungere roadmap laterali se la task può essere chiusa con un intervento piccolo e verificabile.
 - Non creare documenti doppi con stesso scopo o basename. Durante migrazioni,
   rinomini o merge documentali preserva i contenuti utili, aggiorna i link e
