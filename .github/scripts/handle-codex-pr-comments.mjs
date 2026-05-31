@@ -436,8 +436,20 @@ async function findInboxIssues() {
     per_page: "100",
     q: `repo:${owner}/${repo} is:issue in:title "${inboxIssueTitle}"`,
   });
-  const result = await githubJson(`/search/issues?${query}`);
-  const exactTitleIssues = result.items.filter((issue) => issue.title === inboxIssueTitle);
+  let exactTitleIssues;
+
+  try {
+    const result = await githubJson(`/search/issues?${query}`);
+    exactTitleIssues = result.items.filter((issue) => issue.title === inboxIssueTitle);
+  } catch (error) {
+    if (![403, 404].includes(error.status)) throw error;
+
+    console.warn(
+      "Search issues non accessibile con il token corrente; uso fallback /issues per trovare la inbox Codex.",
+    );
+    exactTitleIssues = await listInboxIssuesFromIssuesEndpoint();
+  }
+
   const issues = [];
 
   for (const issue of exactTitleIssues) {
@@ -446,6 +458,29 @@ async function findInboxIssues() {
     if (isManagedInboxIssue(issueDetails)) {
       issues.push(issueDetails);
     }
+  }
+
+  return issues;
+}
+
+async function listInboxIssuesFromIssuesEndpoint() {
+  const issues = [];
+
+  for (let page = 1; ; page++) {
+    const query = new URLSearchParams({
+      direction: "desc",
+      page: String(page),
+      per_page: "100",
+      sort: "updated",
+      state: "all",
+    });
+    const batch = await githubJson(`/repos/${owner}/${repo}/issues?${query}`);
+
+    if (batch.length === 0) break;
+
+    issues.push(
+      ...batch.filter((issue) => !issue.pull_request && issue.title === inboxIssueTitle),
+    );
   }
 
   return issues;
