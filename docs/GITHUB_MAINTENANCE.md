@@ -18,7 +18,6 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - Dependabot: `.github/dependabot.yml`
 - Codex feedback handler: `.github/scripts/handle-codex-pr-comments.mjs`
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
-- Ownership: `.github/CODEOWNERS`
 
 L'automazione ordinaria resta prudente: `CI` parte sulle PR non draft verso `main`, `Codex PR comments` sincronizza la issue `Codex feedback inbox`, `VPS Check` gira una volta a settimana e `GitHub Maintenance` una volta al mese. `Deploy VPS`, `VPS Backup`, `Rollback VPS`, `Update VPS Env` e `CodeQL` restano manuali; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) restano il primo filtro prima del push.
 
