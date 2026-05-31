@@ -119,6 +119,10 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 
 ## 8) Documentazione e roadmap
 
+- Il catalogo documentale canonico è `docs/INDEX.md`.
+- La root resta per ingresso e file convenzionali (`README.md`, `AGENTS.md`,
+  `CHANGELOG.md`, `SECURITY.md`); runbook, guide, pipeline, contesto, roadmap,
+  backlog, decisioni e documenti di governance vivono in `docs/`.
 - Aggiorna la documentazione quando l'utente lo chiede o quando cambia un comportamento utente, operativo o di sviluppo.
 - Non aggiornare il changelog di release nelle PR normali.
 - Nella roadmap, gli item completati vanno rimossi dalla checklist; non usare checkbox segnate come completate per elementi già fatti.
