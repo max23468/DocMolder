@@ -190,9 +190,11 @@ async function getPullRequestFromInbox(prNumber) {
 }
 
 async function listInboxPullRequestNumbers() {
-  const existingIssue = chooseCanonicalInboxIssue(await findInboxIssues());
+  const inboxIssues = await findInboxIssues();
 
-  return existingIssue ? extractInboxPullRequestNumbers(existingIssue.body ?? "") : [];
+  return [
+    ...new Set(inboxIssues.flatMap((issue) => extractInboxPullRequestNumbers(issue.body ?? ""))),
+  ];
 }
 
 function extractInboxPullRequestNumbers(body) {
