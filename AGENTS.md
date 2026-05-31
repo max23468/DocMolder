@@ -103,7 +103,16 @@ Scegli i check locali in base al rischio, evitando doppioni costosi quando GitHu
 - config package/workflow/deploy/release/security: `bash scripts/ci_verify.sh`, preflight publish e CI GitHub completa prima del merge;
 - deploy o cambio operativo rilasciabile: oltre ai gate sopra, segui runbook/smoke pertinenti.
 
-In termini operativi usa tre corsie: `veloce` per docs/governance a basso rischio, `standard` per codice/config ordinari, `completa` per release, deploy, sicurezza, dati utente, bot, pipeline documentale o VPS.
+In termini operativi usa tre corsie:
+
+- `veloce`: sola analisi, docs-only e governance a basso rischio; niente test
+  applicativi inventati;
+- `standard`: test-only, codice runtime piccolo, helper condivisi e config
+  ordinaria; usare test mirati e `bash scripts/ci_verify.sh` quando il rischio
+  supera la patch locale;
+- `completa`: documenti operativi critici, workflow/deploy/release/security,
+  dati utente, bot, pipeline documentale, VPS o provider esterni; includere
+  gate completo, CI GitHub e smoke/runbook pertinenti.
 
 `CI result` su GitHub resta il gate remoto autorevole per le PR non draft verso `main`; i check locali servono a intercettare errori prima del push, non a duplicare sempre tutta la CI.
 
