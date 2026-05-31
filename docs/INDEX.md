@@ -2,6 +2,11 @@
 
 Indice unico della documentazione operativa.
 
+La root resta per ingresso ed esecuzione: `README.md`, `AGENTS.md`,
+`CHANGELOG.md`, `SECURITY.md`, manifest, configurazioni, script e codice.
+`docs/` contiene runbook, guide, pipeline, contesto, roadmap, backlog,
+decisioni, governance operativa e approfondimenti.
+
 ## Per iniziare
 
 - [README](../README.md): panoramica prodotto e funzionalità principali.
@@ -46,3 +51,10 @@ Indice unico della documentazione operativa.
 ## Contesto persistente
 
 - [CONTEXT.md](./CONTEXT.md): handoff rapido e mappa dei documenti.
+
+## Manutenzione catalogo
+
+Non creare documenti paralleli con lo stesso titolo, scopo o ruolo canonico.
+Se un documento viene migrato, rinominato o assorbito, aggiorna questo indice,
+preserva contenuti utili e lascia un rinvio temporaneo quando serve
+tracciabilità.
