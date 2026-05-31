@@ -44,7 +44,8 @@ decisioni, governance operativa e approfondimenti.
 - [DECISIONS_PENDING.md](./DECISIONS_PENDING.md): decisioni aperte distinte dai task di roadmap.
 - [decisions/](./decisions/): ADR leggere per nuove decisioni strutturali o migrazioni progressive; l'indice decisionale resta [DECISIONS.md](./DECISIONS.md).
 - [MILESTONE_BOARD.md](./MILESTONE_BOARD.md): milestone locali, dipendenze e deliverable principali.
-- [ROADMAP.md](./ROADMAP.md): prossimi blocchi evolutivi.
+- [ROADMAP.md](./ROADMAP.md): direzione, priorità e prossimi passi correnti.
+- [ROADMAP_HISTORY.md](./ROADMAP_HISTORY.md): archivio storico della vecchia roadmap estesa.
 - [BACKLOG.md](./BACKLOG.md): idee, debiti e decisioni non ancora promosse in roadmap.
 - [../CHANGELOG.md](../CHANGELOG.md): changelog versionato delle release.
 

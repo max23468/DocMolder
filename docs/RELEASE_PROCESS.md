@@ -88,6 +88,7 @@ Il flusso ufficiale manuale è:
    git push -u origin codex/release-docmolder-X.Y.Z
    gh pr create --base main --head codex/release-docmolder-X.Y.Z --title "chore(release): docmolder-vX.Y.Z" --body "Release DocMolder X.Y.Z"
    # mergea la PR di release solo dopo gate verdi e inbox pulita
+   gh pr merge --squash --delete-branch
    git switch main
    git pull --ff-only
    git tag docmolder-vX.Y.Z
