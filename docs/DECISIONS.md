@@ -21,7 +21,7 @@ Decisione:
 - `docs/DECISIONS.md` resta il riepilogo storico delle decisioni stabili già prese
 - `docs/DECISIONS_PENDING.md` resta il registro delle decisioni aperte
 - `docs/decisions/` ospita nuove decisioni autonome in formato ADR leggero,
-  usando `docs/decisions/0000-template.md`
+  usando `docs/decisions/template.md`
 - non si usa `docs/decisions/README.md`, per mantenere un solo `README.md` nella
   repository
 
