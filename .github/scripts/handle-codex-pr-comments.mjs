@@ -436,68 +436,16 @@ async function findInboxIssues() {
     per_page: "100",
     q: `repo:${owner}/${repo} is:issue in:title "${inboxIssueTitle}"`,
   });
-
-  try {
-    const result = await githubJson(`/search/issues?${query}`);
-    const exactTitleIssues = result.items.filter((issue) => issue.title === inboxIssueTitle);
-    const issues = [];
-
-    for (const issue of exactTitleIssues) {
-      const issueDetails = await githubJson(`/repos/${owner}/${repo}/issues/${issue.number}`);
-
-      if (isManagedInboxIssue(issueDetails)) {
-        issues.push(issueDetails);
-      }
-    }
-
-    return issues;
-  } catch (error) {
-    if (error.status === 404) {
-      console.warn(
-        "Endpoint /search/issues non disponibile nel contesto corrente. Uso fallback su /issues e filtro lato client.",
-      );
-      return findInboxIssuesViaIssueList();
-    }
-
-    throw error;
-  }
-}
-
-async function findInboxIssuesViaIssueList() {
+  const result = await githubJson(`/search/issues?${query}`);
+  const exactTitleIssues = result.items.filter((issue) => issue.title === inboxIssueTitle);
   const issues = [];
-  const query = new URLSearchParams({
-    direction: "desc",
-    page: "1",
-    per_page: "100",
-    sort: "updated",
-    state: "all",
-  });
 
-  for (let page = 1; page <= 10; page++) {
-    query.set("page", String(page));
-    let batch;
+  for (const issue of exactTitleIssues) {
+    const issueDetails = await githubJson(`/repos/${owner}/${repo}/issues/${issue.number}`);
 
-    try {
-      batch = await githubJson(`/repos/${owner}/${repo}/issues?${query}`);
-    } catch (error) {
-      if (error.status === 404) {
-        console.warn(
-          "Endpoint /issues non accessibile nel contesto corrente. Proseguo senza lista inbox persistita.",
-        );
-        break;
-      }
-
-      throw error;
+    if (isManagedInboxIssue(issueDetails)) {
+      issues.push(issueDetails);
     }
-
-    if (!Array.isArray(batch) || batch.length === 0) break;
-
-    for (const issue of batch) {
-      if (issue.pull_request) continue;
-      if (isManagedInboxIssue(issue)) issues.push(issue);
-    }
-
-    if (batch.length < 100) break;
   }
 
   return issues;
