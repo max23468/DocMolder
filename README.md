@@ -145,7 +145,8 @@ Il flusso consigliato da remoto è:
 - Codex o GitHub preparano il codice fino a `main`
 - il webhook privato GitHub -> VPS riceve il push su `main`
 - la VPS applica il deploy standard con `deploy/update-vps.sh`
-- se abilitata, la VPS crea anche release/tag dopo il deploy
+- eventuali release, tag e GitHub Release restano un passaggio manuale separato
+  secondo `docs/RELEASE_PROCESS.md` e `docs/VERSIONING.md`
 
 Per gli aggiornamenti manuali sulla VPS, fallback esplicito:
 
