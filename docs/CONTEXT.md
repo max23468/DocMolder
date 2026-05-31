@@ -10,7 +10,7 @@ estesi vivono in `CHANGELOG.md`, `docs/ROADMAP_HISTORY.md`,
 - Fase: linea stabile `1.x`, sviluppo feature in pausa salvo bugfix, priorità
   prodotto o decisioni esplicite.
 - Versione/release: procedura release manuale documentata; tag
-  `docmolder-v*`, GitHub Release e documenti `VERSIONING.md` /
+  `v*`, GitHub Release e documenti `VERSIONING.md` /
   `RELEASE_PROCESS.md`.
 - Deploy corrente: VPS DocMolder via webhook privato GitHub -> VPS; deploy
   manuale solo fallback documentato in `VPS_RUNBOOK.md`.

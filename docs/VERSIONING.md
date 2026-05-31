@@ -13,7 +13,7 @@ Questa guida definisce la policy ufficiale di versionamento di `DocMolder`.
 
 La fonte di verità della release è composta da:
 
-- tag Git `docmolder-vX.Y.Z`
+- tag Git `vX.Y.Z`
 - [CHANGELOG.md](../CHANGELOG.md) in root
 
 I campi version in `pyproject.toml` e `src/docmolder/__init__.py` sono allineati dal flusso manuale (procedura release manuale documentata) dopo il merge della PR funzionale.
@@ -192,7 +192,7 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 3. `CI result` passa sulla PR non draft
 4. il webhook VPS deploya il merge su `main`
 5. se la PR merita rilascio, completa la procedura release manuale documentata dalla copia pulita di `main`
-6. lo script aggiorna `CHANGELOG.md`, `pyproject.toml`, `src/docmolder/__init__.py`, tag `docmolder-vX.Y.Z` e GitHub Release
+6. lo script aggiorna `CHANGELOG.md`, `pyproject.toml`, `src/docmolder/__init__.py`, tag `vX.Y.Z` e GitHub Release
 7. il commit di release viene deployato dal webhook VPS
 
 Se l'utente ha chiesto di pubblicare o procedere con una modifica rilasciabile,
