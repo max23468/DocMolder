@@ -502,15 +502,37 @@ async function findInboxIssuesViaIssueList() {
 }
 
 function isManagedInboxIssue(issue) {
+  return isLabeledInboxIssue(issue) || isMigratableInboxIssue(issue);
+}
+
+function isLabeledInboxIssue(issue) {
+  return hasInboxIdentity(issue) && issue.labels?.some((label) => label.name === inboxIssueLabel);
+}
+
+function isMigratableInboxIssue(issue) {
+  return hasInboxIdentity(issue) && isTrustedInboxIssueCreator(issue);
+}
+
+function hasInboxIdentity(issue) {
   return issue.title === inboxIssueTitle && issue.body?.includes(inboxMarker);
 }
 
+function isTrustedInboxIssueCreator(issue) {
+  return ["app/github-actions", "github-actions[bot]"].includes(issue.user?.login);
+}
+
 function chooseCanonicalInboxIssue(issues) {
+  const openIssues = issues.filter((issue) => issue.state === "open");
+
   return (
-    issues
-      .filter((issue) => issue.state === "open")
-      .sort((left, right) => new Date(right.updated_at) - new Date(left.updated_at))[0] ?? null
+    sortIssuesByUpdatedDesc(openIssues.filter(isLabeledInboxIssue))[0] ??
+    sortIssuesByUpdatedDesc(openIssues.filter(isMigratableInboxIssue))[0] ??
+    null
   );
+}
+
+function sortIssuesByUpdatedDesc(issues) {
+  return [...issues].sort((left, right) => new Date(right.updated_at) - new Date(left.updated_at));
 }
 
 async function closeDuplicateInboxIssues(issues, canonicalIssue) {
