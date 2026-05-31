@@ -121,6 +121,10 @@ Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: 
 
 ## 7.1) Risposte finali e prossimi passi
 
+- Riassumi cosa è cambiato o scoperto e indica i file principali quando aiutano
+  a orientare la review.
+- Dichiara stato publish, release e deploy e branch/worktree quando applicabile
+  o quando restano residui da spiegare.
 - Non includere messaggi celebrativi o contabili sui check, come "123 test superati", "456 verifiche verdi", "tutto verde" o formule simili. Se le verifiche sono rilevanti, riportale in modo sintetico e operativo, privilegiando errori, limiti o rischi residui rispetto ai conteggi.
 - Se uno o più test/check falliscono, dirlo sempre in modo esplicito: indica quale comando o check è fallito, il motivo noto o il sintomo principale, l'impatto pratico e il prossimo passo consigliato. Non nascondere un fallimento dietro formule generiche o un riepilogo positivo.
 - Quando la risposta lascia aperte una o più azioni sensate, proponi il prossimo passo o una breve lista di prossimi passi concreti. Se ci sono alternative, rendile facili da scegliere con opzioni brevi, numerate o nominate, indicando l'effetto pratico di ciascuna.
@@ -200,3 +204,5 @@ Una modifica è “done” se:
 - aggiorna documentazione o roadmap solo quando serve davvero;
 - non lascia file temporanei, dati utente o modifiche non correlate.
 - publish, release e deploy sono stati completati oppure dichiarati non applicabili con motivo.
+- branch/worktree creati per il lavoro sono stati puliti oppure il residuo è
+  dichiarato esplicitamente.
