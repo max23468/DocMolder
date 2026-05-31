@@ -7,6 +7,7 @@ const repository = process.env.GITHUB_REPOSITORY;
 const token = process.env.GITHUB_TOKEN;
 const codexLoginPattern = new RegExp(process.env.CODEX_BOT_LOGIN_PATTERN ?? "codex", "i");
 const inboxIssueTitle = process.env.CODEX_INBOX_ISSUE_TITLE ?? "Codex feedback inbox";
+const inboxIssueLabel = process.env.CODEX_INBOX_ISSUE_LABEL ?? "codex-feedback-inbox";
 const repositoryName = repository?.split("/")[1] ?? "repository";
 const inboxMarker =
   process.env.CODEX_INBOX_MARKER ??
@@ -20,6 +21,8 @@ const recentPrLimit = parsePositiveInteger(process.env.CODEX_RECENT_PR_LIMIT, 50
 const recentPrDays = parsePositiveInteger(process.env.CODEX_RECENT_PR_DAYS, 30);
 const historyPrLimit = parsePositiveInteger(process.env.CODEX_HISTORY_PR_LIMIT, 8);
 const historyThreadLimit = parsePositiveInteger(process.env.CODEX_HISTORY_THREAD_LIMIT, 5);
+const actionablePrLimit = parsePositiveInteger(process.env.CODEX_ACTIONABLE_PR_LIMIT, 20);
+const actionableThreadLimit = parsePositiveInteger(process.env.CODEX_ACTIONABLE_THREAD_LIMIT, 20);
 const githubApiAttempts = parsePositiveInteger(process.env.CODEX_GITHUB_API_ATTEMPTS, 4);
 const githubApiRetryBaseMs = parsePositiveInteger(process.env.CODEX_GITHUB_API_RETRY_BASE_MS, 1500);
 const githubApiSecondaryRateLimitDelayMs = parsePositiveInteger(
@@ -368,6 +371,7 @@ function isActionableThread(thread) {
 
 async function upsertInboxIssue(entries) {
   const body = buildInboxBody(entries);
+  await ensureInboxLabel();
   const inboxIssues = await findInboxIssues();
   const existingIssue = chooseCanonicalInboxIssue(inboxIssues);
   const duplicateIssues = inboxIssues.filter(
@@ -390,6 +394,7 @@ async function upsertInboxIssue(entries) {
         `/repos/${owner}/${repo}/issues/${existingIssue.number}`,
         {
           body,
+          labels: [inboxIssueLabel],
           state: "open",
           title: inboxIssueTitle,
         },
@@ -402,9 +407,26 @@ async function upsertInboxIssue(entries) {
     closedDuplicateNumbers,
     issue: await githubJson(`/repos/${owner}/${repo}/issues`, {
       body,
+      labels: [inboxIssueLabel],
       title: inboxIssueTitle,
     }),
   };
+}
+
+async function ensureInboxLabel() {
+  if (dryRun) return;
+
+  try {
+    await githubJson(`/repos/${owner}/${repo}/labels/${encodeURIComponent(inboxIssueLabel)}`);
+  } catch (error) {
+    if (error.status !== 404) throw error;
+
+    await githubJson(`/repos/${owner}/${repo}/labels`, {
+      color: "5319e7",
+      description: "Issue gestita automaticamente per i commenti Codex sulle PR",
+      name: inboxIssueLabel,
+    });
+  }
 }
 
 async function findInboxIssues() {
@@ -480,7 +502,11 @@ async function findInboxIssuesViaIssueList() {
 }
 
 function isManagedInboxIssue(issue) {
-  return issue.title === inboxIssueTitle && issue.body?.includes(inboxMarker);
+  return (
+    issue.title === inboxIssueTitle &&
+    issue.body?.includes(inboxMarker) &&
+    issue.labels?.some((label) => label.name === inboxIssueLabel)
+  );
 }
 
 function chooseCanonicalInboxIssue(issues) {
@@ -558,8 +584,17 @@ function buildInboxBody(entries) {
   if (totalActionable === 0) {
     lines.push("Nessun thread Codex actionable al momento.", "");
   } else {
-    lines.push(`Thread actionable: ${totalActionable}`, "");
-    appendEntrySection(lines, actionableEntries, true);
+    const compactActionableEntries = compactActionableEntriesForInbox(actionableEntries);
+    const displayedActionable = compactActionableEntries.reduce(
+      (total, entry) => total + entry.threads.length,
+      0,
+    );
+
+    lines.push(
+      `Thread actionable totali: ${totalActionable}. Mostro ${displayedActionable} thread recenti in ${compactActionableEntries.length} PR.`,
+      "",
+    );
+    appendEntrySection(lines, compactActionableEntries, true);
   }
 
   lines.push("## Storico e audit", "");
@@ -594,6 +629,13 @@ function compactHistoricalEntriesForInbox(entries) {
   return entries.slice(0, historyPrLimit).map((entry) => ({
     ...entry,
     threads: entry.threads.slice(0, historyThreadLimit),
+  }));
+}
+
+function compactActionableEntriesForInbox(entries) {
+  return entries.slice(0, actionablePrLimit).map((entry) => ({
+    ...entry,
+    threads: entry.threads.slice(0, actionableThreadLimit),
   }));
 }
 
