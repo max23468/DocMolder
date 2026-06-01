@@ -44,6 +44,18 @@ Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
 - Procedi con un'assunzione dichiarata solo per dettagli marginali che non cambiano il risultato sostanziale.
 - Prima di chiudere, valuta impatto su documentazione, changelog, versione, release e deploy anche quando la conclusione è "non applicabile".
 
+## 3.1) Skill operative
+
+Usa le skill Superpowers pertinenti per lavori non banali: pianificazione,
+debugging sistematico, worktree, esecuzione di piani, review e verifica finale.
+Le skill aiutano il metodo, ma non prevalgono su sicurezza, dati utente,
+runbook VPS, policy release o fonti primarie di DocMolder.
+
+Usa o proponi `grill-me` quando serve stressare architetture, refactor
+trasversali, integrazioni, deploy/VPS, sicurezza, roadmap o scope ambiguo prima
+di implementare. Non renderla obbligatoria per correzioni puntuali, docs-only a
+basso rischio, cleanup o modifiche meccaniche già determinate.
+
 ## 4) Stile e qualità del codice
 
 - Segui le convenzioni già presenti nel progetto.
