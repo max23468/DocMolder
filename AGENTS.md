@@ -23,6 +23,9 @@ Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
 ## 2) Obiettivo di lavoro
 
 - Preferire modifiche chiare, coese e verificabili.
+- Fase operativa: linea stabile `1.x` in manutenzione/stabilizzazione; feature
+  nuove, release e deploy entrano nel flusso solo quando richiesti o previsti
+  dalla policy corrente.
 - Le modifiche importanti sono accettabili quando servono, ma vanno prima esplicitate come piano e poi spezzate in passaggi comprensibili, testabili e, quando possibile, accompagnati da rollback o mitigazione chiari.
 - Preferire robustezza, leggibilità e semplicità operativa.
 - Evitare side-effect non richiesti rispetto alla task dell'utente.
@@ -201,8 +204,10 @@ Una modifica è “done” se:
 - risolve la richiesta senza regressioni evidenti;
 - mantiene coerenza con architettura e convenzioni esistenti;
 - include verifiche eseguite e limiti noti;
+- controlla la `Codex feedback inbox` quando il flusso prevede PR ready, merge,
+  publish, deploy o release;
 - aggiorna documentazione o roadmap solo quando serve davvero;
-- non lascia file temporanei, dati utente o modifiche non correlate.
-- publish, release e deploy sono stati completati oppure dichiarati non applicabili con motivo.
+- non lascia segreti, file temporanei, dati utente o modifiche non correlate;
+- publish, release e deploy sono stati completati oppure dichiarati non applicabili con motivo;
 - branch/worktree creati per il lavoro sono stati puliti oppure il residuo è
   dichiarato esplicitamente.
