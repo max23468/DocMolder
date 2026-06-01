@@ -18,6 +18,8 @@ Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
 - `docs/ROADMAP.md` per le priorità correnti;
 - `docs/BACKLOG.md` e `docs/TOOLCHAIN.md` per debiti e comandi;
 - `docs/LOCAL_DEV.md` per setup e comandi di verifica;
+- `docs/BRAND.md` quando la task tocca naming, tono, microcopy Telegram,
+  logo, asset o identità visuale;
 - `docs/VERSIONING.md` e `docs/RELEASE_PROCESS.md` quando la task riguarda commit, PR, release o deploy.
 
 ## 2) Obiettivo di lavoro
@@ -79,6 +81,8 @@ Quando più chat o istanze Codex lavorano sul progetto nello stesso periodo, il 
 - Se il fallback è possibile, preferiscilo al crash.
 - Mantieni output e messaggi coerenti con il tono del progetto: italiano chiaro, operativo, senza rumore inutile.
 - Per flussi utente Telegram, cura anche stati intermedi, retry, messaggi di errore e azioni successive suggerite.
+- Se cambi naming pubblico, tono, microcopy utente, logo, avatar, icone o asset,
+  verifica e aggiorna `docs/BRAND.md` e gli asset collegati solo quando serve.
 
 ## 6) Sicurezza, dati e file temporanei
 
