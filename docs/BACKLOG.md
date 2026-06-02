@@ -18,6 +18,7 @@ decisioni stabili.
 
 ## Backlog tecnico
 
+- Coverage Atlas: sulla base locale `c11ed5958c01`, dopo lo slice offline access/policy di `src/docmolder/bot.py`, la coverage totale misurata è `87.3%` contro target `90%`; prossimo step consigliato: coprire altri rami offline di `bot.py` su command/callback handler e pending input, senza coinvolgere Telegram live o VPS.
 - Migrare progressivamente decisioni stabili da `docs/DECISIONS.md` a
   `docs/decisions/`, mantenendo `DECISIONS.md` come riepilogo finché serve.
 - Valutare una procedura più guidata per export o restore dei backup SQLite in
