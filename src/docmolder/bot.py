@@ -1079,6 +1079,12 @@ async def request_access_command(update: Update, context: ContextTypes.DEFAULT_T
             reply_markup=build_main_menu_keyboard(),
         )
         return
+    if current_status == _ACCESS_STATUS_PENDING:
+        await message.reply_text(
+            "Accesso non ancora attivo. La richiesta è già in attesa di approvazione admin.",
+            reply_markup=build_main_menu_keyboard(),
+        )
+        return
 
     _set_dynamic_access_status(deps, user.id, _ACCESS_STATUS_PENDING)
     _append_audit_log(deps, "request_access", actor_user_id=user.id, outcome="pending", target_user_id=user.id)

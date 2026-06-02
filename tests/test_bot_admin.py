@@ -29,6 +29,7 @@ from docmolder.bot import (
     _handle_start_payload,
     _maybe_notify_admins_about_new_user,
     handle_admin_callback,
+    access_command,
     access_review_command,
     admin_command,
     handle_access_review_callback,
@@ -37,7 +38,9 @@ from docmolder.bot import (
     job_command,
     metrics_command,
     pause_command,
+    policy_command,
     queue_command,
+    request_access_command,
     retry_command,
     resume_command,
     start_command,
@@ -267,6 +270,25 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
         self.bot.send_message.assert_awaited_once()
         self.assertIn("richiesta all'admin", message.reply_text.await_args.args[0])
 
+    async def test_request_access_command_does_not_duplicate_pending_request(self) -> None:
+        self.deps.settings.allowed_user_ids = [7]
+        self.deps.settings.admin_user_ids = [999]
+        self.bot.send_message = AsyncMock()
+        self.store.set_meta("access:55:status", "pending")
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=55, username="mario", first_name="Mario", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await request_access_command(update, context)
+
+        self.assertEqual(self.store.get_meta("access:55:status"), "pending")
+        self.bot.send_message.assert_not_awaited()
+        self.assertEqual(self.store.list_audit_log_entries(limit=10), [])
+        self.assertIn("già in attesa di approvazione", message.reply_text.await_args.args[0])
+
     async def test_access_review_command_approves_dynamic_user(self) -> None:
         self.deps.settings.allowed_user_ids = [7]
         self.deps.settings.admin_user_ids = [7]
@@ -375,6 +397,66 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Accesso account: consentito", message.reply_text.await_args.args[0])
         self.assertIn("Input atteso: Watermark testuale", message.reply_text.await_args.args[0])
         self.assertIn("/history", message.reply_text.await_args.args[0])
+
+    async def test_access_command_returns_access_summary_without_active_session(self) -> None:
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await access_command(update, context)
+
+        self.assertIn("Stato accesso DocMolder", message.reply_text.await_args.args[0])
+        self.assertIn("Accesso account: consentito", message.reply_text.await_args.args[0])
+
+    async def test_policy_command_remains_available_to_restricted_user(self) -> None:
+        self.deps.settings.allowed_user_ids = [7]
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=55, username="mario", first_name="Mario", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await policy_command(update, context)
+
+        self.assertIn(55, self.store._known_user_ids)
+        self.assertIn("Policy sintetica", message.reply_text.await_args.args[0])
+        self.assertIn("privacy.html", message.reply_text.await_args.args[0])
+
+    async def test_request_access_command_reports_active_access_without_admin_ping(self) -> None:
+        self.deps.settings.admin_user_ids = [999]
+        self.bot.send_message = AsyncMock()
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username="mario", first_name="Mario", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await request_access_command(update, context)
+
+        self.bot.send_message.assert_not_awaited()
+        self.assertIn("già attivo", message.reply_text.await_args.args[0])
+
+    async def test_request_access_command_reports_blocked_access_without_admin_ping(self) -> None:
+        self.deps.settings.allowed_user_ids = [7]
+        self.deps.settings.admin_user_ids = [999]
+        self.bot.send_message = AsyncMock()
+        self.store.set_meta("access:55:status", "blocked")
+        message = SimpleNamespace(reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=55, username="mario", first_name="Mario", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await request_access_command(update, context)
+
+        self.bot.send_message.assert_not_awaited()
+        self.assertIn("accesso è sospeso", message.reply_text.await_args.args[0])
 
     async def test_metrics_command_returns_telegram_metrics_report(self) -> None:
         self.deps.settings.admin_user_ids = [7]
