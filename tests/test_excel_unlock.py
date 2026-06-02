@@ -11,7 +11,13 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.excel_unlock import ExcelUnlockError, ExcelUnlocker
+from docmolder.excel_unlock import (
+    ExcelUnlockError,
+    ExcelUnlocker,
+    _libreoffice_filter_for_suffix,
+    _libreoffice_python_env,
+    _parse_uno_removed_count,
+)
 from docmolder.processing import DocumentProcessor, ProcessingUserError
 from docmolder.models import SupportedAction
 
@@ -73,12 +79,166 @@ class ExcelUnlockerTest(unittest.TestCase):
         self.assertEqual(result.removed_protection_count, 2)
         self.assertEqual(result.path.read_bytes(), b"unlocked-binary-excel")
 
+    def test_unlock_ooxml_excel_rejects_bad_zip_files(self) -> None:
+        source = self.runtime_dir / "corrotto.xlsx"
+        source.write_bytes(b"not-a-zip")
+
+        with self.assertRaisesRegex(ExcelUnlockError, "cifrato, corrotto o non leggibile"):
+            self.unlocker.unlock_editing(source, "corrotto_unlocked")
+
+    def test_unlock_ooxml_excel_surfaces_os_errors(self) -> None:
+        source = self.runtime_dir / "protetto.xlsx"
+        _write_minimal_xlsx(source, protected=True)
+
+        with patch("docmolder.excel_unlock.zipfile.ZipFile", side_effect=OSError("disk full")):
+            with self.assertRaisesRegex(ExcelUnlockError, "Non riesco a leggere questo Excel"):
+                self.unlocker.unlock_editing(source, "protetto_unlocked")
+
+    def test_binary_excel_requires_libreoffice_binary(self) -> None:
+        source = self.runtime_dir / "protetto.xls"
+        source.write_bytes(b"binary-excel-placeholder")
+
+        with patch("docmolder.excel_unlock._find_libreoffice_binary", return_value=None):
+            with self.assertRaisesRegex(ExcelUnlockError, "serve LibreOffice sul server"):
+                self.unlocker.unlock_editing(source, "protetto_unlocked")
+
+    def test_binary_excel_surfaces_libreoffice_launch_error(self) -> None:
+        source = self.runtime_dir / "protetto.xls"
+        source.write_bytes(b"binary-excel-placeholder")
+
+        with (
+            patch("docmolder.excel_unlock._find_libreoffice_binary", return_value="/usr/bin/soffice"),
+            patch("docmolder.excel_unlock.subprocess.Popen", side_effect=OSError("launch failed")),
+        ):
+            with self.assertRaisesRegex(ExcelUnlockError, "Non riesco ad avviare LibreOffice"):
+                self.unlocker.unlock_editing(source, "protetto_unlocked")
+
+    def test_binary_excel_timeout_kills_stuck_libreoffice_process(self) -> None:
+        source = self.runtime_dir / "protetto.xls"
+        source.write_bytes(b"binary-excel-placeholder")
+        calls: list[str] = []
+
+        class FakeOffice:
+            def terminate(self) -> None:
+                calls.append("terminate")
+
+            def wait(self, timeout: int = 0) -> None:
+                if calls == ["terminate"]:
+                    calls.append("wait-timeout")
+                    raise subprocess.TimeoutExpired(cmd="soffice", timeout=timeout)
+                calls.append("wait-ok")
+
+            def kill(self) -> None:
+                calls.append("kill")
+
+        with (
+            patch("docmolder.excel_unlock._find_libreoffice_binary", return_value="/usr/bin/soffice"),
+            patch("docmolder.excel_unlock._find_uno_python", return_value="/usr/bin/python3"),
+            patch("docmolder.excel_unlock.subprocess.Popen", return_value=FakeOffice()),
+            patch(
+                "docmolder.excel_unlock.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd="python3", timeout=5),
+            ),
+        ):
+            with self.assertRaisesRegex(ExcelUnlockError, "ha impiegato troppo tempo"):
+                self.unlocker.unlock_editing(source, "protetto_unlocked")
+
+        self.assertEqual(calls, ["terminate", "wait-timeout", "kill", "wait-ok"])
+
+    def test_binary_excel_surfaces_uno_bridge_launch_error(self) -> None:
+        source = self.runtime_dir / "protetto.xls"
+        source.write_bytes(b"binary-excel-placeholder")
+        fake_office = SimpleNamespace(terminate=lambda: None, wait=lambda timeout=0: None, kill=lambda: None)
+
+        with (
+            patch("docmolder.excel_unlock._find_libreoffice_binary", return_value="/usr/bin/soffice"),
+            patch("docmolder.excel_unlock._find_uno_python", return_value="/usr/bin/python3"),
+            patch("docmolder.excel_unlock.subprocess.Popen", return_value=fake_office),
+            patch("docmolder.excel_unlock.subprocess.run", side_effect=OSError("uno missing")),
+        ):
+            with self.assertRaisesRegex(ExcelUnlockError, "bridge Python di LibreOffice"):
+                self.unlocker.unlock_editing(source, "protetto_unlocked")
+
+    def test_binary_excel_rejects_failed_uno_execution(self) -> None:
+        source = self.runtime_dir / "protetto.xls"
+        source.write_bytes(b"binary-excel-placeholder")
+        fake_office = SimpleNamespace(terminate=lambda: None, wait=lambda timeout=0: None, kill=lambda: None)
+
+        with (
+            patch("docmolder.excel_unlock._find_libreoffice_binary", return_value="/usr/bin/soffice"),
+            patch("docmolder.excel_unlock._find_uno_python", return_value="/usr/bin/python3"),
+            patch("docmolder.excel_unlock.subprocess.Popen", return_value=fake_office),
+            patch(
+                "docmolder.excel_unlock.subprocess.run",
+                return_value=subprocess.CompletedProcess(["python3"], 1, stdout="", stderr="password required"),
+            ),
+        ):
+            with self.assertRaisesRegex(ExcelUnlockError, "non è riuscito a rimuovere la protezione"):
+                self.unlocker.unlock_editing(source, "protetto_unlocked")
+
+    def test_binary_excel_requires_non_empty_output_file(self) -> None:
+        source = self.runtime_dir / "protetto.xls"
+        source.write_bytes(b"binary-excel-placeholder")
+
+        def fake_run(args, **kwargs):
+            output_path = Path(args[4])
+            output_path.write_bytes(b"")
+            return subprocess.CompletedProcess(args, 0, stdout="removed=2\n", stderr="")
+
+        fake_office = SimpleNamespace(terminate=lambda: None, wait=lambda timeout=0: None, kill=lambda: None)
+        with (
+            patch("docmolder.excel_unlock._find_libreoffice_binary", return_value="/usr/bin/soffice"),
+            patch("docmolder.excel_unlock._find_uno_python", return_value="/usr/bin/python3"),
+            patch("docmolder.excel_unlock.subprocess.Popen", return_value=fake_office),
+            patch("docmolder.excel_unlock.subprocess.run", side_effect=fake_run),
+        ):
+            with self.assertRaisesRegex(ExcelUnlockError, "non ha creato una copia Excel valida"):
+                self.unlocker.unlock_editing(source, "protetto_unlocked")
+
+    def test_binary_excel_requires_detected_removed_protections(self) -> None:
+        source = self.runtime_dir / "protetto.xls"
+        source.write_bytes(b"binary-excel-placeholder")
+
+        def fake_run(args, **kwargs):
+            output_path = Path(args[4])
+            output_path.write_bytes(b"unlocked-binary-excel")
+            return subprocess.CompletedProcess(args, 0, stdout="removed=0\n", stderr="")
+
+        fake_office = SimpleNamespace(terminate=lambda: None, wait=lambda timeout=0: None, kill=lambda: None)
+        with (
+            patch("docmolder.excel_unlock._find_libreoffice_binary", return_value="/usr/bin/soffice"),
+            patch("docmolder.excel_unlock._find_uno_python", return_value="/usr/bin/python3"),
+            patch("docmolder.excel_unlock.subprocess.Popen", return_value=fake_office),
+            patch("docmolder.excel_unlock.subprocess.run", side_effect=fake_run),
+        ):
+            with self.assertRaisesRegex(ExcelUnlockError, "Non ho trovato fogli protetti"):
+                self.unlocker.unlock_editing(source, "protetto_unlocked")
+
     def test_xlsb_is_not_supported(self) -> None:
         source = self.runtime_dir / "protetto.xlsb"
         source.write_bytes(b"xlsb-placeholder")
 
         with self.assertRaisesRegex(ExcelUnlockError, r"\.xlsx, \.xlsm e \.xls"):
             self.unlocker.unlock_editing(source, "protetto_unlocked")
+
+    def test_libo_helpers_cover_filter_env_and_removed_count_parsing(self) -> None:
+        original_env = {"PYTHONPATH": "already-there"}
+        with patch.dict("docmolder.excel_unlock.os.environ", original_env, clear=True), patch.object(
+            Path,
+            "exists",
+            autospec=True,
+            side_effect=lambda path: str(path) in {"/usr/lib/libreoffice/program", "/usr/lib/python3/dist-packages"},
+        ):
+            env = _libreoffice_python_env()
+
+        self.assertEqual(_libreoffice_filter_for_suffix(".xls"), "MS Excel 97")
+        self.assertIn("/usr/lib/libreoffice/program", env["PYTHONPATH"])
+        self.assertIn("/usr/lib/python3/dist-packages", env["PYTHONPATH"])
+        self.assertTrue(env["PYTHONPATH"].endswith("already-there"))
+        self.assertEqual(_parse_uno_removed_count("removed=7"), 7)
+        self.assertEqual(_parse_uno_removed_count("no marker"), 0)
+        with self.assertRaisesRegex(ExcelUnlockError, "Formato Excel binario non supportato"):
+            _libreoffice_filter_for_suffix(".ods")
 
 
 class ExcelProcessingTest(unittest.TestCase):

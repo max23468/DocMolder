@@ -4,12 +4,14 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import sqlite3
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.session_store import InMemorySessionStore, SQLiteSessionStore
 from docmolder.models import JobStatus
+from docmolder.sqlite_session_store import _build_since_window_condition, _job_from_row, _safe_average
 
 
 class SQLiteSessionStoreJobsTest(unittest.TestCase):
@@ -217,6 +219,36 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertIsNone(audit_entry.target_user_id)
         self.assertEqual(audit_entry.detail, "")
 
+    def test_purge_expired_removes_only_expired_sessions(self) -> None:
+        from docmolder.action_catalog import build_session_file
+        from docmolder.models import FileKind, UserSession
+
+        self.store.save(
+            UserSession(
+                user_id=10,
+                files=[build_session_file("pdf-1", "vecchio.pdf", FileKind.PDF)],
+            )
+        )
+        self.store.save(
+            UserSession(
+                user_id=11,
+                files=[build_session_file("pdf-2", "nuovo.pdf", FileKind.PDF)],
+            )
+        )
+        old_updated_at = (datetime.now(timezone.utc) - timedelta(minutes=90)).isoformat()
+        with self.store._connect() as connection:
+            connection.execute("UPDATE sessions SET updated_at = ? WHERE user_id = ?", (old_updated_at, 10))
+            connection.commit()
+
+        purged_ids = self.store.purge_expired(ttl_minutes=30)
+
+        self.assertEqual(purged_ids, [10])
+        self.assertIsNone(self.store.get(10))
+        self.assertIsNotNone(self.store.get(11))
+        with self.store._connect() as connection:
+            row = connection.execute("SELECT COUNT(*) AS total FROM session_files WHERE user_id = ?", (10,)).fetchone()
+        self.assertEqual(int(row["total"]), 0)
+
     def test_session_pending_action_roundtrip(self) -> None:
         from docmolder.models import UserSession
 
@@ -294,6 +326,36 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         jobs = self.store.list_user_jobs(10, limit=5)
 
         self.assertEqual([job.id for job in jobs], [job_two.id, job_one.id])
+
+    def test_list_user_jobs_can_filter_by_status_and_count_active_jobs(self) -> None:
+        queued_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="images_to_pdf",
+            payload_json='{"files": []}',
+        )
+        running_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_compress",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_running(running_job.id)
+        failed_job = self.store.create_job(
+            user_id=10,
+            chat_id=100,
+            reply_to_message_id=None,
+            action="pdf_merge",
+            payload_json='{"files": []}',
+        )
+        self.store.mark_job_failed(failed_job.id, "Errore")
+
+        filtered_jobs = self.store.list_user_jobs(10, limit=5, statuses=(JobStatus.QUEUED, JobStatus.RUNNING))
+
+        self.assertEqual({job.id for job in filtered_jobs}, {queued_job.id, running_job.id})
+        self.assertEqual(self.store.count_active_jobs_for_user(10), 2)
 
     def test_list_recent_jobs_can_filter_by_period(self) -> None:
         old_job = self.store.create_job(
@@ -458,6 +520,114 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertIsNone(self.store.get_job(old_job.id))
         self.assertIsNotNone(self.store.get_job(recent_job.id))
         self.assertIsNotNone(self.store.get_job(running_job.id))
+
+    def test_meta_delete_list_and_helper_functions(self) -> None:
+        self.store.set_meta("admin:daily", "done")
+        self.store.set_meta("admin:weekly", "queued")
+        self.store.set_meta("other:value", "skip")
+
+        self.assertEqual(self.store.list_meta("admin:"), {"admin:daily": "done", "admin:weekly": "queued"})
+        self.store.delete_meta("admin:daily")
+        self.assertIsNone(self.store.get_meta("admin:daily"))
+        self.assertEqual(_safe_average([100, None, 200]), 150)
+        self.assertEqual(_safe_average([None, None]), 0)
+        self.assertEqual(_build_since_window_condition(column="created_at", since_days=7, since_minutes=None), ("created_at >= datetime('now', ?)", ["-7 day"]))
+        self.assertEqual(
+            _build_since_window_condition(column="created_at", since_days=7, since_minutes=15),
+            ("created_at >= datetime('now', ?)", ["-15 minute"]),
+        )
+        self.assertEqual(_build_since_window_condition(column="created_at", since_days=None, since_minutes=None), ("", []))
+
+    def test_store_initialization_migrates_legacy_schema_and_legacy_rows(self) -> None:
+        legacy_db_path = Path(self.temp_dir.name) / "legacy.db"
+        with sqlite3.connect(legacy_db_path) as connection:
+            connection.executescript(
+                """
+                CREATE TABLE jobs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    chat_id INTEGER NOT NULL,
+                    reply_to_message_id INTEGER,
+                    action TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    finished_at TEXT,
+                    result_message TEXT,
+                    error_message TEXT
+                );
+                CREATE TABLE sessions (
+                    user_id INTEGER PRIMARY KEY,
+                    updated_at TEXT NOT NULL
+                );
+                """
+            )
+            connection.commit()
+
+        migrated_store = SQLiteSessionStore(legacy_db_path)
+        with migrated_store._connect() as connection:
+            job_columns = {row["name"] for row in connection.execute("PRAGMA table_info(jobs)").fetchall()}
+            session_columns = {row["name"] for row in connection.execute("PRAGMA table_info(sessions)").fetchall()}
+
+        self.assertTrue({"processing_mode", "input_bytes", "output_bytes", "duration_ms", "rerun_of_job_id"} <= job_columns)
+        self.assertIn("pending_action", session_columns)
+
+        with sqlite3.connect(":memory:") as connection:
+            connection.row_factory = sqlite3.Row
+            connection.executescript(
+                """
+                CREATE TABLE legacy_jobs (
+                    id INTEGER PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    chat_id INTEGER NOT NULL,
+                    reply_to_message_id INTEGER,
+                    action TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    started_at TEXT,
+                    finished_at TEXT,
+                    result_message TEXT,
+                    error_message TEXT
+                );
+                INSERT INTO legacy_jobs (
+                    id,
+                    user_id,
+                    chat_id,
+                    reply_to_message_id,
+                    action,
+                    payload_json,
+                    status,
+                    created_at,
+                    started_at,
+                    finished_at,
+                    result_message,
+                    error_message
+                ) VALUES (
+                    1,
+                    7,
+                    99,
+                    NULL,
+                    'pdf_compress',
+                    '{"files":[]}',
+                    'queued',
+                    '2026-06-01 10:00:00',
+                    NULL,
+                    NULL,
+                    NULL,
+                    NULL
+                );
+                """
+            )
+            row = connection.execute("SELECT * FROM legacy_jobs").fetchone()
+
+        job = _job_from_row(row)
+        self.assertIsNone(job.rerun_of_job_id)
+        self.assertIsNone(job.processing_mode)
+        self.assertIsNone(job.input_bytes)
+        self.assertIsNone(job.output_bytes)
+        self.assertIsNone(job.duration_ms)
 
 
 class InMemorySessionStoreTest(unittest.TestCase):
