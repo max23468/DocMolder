@@ -6,7 +6,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import closing, redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
@@ -55,7 +55,7 @@ class ReconcileTest(unittest.TestCase):
             payload_json='{"files":[]}',
         )
         self.store.mark_job_running(job.id)
-        with sqlite3.connect(self.database_path) as connection:
+        with closing(sqlite3.connect(self.database_path)) as connection:
             connection.execute("UPDATE jobs SET started_at = datetime('now', '-2 hour') WHERE id = ?", (job.id,))
             connection.commit()
 
@@ -80,7 +80,7 @@ class ReconcileTest(unittest.TestCase):
         )
         self.store.mark_job_succeeded(old_job.id, "old")
         old_timestamp = (datetime.now(timezone.utc) - timedelta(days=40)).strftime("%Y-%m-%d %H:%M:%S")
-        with sqlite3.connect(self.database_path) as connection:
+        with closing(sqlite3.connect(self.database_path)) as connection:
             connection.execute(
                 "UPDATE jobs SET created_at = ?, finished_at = ? WHERE id = ?",
                 (old_timestamp, old_timestamp, old_job.id),
@@ -103,7 +103,7 @@ class ReconcileTest(unittest.TestCase):
         )
         self.store.mark_job_succeeded(old_job.id, "old")
         old_timestamp = (datetime.now(timezone.utc) - timedelta(days=40)).strftime("%Y-%m-%d %H:%M:%S")
-        with sqlite3.connect(self.database_path) as connection:
+        with closing(sqlite3.connect(self.database_path)) as connection:
             connection.execute(
                 "UPDATE jobs SET created_at = ?, finished_at = ? WHERE id = ?",
                 (old_timestamp, old_timestamp, old_job.id),

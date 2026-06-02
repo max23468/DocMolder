@@ -7,6 +7,7 @@ import os
 import shutil
 import sqlite3
 import subprocess
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -38,7 +39,7 @@ def _service_is_active(service_name: str) -> bool | None:
 
 
 def _sqlite_integrity_ok(database_path: Path) -> bool:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         row = connection.execute("PRAGMA integrity_check").fetchone()
     return row is not None and row[0] == "ok"
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock
 
@@ -800,10 +801,14 @@ class SQLiteSessionStore:
         if "pending_action" not in columns:
             connection.execute("ALTER TABLE sessions ADD COLUMN pending_action TEXT")
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self):
         connection = sqlite3.connect(self.db_path)
         connection.row_factory = sqlite3.Row
-        return connection
+        try:
+            yield connection
+        finally:
+            connection.close()
 
 
 def _from_isoformat(value: str):

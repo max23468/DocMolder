@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import warnings
+from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sqlite3
 import sys
+import gc
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -122,6 +125,20 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.store.set_meta("admin_report_daily_last_sent", "2026-04-06")
 
         self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-04-06")
+
+    def test_store_operations_do_not_leak_sqlite_connections(self) -> None:
+        with warnings.catch_warnings(record=True) as recorded:
+            warnings.simplefilter("always", ResourceWarning)
+
+            self.store.set_meta("admin_report_daily_last_sent", "2026-04-06")
+            self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-04-06")
+
+            gc.collect()
+
+        sqlite_warnings = [
+            warning for warning in recorded if isinstance(warning.message, ResourceWarning) and "sqlite3.Connection" in str(warning.message)
+        ]
+        self.assertEqual(sqlite_warnings, [])
 
     def test_user_preference_roundtrip_and_clear(self) -> None:
         self.assertIsNone(self.store.get_user_preference(55, "compression_preset"))
@@ -540,7 +557,7 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
 
     def test_store_initialization_migrates_legacy_schema_and_legacy_rows(self) -> None:
         legacy_db_path = Path(self.temp_dir.name) / "legacy.db"
-        with sqlite3.connect(legacy_db_path) as connection:
+        with closing(sqlite3.connect(legacy_db_path)) as connection:
             connection.executescript(
                 """
                 CREATE TABLE jobs (
@@ -573,7 +590,7 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertTrue({"processing_mode", "input_bytes", "output_bytes", "duration_ms", "rerun_of_job_id"} <= job_columns)
         self.assertIn("pending_action", session_columns)
 
-        with sqlite3.connect(":memory:") as connection:
+        with closing(sqlite3.connect(":memory:")) as connection:
             connection.row_factory = sqlite3.Row
             connection.executescript(
                 """
