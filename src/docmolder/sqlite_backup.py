@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import sqlite3
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import quote
@@ -24,7 +25,7 @@ def backup_sqlite_database(
     current_time = timestamp or datetime.now(timezone.utc)
     backup_path = backup_root / _build_backup_name(source_path, current_time)
 
-    with _connect_read_only(source_path) as source, sqlite3.connect(backup_path) as destination:
+    with _connect_read_only(source_path) as source, closing(sqlite3.connect(backup_path)) as destination:
         source.backup(destination)
         destination.commit()
 
@@ -48,7 +49,7 @@ def restore_sqlite_database(
     restore_time = timestamp or datetime.now(timezone.utc)
     temp_target_path = target_path.with_suffix(f"{target_path.suffix}.restore-tmp")
 
-    with _connect_read_only(source_backup_path) as source, sqlite3.connect(temp_target_path) as destination:
+    with _connect_read_only(source_backup_path) as source, closing(sqlite3.connect(temp_target_path)) as destination:
         source.backup(destination)
         destination.commit()
 
@@ -65,7 +66,7 @@ def restore_sqlite_database(
 
 
 def _validate_sqlite_database(db_path: Path) -> None:
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         row = connection.execute("PRAGMA integrity_check").fetchone()
     if row is None or row[0] != "ok":
         raise RuntimeError(f"Verifica integrity_check fallita per {db_path}")
@@ -98,9 +99,14 @@ def _build_backup_name(db_path: Path, timestamp: datetime) -> str:
     return f"{db_path.stem}-{timestamp.strftime('%Y%m%d-%H%M%S')}{db_path.suffix}.backup"
 
 
-def _connect_read_only(db_path: Path) -> sqlite3.Connection:
+@contextmanager
+def _connect_read_only(db_path: Path):
     quoted_path = quote(str(db_path))
-    return sqlite3.connect(f"file:{quoted_path}?mode=ro", uri=True)
+    connection = sqlite3.connect(f"file:{quoted_path}?mode=ro", uri=True)
+    try:
+        yield connection
+    finally:
+        connection.close()
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:

@@ -5,7 +5,7 @@ import os
 import sqlite3
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import closing, redirect_stdout
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
@@ -24,7 +24,7 @@ class SQLiteBackupTest(unittest.TestCase):
         self.backup_dir = self.root / "backups"
         self.backup_dir.mkdir(parents=True, exist_ok=True)
 
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection:
             connection.execute("CREATE TABLE demo (id INTEGER PRIMARY KEY, value TEXT NOT NULL)")
             connection.execute("INSERT INTO demo (value) VALUES (?)", ("prima",))
             connection.commit()
@@ -41,7 +41,7 @@ class SQLiteBackupTest(unittest.TestCase):
         )
 
         self.assertTrue(backup_path.exists())
-        with sqlite3.connect(backup_path) as connection:
+        with closing(sqlite3.connect(backup_path)) as connection:
             values = connection.execute("SELECT value FROM demo").fetchall()
         self.assertEqual(values, [("prima",)])
 
@@ -68,7 +68,7 @@ class SQLiteBackupTest(unittest.TestCase):
             timestamp=datetime(2026, 4, 18, 21, 0, tzinfo=timezone.utc),
         )
 
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection:
             connection.execute("DELETE FROM demo")
             connection.execute("INSERT INTO demo (value) VALUES (?)", ("modificata",))
             connection.commit()
@@ -81,10 +81,10 @@ class SQLiteBackupTest(unittest.TestCase):
 
         self.assertIsNotNone(previous_backup_path)
         self.assertTrue(previous_backup_path.exists())
-        with sqlite3.connect(self.db_path) as connection:
+        with closing(sqlite3.connect(self.db_path)) as connection:
             values = connection.execute("SELECT value FROM demo").fetchall()
         self.assertEqual(values, [("prima",)])
-        with sqlite3.connect(previous_backup_path) as connection:
+        with closing(sqlite3.connect(previous_backup_path)) as connection:
             previous_values = connection.execute("SELECT value FROM demo").fetchall()
         self.assertEqual(previous_values, [("modificata",)])
 
@@ -119,7 +119,7 @@ class SQLiteBackupTest(unittest.TestCase):
         previous_backup_path = restore_sqlite_database(backup_path, restored_path)
 
         self.assertIsNone(previous_backup_path)
-        with sqlite3.connect(restored_path) as connection:
+        with closing(sqlite3.connect(restored_path)) as connection:
             values = connection.execute("SELECT value FROM demo").fetchall()
         self.assertEqual(values, [("prima",)])
 
