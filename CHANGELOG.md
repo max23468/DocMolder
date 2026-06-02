@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.6](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.5...docmolder-v2.0.6) (2026-06-03)
+
+
+### Correzioni
+
+* **sqlite:** chiude sempre le connessioni del session store e dei backup per evitare leak e `ResourceWarning` runtime ([#211](https://github.com/max23468/DocMolder/issues/211)) ([9e495c2](https://github.com/max23468/DocMolder/commit/9e495c2cd1e83600efba12c9a0bae63c99418e2c))
+
 ## [2.0.5](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.4...docmolder-v2.0.5) (2026-05-30)
 
 
