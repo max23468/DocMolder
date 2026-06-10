@@ -826,7 +826,19 @@ function shouldRetryGitHubRequest(response, text) {
   if (response.status === 429 && isRetryableGitHubRateLimitResponse(response, text)) return true;
   if (response.status === 403 && isRetryableGitHubRateLimitResponse(response, text)) return true;
 
-  return response.status === 401 && text.includes("Bad credentials");
+  return response.status === 401 && isRetryableGitHubAuthResponse(text);
+}
+
+function isRetryableGitHubAuthResponse(text) {
+  const normalizedText = text.toLowerCase();
+
+  // GitHub talvolta restituisce 401 transitori con un token valido, soprattutto
+  // sull'endpoint GraphQL ("Requires authentication") o su REST ("Bad
+  // credentials"). Sono blip momentanei: vanno ritentati, non trattati come fatali.
+  return (
+    normalizedText.includes("bad credentials") ||
+    normalizedText.includes("requires authentication")
+  );
 }
 
 function isRetryableGitHubRateLimitResponse(response, text) {
