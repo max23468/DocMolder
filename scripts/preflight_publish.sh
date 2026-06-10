@@ -23,7 +23,7 @@ docs_only="$(printf '%s\n' "${impact_env}" | awk -F= '/DOCMOLDER_DOCS_ONLY=/{pri
 
 docs_path_allowed() {
   case "$1" in
-    AGENTS.md|README.md|docs/*) return 0 ;;
+    AGENTS.md|CLAUDE.md|README.md|docs/*) return 0 ;;
     *) return 1 ;;
   esac
 }

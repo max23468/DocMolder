@@ -33,6 +33,7 @@ OPS_PATTERNS = (
 
 DOC_PATTERNS = (
     "AGENTS.md",
+    "CLAUDE.md",
     "README.md",
     "docs/**",
     ".github/pull_request_template.md",
