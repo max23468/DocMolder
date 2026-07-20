@@ -9,7 +9,7 @@ description = "Bot Telegram per trasformazioni documentali in italiano"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-  "python-telegram-bot>=21.11.1,<22.0",
+  "python-telegram-bot>=22.0,<23.0",
   "opencv-python-headless>=5.0.0,<6.0",
   "pydantic>=2.13.4,<3.0",
   "pydantic-settings>=2.14.2,<3.0",
