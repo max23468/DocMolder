@@ -1,0 +1,30 @@
+// DocMolder: aggiornamento automatico completo dell'OS.
+// Installato in /etc/apt/apt.conf.d/52docmolder-unattended-upgrades da
+// deploy/install-auto-updates.sh. Sovrascrive i default per applicare TUTTI
+// gli update (non solo security), pulire i kernel vecchi e riavviare da solo
+// nella finestra notturna quando serve.
+
+Unattended-Upgrade::Allowed-Origins {
+    "${distro_id}:${distro_codename}";
+    "${distro_id}:${distro_codename}-security";
+    "${distro_id}ESMApps:${distro_codename}-apps-security";
+    "${distro_id}ESM:${distro_codename}-infra-security";
+    "${distro_id}:${distro_codename}-updates";
+};
+
+// Non toccare pacchetti critici senza review: aggiungere qui eventuali blocchi.
+Unattended-Upgrade::Package-Blacklist {
+};
+
+// Pulizia per evitare accumulo (kernel vecchi, dipendenze orfane).
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+// Riavvio automatico solo se richiesto, in finestra a basso traffico.
+Unattended-Upgrade::Automatic-Reboot "true";
+Unattended-Upgrade::Automatic-Reboot-WithUsers "true";
+Unattended-Upgrade::Automatic-Reboot-Time "04:00";
+
+// Riprova i mirror non raggiungibili e mantieni i log.
+Unattended-Upgrade::MinimalSteps "true";

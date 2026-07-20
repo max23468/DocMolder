@@ -51,15 +51,16 @@ jobs:
             --color 0E8A16 \
             --force
 
-          if [ "${UPDATE_TYPE}" = "version-update:semver-major" ]; then
+          # Posture moderata: review manuale SOLO per i major delle dipendenze
+          # runtime di produzione (non github-actions), che possono cambiare il
+          # comportamento a runtime pur passando la CI. Tutto il resto va in
+          # auto-merge dopo CI verde: tutte le Action (anche major), tutte le
+          # dev-deps (anche major) e i patch/minor delle deps runtime.
+          if [ "${PACKAGE_ECOSYSTEM}" != "github-actions" ] \
+            && [ "${DEPENDENCY_TYPE}" = "direct:production" ] \
+            && [ "${UPDATE_TYPE}" = "version-update:semver-major" ]; then
             gh pr edit "${PR_URL}" --remove-label dependabot-automerge || true
-            echo "Major update: manual review required."
-            exit 0
-          fi
-
-          if [ "${DEPENDENCY_TYPE}" = "direct:production" ] && [ "${PACKAGE_ECOSYSTEM}" != "github-actions" ]; then
-            gh pr edit "${PR_URL}" --remove-label dependabot-automerge || true
-            echo "Production dependency update: manual review required."
+            echo "Major runtime production dependency: manual review required."
             exit 0
           fi
 
