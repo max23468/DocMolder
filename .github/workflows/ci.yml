@@ -166,7 +166,7 @@ jobs:
           inject-env-vars: true
 
       - name: Review dependency changes
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@v5
 
   fast-gate:
     name: Fast gate
