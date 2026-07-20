@@ -342,6 +342,15 @@ sono superate in modo ricorrente e il recupero operativo resta possibile da
 - il timer `certbot-renew.timer` mantiene rinnovabili i certificati HTTPS gestiti da Certbot
 - journald viene configurato con retention corta tramite `/etc/systemd/journald.conf.d/docmolder.conf`
 
+## Aggiornamento automatico OS
+
+- `unattended-upgrades` applica automaticamente **tutti** gli update (security e non), configurato da `deploy/install-auto-updates.sh` con `deploy/52docmolder-unattended-upgrades`.
+- Pulizia automatica di kernel vecchi e dipendenze orfane per evitare accumulo.
+- Riavvio automatico solo se richiesto, alle `04:00` (finestra a basso traffico).
+- Setup/riparazione one-shot: `sudo bash /opt/docmolder/app/deploy/install-auto-updates.sh` (idempotente; incluso anche in `install-vps.sh`).
+- Verifica: `systemctl list-timers apt-daily-upgrade.timer` e `cat /etc/apt/apt.conf.d/52docmolder-unattended-upgrades`; log in `/var/log/unattended-upgrades/`.
+- Le dipendenze Python del venv si aggiornano al deploy (`pip install`), guidate dagli aggiornamenti di `pyproject.toml` via Dependabot; le PR a basso rischio si auto-mergiano (vedi `.github/workflows/dependabot-auto-merge.yml`).
+
 ## Nota operativa
 
 - VPS come ambiente di esecuzione, non di sviluppo
