@@ -48,31 +48,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verifica variabili Doppler
-        env:
-          DOPPLER_PROJECT: ${{ vars.DOPPLER_PROJECT }}
-          DOPPLER_CONFIG: ${{ vars.DOPPLER_CONFIG }}
-          DOPPLER_TOKEN_PRESENT: ${{ env.DOPPLER_TOKEN_PRESENT }}
-        run: |
-          if [ -z "${DOPPLER_PROJECT:-}" ]; then
-            echo "::warning::DOPPLER_PROJECT non impostato"
-          fi
-          if [ -z "${DOPPLER_CONFIG:-}" ]; then
-            echo "::warning::DOPPLER_CONFIG non impostata"
-          fi
-          if [ "${DOPPLER_TOKEN_PRESENT:-false}" != "true" ]; then
-            echo "::notice::DOPPLER_TOKEN assente: il fetch non verrà eseguito."
-          fi
-
-      - name: Fetch secrets from Doppler
-        if: ${{ env.DOPPLER_TOKEN_PRESENT == 'true' && vars.DOPPLER_PROJECT != '' && vars.DOPPLER_CONFIG != '' }}
-        uses: dopplerhq/secrets-fetch-action@v2.0.0
-        with:
-          doppler-token: ${{ secrets.DOPPLER_TOKEN }}
-          doppler-project: ${{ vars.DOPPLER_PROJECT }}
-          doppler-config: ${{ vars.DOPPLER_CONFIG }}
-          inject-env-vars: true
-
+      # Nessun fetch Doppler qui: la classify non usa secret e un secret con
+      # valore "true" maschererebbe gli output booleani, azzerandoli tra i job
+      # (le gate a valle vedrebbero '' invece di 'true' e verrebbero saltate).
       - name: Classify diff
         id: classify
         env:
