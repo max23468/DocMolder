@@ -33,8 +33,8 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 
 | Tool | Versione/canale | Uso |
 | --- | --- | --- |
-| `ruff` | `0.15.14` | lint/static check |
-| `coverage` | `>=7.10.7` | copertura test |
+| `ruff` | `0.15.22` | lint/static check |
+| `coverage` | `>=7.15.2` | copertura test |
 | `build` | `>=1.2.2` | package build |
 | `gh` | CLI autenticata locale | PR, issue, Actions e release |
 | `make` | sistema locale | comandi standardizzati |
