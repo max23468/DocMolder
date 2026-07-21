@@ -1,0 +1,11 @@
+[Unit]
+Description=DocMolder auto-deploy (poll main, rete di sicurezza del webhook)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Gira come root: deploy/update-vps.sh esegue operazioni privilegiate
+# (git reset come app user, pip install, systemctl restart) come il webhook.
+ExecStart=/usr/bin/bash /opt/docmolder/app/deploy/docmolder-autodeploy.sh
+TimeoutStartSec=3600

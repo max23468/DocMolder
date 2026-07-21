@@ -1,0 +1,11 @@
+[Unit]
+Description=Auto-deploy timer for DocMolder
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+Persistent=true
+Unit=docmolder-autodeploy.service
+
+[Install]
+WantedBy=timers.target

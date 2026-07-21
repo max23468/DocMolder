@@ -8,6 +8,16 @@ SERVICE_NAME="docmolder"
 TARGET_REF="${1:-origin/main}"
 PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"
 
+# Serializza ogni deploy (webhook GitHub, timer di auto-deploy, manuale) sullo
+# stesso lock: evita due `git reset --hard` + pip install + restart concorrenti.
+# Attesa fino a 30 min, poi esce senza deployare (il chiamante ritentera').
+DEPLOY_LOCK="${DOCMOLDER_DEPLOY_LOCK:-/run/docmolder-update-vps.lock}"
+exec 9>"${DEPLOY_LOCK}"
+if ! flock -w 1800 9; then
+  echo "[update-vps] un altro deploy e' in corso da oltre 30 min; esco." >&2
+  exit 1
+fi
+
 choose_python() {
   if [ -n "${PYTHON_BIN}" ]; then
     if [ ! -x "${PYTHON_BIN}" ]; then
@@ -115,6 +125,8 @@ sudo cp "${APP_DIR}/deploy/docmolder-reconcile.service" /etc/systemd/system/docm
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.timer" /etc/systemd/system/docmolder-reconcile.timer
 sudo cp "${APP_DIR}/deploy/docmolder-duckdns.service" /etc/systemd/system/docmolder-duckdns.service
 sudo cp "${APP_DIR}/deploy/docmolder-duckdns.timer" /etc/systemd/system/docmolder-duckdns.timer
+sudo cp "${APP_DIR}/deploy/docmolder-autodeploy.service" /etc/systemd/system/docmolder-autodeploy.service
+sudo cp "${APP_DIR}/deploy/docmolder-autodeploy.timer" /etc/systemd/system/docmolder-autodeploy.timer
 sudo install -D -m 755 "${APP_DIR}/deploy/install-github-webhook.sh" /opt/docmolder/bin/install-github-webhook.sh
 sudo install -D -m 755 "${APP_DIR}/deploy/update-duckdns.sh" /opt/docmolder/bin/update-duckdns.sh
 sudo mkdir -p /etc/systemd/journald.conf.d
@@ -129,6 +141,7 @@ sudo systemctl try-restart systemd-journald.service || true
 sudo systemctl enable --now docmolder-db-backup.timer
 sudo systemctl enable --now docmolder-alertcheck.timer
 sudo systemctl enable --now docmolder-reconcile.timer
+sudo systemctl enable --now docmolder-autodeploy.timer
 if [ -f /etc/docmolder/duckdns.env ]; then
   sudo systemctl enable --now docmolder-duckdns.timer
 fi

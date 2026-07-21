@@ -34,6 +34,24 @@ Il deploy automatico su `main` non usa GitHub Actions. I cambi solo documentali,
 
 Questo flusso non richiede accesso dal runtime Codex cloud alla rete privata della VPS: il ponte lo fa il webhook GitHub verso la VPS.
 
+### Rete di sicurezza: timer di auto-deploy
+
+Il webhook è immediato ma non ha ritentativi: se una consegna fallisce (VPS
+irraggiungibile o listener giù al momento del push), quel commit non verrebbe mai
+deployato. Per questo la VPS esegue anche `deploy/docmolder-autodeploy.sh` da un
+timer systemd (`docmolder-autodeploy.timer`, ~ogni 10 min): confronta il commit
+deployato (`HEAD` del checkout) con `origin/main` e, se il checkout è rimasto
+indietro, lancia `update-vps.sh` — con **rollback** automatico al commit
+precedente se il deploy fallisce. Webhook e timer sono serializzati dallo stesso
+lock in `update-vps.sh`, quindi non possono sovrapporsi.
+
+Verifiche utili sulla VPS:
+
+```bash
+systemctl list-timers docmolder-autodeploy.timer --all
+sudo journalctl -u docmolder-autodeploy.service --since "-2 days"
+```
+
 ## Secret richiesti per il webhook
 
 Configura questi valori sulla VPS in `/etc/docmolder/github-webhook.env`:
