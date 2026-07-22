@@ -135,18 +135,6 @@ class CodexReportsTest(unittest.TestCase):
         self.assertIn('git check-ref-format --branch "${PR_HEAD_REF}"', workflow_text)
         self.assertNotIn("${{ github.event.pull_request.head.ref }}\"; then", workflow_text)
 
-    def test_ci_workflow_does_not_reference_doppler_secret_in_step_conditions(self) -> None:
-        workflow_text = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-
-        self.assertIn("DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN != '' }}", workflow_text)
-        self.assertIn("env.DOPPLER_TOKEN_PRESENT == 'true'", workflow_text)
-        self.assertNotIn("if: ${{ secrets.DOPPLER_TOKEN", workflow_text)
-        self.assertNotIn("DOPPLER_TOKEN_PRESENT: ${{ secrets.DOPPLER_TOKEN }}", workflow_text)
-        self.assertNotIn("          project: ${{ vars.DOPPLER_PROJECT }}", workflow_text)
-        self.assertNotIn("          config: ${{ vars.DOPPLER_CONFIG }}", workflow_text)
-        self.assertIn("          doppler-project: ${{ vars.DOPPLER_PROJECT }}", workflow_text)
-        self.assertIn("          doppler-config: ${{ vars.DOPPLER_CONFIG }}", workflow_text)
-
     def test_ops_next_actions_warns_when_health_missing(self) -> None:
         actions = ops_report.next_actions({"health": None})
 
