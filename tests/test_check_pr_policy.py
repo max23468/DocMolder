@@ -56,9 +56,36 @@ class CheckPrPolicyTest(unittest.TestCase):
             title="chore(release): v2.0.7",
             head_ref="codex/release-docmolder-2.0.7",
             release_owned=True,
+            release_owned_files=(
+                "CHANGELOG.md",
+                "pyproject.toml version",
+                "src/docmolder/__init__.py",
+            ),
+            changed_files=("CHANGELOG.md", "pyproject.toml", "src/docmolder/__init__.py"),
         )
 
         self.assertEqual(errors, [])
+
+    def test_rejects_release_title_on_non_release_branch(self) -> None:
+        errors = check_pr_policy.check_pr_policy(
+            title="chore(release): v2.0.7",
+            head_ref="codex/runtime-fix",
+            release_owned=True,
+            release_owned_files=("CHANGELOG.md",),
+        )
+
+        self.assertTrue(any("branch" in error for error in errors))
+
+    def test_rejects_extra_files_in_release_pr(self) -> None:
+        errors = check_pr_policy.check_pr_policy(
+            title="chore(release): v2.0.7",
+            head_ref="codex/release-docmolder-2.0.7",
+            release_owned=True,
+            release_owned_files=("CHANGELOG.md", "scripts/check_pr_policy.py"),
+            changed_files=("CHANGELOG.md", "scripts/check_pr_policy.py"),
+        )
+
+        self.assertTrue(any("file extra" in error for error in errors))
 
 
 if __name__ == "__main__":
