@@ -120,6 +120,21 @@ class PublishScriptsTest(unittest.TestCase):
         self.assertTrue(report["dependency_review_required"])
         self.assertIn("pyproject.toml", report["dependency_files"])
 
+    def test_classify_marks_mixed_release_metadata_and_dependency_changes(self) -> None:
+        run(["git", "switch", "-c", "codex/release-with-dependency"], self.repo)
+        (self.repo / "pyproject.toml").write_text(
+            '[project]\nversion = "0.2.0"\ndependencies = ["pypdf>=6"]\n',
+            encoding="utf-8",
+        )
+
+        result = run(
+            ["python3", "scripts/classify_changes.py", "--base", "origin/main", "--working-tree", "--format", "json"],
+            self.repo,
+        )
+        report = json.loads(result.stdout)
+
+        self.assertIn("pyproject.toml non-version", report["release_owned_files"])
+
     def test_publish_change_pushes_existing_direct_docs_commit(self) -> None:
         (self.repo / "docs" / "guide.md").write_text("guide\nupdated\n", encoding="utf-8")
         run(["git", "add", "docs/guide.md"], self.repo)

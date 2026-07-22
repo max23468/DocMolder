@@ -39,6 +39,8 @@ jobs:
       fast_static_required: ${{ steps.classify.outputs.fast_static_required }}
       dependency_review_required: ${{ steps.classify.outputs.dependency_review_required }}
       release_owned: ${{ steps.classify.outputs.release_owned }}
+      release_owned_files: ${{ steps.classify.outputs.release_owned_files }}
+      changed_files: ${{ steps.classify.outputs.changed_files }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -80,6 +82,8 @@ jobs:
             echo "fast_static_required=$(awk -F= '/DOCMOLDER_FAST_STATIC_REQUIRED=/{print $2}' change-impact.env)"
             echo "dependency_review_required=$(awk -F= '/DOCMOLDER_DEPENDENCY_REVIEW_REQUIRED=/{print $2}' change-impact.env)"
             echo "release_owned=$(awk -F= '/DOCMOLDER_RELEASE_OWNED=/{print $2}' change-impact.env)"
+            echo "release_owned_files=$(awk -F= '/DOCMOLDER_RELEASE_OWNED_FILES=/{print $2}' change-impact.env)"
+            echo "changed_files=$(awk -F= '/DOCMOLDER_CHANGED_FILES=/{print $2}' change-impact.env)"
           } >> "${GITHUB_OUTPUT}"
 
   pr-policy:
@@ -93,11 +97,13 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Validate PR title and release files
-        run: python3 scripts/check_pr_policy.py --title "${PR_TITLE}" --head-ref "${PR_HEAD_REF}" --release-owned "${RELEASE_OWNED}"
+        run: python3 scripts/check_pr_policy.py --title "${PR_TITLE}" --head-ref "${PR_HEAD_REF}" --release-owned "${RELEASE_OWNED}" --release-owned-files "${RELEASE_OWNED_FILES}" --changed-files "${CHANGED_FILES}"
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_HEAD_REF: ${{ github.head_ref }}
           RELEASE_OWNED: ${{ needs.classify.outputs.release_owned }}
+          RELEASE_OWNED_FILES: ${{ needs.classify.outputs.release_owned_files }}
+          CHANGED_FILES: ${{ needs.classify.outputs.changed_files }}
 
   dependency-review:
     name: Dependency review

@@ -186,8 +186,12 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
         dependency_review_files.append("pyproject.toml")
 
     release_owned = [path for path in paths if path in RELEASE_OWNED_FILES]
-    if pyproject_version_changed(git_range, paths, staged=staged, working_tree=working_tree):
+    version_changed = pyproject_version_changed(git_range, paths, staged=staged, working_tree=working_tree)
+    dependency_changed = pyproject_dependency_review_changed(git_range, paths, staged=staged, working_tree=working_tree)
+    if version_changed:
         release_owned.append("pyproject.toml version")
+        if dependency_changed:
+            release_owned.append("pyproject.toml non-version")
 
     docs_only = bool(paths) and len(docs) == len(paths)
     tests_only = bool(paths) and len(tests) == len(paths)
@@ -281,6 +285,8 @@ def print_env(report: dict[str, object]) -> None:
     for key in bool_keys:
         print(f"DOCMOLDER_{key.upper()}={'true' if report[key] else 'false'}")
     print(f"DOCMOLDER_CHANGED_COUNT={report['changed_count']}")
+    print(f"DOCMOLDER_CHANGED_FILES={','.join(report['changed_files'])}")
+    print(f"DOCMOLDER_RELEASE_OWNED_FILES={','.join(report['release_owned_files'])}")
     print(f"DOCMOLDER_RECOMMENDED_RELEASE_TYPE={report['recommended_release_type']}")
 
 
