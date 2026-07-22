@@ -184,7 +184,7 @@ class GitHubDeployWebhookApp:
 
             try:
                 self._run_deploy(job)
-            except Exception as exc:  # pragma: no cover - defensive guard
+            except Exception as exc:
                 self.state.last_error = str(exc)
                 if self.state.last_result is None or self.state.last_result.get("ok") is not False:
                     self.state.last_result = {
@@ -285,7 +285,7 @@ class GitHubDeployWebhookApp:
 class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
     server: "GitHubDeployWebhookHTTPServer"
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if self.path not in {self.server.app.config.health_path, "/status"}:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
@@ -294,7 +294,7 @@ class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
         payload["path"] = self.path
         self._send_json(HTTPStatus.OK if payload["configured"] else HTTPStatus.SERVICE_UNAVAILABLE, payload)
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         if self.path != self.server.app.config.webhook_path:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
@@ -339,6 +339,10 @@ class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.ACCEPTED, {"ok": True, "ignored": True, "reason": reason})
             return
 
+        if target_ref is None:
+            self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "missing push ref"})
+            return
+
         job = DeployJob(
             delivery_id=delivery_id,
             target_ref=target_ref,
@@ -352,7 +356,7 @@ class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
             {"ok": True, "queued": True, "delivery_id": delivery_id, "target_ref": target_ref},
         )
 
-    def log_message(self, format: str, *args: object) -> None:  # noqa: A003
+    def log_message(self, format: str, *args: object) -> None:
         print(f"[webhook] {self.address_string()} - {format % args}", flush=True)
 
     def _read_body(self) -> bytes | None:

@@ -11,6 +11,7 @@ requires-python = ">=3.11"
 dependencies = [
   "python-telegram-bot>=22.0,<23.0",
   "opencv-python-headless>=5.0.0,<6.0",
+  "numpy>=2.0,<3.0",
   "pydantic>=2.13.4,<3.0",
   "pydantic-settings>=2.14.2,<3.0",
   "pillow>=12.3.0,<13.0",

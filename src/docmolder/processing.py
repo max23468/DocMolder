@@ -824,7 +824,7 @@ class DocumentProcessor:
                 return 0
 
             rotated_pages = 0
-            for page, page_orientation in zip(reader.pages, page_orientations):
+            for page, page_orientation in zip(reader.pages, page_orientations, strict=True):
                 if page_orientation not in {"portrait", "landscape"}:
                     writer.add_page(page)
                     continue
