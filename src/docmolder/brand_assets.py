@@ -19,8 +19,12 @@ def _load_font(size: int, *, bold: bool = False, family: str = "avenir") -> Imag
         "sf": ("/System/Library/Fonts/SFNS.ttf",),
     }
     fallback = (
-        "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        (
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+        )
+        if bold
+        else ("/System/Library/Fonts/Supplemental/Arial.ttf",)
     )
     candidates = (*family_candidates.get(family, family_candidates["avenir"]), *fallback)
     for path in candidates:
@@ -61,7 +65,6 @@ def render_ios_variant(size: int = 1024) -> Image.Image:
 
 
 def render_horizontal_logo(size: tuple[int, int] = (1800, 560), *, font_family: str = "avenir") -> Image.Image:
-    width, height = size
     image = Image.new("RGBA", size, BRAND_COLORS["ink"])
     mark = _load_source_mark(340)
     image.alpha_composite(mark, (96, 108))
