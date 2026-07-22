@@ -24,7 +24,6 @@ decisioni, governance operativa e approfondimenti.
 - [RELEASE_PROCESS.md](./RELEASE_PROCESS.md): checklist di rilascio e deploy.
 - [VERSIONING.md](./VERSIONING.md): policy ufficiale per versioni, changelog e release.
 - [TOOLCHAIN.md](./TOOLCHAIN.md): runtime, comandi, tool esterni e guardrail di versione.
-- [doppler-setup.md](./doppler-setup.md): integrazione Doppler, variabili GitHub e verifica segreti CI.
 - [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md): criteri, checklist e record della promozione DocMolder a `1.0.0`.
 - [OPERATIONS_SECURITY.md](./OPERATIONS_SECURITY.md): sicurezza operativa, segreti, log, backup e incident response.
 - [SERVICE_GOVERNANCE.md](./SERVICE_GOVERNANCE.md): dati trattati, retention, cancellazione e limiti del servizio.
