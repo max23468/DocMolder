@@ -8,7 +8,7 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
-## [2.0.7](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.6...docmolder-v2.0.7) (2026-07-22)
+## [2.0.7](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.6...v2.0.7) (2026-07-22)
 
 ### Correzioni
 
