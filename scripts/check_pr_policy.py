@@ -9,6 +9,7 @@ import sys
 CONVENTIONAL_TITLE_RE = re.compile(
     r"^(feat|fix|deps|docs|refactor|test|chore|build|ci)(\([a-z0-9._-]+\))?!?: .+"
 )
+RELEASE_TITLE_RE = re.compile(r"^chore\(release\): v\d+\.\d+\.\d+$")
 
 
 def parse_bool(value: str) -> bool:
@@ -24,6 +25,10 @@ def is_conventional_title(title: str) -> bool:
     return bool(CONVENTIONAL_TITLE_RE.match(title.strip()))
 
 
+def is_release_title(title: str) -> bool:
+    return bool(RELEASE_TITLE_RE.match(title.strip()))
+
+
 def check_pr_policy(*, title: str, head_ref: str, release_owned: bool) -> list[str]:
     del head_ref
     errors: list[str] = []
@@ -33,10 +38,10 @@ def check_pr_policy(*, title: str, head_ref: str, release_owned: bool) -> list[s
             "fix(bot): handle protected PDFs more clearly"
         )
 
-    if release_owned:
+    if release_owned and not is_release_title(title):
         errors.append(
             "La PR tocca file release-owned (VERSIONE/CHANGELOG/manifest). "
-            "Deve essere gestita dal flusso di rilascio dedicato, non in PR funzionali."
+            "Usa il titolo del flusso release dedicato: chore(release): vX.Y.Z."
         )
 
     return errors
