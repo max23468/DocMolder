@@ -8,6 +8,12 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.7](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.6...docmolder-v2.0.7) (2026-07-22)
+
+### Correzioni
+
+* **runtime:** harden webhook, validazione della pipeline e dipendenza NumPy ([5d62256](https://github.com/max23468/DocMolder/commit/5d62256))
+
 ## [2.0.6](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.5...docmolder-v2.0.6) (2026-06-03)
 
 
