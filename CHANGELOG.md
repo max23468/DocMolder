@@ -8,6 +8,12 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.8](https://github.com/max23468/DocMolder/compare/v2.0.7...v2.0.8) (2026-07-23)
+
+### Correzioni
+
+* **telegram:** normalizza `RetryAfter.retry_after` (int o `timedelta`) nei retry, evitando il `TypeError` con `PTB_TIMEDELTA=1` e il warning di deprecazione di python-telegram-bot ([35c2bbb](https://github.com/max23468/DocMolder/commit/35c2bbb))
+
 ## [2.0.7](https://github.com/max23468/DocMolder/compare/docmolder-v2.0.6...v2.0.7) (2026-07-22)
 
 ### Correzioni
