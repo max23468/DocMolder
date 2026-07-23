@@ -423,6 +423,15 @@ def _new_user_admin_meta_key(admin_user_id: int, suffix: str) -> str:
     return f"new_user_notice:{admin_user_id}:{suffix}"
 
 
+def _retry_after_seconds(exc: Exception, default: int) -> int:
+    # PTB >=22.2: RetryAfter.retry_after è int|timedelta (timedelta con PTB_TIMEDELTA=1);
+    # int(timedelta) solleverebbe TypeError, quindi normalizziamo entrambi a secondi.
+    value = getattr(exc, "retry_after", default)
+    if isinstance(value, timedelta):
+        value = value.total_seconds()
+    return max(1, int(value))
+
+
 async def _telegram_api_call(label: str, call, *args, **kwargs):
     deps = kwargs.pop("_deps", None)
 
@@ -434,7 +443,7 @@ async def _telegram_api_call(label: str, call, *args, **kwargs):
 
     def delay_for_exception(exc: Exception, attempt_index: int) -> float | None:
         if isinstance(exc, RetryAfter):
-            return float(max(1, int(getattr(exc, "retry_after", 1))))
+            return float(_retry_after_seconds(exc, 1))
         return float(attempt_index + 1)
 
     def on_retry(exc: Exception, attempt_no: int, total_attempts: int, delay: float) -> None:
@@ -732,7 +741,7 @@ async def _sync_telegram_branding(
             session_store.set_meta(_BRANDING_SYNC_RETRY_AT_META_KEY, "")
         log_event(logger, logging.INFO, "telegram_branding_sync_completed")
     except RetryAfter as exc:
-        retry_after = max(1, int(getattr(exc, "retry_after", _BRANDING_SYNC_DEFAULT_BACKOFF_SECONDS)))
+        retry_after = _retry_after_seconds(exc, _BRANDING_SYNC_DEFAULT_BACKOFF_SECONDS)
         retry_at = now + timedelta(seconds=retry_after)
         if session_store is not None:
             session_store.set_meta(_BRANDING_SYNC_RETRY_AT_META_KEY, retry_at.isoformat())
