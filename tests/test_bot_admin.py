@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
@@ -25,6 +26,7 @@ from docmolder.bot import (
     _extract_metric_entries,
     _resolve_job_selector,
     _resolve_user_job_selector,
+    _retry_after_seconds,
     _telegram_api_call,
     _handle_start_payload,
     _maybe_notify_admins_about_new_user,
@@ -346,6 +348,14 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result, "ok")
         self.assertEqual(mocked_call.await_count, 3)
         self.assertEqual(sleep_mock.await_count, 2)
+
+    def test_retry_after_seconds_handles_int_and_timedelta(self) -> None:
+        # PTB >=22.2: RetryAfter.retry_after può essere timedelta (PTB_TIMEDELTA=1),
+        # dove int(exc.retry_after) crasherebbe con TypeError.
+        self.assertEqual(_retry_after_seconds(RetryAfter(5), 1), 5)
+        self.assertEqual(_retry_after_seconds(RetryAfter(timedelta(seconds=7)), 1), 7)
+        self.assertEqual(_retry_after_seconds(object(), 3), 3)
+        self.assertEqual(_retry_after_seconds(RetryAfter(timedelta(milliseconds=400)), 1), 1)
 
     def test_admin_reports_include_new_operational_sections(self) -> None:
         queue_report = _build_admin_queue_report(self.deps)
