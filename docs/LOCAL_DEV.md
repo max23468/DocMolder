@@ -17,6 +17,20 @@ presente, altrimenti ripiega su `python3`. Per forzare un interprete specifico:
 make setup PYTHON_BOOTSTRAP=/percorso/a/python3.13
 ```
 
+Le dipendenze di runtime sono bloccate con hash in `requirements.lock`
+(generato con `uv`), così local e VPS installano lo stesso insieme
+riproducibile. Dopo aver modificato le dipendenze in `pyproject.toml`,
+rigenera il lock e ricommittalo:
+
+```bash
+make lock         # rigenera requirements.lock
+make lock-check   # verifica che sia allineato a pyproject.toml
+```
+
+`bash scripts/ci_verify.sh` fallisce se il lock è disallineato (quando `uv`
+è disponibile). Sul VPS `update-vps.sh` installa da `requirements.lock` con
+`--require-hashes` e poi il pacchetto in editable con `--no-deps`.
+
 2. Crea `.env`:
 
 ```bash

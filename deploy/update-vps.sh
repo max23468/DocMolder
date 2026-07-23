@@ -113,7 +113,8 @@ ensure_excel_system_dependencies
 choose_python
 ensure_venv
 sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --upgrade pip
-sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}"
+sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --require-hashes -r "${APP_DIR}/requirements.lock"
+sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}" --no-deps
 
 echo "[systemd]"
 sudo cp "${APP_DIR}/deploy/docmolder.service" /etc/systemd/system/docmolder.service
