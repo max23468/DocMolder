@@ -30,7 +30,7 @@ non espone configurazione di licenza per quel percorso.
 Il runtime applicativo preferito è Python 3.13 in virtualenv isolata. Su Ubuntu
 24.04 non sostituire `/usr/bin/python3`: installa Python 3.13 side-by-side e
 lascia che DocMolder usi solo `/opt/docmolder/venv`. Il percorso versionato
-consigliato compila CPython 3.13.13 da sorgente ufficiale, verifica lo SHA-256 e
+consigliato compila CPython 3.13.14 da sorgente ufficiale, verifica lo SHA-256 e
 crea il symlink `/usr/local/bin/python3.13`:
 
 ```bash
