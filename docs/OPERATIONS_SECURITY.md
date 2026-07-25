@@ -135,7 +135,7 @@ In caso di incidente:
 - alerting esterno non è ancora formalizzato
 - le soglie definitive di crescita e saturazione vanno ancora validate con dati reali di produzione
 
-## Hardening operativo coordinato Atlas (2026-05-27)
+## Hardening operativo coordinato (2026-05-27)
 
 Questa sezione aggiorna lo stato hardening operativo per il flusso senza rotazione segreti.
 
