@@ -17,7 +17,7 @@ estesi vivono in `CHANGELOG.md`, `docs/ROADMAP_HISTORY.md`,
 - Runtime preferito: Python `3.13` in virtualenv isolata, sia per sviluppo sia
   per VPS; non sostituire il Python di sistema della VPS.
 - Eccezione repo-specifica: PR title e publish docs-only sono governati da
-  policy/script locali invece di copiare template Atlas identici.
+  policy/script locali invece di copiare template generici identici.
 - Pubblicazione proporzionata: docs-only/governance-only richiede review
   documentale, preflight mirato e `git diff --check`, senza release o deploy se
   il diff non è rilasciabile.
