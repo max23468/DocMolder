@@ -65,6 +65,21 @@ def check_release_metadata(expected_version: str, root: Path = Path(".")) -> lis
         if expected <= latest:
             errors.append(f"La versione {expected_version} deve essere successiva all'ultimo tag {latest_tag}.")
 
+    base_metadata = subprocess.run(
+        ["git", "show", "origin/main:pyproject.toml"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if base_metadata.returncode == 0:
+        try:
+            base_version = str(tomllib.loads(base_metadata.stdout)["project"]["version"])
+        except (KeyError, tomllib.TOMLDecodeError):
+            base_version = ""
+        if base_version and tuple(map(int, expected_version.split("."))) <= tuple(map(int, base_version.split("."))):
+            errors.append(f"La versione {expected_version} deve essere successiva alla versione {base_version} su main.")
+
     try:
         pyproject_version = str(tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
     except (OSError, KeyError, tomllib.TOMLDecodeError) as exc:
