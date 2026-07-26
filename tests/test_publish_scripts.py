@@ -172,6 +172,27 @@ fi
 
         self.assertNotEqual(result.returncode, 0)
 
+    def test_classify_requires_full_dependency_gates_for_requirements_lock(self) -> None:
+        (self.repo / "requirements.lock").write_text("demo==1.0\n", encoding="utf-8")
+
+        result = run(
+            ["python3", "scripts/classify_changes.py", "--base", "origin/main", "--working-tree", "--format", "json"],
+            self.repo,
+        )
+        report = json.loads(result.stdout)
+
+        self.assertTrue(report["deploy_relevant"])
+        self.assertTrue(report["dependency_relevant"])
+        self.assertTrue(report["full_tests_required"])
+        self.assertTrue(report["package_build_required"])
+        self.assertEqual(report["dependency_files"], ["requirements.lock"])
+
+    def test_fast_gate_installs_uv_and_checks_lock(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn("pipx install uv", workflow)
+        self.assertIn("make lock-check", workflow)
+
     def test_publish_change_pushes_existing_direct_docs_commit(self) -> None:
         (self.repo / "docs" / "guide.md").write_text("guide\nupdated\n", encoding="utf-8")
         run(["git", "add", "docs/guide.md"], self.repo)

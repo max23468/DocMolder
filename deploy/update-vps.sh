@@ -156,5 +156,8 @@ sudo systemctl is-active docmolder-alertcheck.timer
 sudo systemctl is-active docmolder-reconcile.timer
 sudo systemctl is-active docmolder-duckdns.timer || true
 
+echo "[smoke]"
+bash "${APP_DIR}/deploy/smoke-check.sh"
+
 echo "[revision]"
 sudo -u "${APP_USER}" git rev-parse --short HEAD

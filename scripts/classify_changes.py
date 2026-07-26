@@ -12,6 +12,7 @@ from dataclasses import dataclass
 DEPLOY_RELEVANT_PATTERNS = (
     "deploy/**",
     "pyproject.toml",
+    "requirements.lock",
     "requirements*.txt",
     "src/**",
     "uv.lock",
@@ -20,6 +21,7 @@ DEPLOY_RELEVANT_PATTERNS = (
 CODE_PATTERNS = (
     "src/**",
     "pyproject.toml",
+    "requirements.lock",
     "requirements*.txt",
     "uv.lock",
 )
@@ -63,6 +65,7 @@ CI_PATTERNS = (
 
 DEPENDENCY_PATTERNS = (
     "pyproject.toml",
+    "requirements.lock",
     "requirements*.txt",
     "uv.lock",
 )
