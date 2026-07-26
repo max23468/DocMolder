@@ -38,6 +38,7 @@ class PublishScriptsTest(unittest.TestCase):
         for name in (
             "check_codex_bot_comments.py",
             "check_lock_sync.sh",
+            "check_pr_policy.py",
             "classify_changes.py",
             "current_failed_runs.py",
             "generate_pr_body.py",
@@ -89,7 +90,20 @@ class PublishScriptsTest(unittest.TestCase):
         result = run(["bash", "scripts/preflight_publish.sh", "origin/main"], self.repo, check=False)
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("flusso di release", result.stderr)
+        self.assertIn("branch codex/release-docmolder-X.Y.Z", result.stderr)
+
+    def test_preflight_allows_dedicated_release_scope(self) -> None:
+        run(["git", "switch", "-c", "codex/release-docmolder-0.2.0"], self.repo)
+        (self.repo / "CHANGELOG.md").write_text("release 0.2.0\n", encoding="utf-8")
+        (self.repo / "pyproject.toml").write_text('[project]\nversion = "0.2.0"\n', encoding="utf-8")
+        package_dir = self.repo / "src" / "docmolder"
+        package_dir.mkdir()
+        (package_dir / "__init__.py").write_text('__version__ = "0.2.0"\n', encoding="utf-8")
+
+        result = run(["bash", "scripts/preflight_publish.sh", "origin/main"], self.repo)
+
+        self.assertIn("Preflight: scope release dedicato valido.", result.stdout)
+        self.assertIn("Preflight publish OK.", result.stdout)
 
     def test_classify_skips_dependency_review_for_pyproject_version_only(self) -> None:
         run(["git", "switch", "-c", "codex/release-version"], self.repo)
