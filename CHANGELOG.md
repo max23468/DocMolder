@@ -8,6 +8,13 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.9](https://github.com/max23468/DocMolder/compare/v2.0.8...v2.0.9) (2026-07-26)
+
+### Correzioni
+
+* **deploy:** richiede uno smoke funzionale prima di confermare il deploy e applica i gate completi alle modifiche di `requirements.lock` ([d07fbdd](https://github.com/max23468/DocMolder/commit/d07fbdd7cf28cc792992538d56c4a9503450d915))
+* **release:** consente il preflight solo alle branch release dedicate con l’allowlist esatta dei metadati di versione ([311458d](https://github.com/max23468/DocMolder/commit/311458df3e67d6d5b5fc5ebbc926030927c5322c))
+
 ## [2.0.8](https://github.com/max23468/DocMolder/compare/v2.0.7...v2.0.8) (2026-07-23)
 
 ### Correzioni
