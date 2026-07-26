@@ -1,233 +1,146 @@
-# AGENTS.md — Istruzioni operative per Codex (DocMolder)
+# AGENTS.md — Istruzioni operative per DocMolder
 
-Questo file definisce linee guida persistenti per gli agenti che lavorano in questa repository.
-Scope: intera repository, salvo override in `AGENTS.md` più specifici in sottocartelle.
+Queste istruzioni valgono per l’intera repository. Un `AGENTS.md` più vicino
+alla cartella toccata può specializzarle per quel sottoalbero.
 
-Priorità: istruzioni di sistema/developer, eventuali `AGENTS.md` più profondi
-nella cartella toccata, richiesta utente corrente per scope e preferenze
-operative che non contraddicono sicurezza/policy, questo `AGENTS.md`, documenti
-canonici della repo, convenzioni reali di codice/test/configurazione e
-assunzioni solo marginali.
+## Prodotto e fonti
 
-## 1) Contesto da leggere prima
+DocMolder è una utility documentale Telegram-first, semplice, guidata e
+affidabile. Non trasformarla senza decisione esplicita in gestionale
+documentale, storage permanente, editor collaborativo, API pubblica o
+dashboard web-first.
 
-Prima di modifiche non banali, orientati con i documenti rilevanti per la task:
-- `README.md` e `docs/INDEX.md` per orientamento e catalogo;
-- `docs/CONTEXT.md` per lo stato sintetico del progetto;
-- `docs/DECISIONS.md` per il perimetro prodotto;
-- `docs/ROADMAP.md` per le priorità correnti;
-- `docs/BACKLOG.md` e `docs/TOOLCHAIN.md` per debiti e comandi;
-- `docs/LOCAL_DEV.md` per setup e comandi di verifica;
-- `docs/BRAND.md` quando la task tocca naming, tono, microcopy Telegram,
-  logo, asset o identità visuale;
-- `docs/VERSIONING.md` e `docs/RELEASE_PROCESS.md` quando la task riguarda commit, PR, release o deploy.
+Prima di modifiche non banali leggi solo le fonti pertinenti:
 
-## 2) Obiettivo di lavoro
+- orientamento e stato: `README.md`, `docs/INDEX.md`, `docs/CONTEXT.md`;
+- perimetro e priorità: `docs/DECISIONS.md`, `docs/ROADMAP.md`,
+  `docs/BACKLOG.md`;
+- sviluppo e test: `docs/LOCAL_DEV.md`, `docs/TOOLCHAIN.md`;
+- brand o microcopy: `docs/BRAND.md`;
+- GitHub, release e deploy: `docs/GITHUB_MAINTENANCE.md`,
+  `docs/VERSIONING.md`, `docs/RELEASE_PROCESS.md`, `docs/VPS_RUNBOOK.md`.
 
-- Preferire modifiche chiare, coese e verificabili.
-- Fase operativa: linea stabile `1.x` in manutenzione/stabilizzazione; feature
-  nuove, release e deploy entrano nel flusso solo quando richiesti o previsti
-  dalla policy corrente.
-- Le modifiche importanti sono accettabili quando servono, ma vanno prima esplicitate come piano e poi spezzate in passaggi comprensibili, testabili e, quando possibile, accompagnati da rollback o mitigazione chiari.
-- Preferire robustezza, leggibilità e semplicità operativa.
-- Evitare side-effect non richiesti rispetto alla task dell'utente.
-- Tenere DocMolder nel suo perimetro: utility documentale Telegram-first, semplice, guidata e affidabile.
-- DocMolder non è un gestionale documentale completo, non è uno storage permanente di file utente, non è un editor collaborativo e non deve diventare una dashboard web-first senza una decisione esplicita.
+La linea stabile corrente è `2.x`, in manutenzione e stabilizzazione. Nuove
+feature richiedono una priorità o decisione esplicita.
 
-## 3) Prima di intervenire
+## Autonomia e scope
 
-- Controlla lo stato del worktree con `git status --short`.
-- Se una nuova chat implica modifiche ai file e `git status --short` mostra modifiche non tue o non collegate alla richiesta, non aggiungere altri edit nello stesso worktree: considera quel diff già posseduto da un altro filone, apri automaticamente una branch/worktree dedicata `codex/<tema>` da una base pulita e continua lì.
-- Comprendi il flusso toccato prima di editare: handler Telegram, pipeline documentale, session store, servizi, config o deploy.
-- Non revertire modifiche già presenti se non richiesto esplicitamente.
-- Se la richiesta è ambigua, fermati e fai domande mirate all'utente prima di scegliere approccio, scope o comportamento.
-- Procedi con un'assunzione dichiarata solo per dettagli marginali che non cambiano il risultato sostanziale.
-- Prima di chiudere, valuta impatto su documentazione, changelog, versione, release e deploy anche quando la conclusione è "non applicabile".
+- Per review, diagnosi o piano, ispeziona e riferisci senza modificare.
+- Per fix o implementazioni richieste, modifica direttamente lo scope locale ed
+  esegui verifiche non distruttive proporzionate.
+- Decidi autonomamente dettagli di routine come naming, formattazione e default
+  coerenti con il codice esistente.
+- Chiedi conferma prima di azioni distruttive o difficili da annullare, deploy,
+  release, nuove dipendenze o ampliamenti materiali dello scope, salvo che una
+  richiesta esplicita di pubblicazione includa già release/deploy secondo il
+  processo documentato. Non estendere comunque il perimetro prodotto.
+- Se l’ambiguità cambia materialmente il risultato, fermati e chiedi; per
+  dettagli marginali scegli un’assunzione prudente e dichiarala.
+- Non introdurre compatibilità legacy o scaffolding speculativo: non ci sono
+  consumatori esterni da preservare.
 
-## 3.1) Skill operative
+## Worktree e ownership
 
-Usa le skill Superpowers pertinenti per lavori non banali: pianificazione,
-debugging sistematico, worktree, esecuzione di piani, review e verifica finale.
-Le skill aiutano il metodo, ma non prevalgono su sicurezza, dati utente,
-runbook VPS, policy release o fonti primarie di DocMolder.
+- All’avvio controlla `git status --short --branch`, branch/PR rilevanti e run
+  fallite per il branch o SHA corrente.
+- Non sovrascrivere, normalizzare o includere modifiche non tue.
+- Se il worktree contiene un diff non collegato, usa una branch e un worktree
+  puliti `codex/<tema>`; un semplice `git switch -c` non separa modifiche non
+  committate.
+- Per lavoro non minuscolo usa
+  `python3 scripts/agent_start.py --area <area> --owner <owner>` e, prima di
+  toccare aree condivise,
+  `python3 scripts/agent_parallel_safe.py --owner <owner>`.
+- Delega solo filoni indipendenti con ownership disgiunta. Usa
+  `docs/AGENT_TASK_PACKET.md` e, se utile, `docs/AGENT_TASK_PROMPTS.md`; il
+  coordinatore integra e decide merge, release, deploy e prodotto.
+- Se una run GitHub Actions rilevante per branch/SHA corrente è fallita,
+  ispezionala prima di proseguire. Correggi solo cause chiare e in scope;
+  segnala subito blocchi dovuti a segreti, infrastruttura o decisioni prodotto.
 
-Usa o proponi `grill-me` quando serve stressare architetture, refactor
-trasversali, integrazioni, deploy/VPS, sicurezza, roadmap o scope ambiguo prima
-di implementare. Non renderla obbligatoria per correzioni puntuali, docs-only a
-basso rischio, cleanup o modifiche meccaniche già determinate.
+## Codice, errori e dati
 
-## 4) Stile e qualità del codice
+- Segui struttura, naming, idiomi e densità di commenti del codice circostante.
+- Preferisci funzioni piccole e verificabili; non aggiungere `try/except`
+  attorno agli import.
+- Gestisci gli errori con messaggi operativi e fallback sicuri quando possibili.
+- Mantieni messaggi Telegram in italiano chiaro, includendo stati intermedi,
+  retry e prossima azione utile.
+- Non committare segreti, `.env`, `.DS_Store`, documenti utente, output
+  temporanei o backup.
+- Non loggare contenuti dei documenti. Tratta upload, output e metadati job come
+  dati utente: persisti solo quanto serve al runtime e rispetta cleanup e
+  retention documentati.
+- Per cambi a cleanup, backup, restore, runtime dir o VPS verifica anche il
+  percorso di rimozione o recupero in `docs/VPS_RUNBOOK.md`.
 
-- Segui le convenzioni già presenti nel progetto.
-- Usa nomi espliciti e coerenti con il dominio del progetto.
-- Evita blocchi troppo grandi: favorisci funzioni piccole e testabili.
-- Non aggiungere commenti ridondanti; commenta solo decisioni non ovvie.
-- Non inserire `try/except` attorno agli import.
-- Non introdurre nuove dipendenze senza avvisare prima l'utente e spiegare motivazione, impatto e alternative.
-- I file `.DS_Store` non fanno parte della repository: ignorali sempre e rimuovi quelli creati localmente quando li incontri.
+## Verifica
 
-## 4.1) Lavoro parallelo e ownership
+Scegli la corsia minima che copre il rischio:
 
-Quando più chat o istanze Codex lavorano sul progetto nello stesso periodo, il coordinamento deve essere esplicito e leggibile dal repository.
+- `veloce`: analisi o docs/governance a basso rischio; usa `git diff --check` e
+  preflight mirato;
+- `standard`: test-only, runtime piccolo, helper condivisi o config ordinaria;
+  esegui test mirati e `bash scripts/ci_verify.sh` quando il rischio supera la
+  patch locale;
+- `completa`: workflow, release, security, dati utente, bot, pipeline
+  documentale, VPS o provider esterni; esegui `bash scripts/ci_verify.sh`, CI
+  GitHub e smoke/runbook pertinenti.
 
-- Usa una chat principale come coordinatore quando il lavoro e ampio: definisce scope, assegna sotto-task, integra i risultati e prende decisioni finali su merge, PR, deploy o prodotto.
-- Spezza il lavoro solo in sotto-task separabili e circoscritti: esplorazione di una zona del codice, patch su un modulo specifico, test mirati, review del diff o controllo documentale/deploy impact.
-- Assegna ownership chiara prima di iniziare: ogni filone deve sapere quali file, moduli o responsabilità può toccare; evita che due filoni modifichino lo stesso flusso senza coordinamento esplicito.
-- Non separare task piccoli, decisioni prodotto ambigue, refactor trasversali o modifiche dove il coordinatore dipende subito dal risultato per il passo successivo.
-- Quando deleghi, prepara un task packet con `docs/CODEX_TASK_PACKET.md` e, se utile, usa i prompt di `docs/CODEX_TASK_PROMPTS.md`.
-- Preferisci branch o worktree dedicati per filone di lavoro, con nomi `codex/<tema>` quando crei nuove branch operative.
-- All'avvio di una nuova chat che deve modificare file, se la branch/worktree corrente è già sporca per altre modifiche, separa automaticamente il nuovo lavoro: non riusare la stessa working tree, crea una branch/worktree dedicata da una base pulita e mantieni i due filoni distinti fino a PR/merge.
-- Se modifiche non tue sono già presenti nel worktree corrente, non basta fare `git switch -c`: gli uncommitted changes seguirebbero la nuova branch. Usa invece un worktree separato o una base pulita equivalente, poi segnala la separazione in chat o nella PR quando il lavoro non è minuscolo.
-- Usa questo `AGENTS.md` come fonte unica per le regole di coordinamento tra agenti: non mantenere registri operativi paralleli se commit, PR, branch, worktree e chat bastano a ricostruire il contesto.
-- All'avvio di una nuova chat o quando riprendi lavoro non banale, controlla `git status --short` e verifica branch/PR aperte rilevanti prima di editare.
-- Per un briefing iniziale standard usa `python3 scripts/agent_start.py --area <area> --owner <owner>`.
-- Prima di toccare aree potenzialmente condivise usa `python3 scripts/agent_parallel_safe.py --owner <owner>`.
-- Se trovi un'altra istanza attiva sulla stessa area, non sovrascrivere né normalizzare le sue modifiche: integra, ribasa o segnala il conflitto in modo esplicito.
-- Per lavori non minuscoli, apri una branch o una PR appena possibile: la PR diventa la fonte di verità per diff, check, review e handoff. Usa PR draft solo quando vuoi segnalare esplicitamente che il cambio non è pronto.
-- A fine lavoro lascia un handoff sintetico nella PR o nella risposta finale quando serve a coordinare altri filoni. Per generarlo puoi usare `python3 scripts/agent_handoff.py`.
+Comandi canonici:
 
-## 5) Logging, errori e UX operativa
-
-- Gestisci errori in modo esplicito e con messaggi utili.
-- Evita leak di dati sensibili in log, trace, messaggi Telegram ed error message.
-- Se il fallback è possibile, preferiscilo al crash.
-- Mantieni output e messaggi coerenti con il tono del progetto: italiano chiaro, operativo, senza rumore inutile.
-- Per flussi utente Telegram, cura anche stati intermedi, retry, messaggi di errore e azioni successive suggerite.
-- Se cambi naming pubblico, tono, microcopy utente, logo, avatar, icone o asset,
-  verifica e aggiorna `docs/BRAND.md` e gli asset collegati solo quando serve.
-
-## 6) Sicurezza, dati e file temporanei
-
-- Minimizza la persistenza di file utente e temporanei.
-- Non committare segreti, token, credenziali o file `.env` reali.
-- Rispetta i limiti operativi già presenti: dimensioni, concorrenza, retention e cleanup.
-- Non loggare contenuti dei documenti caricati dagli utenti.
-- Tratta documenti caricati, output generati e metadati di job come dati utente: conservali solo nel runtime necessario alla lavorazione, puliscili a fine flusso o secondo retention documentata, e non copiarli in fixture, log o report salvo richiesta esplicita e dati sintetici.
-- Se una modifica tocca cleanup, backup, restore, incident response o gestione file temporanei, descrivi impatto sui dati utente e verifica almeno il percorso di rimozione o recupero rilevante.
-- Per modifiche a runtime dir, backup, restore o VPS, verifica anche `docs/VPS_RUNBOOK.md`.
-
-## 7) Testing e verifica minima
-
-Prima del commit, esegui i check rilevanti alla modifica:
-- gate completo locale: `bash scripts/ci_verify.sh`;
-- suite completa: `make test`;
+- gate locale: `bash scripts/ci_verify.sh`;
+- suite: `make test`;
 - compilazione/import: `make compile`;
 - test mirati: `.venv/bin/python -m unittest tests.<modulo>`;
-- smoke Telegram: `make smoke-ui`, solo quando serve e quando l'ambiente locale lo permette.
+- smoke Telegram, solo quando pertinente e disponibile: `make smoke-ui`.
 
-Scegli i check locali in base al rischio, evitando doppioni costosi quando GitHub CI coprirà già il gate completo:
-- docs-only minuscolo (`AGENTS.md`, `README.md`, `docs/**`): `git diff --check`/preflight mirato e pubblicazione docs; niente suite completa salvo comandi o runbook critici;
-- solo test: suite mirate sui test toccati più static/preflight; lascia la matrice completa a GitHub CI se la PR la richiede;
-- codice runtime, pipeline documentale, bot, storage o helper condivisi: test mirati durante lo sviluppo e `bash scripts/ci_verify.sh` prima del push/PR;
-- config package/workflow/deploy/release/security: `bash scripts/ci_verify.sh`, preflight publish e CI GitHub completa prima del merge;
-- deploy o cambio operativo rilasciabile: oltre ai gate sopra, segui runbook/smoke pertinenti.
+`CI result` è il gate remoto autorevole per PR non draft verso `main`. Se un
+check fallisce o non è eseguibile, indica comando, sintomo, impatto e prossimo
+passo; non nascondere il limite dietro un riepilogo positivo.
 
-In termini operativi usa tre corsie:
+## Documentazione
 
-- `veloce`: sola analisi, docs-only e governance a basso rischio; niente test
-  applicativi inventati;
-- `standard`: test-only, codice runtime piccolo, helper condivisi e config
-  ordinaria; usare test mirati e `bash scripts/ci_verify.sh` quando il rischio
-  supera la patch locale;
-- `completa`: documenti operativi critici, workflow/deploy/release/security,
-  dati utente, bot, pipeline documentale, VPS o provider esterni; includere
-  gate completo, CI GitHub e smoke/runbook pertinenti.
+- `docs/INDEX.md` è il catalogo canonico. Non creare documenti paralleli con lo
+  stesso scopo.
+- Aggiorna documenti, link e roadmap solo quando cambia comportamento, stato o
+  processo; non usare `docs/CONTEXT.md` o `docs/ROADMAP.md` come changelog.
+- Non modificare `CHANGELOG.md`, la versione in `pyproject.toml` o
+  `src/docmolder/__init__.py` nelle PR ordinarie: sono release-owned.
+- Mantieni procedure specialistiche nei documenti o script canonici e in
+  `AGENTS.md` solo vincoli durevoli e gotcha non ricavabili dal repository.
 
-`CI result` su GitHub resta il gate remoto autorevole per le PR non draft verso `main`; i check locali servono a intercettare errori prima del push, non a duplicare sempre tutta la CI.
+## GitHub, release e deploy
 
-Se un check non è eseguibile nell'ambiente corrente, dichiaralo esplicitamente con motivo e rischio residuo.
-Nelle risposte finali non ripetere l'elenco delle verifiche eseguite come rito: citale solo se sono richieste esplicitamente, se servono per PR/release/audit, se falliscono, se non sono eseguibili o se lasciano un rischio residuo utile da conoscere.
+- Il flusso standard è branch dedicato, commit coeso, PR pronta verso `main`,
+  gate pertinenti e squash merge. Il titolo PR deve essere un Conventional
+  Commit orientato al cambiamento, non il nome del branch.
+- Prima di aprire o mergiare una PR esegui `make preflight-publish`, rivedi il
+  diff e segui i controlli della `Codex feedback inbox` descritti in
+  `docs/GITHUB_MAINTENANCE.md`, inclusi i ricontrolli prima e dopo il merge.
+- Usa `scripts/publish_change.sh "<titolo conventional>"` per il flusso
+  standard. Per togliere una PR da draft usa `gh pr ready <numero>`.
+- Solo per modifiche minuscole a `AGENTS.md`, `README.md` o `docs/**`, senza
+  release/deploy attesi, da `main` aggiornato puoi usare
+  `make publish-docs TITLE="chore(docs): <descrizione>"`.
+- “Pubblica”, “carica” o “procedi” su una modifica rilasciabile include PR,
+  merge, verifica post-merge, valutazione SemVer, eventuale release manuale,
+  deploy del commit di release e smoke/health. Segui
+  `docs/RELEASE_PROCESS.md`; Release Please non è attivo.
+- Per cambi interni non rilasciabili usa `chore:`, `ci:`, `test:`, `refactor:`
+  o `build:`. Non creare tag, GitHub Release o deploy per docs agentiche senza
+  impatto runtime.
+- Il deploy ordinario passa dal webhook privato GitHub alla VPS
+  `docmolder.duckdns.org`; il fallback manuale e i controlli post-deploy sono in
+  `docs/VPS_RUNBOOK.md`. Non avviare deploy se il diff non è deploy-relevant.
+- Dopo un flusso mergiato elimina branch locale/remota di lavoro e verifica il
+  cleanup con `git fetch --prune`.
 
-## 7.1) Risposte finali e prossimi passi
+## Chiusura
 
-- Riassumi cosa è cambiato o scoperto e indica i file principali quando aiutano
-  a orientare la review.
-- Dichiara stato publish, release e deploy e branch/worktree quando applicabile
-  o quando restano residui da spiegare.
-- Non includere messaggi celebrativi o contabili sui check, come "123 test superati", "456 verifiche verdi", "tutto verde" o formule simili. Se le verifiche sono rilevanti, riportale in modo sintetico e operativo, privilegiando errori, limiti o rischi residui rispetto ai conteggi.
-- Se uno o più test/check falliscono, dirlo sempre in modo esplicito: indica quale comando o check è fallito, il motivo noto o il sintomo principale, l'impatto pratico e il prossimo passo consigliato. Non nascondere un fallimento dietro formule generiche o un riepilogo positivo.
-- Quando la risposta lascia aperte una o più azioni sensate, proponi il prossimo passo o una breve lista di prossimi passi concreti. Se ci sono alternative, rendile facili da scegliere con opzioni brevi, numerate o nominate, indicando l'effetto pratico di ciascuna.
-- Non forzare un prossimo passo quando la richiesta è completamente chiusa e non c'è una decisione utile da prendere.
+Una modifica è conclusa quando risolve la richiesta, preserva dati e scope,
+supera i gate pertinenti, aggiorna solo la documentazione necessaria e lascia
+publish/release/deploy completati o dichiarati non applicabili.
 
-## 8) Documentazione e roadmap
-
-- Il catalogo documentale canonico è `docs/INDEX.md`.
-- La root resta per ingresso e file convenzionali (`README.md`, `AGENTS.md`,
-  `CHANGELOG.md`, `SECURITY.md`); runbook, guide, pipeline, contesto, roadmap,
-  backlog, decisioni e documenti di governance vivono in `docs/`.
-- Aggiorna la documentazione quando l'utente lo chiede o quando cambia un comportamento utente, operativo o di sviluppo.
-- Non aggiornare il changelog di release nelle PR normali.
-- Nella roadmap traccia direzione, priorità e prossimi passi correnti; gli item completati vanno rimossi dalla checklist o sintetizzati come fatto recente, non conservati come archivio.
-- Non aggiungere roadmap laterali se la task può essere chiusa con un intervento piccolo e verificabile.
-- Non creare documenti doppi con stesso scopo o basename. Durante migrazioni,
-  rinomini o merge documentali preserva i contenuti utili, aggiorna i link e
-  dichiara nel riepilogo ciò che viene rimosso perché superato.
-
-## 9) Commit, PR e release
-
-- Un commit deve essere coeso: una modifica logica principale.
-- Messaggi commit chiari, in forma imperativa, con scope quando utile.
-- Per operazioni GitHub usa dove possibile il tool/plugin GitHub come canale primario per repository, PR, issue, commenti, review, metadata e creazione PR; ricorri a `gh`/git locali solo quando il plugin non copre bene l'operazione, ad esempio branch/commit/push locali, stato auth, log GitHub Actions o inspect di run CI.
-- Per togliere una PR dallo stato draft usa `gh pr ready <numero>` invece del tool GitHub connector `mark_pull_request_ready_for_review`: il connector attuale inciampa su `PullRequest.htmlUrl`, campo non valido nello schema GraphQL GitHub, mentre `gh` usa il percorso affidabile.
-- Il flusso ufficiale è branch dedicato, PR verso `main`, gate locali rilevanti, `CI result` verde sulle PR non draft e squash merge.
-- Il titolo PR deve seguire Conventional Commits perché guida changelog, versioning e release manuale; scrivilo come frase da changelog, orientata al cambiamento rilasciabile e non all'attività interna.
-- Quando Codex crea la PR, il nome branch `codex/<tema>` non è un titolo PR
-  valido: passa sempre un titolo esplicito con `gh pr create --title "docs: ..."`
-  o correggi subito con `gh pr edit --title "docs: ..."` prima di dichiarare la
-  PR pronta, pubblicata o mergiabile.
-- Prima di aprire o mergiare una PR, usa `scripts/preflight_publish.sh` o `make preflight-publish` per classificare il diff, bloccare tocchi accidentali ai file release-owned e capire se il deploy VPS è davvero atteso.
-- Quando l'utente chiede di "caricare", "pubblicare", "pubblica", "procedi" dopo una modifica rilasciabile o formule simili, considera incluso l'intero flusso GitHub e release proporzionato: branch/commit mirato, push, PR funzionale, controlli locali/remoti, merge, verifica post-merge, valutazione release manuale, eventuale tag/GitHub Release, eventuale deploy del commit di release e smoke/health VPS. Fermati prima della release solo se l'utente lo chiede esplicitamente, se la modifica non è rilasciabile o se c'è un blocco reale da segnalare. Per i deploy, il default operativo è il webhook privato GitHub -> VPS; la procedura manuale sulla VPS (`sudo /opt/docmolder/app/deploy/update-vps.sh`) resta fallback. Usa `Deploy VPS` via GitHub Actions solo se l'utente lo chiede esplicitamente. In ogni caso segui `docs/VPS_RUNBOOK.md` e riporta comandi, esito e verifiche. Dove possibile usa `scripts/publish_change.sh "<titolo conventional>"`.
-- Release e deploy vanno valutati insieme quando entrambi sono applicabili: non chiudere una release senza dichiarare lo stato del deploy, e non chiudere un deploy senza dichiarare se la release è necessaria o `N/A`.
-- Per modifiche minuscole e a basso rischio, chiaramente solo documentali o di istruzioni operative, evita la trafila lunga branch/PR/release se non aggiunge valore: stai su `main` aggiornato e usa `make publish-docs TITLE="chore(docs): <descrizione>"`, che deve fare preflight/check mirati, commit diretto e push senza PR. Questa scorciatoia vale solo per `AGENTS.md`, `README.md` o `docs/**`, senza deploy/release attesi, e non vale per codice runtime, script, workflow CI, configurazione, deploy, dati, release-owned files o cambi ambigui.
-- Al termine di un flusso pubblicato e mergiato, elimina sempre la branch remota e la branch locale di lavoro quando non servono più, poi verifica con `git fetch --prune`, `git branch --list 'codex/*'` e, se utile, `git ls-remote --heads origin <branch>`. Se la branch corrente non può essere eliminata perché è checkoutata, spostati su una base sicura o su `origin/main` detached e completa il cleanup prima della risposta finale.
-- Quando fai squash merge, non sovrascrivere il subject rimuovendo il suffisso `(#PR)`: la policy locale richiede commit nel formato `docs: esempio (#123)`. Se usi `gh pr merge`, lascia che GitHub/CLI mantenga il titolo PR con suffisso oppure passa esplicitamente un subject completo come `docs: esempio (#123)`.
-- I commenti del Codex connector bot si gestiscono tramite la issue GitHub `Codex feedback inbox`, marcata dalla label `codex-feedback-inbox` e aggiornata dal workflow `.github/workflows/codex-pr-comments.yml`. Non usare più file Markdown/JSON committati o scansioni manuali ripetute di tutte le PR come inbox operativa.
-- Quando inizi una nuova operazione GitHub, riprendi lavoro su una PR o fai il solito giro dei commenti bot, controlla la `Codex feedback inbox` e usa `scripts/github_maintenance_report.py` o `make github-maintenance` per vedere PR aperte, release, failure recenti e stato della inbox.
-- Se la inbox segnala thread actionable, risolvi prima i commenti nuovi e poi valuta lo storico ancora rilevante. Se il commento riguarda una PR chiusa o mergeata, apri una PR correttiva mirata quando è azionabile, oppure documenta esplicitamente il falso positivo/non azionabile.
-- Prima di togliere una PR da draft o mergiarla, esegui `scripts/check_codex_bot_comments.py --pr <numero> --fail` sulla PR corrente e controlla la `Codex feedback inbox`; se trova commenti aperti del Codex connector bot, fermati, implementali e ripeti i check prima del merge.
-- Dopo che una PR viene marcata ready, dopo che i check GitHub diventano verdi e subito prima del merge, ricontrolla la PR corrente e la inbox: le review del Codex connector possono arrivare in ritardo rispetto ai primi check.
-- Dopo il merge di una PR funzionale, ricontrolla la PR appena chiusa con `scripts/check_codex_bot_comments.py --pr <numero> --fail` e verifica la `Codex feedback inbox`; quindi verifica webhook/deploy/release sulla VPS. Non dichiarare "pubblicato", "done" o "nessun commento aperto" finché questi controlli non sono stati eseguiti sull'ultimo stato disponibile.
-- Quando inizi un nuovo comando o una nuova operazione su questa repository e l'ultima run GitHub Actions rilevante per il branch/SHA corrente risulta `failed`, sospendi l'attività richiesta quanto basta per ispezionare prima il problema (`scripts/current_failed_runs.py`, `gh run list`, `gh run view`, log/check della PR o del branch corrente). Non inseguire run vecchie o di branch non correlati. Se la causa è chiara, riproducibile e correggibile localmente senza allargare lo scope in modo rischioso, sistemala e verifica la correzione prima di procedere; se invece dipende da segreti, infrastruttura, flaky esterno o richiede una scelta di prodotto, riportalo subito all'utente con evidenza e proposta di prossimo passo.
-- Prima di aprire o mergiare una PR, fai una review interna del diff e correggi automaticamente solo problemi chiari, locali e non ambigui.
-- Non lasciare commenti bot su GitHub per la review salvo richiesta esplicita dell'utente; riporta eventuali rilievi in chat.
-- Le PR devono indicare: contesto/problema, soluzione adottata, impatti/rischi, classificazione del cambio, impatto deploy/release e test effettuati.
-- Se una PR deve produrre una release, includi una sezione `Release note` di 1-3 frasi in linguaggio naturale; se è solo manutenzione interna, usa un tipo non rilasciabile (`chore:`, `ci:`, `test:`, `refactor:`, `build:`). Usa `skip-changelog` solo per escludere la PR dalle release note generate da GitHub, non come sostituto del tipo PR.
-- Se apri una PR come draft, fallo per review anticipata o dubbi residui espliciti; il percorso standard crea PR già pronte e non usa lo stato draft solo per far partire check.
-- Per il versioning, il flusso primario è manuale e repo-specifico:
-  - valuta sempre se la PR richiede versione, changelog, tag o GitHub Release;
-  - Release Please non è un flusso attivo di DocMolder: changelog, versioni,
-    tag e GitHub Release restano manuali secondo `docs/VERSIONING.md` e
-    `docs/RELEASE_PROCESS.md`;
-  - non aggiornare `CHANGELOG.md`, il campo `version` di `pyproject.toml` o `src/docmolder/__init__.py` in modo opportunistico nelle PR normali;
-  - quando serve una release, prepara versione, changelog, tag e GitHub Release secondo `docs/VERSIONING.md` e `docs/RELEASE_PROCESS.md`;
-  - dopo una release, il webhook VPS deploya il commit di release quando il deploy è previsto; controlla revisione live, versione installata, health/log VPS e smoke check;
-  - se una modifica ordinaria tocca file release-owned senza essere una release, fermati e riallinea la PR al flusso ufficiale prima del merge.
-
-## 10) Deploy e operazioni
-
-- La VPS corretta di DocMolder è quella dietro `docmolder.duckdns.org`: usa sempre questo host per deploy e verifiche, non host diversi del perimetro personale. La combinazione SSH da ricordare è `ssh -i ~/.ssh/docmolder_oracle ubuntu@docmolder.duckdns.org`. Per i deploy ordinari, il default è il webhook privato GitHub -> VPS; il deploy manuale sulla VPS (`sudo /opt/docmolder/app/deploy/update-vps.sh`) resta fallback. Per verifiche senza deploy usa `VPS Check`; per ripristinare una revisione usa `Rollback VPS`; GitHub Actions si usa solo su richiesta esplicita o quando il canale webhook/manuale non è praticabile.
-- Per API Telegram, provider esterni, limiti, costi o policy variabili, verifica
-  fonti ufficiali correnti prima di fissare decisioni operative. DocMolder non
-  ha UI React; se verrà introdotta una dashboard, aggiungi verifiche browser,
-  responsive e accessibilità proporzionate prima di considerarla completa.
-- Non fare deploy inutili: prima di mergeare o avviare workflow che possono deployare, verifica che il diff sia davvero deploy-relevant e che il deploy sia coerente con la richiesta corrente.
-- Se target, rischio, intento o consenso operativo sono ambigui, fermati e chiedi conferma prima di procedere.
-- Per deploy da Codex cloud, seguire `docs/CODEX_CLOUD_DEPLOY.md`.
-- Per deploy o manutenzione VPS, seguire `docs/VPS_RUNBOOK.md` e riportare sempre comandi eseguiti, esito e verifiche.
-- Dopo un deploy, non limitarti allo stato `active`: controlla anche log recenti e percorso utente minimo quando possibile.
-- La CI prudente parte sulle PR non draft verso `main`; release, deploy, VPS check, backup, rollback, update env e CodeQL restano manuali salvo richiesta esplicita o policy documentata.
-- Per automazione senza Actions, usa `make install-hooks` sul repo locale e il listener `docmolder-github-webhook.service` sulla VPS; il webhook privato deve verificare repository, branch e firma HMAC prima di lanciare `update-vps.sh`.
-
-## 11) Definizione di Done
-
-Una modifica è “done” se:
-- risolve la richiesta senza regressioni evidenti;
-- mantiene coerenza con architettura e convenzioni esistenti;
-- include verifiche eseguite e limiti noti;
-- controlla la `Codex feedback inbox` quando il flusso prevede PR ready, merge,
-  publish, deploy o release;
-- aggiorna documentazione o roadmap solo quando serve davvero;
-- non lascia segreti, file temporanei, dati utente o modifiche non correlate;
-- publish, release e deploy sono stati completati oppure dichiarati non applicabili con motivo;
-- branch/worktree creati per il lavoro sono stati puliti oppure il residuo è
-  dichiarato esplicitamente.
+Chiudi partendo dall’esito. Riporta file principali, fallimenti o limiti,
+rischi residui e prossimo passo solo quando ancora utile.

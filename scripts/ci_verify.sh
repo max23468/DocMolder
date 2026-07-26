@@ -7,11 +7,7 @@ if [ -x ".venv/bin/python" ]; then
 fi
 
 if command -v uv >/dev/null 2>&1; then
-  if ! uv pip compile pyproject.toml --universal --generate-hashes --no-header -o - 2>/dev/null \
-    | diff -u requirements.lock - >/dev/null; then
-    echo "requirements.lock non e' allineato a pyproject.toml: esegui 'make lock' e ricommitta." >&2
-    exit 1
-  fi
+  bash scripts/check_lock_sync.sh
 else
   echo "uv non disponibile: salto il check di sincronia di requirements.lock." >&2
 fi

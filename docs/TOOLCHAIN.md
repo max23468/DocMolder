@@ -18,7 +18,9 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 ## Package manager e lockfile
 
 - Python: `pip` dentro virtualenv.
-- Lockfile Python: non presente; le dipendenze sono vincolate in `pyproject.toml`.
+- Lockfile Python: `requirements.lock`, generato da `pyproject.toml` con hash e
+  verificato da `make lock-check` senza promuovere automaticamente versioni
+  transitive più recenti.
 - JavaScript/TypeScript: non applicabile.
 - Lockfile JS: non applicabile.
 

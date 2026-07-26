@@ -24,12 +24,14 @@ rigenera il lock e ricommittalo:
 
 ```bash
 make lock         # rigenera requirements.lock
-make lock-check   # verifica che sia allineato a pyproject.toml
+make lock-check   # verifica che il lock risolva pyproject.toml senza cambiare i pin
 ```
 
-`bash scripts/ci_verify.sh` fallisce se il lock è disallineato (quando `uv`
-è disponibile). Sul VPS `update-vps.sh` installa da `requirements.lock` con
-`--require-hashes` e poi il pacchetto in editable con `--no-deps`.
+`bash scripts/ci_verify.sh` fallisce se dipendenze, versioni o hash del lock
+sono incompatibili con `pyproject.toml` (quando `uv` è disponibile); le sole
+annotazioni `# via` non contano come drift. Sul VPS `update-vps.sh` installa da
+`requirements.lock` con `--require-hashes` e poi il pacchetto in editable con
+`--no-deps`.
 
 2. Crea `.env`:
 

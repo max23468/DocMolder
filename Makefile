@@ -15,7 +15,7 @@ lock:
 	uv pip compile pyproject.toml --universal --generate-hashes --no-header -o requirements.lock
 
 lock-check:
-	uv pip compile pyproject.toml --universal --generate-hashes --no-header -o - | diff -u requirements.lock -
+	bash scripts/check_lock_sync.sh
 
 run:
 	$(VENV)/bin/docmolder

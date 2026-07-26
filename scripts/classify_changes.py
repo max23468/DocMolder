@@ -190,8 +190,8 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
     dependency_changed = pyproject_dependency_review_changed(git_range, paths, staged=staged, working_tree=working_tree)
     if version_changed:
         release_owned.append("pyproject.toml version")
-        if dependency_changed:
-            release_owned.append("pyproject.toml non-version")
+    if dependency_changed:
+        release_owned.append("pyproject.toml non-version")
 
     docs_only = bool(paths) and len(docs) == len(paths)
     tests_only = bool(paths) and len(tests) == len(paths)
