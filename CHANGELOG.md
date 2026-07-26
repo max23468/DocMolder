@@ -8,6 +8,12 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.10](https://github.com/max23468/DocMolder/compare/v2.0.9...v2.0.10) (2026-07-26)
+
+### Correzioni
+
+* **release:** impedisce di riproporre una versione già presente su `main` anche quando il tag non è ancora stato creato ([582fa7b](https://github.com/max23468/DocMolder/commit/582fa7bb3a5392898aa72ae69fbe92c33bda2bc8))
+
 ## [2.0.9](https://github.com/max23468/DocMolder/compare/v2.0.8...v2.0.9) (2026-07-26)
 
 ### Correzioni
