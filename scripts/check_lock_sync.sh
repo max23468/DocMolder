@@ -9,7 +9,7 @@ fi
 lock_check_dir="$(mktemp -d)"
 trap 'rm -rf "${lock_check_dir}"' EXIT
 
-uv pip compile pyproject.toml --universal --generate-hashes --no-header \
+uv pip compile pyproject.toml --universal --python-version 3.11 --generate-hashes --no-header \
   --constraint requirements.lock \
   -o "${lock_check_dir}/candidate.lock" >/dev/null
 

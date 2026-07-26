@@ -204,10 +204,14 @@ fi
 
     def test_fast_gate_installs_uv_and_checks_lock(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+        makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+        lock_check = (ROOT / "scripts" / "check_lock_sync.sh").read_text(encoding="utf-8")
 
         self.assertIn("pipx install uv==0.11.32", workflow)
         self.assertIn("make lock-check", workflow)
         self.assertEqual(workflow.count("bash scripts/ci_install.sh"), 3)
+        self.assertIn("--python-version 3.11", makefile)
+        self.assertIn("--python-version 3.11", lock_check)
 
     def test_publish_change_pushes_existing_direct_docs_commit(self) -> None:
         (self.repo / "docs" / "guide.md").write_text("guide\nupdated\n", encoding="utf-8")
