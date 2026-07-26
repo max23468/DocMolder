@@ -14,6 +14,7 @@ Il changelog segue un flusso orientato a GitHub:
 
 * **deploy:** richiede uno smoke funzionale prima di confermare il deploy e applica i gate completi alle modifiche di `requirements.lock` ([d07fbdd](https://github.com/max23468/DocMolder/commit/d07fbdd7cf28cc792992538d56c4a9503450d915))
 * **ops:** applica il rollback automatico se lo smoke fallisce, testa i pin del lock su tutte le versioni Python supportate e valida i metadati della release ([5ffa4ea](https://github.com/max23468/DocMolder/commit/5ffa4eacb02f86719228537db15c4c3709dc3159))
+* **ops:** completa il rollback anche sugli errori espliciti usando l’updater noto-buono e impedisce il riuso di una versione già taggata ([451736a](https://github.com/max23468/DocMolder/commit/451736a723d79716b540823cdfab94f726abe7ee))
 * **release:** consente il preflight solo alle branch release dedicate con l’allowlist esatta dei metadati di versione ([311458d](https://github.com/max23468/DocMolder/commit/311458df3e67d6d5b5fc5ebbc926030927c5322c))
 
 ## [2.0.8](https://github.com/max23468/DocMolder/compare/v2.0.7...v2.0.8) (2026-07-23)
