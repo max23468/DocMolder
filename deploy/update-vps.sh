@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
+set -euo pipefail
 
 APP_USER="docmolder"
 APP_DIR="/opt/docmolder/app"
@@ -8,7 +8,9 @@ SERVICE_NAME="docmolder"
 TARGET_REF="${1:-origin/main}"
 PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"
 ROLLBACK_ACTIVE="${DOCMOLDER_DEPLOY_ROLLBACK_ACTIVE:-0}"
+ROLLBACK_COMPLETED_STATUS=75
 ROLLBACK_ARMED=0
+ROLLBACK_SCRIPT=""
 PREVIOUS_SHA=""
 
 # Serializza ogni deploy (webhook GitHub, timer di auto-deploy, manuale) sullo
@@ -23,22 +25,24 @@ if [ "${DOCMOLDER_DEPLOY_LOCK_HELD:-0}" != "1" ]; then
   fi
 fi
 
-rollback_on_error() {
+finish_deploy() {
   local status=$?
-  trap - ERR
-  if [ "${ROLLBACK_ARMED}" != "1" ] || [ "${ROLLBACK_ACTIVE}" = "1" ] || [ -z "${PREVIOUS_SHA}" ]; then
-    exit "${status}"
-  fi
-
-  echo "[rollback] deploy fallito; ripristino ${PREVIOUS_SHA}" >&2
-  if DOCMOLDER_DEPLOY_LOCK_HELD=1 DOCMOLDER_DEPLOY_ROLLBACK_ACTIVE=1 bash "${BASH_SOURCE[0]}" "${PREVIOUS_SHA}"; then
-    echo "[rollback] ripristino completato: ${PREVIOUS_SHA}" >&2
-  else
+  trap - EXIT
+  if [ "${status}" -ne 0 ] && [ "${ROLLBACK_ARMED}" = "1" ] && [ "${ROLLBACK_ACTIVE}" != "1" ] && [ -n "${PREVIOUS_SHA}" ]; then
+    echo "[rollback] deploy fallito; ripristino ${PREVIOUS_SHA}" >&2
+    if DOCMOLDER_DEPLOY_LOCK_HELD=1 DOCMOLDER_DEPLOY_ROLLBACK_ACTIVE=1 bash "${ROLLBACK_SCRIPT}" "${PREVIOUS_SHA}"; then
+      echo "[rollback] ripristino completato: ${PREVIOUS_SHA}" >&2
+      rm -f "${ROLLBACK_SCRIPT}"
+      exit "${ROLLBACK_COMPLETED_STATUS}"
+    fi
     echo "[rollback] ripristino fallito: intervento manuale richiesto" >&2
+  fi
+  if [ -n "${ROLLBACK_SCRIPT}" ]; then
+    rm -f "${ROLLBACK_SCRIPT}"
   fi
   exit "${status}"
 }
-trap rollback_on_error ERR
+trap finish_deploy EXIT
 
 choose_python() {
   if [ -n "${PYTHON_BIN}" ]; then
@@ -124,6 +128,8 @@ sudo -u "${APP_USER}" git config --global --add safe.directory "${APP_DIR}" >/de
 
 cd "${APP_DIR}"
 PREVIOUS_SHA="$(sudo -u "${APP_USER}" git rev-parse HEAD)"
+ROLLBACK_SCRIPT="$(mktemp)"
+sudo -u "${APP_USER}" git show "${PREVIOUS_SHA}:deploy/update-vps.sh" >"${ROLLBACK_SCRIPT}"
 
 echo "[fetch]"
 sudo -u "${APP_USER}" git fetch origin

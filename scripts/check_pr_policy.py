@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 import tomllib
 from pathlib import Path
@@ -50,6 +51,20 @@ def release_version_from_branch(head_ref: str) -> str | None:
 
 def check_release_metadata(expected_version: str, root: Path = Path(".")) -> list[str]:
     errors: list[str] = []
+    tags = subprocess.run(
+        ["git", "tag", "--list", "v[0-9]*", "--sort=-v:refname"],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    latest_tag = next((tag for tag in tags.stdout.splitlines() if re.fullmatch(r"v\d+\.\d+\.\d+", tag)), None)
+    if latest_tag is not None:
+        expected = tuple(map(int, expected_version.split(".")))
+        latest = tuple(map(int, latest_tag.removeprefix("v").split(".")))
+        if expected <= latest:
+            errors.append(f"La versione {expected_version} deve essere successiva all'ultimo tag {latest_tag}.")
+
     try:
         pyproject_version = str(tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
     except (OSError, KeyError, tomllib.TOMLDecodeError) as exc:

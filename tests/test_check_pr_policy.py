@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -99,6 +100,26 @@ class CheckPrPolicyTest(unittest.TestCase):
             errors = check_pr_policy.check_release_metadata("2.0.9", root)
 
         self.assertEqual(len(errors), 3)
+
+    def test_release_version_must_follow_latest_tag(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "src/docmolder").mkdir(parents=True)
+            (root / "pyproject.toml").write_text('[project]\nversion = "2.0.9"\n', encoding="utf-8")
+            (root / "src/docmolder/__init__.py").write_text('__version__ = "2.0.9"\n', encoding="utf-8")
+            (root / "CHANGELOG.md").write_text("## [2.0.9]\n", encoding="utf-8")
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(
+                ["git", "-c", "user.name=Codex", "-c", "user.email=codex@example.invalid", "commit", "-qm", "release"],
+                cwd=root,
+                check=True,
+            )
+            subprocess.run(["git", "tag", "v2.0.9"], cwd=root, check=True)
+
+            errors = check_pr_policy.check_release_metadata("2.0.9", root)
+
+        self.assertTrue(any("ultimo tag v2.0.9" in error for error in errors))
 
 
 if __name__ == "__main__":

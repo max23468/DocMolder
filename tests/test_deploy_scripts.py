@@ -31,12 +31,15 @@ class DeployScriptsTest(unittest.TestCase):
             script.index('bash "${APP_DIR}/deploy/smoke-check.sh"'),
             script.index('echo "[revision]"'),
         )
-        self.assertIn('DOCMOLDER_DEPLOY_ROLLBACK_ACTIVE=1 bash "${BASH_SOURCE[0]}" "${PREVIOUS_SHA}"', script)
+        self.assertIn("trap finish_deploy EXIT", script)
+        self.assertIn('git show "${PREVIOUS_SHA}:deploy/update-vps.sh"', script)
+        self.assertIn('bash "${ROLLBACK_SCRIPT}" "${PREVIOUS_SHA}"', script)
+        self.assertIn('exit "${ROLLBACK_COMPLETED_STATUS}"', script)
 
     def test_autodeploy_does_not_repeat_a_completed_update_rollback(self) -> None:
         script = (ROOT / "deploy" / "docmolder-autodeploy.sh").read_text(encoding="utf-8")
 
-        self.assertIn('if [ "${current_sha}" = "${local_sha}" ]; then', script)
+        self.assertIn('if [ "${deploy_status}" = "75" ]; then', script)
         self.assertIn("rollback gia' completato da update-vps.sh", script)
 
     def test_vps_installers_prefer_python_313_without_replacing_system_python(self) -> None:
