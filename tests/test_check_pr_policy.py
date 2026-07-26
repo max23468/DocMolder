@@ -121,6 +121,26 @@ class CheckPrPolicyTest(unittest.TestCase):
 
         self.assertTrue(any("ultimo tag v2.0.9" in error for error in errors))
 
+    def test_release_version_must_follow_base_branch_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "src/docmolder").mkdir(parents=True)
+            (root / "pyproject.toml").write_text('[project]\nversion = "2.0.9"\n', encoding="utf-8")
+            (root / "src/docmolder/__init__.py").write_text('__version__ = "2.0.9"\n', encoding="utf-8")
+            (root / "CHANGELOG.md").write_text("## [2.0.9]\n", encoding="utf-8")
+            subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+            subprocess.run(["git", "add", "."], cwd=root, check=True)
+            subprocess.run(
+                ["git", "-c", "user.name=Codex", "-c", "user.email=codex@example.invalid", "commit", "-qm", "release"],
+                cwd=root,
+                check=True,
+            )
+            subprocess.run(["git", "update-ref", "refs/remotes/origin/main", "HEAD"], cwd=root, check=True)
+
+            errors = check_pr_policy.check_release_metadata("2.0.9", root)
+
+        self.assertTrue(any("versione 2.0.9 su main" in error for error in errors))
+
 
 if __name__ == "__main__":
     unittest.main()
