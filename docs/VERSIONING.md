@@ -202,11 +202,11 @@ Non usare `main` per commit manuali o push diretti. Se una modifica è urgente,
 si apre comunque una PR piccola e la si squash-mergea dopo i gate locali
 rilevanti e `CI result`.
 
-## Promozione esplicita a 1.0
+## Promozioni major
 
-DocMolder è già nella linea stabile `1.x`. La checklist storica resta in
-[ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md); nuove major seguono il
-criterio `X.0.0` sopra e il flusso della procedura release manuale documentata.
+DocMolder è nella linea stabile `2.x`. La checklist della promozione iniziale
+resta in [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md); nuove major
+seguono il criterio `X.0.0` sopra e la procedura release manuale.
 
 ## Regola pratica per gli agenti e per il maintainer
 
@@ -219,8 +219,10 @@ Per evitare i disallineamenti visti nei tentativi precedenti:
 
 Se una PR normale contiene sia codice funzionale sia modifiche ai file riservati della release, la PR è da considerare sbagliata e va corretta prima del merge.
 
-## Baseline attuale
+## Baseline storica
 
-La baseline iniziale del flusso di release e `0.1.0`, bootstrappata sul commit `cfd7271`.
+La baseline iniziale del flusso di release è `0.1.0`, bootstrappata sul commit
+`cfd7271`. La versione corrente è definita dai file release-owned e dal tag più
+recente, verificati da `publish_doctor`.
 
 Le modifiche precedenti restano consolidate nella release baseline presente in [CHANGELOG.md](../CHANGELOG.md).

@@ -1,6 +1,7 @@
-# Task Packet Codex
+# Task packet per agenti
 
-Usa questo formato quando una chat coordinatore assegna lavoro a un'altra istanza Codex o a un filone separato.
+Usa questo formato quando un agente coordinatore assegna lavoro a un altro
+agente o a un filone separato.
 
 Il packet deve essere breve, concreto e autosufficiente. Se il lavoro è ambiguo, chiarisci prima lo scope invece di delegare.
 
@@ -11,7 +12,7 @@ Il packet deve essere breve, concreto e autosufficiente. Se il lavoro è ambiguo
 <obiettivo specifico e risultato atteso>
 
 ## Contesto
-- Repo: /Users/Matteo/Documents/DocMolder
+- Repo: <root della repository>
 - Branch/worktree: <branch o worktree assegnato>
 - Area: <telegram | processing | session_store | deploy | docs | tests | altro>
 - Documenti da leggere: <docs rilevanti>

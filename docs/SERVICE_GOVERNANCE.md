@@ -29,7 +29,7 @@ Il bot e oggi:
 
 Il bot non offre storage documentale permanente: riceve file, li trasforma e restituisce l'output.
 
-## Uso pubblico 1.x
+## Uso pubblico dalla 1.x
 
 Dalla linea `1.x`, il bot può essere considerato pubblicamente utilizzabile su
 Telegram, ma con un perimetro intenzionalmente prudente:
@@ -44,9 +44,9 @@ Telegram, ma con un perimetro intenzionalmente prudente:
   `DOCMOLDER_ALLOWED_USER_IDS` o manutenzione se abuso, carico o incidenti lo
   richiedono
 
-La 1.x stabilizza il contratto attuale, non apre automaticamente una fase di
-promozione pubblica ampia. Prima di campagne, onboarding massivo o uso con dati
-sensibili ricorrenti serve ancora:
+Il contratto stabilizzato nella `1.x` resta vigente nella `2.x` e non apre
+automaticamente una fase di promozione pubblica ampia. Prima di campagne,
+onboarding massivo o uso con dati sensibili ricorrenti serve ancora:
 
 - monitoraggio operativo sufficiente a capire saturazione, errori e abuso
 
@@ -58,14 +58,14 @@ Sono già presenti:
 - preset automatici leggeri per impostazioni operative ricorrenti, cancellabili con `/reset`
 - osservabilità minima Fase 13 su utenti attivi, job/giorno, failure rate, job lenti, pruning, cancellazioni dati e soglie SQLite/VPS
 
-Scelta operativa 1.x:
+Scelta operativa corrente:
 
 - mantenere una postura di soft launch pubblico
-- tenere in pausa lo sviluppo feature dopo `docmolder-v1.5.0`, salvo bugfix,
-  priorità emerse dall'uso o decisioni esplicite
+- tenere in pausa lo sviluppo feature sulla linea `2.x`, salvo bugfix, priorità
+  emerse dall'uso o decisioni esplicite
 - mini-promozioni controllate sono possibili dopo Fase 10, mantenendo basso il volume atteso
 - valutare una promozione più ampia solo se le soglie prudenziali della Fase 13 restano sotto controllo con dati reali
-- mantenere l'italiano come lingua prodotto primaria nella 1.x iniziale
+- mantenere l'italiano come lingua prodotto primaria
 
 ## Perimetro prodotto
 

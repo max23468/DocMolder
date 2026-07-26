@@ -7,7 +7,7 @@ estesi vivono in `CHANGELOG.md`, `docs/ROADMAP_HISTORY.md`,
 
 ## Stato progetto
 
-- Fase: linea stabile `1.x`, sviluppo feature in pausa salvo bugfix, priorità
+- Fase: linea stabile `2.x`, sviluppo feature in pausa salvo bugfix, priorità
   prodotto o decisioni esplicite.
 - Versione/release: procedura release manuale documentata; tag
   `v*`, GitHub Release e documenti `VERSIONING.md` /
@@ -79,7 +79,8 @@ Fuori perimetro senza decisione esplicita:
 
 ## Stato operativo da ricordare
 
-- La roadmap operativa iniziale `1.x` è completata fino a `docmolder-v1.5.x`.
+- La release stabile corrente è `2.0.8`; la roadmap operativa iniziale `1.x`
+  resta storicizzata.
 - Il focus corrente è stabilizzazione prudente, smoke mirati e osservazione del
   soft launch.
 - Le decisioni roadmap 1.x restano in `docs/DECISIONS.md`; le fasi completate

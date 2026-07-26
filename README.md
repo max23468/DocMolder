@@ -233,7 +233,7 @@ Per il versioning, feature PR e fix PR non devono aggiornare manualmente version
 
 In sintesi, la priorità attuale è:
 
-- linea 1.x: mantenere stabile il bot pubblico Telegram-first, correggere regressioni emerse dall'uso reale e rafforzare UX pubblica, privacy, retention e osservabilità senza uscire dal perimetro di utility documentale
+- linea 2.x: mantenere stabile il bot pubblico Telegram-first, correggere regressioni emerse dall'uso reale e rafforzare UX pubblica, privacy, retention e osservabilità senza uscire dal perimetro di utility documentale
 
 ## Gerarchia comandi Telegram
 

@@ -132,11 +132,11 @@ Se la motivazione è solo "abbiamo accumulato abbastanza feature", resta una
 minor release. Se il cambio è solo interno e compatibile, resta patch/minor
 secondo il tipo Conventional Commit.
 
-### Promozione 1.0
+### Promozione e major
 
-DocMolder è già nella linea stabile `1.x`. Le note storiche e la checklist
-restano in [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md); nuove major
- seguono la regola `X.0.0` sopra e il flusso manuale con la procedura release manuale documentata.
+DocMolder è nella linea stabile `2.x`. Le note sulla promozione iniziale
+restano in [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md); le nuove
+major seguono la regola `X.0.0` sopra e la procedura release manuale.
 
 ## Verifica locale
 

@@ -6,7 +6,7 @@ Questo file raccoglie decisioni architetturali e di prodotto già prese, in form
 
 - [ADR puntuali e basename Markdown](#adr-puntuali-e-basename-markdown)
 - [Perimetro prodotto: utility documentale chat-first](#perimetro-prodotto-utility-documentale-chat-first)
-- [Roadmap 1.x: soft launch prima, feature dopo](#roadmap-1x-soft-launch-prima-feature-dopo)
+- [Soft launch prima, feature dopo](#soft-launch-prima-feature-dopo)
 - [Polling invece di webhook pubblici](#polling-invece-di-webhook-pubblici)
 - [Webhook privato per deploy e hook locali](#webhook-privato-per-deploy-e-hook-locali)
 - [Inbox event-driven per commenti Codex](#inbox-event-driven-per-commenti-codex)
@@ -55,18 +55,21 @@ Conseguenze:
 - la roadmap deve essere letta dentro questo perimetro: meglio poche evoluzioni coerenti che accumulo di funzioni eterogenee
 - salvo decisione esplicita futura, consideriamo `bloat` o `too much` tutte le proposte che spingono il prodotto verso editor PDF generalista, piattaforma documentale ampia o assistente conversazionale troppo aperto
 
-## Roadmap 1.x: soft launch prima, feature dopo
+## Soft launch prima, feature dopo
 
 Decisione:
-- la linea `1.x` resta in soft launch pubblico: il bot è raggiungibile, ma non viene spinto con promozione ampia prima di privacy/retention, UX trust e osservabilità minima
-- la lingua prodotto resta italiano-first nella 1.x iniziale
+- dalla linea `1.x` il bot resta in soft launch pubblico: è raggiungibile, ma
+  non viene spinto con promozione ampia senza evidenza operativa sufficiente;
+  questa postura resta valida nella linea `2.x`
+- la lingua prodotto resta italiano-first
 - le prime feature dopo il consolidamento sono preset e automazioni leggere, non nuove superfici web/API o OCR esteso
 - `/admin` resta il centro di diagnosi rapida, mentre shell e runbook restano il percorso per gli interventi operativi veri
 
 Motivazione:
 - il bot è già pubblico, quindi la priorità è rendere chiari dati, limiti e cancellazione prima di aumentare esposizione
 - preset e automazioni leggere riducono attrito sui flussi esistenti senza allargare troppo il perimetro
-- OCR, API pubbliche e web app creerebbero aspettative e complessità non coerenti con la fase iniziale della 1.x
+- OCR, API pubbliche e web app creerebbero aspettative e complessità non
+  coerenti con il perimetro prudente del servizio
 
 Conseguenze:
 - Fase 9 ha chiuso retention live, pruning e cancellazione completa self-service dentro `/reset`

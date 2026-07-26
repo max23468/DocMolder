@@ -1,14 +1,14 @@
-# Prompt Operativi Codex
+# Prompt operativi per agenti
 
-Prompt riutilizzabili per lavorare con Codex e filoni paralleli su DocMolder.
+Prompt riutilizzabili con agenti di coding e filoni paralleli su DocMolder.
 
 Sostituisci i placeholder tra `<...>` prima di usarli.
 
 ## Esplorazione codice
 
 ```text
-Repo: /Users/Matteo/Documents/DocMolder.
-Leggi AGENTS.md. Esplora solo <area/moduli>.
+Lavora dalla root della repository DocMolder.
+Leggi `AGENTS.md`. Esplora solo <area/moduli>.
 Obiettivo: rispondere a <domanda concreta>.
 Non modificare file. Riporta evidenze con path e funzioni rilevanti, rischi e test suggeriti.
 ```
@@ -16,8 +16,8 @@ Non modificare file. Riporta evidenze con path e funzioni rilevanti, rischi e te
 ## Implementazione circoscritta
 
 ```text
-Repo: /Users/Matteo/Documents/DocMolder.
-Leggi AGENTS.md, docs/CONTEXT.md e docs/DECISIONS.md.
+Lavora dalla root della repository DocMolder.
+Leggi `AGENTS.md`, `docs/CONTEXT.md` e `docs/DECISIONS.md`.
 Task: <obiettivo>.
 Ownership: puoi modificare solo <file/moduli>. Non toccare <file/moduli esclusi>.
 Implementa direttamente, segui le convenzioni esistenti, non introdurre dipendenze.
@@ -27,7 +27,7 @@ Esegui <test/check richiesti>. Handoff finale: file toccati, comportamento cambi
 ## Test mirati
 
 ```text
-Repo: /Users/Matteo/Documents/DocMolder.
+Lavora dalla root della repository DocMolder.
 Verifica <comportamento/flusso> senza refactor non richiesti.
 Puoi modificare solo <test file> e, se indispensabile, <file sorgente assegnati>.
 Esegui i test mirati e riporta output essenziale, failure e rischio residuo.
@@ -36,7 +36,7 @@ Esegui i test mirati e riporta output essenziale, failure e rischio residuo.
 ## Review del diff
 
 ```text
-Repo: /Users/Matteo/Documents/DocMolder.
+Lavora dalla root della repository DocMolder.
 Fai review del diff corrente con stance da code review: bug, regressioni, rischi dati utente, test mancanti.
 Non modificare file.
 Ordina i findings per severità e cita file/linea. Se non trovi problemi, dichiaralo e indica eventuali test gap.
@@ -45,7 +45,7 @@ Ordina i findings per severità e cita file/linea. Se non trovi problemi, dichia
 ## Deploy impact
 
 ```text
-Repo: /Users/Matteo/Documents/DocMolder.
+Lavora dalla root della repository DocMolder.
 Valuta solo impatto deploy/release del diff corrente.
 Leggi docs/VERSIONING.md, docs/RELEASE_PROCESS.md e docs/VPS_RUNBOOK.md.
 Riporta: deploy relevant sì/no, release type consigliato, check pre-merge, check post-deploy, rischi residui.
@@ -55,7 +55,7 @@ Non modificare file.
 ## GitHub manutenzione e release
 
 ```text
-Repo: /Users/Matteo/Documents/DocMolder.
+Lavora dalla root della repository DocMolder.
 Esegui make github-maintenance e interpreta il report.
 Concentrati solo su PR aperte, PR legate al rilascio, PR Dependabot, alert Dependabot leggibili e run Actions fallite recenti.
 Non modificare file senza un task separato; riporta priorità, rischio e prossimo passo.
@@ -64,7 +64,7 @@ Non modificare file senza un task separato; riporta priorità, rischio e prossim
 ## Observability operations
 
 ```text
-Repo: /Users/Matteo/Documents/DocMolder.
+Lavora dalla root della repository DocMolder.
 Esegui make ops-report o, su VPS, python /opt/docmolder/app/scripts/ops_report.py --check-service.
 Interpreta health, systemd, backup, runtime, job e prossime azioni.
 Non eseguire deploy, restart, restore o comandi sudo distruttivi senza consenso esplicito.

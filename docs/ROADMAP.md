@@ -7,7 +7,7 @@ Questa roadmap raccoglie direzione, priorità e prossimi passi correnti di
 
 ## Ora
 
-- Tenere lo sviluppo feature in pausa dopo la linea `1.x` iniziale completata.
+- Tenere lo sviluppo feature in pausa sulla linea stabile `2.x`.
 - Concentrarsi su stabilizzazione prudente, osservazione del soft launch e
   manutenzione ordinaria.
 - Monitorare `/admin`, healthcheck, log recenti, alert Telegram admin e soglie
@@ -37,7 +37,8 @@ Questa roadmap raccoglie direzione, priorità e prossimi passi correnti di
 
 - La readiness `1.0.0` è chiusa e documentata in
   [`ONE_DOT_ZERO_READINESS.md`](./ONE_DOT_ZERO_READINESS.md).
-- La roadmap 1.x iniziale è completata fino a `docmolder-v1.5.0`.
+- La roadmap iniziale `1.x` è completata e la baseline stabile corrente è
+  `2.0.8`.
 - Sono chiusi i blocchi privacy/retention, UX trust, preset leggeri, qualità
   output/scansioni e osservabilità prudente.
 
