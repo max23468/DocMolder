@@ -9,6 +9,13 @@ from unittest.mock import patch
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "scripts" / "publish_doctor.py"
+POLICY_PATH = MODULE_PATH.with_name("check_pr_policy.py")
+POLICY_SPEC = importlib.util.spec_from_file_location("check_pr_policy", POLICY_PATH)
+assert POLICY_SPEC is not None
+check_pr_policy = importlib.util.module_from_spec(POLICY_SPEC)
+sys.modules["check_pr_policy"] = check_pr_policy
+assert POLICY_SPEC.loader is not None
+POLICY_SPEC.loader.exec_module(check_pr_policy)
 SPEC = importlib.util.spec_from_file_location("publish_doctor", MODULE_PATH)
 assert SPEC is not None
 publish_doctor = importlib.util.module_from_spec(SPEC)
@@ -78,7 +85,34 @@ class PublishDoctorTest(unittest.TestCase):
         )
 
         self.assertTrue(details["release_owned"])
-        self.assertTrue(any(issue.level == "blocker" and "flusso di release" in issue.message for issue in issues))
+        self.assertTrue(any(issue.level == "blocker" and "release-owned" in issue.message for issue in issues))
+
+    def test_release_owned_files_allow_valid_release_branch(self) -> None:
+        impact = {
+            "changed_count": 3,
+            "changed_files": ["CHANGELOG.md", "pyproject.toml", "src/docmolder/__init__.py"],
+            "recommended_release_type": "chore",
+            "deploy_relevant": True,
+            "release_owned": True,
+            "release_owned_files": ["CHANGELOG.md", "pyproject.toml version", "src/docmolder/__init__.py"],
+        }
+        with (
+            patch.object(publish_doctor, "current_branch", return_value="codex/release-docmolder-2.0.9"),
+            patch.object(publish_doctor, "current_sha", return_value="abc123"),
+            patch.object(publish_doctor, "ref_exists", return_value=True),
+            patch.object(publish_doctor, "rev_counts", return_value=(1, 0)),
+            patch.object(publish_doctor, "changed_files", return_value=[]),
+            patch.object(publish_doctor, "classify", return_value=impact),
+            patch.object(publish_doctor, "check_release_metadata", return_value=[]),
+        ):
+            issues, _details = publish_doctor.collect_report(
+                base_branch="main",
+                skip_fetch=True,
+                skip_github=True,
+            )
+
+        self.assertFalse([issue for issue in issues if issue.level == "blocker"])
+        self.assertTrue(any("Scope release 2.0.9 valido" in issue.message for issue in issues))
 
     def test_main_branch_allows_docs_only_shortcut(self) -> None:
         impact = {

@@ -42,6 +42,11 @@ if bash "${UPDATE_SCRIPT}" "origin/${BRANCH}"; then
 fi
 
 log "DEPLOY FALLITO per ${remote_sha}; rollback a ${local_sha}..." >&2
+current_sha="$(sudo -u "${APP_USER}" git rev-parse HEAD)"
+if [ "${current_sha}" = "${local_sha}" ]; then
+  log "rollback gia' completato da update-vps.sh -> ${local_sha}" >&2
+  exit 1
+fi
 if bash "${UPDATE_SCRIPT}" "${local_sha}"; then
   log "rollback OK -> ${local_sha} (nuovo commit ${remote_sha} NON applicato)" >&2
 else

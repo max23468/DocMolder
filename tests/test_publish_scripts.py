@@ -51,6 +51,7 @@ class PublishScriptsTest(unittest.TestCase):
         (self.repo / "docs").mkdir()
         (self.repo / "src").mkdir()
         (self.repo / "AGENTS.md").write_text("agents\n", encoding="utf-8")
+        (self.repo / ".gitignore").write_text("__pycache__/\n*.pyc\n", encoding="utf-8")
         (self.repo / "README.md").write_text("readme\n", encoding="utf-8")
         (self.repo / "pyproject.toml").write_text('[project]\nversion = "0.1.0"\n', encoding="utf-8")
         (self.repo / "docs" / "guide.md").write_text("guide\n", encoding="utf-8")
@@ -94,7 +95,7 @@ class PublishScriptsTest(unittest.TestCase):
 
     def test_preflight_allows_dedicated_release_scope(self) -> None:
         run(["git", "switch", "-c", "codex/release-docmolder-0.2.0"], self.repo)
-        (self.repo / "CHANGELOG.md").write_text("release 0.2.0\n", encoding="utf-8")
+        (self.repo / "CHANGELOG.md").write_text("## [0.2.0]\n", encoding="utf-8")
         (self.repo / "pyproject.toml").write_text('[project]\nversion = "0.2.0"\n', encoding="utf-8")
         package_dir = self.repo / "src" / "docmolder"
         package_dir.mkdir()
@@ -204,8 +205,9 @@ fi
     def test_fast_gate_installs_uv_and_checks_lock(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
 
-        self.assertIn("pipx install uv", workflow)
+        self.assertIn("pipx install uv==0.11.32", workflow)
         self.assertIn("make lock-check", workflow)
+        self.assertEqual(workflow.count("bash scripts/ci_install.sh"), 3)
 
     def test_publish_change_pushes_existing_direct_docs_commit(self) -> None:
         (self.repo / "docs" / "guide.md").write_text("guide\nupdated\n", encoding="utf-8")

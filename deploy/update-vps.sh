@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 
 APP_USER="docmolder"
 APP_DIR="/opt/docmolder/app"
@@ -7,16 +7,38 @@ VENV_DIR="/opt/docmolder/venv"
 SERVICE_NAME="docmolder"
 TARGET_REF="${1:-origin/main}"
 PYTHON_BIN="${DOCMOLDER_PYTHON_BIN:-}"
+ROLLBACK_ACTIVE="${DOCMOLDER_DEPLOY_ROLLBACK_ACTIVE:-0}"
+ROLLBACK_ARMED=0
+PREVIOUS_SHA=""
 
 # Serializza ogni deploy (webhook GitHub, timer di auto-deploy, manuale) sullo
 # stesso lock: evita due `git reset --hard` + pip install + restart concorrenti.
 # Attesa fino a 30 min, poi esce senza deployare (il chiamante ritentera').
 DEPLOY_LOCK="${DOCMOLDER_DEPLOY_LOCK:-/run/docmolder-update-vps.lock}"
-exec 9>"${DEPLOY_LOCK}"
-if ! flock -w 1800 9; then
-  echo "[update-vps] un altro deploy e' in corso da oltre 30 min; esco." >&2
-  exit 1
+if [ "${DOCMOLDER_DEPLOY_LOCK_HELD:-0}" != "1" ]; then
+  exec 9>"${DEPLOY_LOCK}"
+  if ! flock -w 1800 9; then
+    echo "[update-vps] un altro deploy e' in corso da oltre 30 min; esco." >&2
+    exit 1
+  fi
 fi
+
+rollback_on_error() {
+  local status=$?
+  trap - ERR
+  if [ "${ROLLBACK_ARMED}" != "1" ] || [ "${ROLLBACK_ACTIVE}" = "1" ] || [ -z "${PREVIOUS_SHA}" ]; then
+    exit "${status}"
+  fi
+
+  echo "[rollback] deploy fallito; ripristino ${PREVIOUS_SHA}" >&2
+  if DOCMOLDER_DEPLOY_LOCK_HELD=1 DOCMOLDER_DEPLOY_ROLLBACK_ACTIVE=1 bash "${BASH_SOURCE[0]}" "${PREVIOUS_SHA}"; then
+    echo "[rollback] ripristino completato: ${PREVIOUS_SHA}" >&2
+  else
+    echo "[rollback] ripristino fallito: intervento manuale richiesto" >&2
+  fi
+  exit "${status}"
+}
+trap rollback_on_error ERR
 
 choose_python() {
   if [ -n "${PYTHON_BIN}" ]; then
@@ -101,11 +123,13 @@ ensure_excel_system_dependencies() {
 sudo -u "${APP_USER}" git config --global --add safe.directory "${APP_DIR}" >/dev/null 2>&1 || true
 
 cd "${APP_DIR}"
+PREVIOUS_SHA="$(sudo -u "${APP_USER}" git rev-parse HEAD)"
 
 echo "[fetch]"
 sudo -u "${APP_USER}" git fetch origin
 
 echo "[reset]"
+ROLLBACK_ARMED=1
 sudo -u "${APP_USER}" git reset --hard "${TARGET_REF}"
 
 echo "[install]"
