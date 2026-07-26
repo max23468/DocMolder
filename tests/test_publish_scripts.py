@@ -119,6 +119,7 @@ class PublishScriptsTest(unittest.TestCase):
 
         self.assertTrue(report["dependency_review_required"])
         self.assertIn("pyproject.toml", report["dependency_files"])
+        self.assertIn("pyproject.toml non-version", report["release_owned_files"])
 
     def test_classify_marks_mixed_release_metadata_and_dependency_changes(self) -> None:
         run(["git", "switch", "-c", "codex/release-with-dependency"], self.repo)
