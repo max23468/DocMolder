@@ -4,13 +4,15 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import tomllib
+from pathlib import Path
 
 
 CONVENTIONAL_TITLE_RE = re.compile(
     r"^(feat|fix|deps|docs|refactor|test|chore|build|ci)(\([a-z0-9._-]+\))?!?: .+"
 )
 RELEASE_TITLE_RE = re.compile(r"^chore\(release\): v\d+\.\d+\.\d+$")
-RELEASE_BRANCH_RE = re.compile(r"^codex/release-docmolder-\d+\.\d+\.\d+$")
+RELEASE_BRANCH_RE = re.compile(r"^codex/release-docmolder-(?P<version>\d+\.\d+\.\d+)$")
 RELEASE_OWNED_PATHS = frozenset(
     {
         "CHANGELOG.md",
@@ -39,6 +41,40 @@ def is_release_title(title: str) -> bool:
 
 def is_release_branch(head_ref: str) -> bool:
     return bool(RELEASE_BRANCH_RE.match(head_ref.strip()))
+
+
+def release_version_from_branch(head_ref: str) -> str | None:
+    match = RELEASE_BRANCH_RE.match(head_ref.strip())
+    return match.group("version") if match else None
+
+
+def check_release_metadata(expected_version: str, root: Path = Path(".")) -> list[str]:
+    errors: list[str] = []
+    try:
+        pyproject_version = str(tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
+    except (OSError, KeyError, tomllib.TOMLDecodeError) as exc:
+        errors.append(f"Impossibile leggere la versione da pyproject.toml: {exc}")
+    else:
+        if pyproject_version != expected_version:
+            errors.append(f"pyproject.toml dichiara {pyproject_version}, atteso {expected_version}.")
+
+    try:
+        init_text = (root / "src/docmolder/__init__.py").read_text(encoding="utf-8")
+    except OSError as exc:
+        errors.append(f"Impossibile leggere src/docmolder/__init__.py: {exc}")
+    else:
+        match = re.search(r'^__version__\s*=\s*"([^"]+)"', init_text, re.MULTILINE)
+        if match is None or match.group(1) != expected_version:
+            errors.append(f"src/docmolder/__init__.py non dichiara {expected_version}.")
+
+    try:
+        changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    except OSError as exc:
+        errors.append(f"Impossibile leggere CHANGELOG.md: {exc}")
+    else:
+        if re.search(rf"^## \[{re.escape(expected_version)}\]", changelog, re.MULTILINE) is None:
+            errors.append(f"CHANGELOG.md non contiene la sezione {expected_version}.")
+    return errors
 
 
 def check_pr_policy(
@@ -111,6 +147,10 @@ def main() -> int:
         release_owned_files=release_owned_files,
         changed_files=changed_files,
     )
+    if args.release_owned:
+        expected_version = release_version_from_branch(args.head_ref)
+        if expected_version is not None:
+            errors.extend(check_release_metadata(expected_version))
     if errors:
         for error in errors:
             print(f"::error::{error}", file=sys.stderr)

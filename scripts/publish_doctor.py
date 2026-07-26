@@ -9,6 +9,9 @@ import sys
 from dataclasses import dataclass
 
 
+from check_pr_policy import check_pr_policy, check_release_metadata, release_version_from_branch
+
+
 @dataclass(frozen=True)
 class Issue:
     level: str
@@ -197,13 +200,21 @@ def collect_report(*, base_branch: str, skip_fetch: bool, skip_github: bool) -> 
         elif protected_branch:
             add_issue(issues, "blocker", f"Sei su {branch}: pubblica da una branch dedicata.")
         if impact.get("release_owned"):
-            files = ", ".join(str(path) for path in impact.get("release_owned_files", []))
-            add_issue(
-                issues,
-                "blocker",
-                f"Il diff tocca file riservati al flusso di release: {files}. "
-                "Usa il percorso di rilascio previsto, non una PR funzionale.",
+            expected_version = release_version_from_branch(branch)
+            release_errors = check_pr_policy(
+                title=f"chore(release): v{expected_version}" if expected_version else "",
+                head_ref=branch,
+                release_owned=True,
+                release_owned_files=tuple(str(path) for path in impact.get("release_owned_files", [])),
+                changed_files=tuple(str(path) for path in impact.get("changed_files", [])),
             )
+            if expected_version is not None:
+                release_errors.extend(check_release_metadata(expected_version))
+            if release_errors:
+                for error in release_errors:
+                    add_issue(issues, "blocker", error)
+            else:
+                add_issue(issues, "notice", f"Scope release {expected_version} valido.")
         if impact.get("deploy_relevant"):
             add_issue(issues, "notice", "Il merge attivera Deploy VPS: verifica che sia davvero atteso.")
         if not impact.get("changed_count") and not ahead:

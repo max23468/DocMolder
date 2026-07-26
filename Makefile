@@ -12,7 +12,7 @@ setup:
 	$(PIP) install -e ".[dev]"
 
 lock:
-	uv pip compile pyproject.toml --universal --generate-hashes --no-header -o requirements.lock
+	uv pip compile pyproject.toml --universal --python-version 3.11 --generate-hashes --no-header -o requirements.lock
 
 lock-check:
 	bash scripts/check_lock_sync.sh
