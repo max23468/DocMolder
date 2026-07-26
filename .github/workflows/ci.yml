@@ -130,6 +130,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install uv
+        run: pipx install uv
+
+      - name: Verify dependency lock
+        run: make lock-check
+
       - name: Run static workflow and script checks
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}

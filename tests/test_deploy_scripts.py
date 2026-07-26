@@ -24,6 +24,14 @@ class DeployScriptsTest(unittest.TestCase):
         self.assertIn('DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER="${DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER:-}"', script)
         self.assertIn('bash "${APP_DIR}/deploy/install-github-webhook.sh"', script)
 
+    def test_update_vps_requires_smoke_check_before_recording_revision(self) -> None:
+        script = (ROOT / "deploy" / "update-vps.sh").read_text(encoding="utf-8")
+
+        self.assertLess(
+            script.index('bash "${APP_DIR}/deploy/smoke-check.sh"'),
+            script.index('echo "[revision]"'),
+        )
+
     def test_vps_installers_prefer_python_313_without_replacing_system_python(self) -> None:
         install_script = (ROOT / "deploy" / "install-vps.sh").read_text(encoding="utf-8")
         update_script = (ROOT / "deploy" / "update-vps.sh").read_text(encoding="utf-8")
