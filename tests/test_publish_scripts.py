@@ -37,6 +37,7 @@ class PublishScriptsTest(unittest.TestCase):
         scripts_dir.mkdir()
         for name in (
             "check_codex_bot_comments.py",
+            "check_lock_sync.sh",
             "classify_changes.py",
             "current_failed_runs.py",
             "generate_pr_body.py",
@@ -120,6 +121,7 @@ class PublishScriptsTest(unittest.TestCase):
         self.assertTrue(report["dependency_review_required"])
         self.assertIn("pyproject.toml", report["dependency_files"])
         self.assertIn("pyproject.toml non-version", report["release_owned_files"])
+        self.assertFalse(report["release_owned"])
 
     def test_classify_marks_mixed_release_metadata_and_dependency_changes(self) -> None:
         run(["git", "switch", "-c", "codex/release-with-dependency"], self.repo)
@@ -135,6 +137,40 @@ class PublishScriptsTest(unittest.TestCase):
         report = json.loads(result.stdout)
 
         self.assertIn("pyproject.toml non-version", report["release_owned_files"])
+        self.assertTrue(report["release_owned"])
+
+    def test_lock_check_rejects_corrupted_hashes(self) -> None:
+        (self.repo / "requirements.lock").write_text(
+            "demo==1.0 --hash=sha256:corrupt\n",
+            encoding="utf-8",
+        )
+        bin_dir = self.root / "uv-bin"
+        bin_dir.mkdir()
+        fake_uv = bin_dir / "uv"
+        fake_uv.write_text(
+            """#!/usr/bin/env bash
+set -euo pipefail
+output=""
+while [ "$#" -gt 0 ]; do
+  if [ "$1" = "-o" ]; then
+    output="$2"
+    break
+  fi
+  shift
+done
+if [ ! -e "$output" ]; then
+  printf '%s\\n' 'demo==1.0 --hash=sha256:valid' >"$output"
+fi
+""",
+            encoding="utf-8",
+        )
+        fake_uv.chmod(0o755)
+        env = os.environ.copy()
+        env["PATH"] = f"{bin_dir}:{env['PATH']}"
+
+        result = run(["bash", "scripts/check_lock_sync.sh"], self.repo, check=False, env=env)
+
+        self.assertNotEqual(result.returncode, 0)
 
     def test_publish_change_pushes_existing_direct_docs_commit(self) -> None:
         (self.repo / "docs" / "guide.md").write_text("guide\nupdated\n", encoding="utf-8")

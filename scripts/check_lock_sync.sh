@@ -9,8 +9,8 @@ fi
 lock_check_dir="$(mktemp -d)"
 trap 'rm -rf "${lock_check_dir}"' EXIT
 
-cp requirements.lock "${lock_check_dir}/candidate.lock"
 uv pip compile pyproject.toml --universal --generate-hashes --no-header \
+  --constraint requirements.lock \
   -o "${lock_check_dir}/candidate.lock" >/dev/null
 
 sed '/^[[:space:]]*#/d' requirements.lock >"${lock_check_dir}/current.normalized"

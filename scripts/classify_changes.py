@@ -190,6 +190,7 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
     dependency_changed = pyproject_dependency_review_changed(git_range, paths, staged=staged, working_tree=working_tree)
     if version_changed:
         release_owned.append("pyproject.toml version")
+    release_scope_present = bool(release_owned)
     if dependency_changed:
         release_owned.append("pyproject.toml non-version")
 
@@ -226,7 +227,7 @@ def classify(paths: list[str], git_range: GitRange, *, staged: bool, working_tre
         "dependency_relevant": bool(dependency_review_files),
         "dependency_files": sorted(dependency_review_files),
         "ops_only": ops_only,
-        "release_owned": bool(release_owned),
+        "release_owned": release_scope_present,
         "release_owned_files": sorted(set(release_owned)),
         "no_runtime_impact": no_runtime_impact,
         "full_tests_required": full_tests_required,
