@@ -9,7 +9,7 @@
 # al lock condiviso). Se il deploy fallisce, fa ROLLBACK al commit precedente.
 #
 # update-vps.sh esegue git reset --hard + pip install + restart e verifica che i
-# servizi siano attivi: la sua uscita non-zero e' il gate che innesca il rollback.
+# lo smoke funzionale: la sua uscita non-zero e' il gate che innesca il rollback.
 set -euo pipefail
 
 APP_DIR="${DOCMOLDER_APP_DIR:-/opt/docmolder/app}"
@@ -39,11 +39,12 @@ log "checkout indietro: deployato ${local_sha}, origin/${BRANCH} ${remote_sha}; 
 if bash "${UPDATE_SCRIPT}" "origin/${BRANCH}"; then
   log "deploy OK -> ${remote_sha}"
   exit 0
+else
+  deploy_status=$?
 fi
 
 log "DEPLOY FALLITO per ${remote_sha}; rollback a ${local_sha}..." >&2
-current_sha="$(sudo -u "${APP_USER}" git rev-parse HEAD)"
-if [ "${current_sha}" = "${local_sha}" ]; then
+if [ "${deploy_status}" = "75" ]; then
   log "rollback gia' completato da update-vps.sh -> ${local_sha}" >&2
   exit 1
 fi
