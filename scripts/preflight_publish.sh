@@ -19,6 +19,8 @@ fi
 
 impact_env="$("${PYTHON_BIN}" "${classify_args[@]}" --format env)"
 release_owned="$(printf '%s\n' "${impact_env}" | awk -F= '/DOCMOLDER_RELEASE_OWNED=/{print $2}')"
+release_owned_files="$(printf '%s\n' "${impact_env}" | awk -F= '/DOCMOLDER_RELEASE_OWNED_FILES=/{print $2}')"
+changed_files="$(printf '%s\n' "${impact_env}" | awk -F= '/DOCMOLDER_CHANGED_FILES=/{print $2}')"
 docs_only="$(printf '%s\n' "${impact_env}" | awk -F= '/DOCMOLDER_DOCS_ONLY=/{print $2}')"
 
 docs_path_allowed() {
@@ -76,9 +78,14 @@ else
 fi
 
 if [ "${release_owned}" = "true" ]; then
-  echo "Errore: il diff tocca file riservati al flusso di release." >&2
-  echo "Rimuovi eventuali bump/version/changelog manuali e applica il flusso release previsto dal repository." >&2
-  exit 1
+  release_version="${branch#codex/release-docmolder-}"
+  "${PYTHON_BIN}" scripts/check_pr_policy.py \
+    --title "chore(release): v${release_version}" \
+    --head-ref "${branch}" \
+    --release-owned "${release_owned}" \
+    --release-owned-files "${release_owned_files}" \
+    --changed-files "${changed_files}"
+  echo "Preflight: scope release dedicato valido."
 fi
 
 echo "Preflight publish OK."
