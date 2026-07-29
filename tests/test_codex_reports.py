@@ -120,20 +120,35 @@ class CodexReportsTest(unittest.TestCase):
 
         self.assertEqual([item["number"] for item in report["release_prs"]], [1, 3, 4])
 
+    def test_github_maintenance_report_strips_terminal_controls(self) -> None:
+        rendered = github_maintenance_report.print_pr(
+            {"number": 7, "title": "fix: ok\x1b[2J", "isDraft": False, "url": "https://example.invalid"}
+        )
+
+        self.assertNotIn("\x1b", rendered)
+
     def test_codex_feedback_inbox_workflow_uses_shared_inbox_contract(self) -> None:
         workflow = ROOT / ".github" / "workflows" / "codex-pr-comments.yml"
         handler = ROOT / ".github" / "scripts" / "handle-codex-pr-comments.mjs"
 
         self.assertIn("pull_request_target:", workflow.read_text(encoding="utf-8"))
         handler_text = handler.read_text(encoding="utf-8")
+        self.assertIn('new Set(["chatgpt-codex-connector", "chatgpt-codex-connector[bot]"])', handler_text)
         self.assertIn("CODEX_INBOX_MARKER", handler_text)
         self.assertIn("normalizeInboxMarkerName(repositoryName)", handler_text)
         self.assertIn("automaticPrComments: false", handler_text)
         self.assertNotIn("codex-feedback-request", handler_text)
         workflow_text = workflow.read_text(encoding="utf-8")
-        self.assertIn("PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}", workflow_text)
-        self.assertIn('git check-ref-format --branch "${PR_HEAD_REF}"', workflow_text)
-        self.assertNotIn("${{ github.event.pull_request.head.ref }}\"; then", workflow_text)
+        self.assertNotIn("github.event.pull_request.head", workflow_text)
+        self.assertIn("github.event.comment.author_association", workflow_text)
+
+    def test_dependabot_major_updates_require_manual_review(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "dependabot-auto-merge.yml").read_text(encoding="utf-8")
+        dependabot = (ROOT / ".github" / "dependabot.yml").read_text(encoding="utf-8")
+
+        self.assertIn('UPDATE_TYPE}" = "version-update:semver-major"', workflow)
+        self.assertEqual(dependabot.count('          - "major"'), 0)
+        self.assertEqual(dependabot.count('          - "minor"'), 2)
 
     def test_ops_next_actions_warns_when_health_missing(self) -> None:
         actions = ops_report.next_actions({"health": None})
@@ -209,12 +224,43 @@ class CodexReportsTest(unittest.TestCase):
         comments = check_codex_bot_comments.find_bot_comments(
             payload,
             rest_comments,
+            [],
             head_oid="head",
             include_resolved=False,
             include_outdated=False,
         )
 
         self.assertEqual(comments, [])
+
+    def test_paginated_rest_pr_comments_cover_graphql_page_limit(self) -> None:
+        payload = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {"nodes": []},
+                        "comments": {"nodes": []},
+                    }
+                }
+            }
+        }
+        rest_pr_comments = [
+            {
+                "user": {"login": "chatgpt-codex-connector"},
+                "body": "feedback oltre il limite GraphQL",
+                "html_url": "https://example.invalid/pr-comment",
+            }
+        ]
+
+        comments = check_codex_bot_comments.find_bot_comments(
+            payload,
+            [],
+            rest_pr_comments,
+            head_oid="head",
+            include_resolved=False,
+            include_outdated=False,
+        )
+
+        self.assertEqual([comment.source for comment in comments], ["rest-pr-comment"])
 
     def test_check_codex_bot_comments_reports_repo_lookup_failures_as_errors(self) -> None:
         with (

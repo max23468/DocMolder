@@ -117,6 +117,7 @@ fi
 
 sudo mkdir -p "${APP_ROOT}" "${ENV_DIR}" "${DATA_DIR}" "${BACKUP_DIR}"
 sudo chown -R "${APP_USER}:${APP_GROUP}" "${APP_ROOT}"
+sudo chmod 700 "${DATA_DIR}" "${BACKUP_DIR}"
 
 if [ -d "${VENV_DIR}" ] && ! venv_python_supported; then
   sudo rm -rf "${VENV_DIR}"
@@ -148,8 +149,10 @@ sudo cp "${APP_DIR}/deploy/docmolder-reconcile.service" /etc/systemd/system/docm
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.timer" /etc/systemd/system/docmolder-reconcile.timer
 sudo cp "${APP_DIR}/deploy/docmolder-duckdns.service" /etc/systemd/system/docmolder-duckdns.service
 sudo cp "${APP_DIR}/deploy/docmolder-duckdns.timer" /etc/systemd/system/docmolder-duckdns.timer
-sudo install -D -m 755 "${APP_DIR}/deploy/install-github-webhook.sh" /opt/docmolder/bin/install-github-webhook.sh
-sudo install -D -m 755 "${APP_DIR}/deploy/update-duckdns.sh" /opt/docmolder/bin/update-duckdns.sh
+sudo install -o root -g root -m 755 "${APP_DIR}/deploy/update-vps.sh" /usr/local/sbin/docmolder-update-vps
+sudo install -o root -g root -m 755 "${APP_DIR}/deploy/update-duckdns.sh" /usr/local/sbin/docmolder-update-duckdns
+sudo install -o root -g root -m 440 "${APP_DIR}/deploy/docmolder-deploy.sudoers" /etc/sudoers.d/docmolder-deploy
+sudo visudo -cf /etc/sudoers.d/docmolder-deploy
 sudo mkdir -p /etc/systemd/journald.conf.d
 sudo cp "${APP_DIR}/deploy/docmolder-journald.conf" /etc/systemd/journald.conf.d/docmolder.conf
 sudo bash "${APP_DIR}/deploy/install-static-site.sh"

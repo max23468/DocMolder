@@ -15,6 +15,8 @@ from PIL import Image, ImageDraw
 APP_NAME = "Telegram"
 DEFAULT_CHAT_NAME = "DocMolder"
 DEFAULT_ASSET_DIR = Path("tmp/manual-test-assets")
+ASSET_MARKER = ".docmolder-smoke-assets"
+GENERATED_ASSET_NAMES = ("smoke_image_1.jpg", "smoke_image_2.jpg", "smoke_source.pdf")
 SUPPORTED_PLANS = ("full", "wizard-a4", "pdf-followup", "history", "public-trust")
 
 
@@ -26,7 +28,10 @@ class Step:
 
 
 def build_assets(asset_dir: Path) -> dict[str, Path]:
+    if asset_dir.exists() and any(asset_dir.iterdir()) and not (asset_dir / ASSET_MARKER).exists():
+        raise ValueError(f"La cartella asset non è gestita da DocMolder: {asset_dir}")
     asset_dir.mkdir(parents=True, exist_ok=True)
+    (asset_dir / ASSET_MARKER).touch()
 
     image_paths: list[Path] = []
     colors = [(230, 240, 255), (255, 240, 230)]
@@ -171,9 +176,8 @@ def list_plans() -> None:
 def cleanup_assets(asset_dir: Path) -> None:
     if not asset_dir.exists():
         return
-    for path in asset_dir.iterdir():
-        if path.is_file():
-            path.unlink()
+    for name in (*GENERATED_ASSET_NAMES, ASSET_MARKER):
+        (asset_dir / name).unlink(missing_ok=True)
 
 
 def execute_plan(

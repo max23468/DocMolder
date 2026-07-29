@@ -17,6 +17,10 @@ logger = logging.getLogger(__name__)
 OOXML_EXCEL_SUFFIXES = {".xlsx", ".xlsm"}
 LIBREOFFICE_EXCEL_SUFFIXES = {".xls"}
 SUPPORTED_EXCEL_SUFFIXES = OOXML_EXCEL_SUFFIXES | LIBREOFFICE_EXCEL_SUFFIXES
+OOXML_MAX_MEMBERS = 10_000
+OOXML_MAX_MEMBER_BYTES = 50 * 1024 * 1024
+OOXML_MAX_UNCOMPRESSED_BYTES = 200 * 1024 * 1024
+OOXML_MAX_COMPRESSION_RATIO = 1_000
 
 _OOXML_PROTECTION_TAGS = (
     "sheetProtection",
@@ -85,7 +89,9 @@ class ExcelUnlocker:
         removed_count = 0
         try:
             with zipfile.ZipFile(input_path, "r") as source, zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as target:
-                for item in source.infolist():
+                items = source.infolist()
+                self._validate_ooxml_budget(items)
+                for item in items:
                     data = source.read(item.filename)
                     cleaned = data
                     if item.filename.endswith(".xml") and item.filename.startswith("xl/"):
@@ -106,6 +112,17 @@ class ExcelUnlocker:
                 "Se il file chiede una password all'apertura, non posso sbloccarlo senza quella password."
             )
         return removed_count
+
+    def _validate_ooxml_budget(self, items: list[zipfile.ZipInfo]) -> None:
+        if len(items) > OOXML_MAX_MEMBERS:
+            raise ExcelUnlockError("Questo Excel contiene troppi elementi interni per essere elaborato in sicurezza.")
+        if sum(item.file_size for item in items) > OOXML_MAX_UNCOMPRESSED_BYTES:
+            raise ExcelUnlockError("Questo Excel è troppo grande una volta decompresso.")
+        for item in items:
+            if item.file_size > OOXML_MAX_MEMBER_BYTES:
+                raise ExcelUnlockError("Questo Excel contiene un elemento interno troppo grande.")
+            if item.file_size and item.file_size / max(1, item.compress_size) > OOXML_MAX_COMPRESSION_RATIO:
+                raise ExcelUnlockError("Questo Excel ha un rapporto di compressione non sicuro.")
 
     def _unlock_binary_excel_with_libreoffice(self, input_path: Path, output_path: Path) -> int:
         libreoffice = _find_libreoffice_binary()

@@ -41,6 +41,7 @@ class SQLiteBackupTest(unittest.TestCase):
         )
 
         self.assertTrue(backup_path.exists())
+        self.assertEqual(backup_path.stat().st_mode & 0o777, 0o600)
         with closing(sqlite3.connect(backup_path)) as connection:
             values = connection.execute("SELECT value FROM demo").fetchall()
         self.assertEqual(values, [("prima",)])

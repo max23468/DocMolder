@@ -8,7 +8,6 @@ NGINX_CONF="${DOCMOLDER_STATIC_NGINX_CONF:-/etc/nginx/conf.d/docmolder.conf}"
 WEBHOOK_HOST="${DOCMOLDER_GITHUB_WEBHOOK_HOST:-127.0.0.1}"
 WEBHOOK_PORT="${DOCMOLDER_GITHUB_WEBHOOK_PORT:-8123}"
 WEBHOOK_PATH="${DOCMOLDER_GITHUB_WEBHOOK_PATH:-/webhooks/github/deploy}"
-WEBHOOK_HEALTH_PATH="${DOCMOLDER_GITHUB_WEBHOOK_HEALTH_PATH:-/webhooks/github/healthz}"
 CERT_DIR="${DOCMOLDER_LETSENCRYPT_CERT_DIR:-/etc/letsencrypt/live/docmolder.duckdns.org}"
 
 while [ "${SITE_ROOT}" != "/" ] && [ "${SITE_ROOT%/}" != "${SITE_ROOT}" ]; do
@@ -35,6 +34,12 @@ case "${SITE_ROOT}" in
     exit 1
     ;;
 esac
+
+RESOLVED_SITE_ROOT="$(realpath -m "${SITE_ROOT}")"
+if [ "${RESOLVED_SITE_ROOT}" != "${SITE_ROOT}" ]; then
+  echo "Unsafe DOCMOLDER_STATIC_SITE_ROOT symlink path: ${SITE_ROOT}" >&2
+  exit 1
+fi
 
 if ! command -v nginx >/dev/null 2>&1; then
   echo "nginx non disponibile: salto installazione sito statico DocMolder."
@@ -79,15 +84,6 @@ server {
     location = /healthz {
         default_type text/plain;
         return 200 "ok\n";
-    }
-
-    location = ${WEBHOOK_HEALTH_PATH} {
-        proxy_pass http://${WEBHOOK_HOST}:${WEBHOOK_PORT};
-        proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
     }
 
     location = ${WEBHOOK_PATH} {

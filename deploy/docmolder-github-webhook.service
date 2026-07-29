@@ -5,9 +5,13 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+User=docmolder
+Group=docmolder
+UMask=0077
 EnvironmentFile=-/etc/docmolder/github-webhook.env
 WorkingDirectory=/opt/docmolder/app
 ExecStart=/opt/docmolder/venv/bin/docmolder-github-webhook
+RuntimeDirectory=docmolder-github-webhook
 Restart=always
 RestartSec=5
 TimeoutStopSec=20

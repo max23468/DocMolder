@@ -5,4 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
+User=docmolder
+Group=docmolder
+UMask=0077
+EnvironmentFile=/etc/docmolder/docmolder.env
 ExecStart=/opt/docmolder/app/deploy/backup-db.sh

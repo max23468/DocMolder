@@ -75,10 +75,10 @@ def collect_report(*, check_service: bool) -> dict[str, object]:
         "services": services,
         "commands": {
             "logs": "sudo journalctl -u docmolder -n 80 --no-pager",
-            "health": "sudo /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name docmolder",
+            "health": "sudo -u docmolder /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name docmolder",
             "reconcile": "sudo -u docmolder /opt/docmolder/venv/bin/docmolder-reconcile",
-            "smoke": "sudo /opt/docmolder/app/deploy/smoke-check.sh",
-            "duckdns": "sudo /opt/docmolder/bin/update-duckdns.sh",
+            "smoke": "sudo -u docmolder /opt/docmolder/app/deploy/smoke-check.sh",
+            "duckdns": "sudo /usr/local/sbin/docmolder-update-duckdns",
             "duckdns_timer": "sudo systemctl status docmolder-duckdns.timer",
             "certificates": "sudo certbot certificates",
         },

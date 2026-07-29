@@ -3,16 +3,20 @@ PYTHON_BOOTSTRAP ?= $(shell command -v python3.13 2>/dev/null || command -v pyth
 PYTHON := $(VENV)/bin/python
 PIP := $(VENV)/bin/pip
 
-.PHONY: setup lock lock-check run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor publish-docs cleanup-branches codex-dev-report github-maintenance ops-report profile-processing install-hooks
+.PHONY: setup lock lock-check run test compile ci ci-static ci-quality ci-test build smoke-ui brand-assets telegram-brand-sync cloud-prepare-ssh deploy-vps classify-changes preflight-publish publish-doctor publish-docs cleanup-branches codex-dev-report github-maintenance ops-report profile-processing
 
 setup:
 	$(PYTHON_BOOTSTRAP) -m venv $(VENV)
 	$(PIP) install --upgrade pip
-	$(PIP) install --require-hashes -r requirements.lock
-	$(PIP) install -e ".[dev]"
+	$(PIP) install --require-hashes -r requirements-dev.lock
+	$(PIP) install --require-hashes -r requirements-build.lock
+	$(PIP) install -e . --no-deps
 
 lock:
 	uv pip compile pyproject.toml --universal --python-version 3.11 --generate-hashes --no-header -o requirements.lock
+	uv pip compile pyproject.toml --extra dev --constraint requirements.lock --universal --python-version 3.11 --generate-hashes --no-header -o requirements-dev.lock
+	uv pip compile requirements-tools.in --universal --python-version 3.11 --generate-hashes --no-header -o requirements-tools.lock
+	uv pip compile requirements-build.in --universal --python-version 3.11 --generate-hashes --no-header -o requirements-build.lock
 
 lock-check:
 	bash scripts/check_lock_sync.sh
@@ -39,7 +43,7 @@ ci-test:
 	bash scripts/ci_test.sh --coverage
 
 build:
-	$(PYTHON) -m build
+	$(PYTHON) -m build --no-isolation
 
 brand-assets:
 	$(PYTHON) scripts/render_brand_assets.py
@@ -83,6 +87,3 @@ ops-report:
 
 profile-processing:
 	$(PYTHON) scripts/profile_processing_flows.py
-
-install-hooks:
-	bash scripts/install_git_hooks.sh

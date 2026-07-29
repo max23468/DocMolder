@@ -77,7 +77,6 @@ def _language_payloads(language_code: str) -> tuple[dict[str, str], ...]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sincronizza nome, descrizione, comandi e avatar Telegram di DocMolder.")
-    parser.add_argument("--token", help="Telegram bot token. Se omesso, uso DOCMOLDER_TELEGRAM_TOKEN/.env.")
     parser.add_argument("--language-code", default="it", help="Lingua da sincronizzare oltre al default globale.")
     parser.add_argument("--skip-photo", action="store_true", help="Aggiorna solo metadati e comandi, senza foto profilo.")
     args = parser.parse_args()
@@ -88,12 +87,12 @@ def main() -> None:
     except ValidationError:
         settings = None
 
-    token = args.token or os.getenv("DOCMOLDER_TELEGRAM_TOKEN")
+    token = os.getenv("DOCMOLDER_TELEGRAM_TOKEN")
     if token is None and settings is not None:
         token = settings.telegram_token
     if token is None:
         raise SystemExit(
-            "Token Telegram mancante. Imposta DOCMOLDER_TELEGRAM_TOKEN oppure usa --token per sincronizzare il brand."
+            "Token Telegram mancante. Imposta DOCMOLDER_TELEGRAM_TOKEN per sincronizzare il brand."
         )
 
     render_brand_assets(PROJECT_ROOT / "assets" / "brand")

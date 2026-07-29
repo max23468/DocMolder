@@ -151,7 +151,7 @@ Il flusso consigliato da remoto è:
 Per gli aggiornamenti manuali sulla VPS, fallback esplicito:
 
 ```bash
-sudo /opt/docmolder/app/deploy/update-vps.sh
+sudo /usr/local/sbin/docmolder-update-vps deploy origin/main
 ```
 
 ## Documentazione

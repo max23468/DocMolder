@@ -3,12 +3,14 @@ from __future__ import annotations
 import hashlib
 import hmac
 import http.client
+import io
 import json
 import sys
 import threading
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -32,7 +34,6 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         deploy_script: str = "/tmp/deploy.sh",
         *,
         secret: str = "secret",
-        restart_marker_path: str = "/tmp/restart-requested",
     ) -> WebhookConfig:
         return WebhookConfig(
             host="127.0.0.1",
@@ -43,10 +44,9 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
             branch="main",
             secret=secret,
             deploy_script=deploy_script,
+            deploy_with_sudo=False,
             deploy_timeout_seconds=10,
             max_body_bytes=1024,
-            restart_marker_path=restart_marker_path,
-            service_name="docmolder-github-webhook.service",
         )
 
     def test_verify_signature_accepts_matching_payload(self) -> None:
@@ -63,13 +63,13 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         payload = {
             "repository": {"full_name": "Max23468/DocMolder"},
             "ref": "refs/heads/main",
-            "after": "abc123",
+            "after": "a" * 40,
         }
 
         accepted, target_ref, reason = should_accept_push(payload, "max23468/docmolder", "main")
 
         self.assertTrue(accepted)
-        self.assertEqual(target_ref, "abc123")
+        self.assertEqual(target_ref, "a" * 40)
         self.assertEqual(reason, "push accepted")
 
     def test_should_reject_push_for_wrong_repository(self) -> None:
@@ -106,6 +106,17 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         with patch.dict("docmolder.github_webhook.os.environ", {"DOCMOLDER_BAD_INT": "nope"}):
             with self.assertRaisesRegex(ValueError, "DOCMOLDER_BAD_INT"):
                 env_int("DOCMOLDER_BAD_INT", 3)
+
+    def test_negative_content_length_is_rejected_without_reading(self) -> None:
+        handler = object.__new__(GitHubDeployWebhookHandler)
+        handler.headers = {"Content-Length": "-1"}
+        handler.rfile = io.BytesIO(b"payload")
+        handler.server = SimpleNamespace(app=SimpleNamespace(config=SimpleNamespace(max_body_bytes=1024)))
+        handler._send_json = MagicMock()
+
+        self.assertIsNone(handler._read_body())
+        self.assertEqual(handler.rfile.tell(), 0)
+        self.assertEqual(handler._send_json.call_args.args[0], 400)
 
     def test_should_reject_deleted_push_and_zero_sha(self) -> None:
         deleted_payload = {
@@ -149,7 +160,7 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         self.assertEqual(config.health_path, "/webhooks/github/healthz")
         self.assertTrue(ready)
 
-    def test_run_deploy_records_success_and_marks_restart_marker_absent(self) -> None:
+    def test_run_deploy_records_success(self) -> None:
         with TemporaryDirectory() as temp_dir:
             deploy_script = Path(temp_dir) / "deploy.sh"
             deploy_script.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
@@ -162,9 +173,7 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
 
         self.assertTrue(app.state.last_result["ok"])
         self.assertEqual(app.state.last_result["delivery_id"], "delivery-1")
-        self.assertFalse(app.state.last_result["webhook_restart"]["requested"])
-        self.assertEqual(run.call_args.args[0], [str(deploy_script), "abc123"])
-        self.assertEqual(run.call_args.kwargs["env"]["DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER"], "1")
+        self.assertEqual(run.call_args.args[0], [str(deploy_script), "deploy", "a" * 40])
 
     def test_run_deploy_records_failure(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -211,37 +220,15 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         self.assertFalse(failing_app.state.last_result["ok"])
         self.assertEqual(failing_app.state.last_result["error"], "boom")
 
-    def test_restart_marker_schedules_service_restart_after_job(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            marker = Path(temp_dir) / "restart-requested"
-            marker.write_text("requested_at=2026-04-28T00:00:00Z\n", encoding="utf-8")
-            app = GitHubDeployWebhookApp(
-                WebhookConfig(
-                    host="127.0.0.1",
-                    port=8123,
-                    webhook_path="/webhooks/github/deploy",
-                    health_path="/webhooks/github/healthz",
-                    repository="max23468/docmolder",
-                    branch="main",
-                    secret="secret",
-                    deploy_script="/tmp/deploy.sh",
-                    deploy_timeout_seconds=10,
-                    max_body_bytes=1024,
-                    restart_marker_path=str(marker),
-                    service_name="docmolder-github-webhook.service",
-                )
-            )
-            completed = MagicMock(returncode=0, stdout="", stderr="")
-            with patch("docmolder.github_webhook.subprocess.run", return_value=completed) as run:
-                result = app._restart_webhook_if_requested()
+    def test_enqueue_deduplicates_delivery_ids_and_bounds_queue(self) -> None:
+        app = GitHubDeployWebhookApp(self._config())
+        first = self._job()
+        second = self._job()
+        second.delivery_id = "delivery-2"
 
-        self.assertTrue(result["ok"])
-        self.assertTrue(result["requested"])
-        self.assertFalse(marker.exists())
-        args = run.call_args.args[0]
-        self.assertEqual(args[:3], ["systemd-run", "--quiet", "--collect"])
-        self.assertIn("--on-active=1s", args)
-        self.assertEqual(args[-2:], ["restart", "docmolder-github-webhook.service"])
+        self.assertEqual(app.enqueue(first), "queued")
+        self.assertEqual(app.enqueue(first), "duplicate")
+        self.assertEqual(app.enqueue(second), "full")
 
     def test_webhook_handler_reports_status_and_queues_valid_push(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -257,7 +244,7 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
                     {
                         "repository": {"full_name": "Max23468/DocMolder"},
                         "ref": "refs/heads/main",
-                        "after": "abc123",
+                        "after": "a" * 40,
                     }
                 ).encode("utf-8")
                 headers = {
@@ -276,7 +263,8 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
         self.assertTrue(status_payload["configured"])
         self.assertEqual(push_code, 202)
         self.assertTrue(push_payload["queued"])
-        self.assertEqual(push_payload["target_ref"], "abc123")
+        self.assertEqual(push_payload["target_ref"], "a" * 40)
+        self.assertNotIn("last_job", status_payload)
         self.assertEqual(app.jobs.get_nowait().delivery_id, "delivery-1")
 
     def test_webhook_handler_rejects_bad_signature_and_ignores_ping(self) -> None:
@@ -419,10 +407,9 @@ class GitHubWebhookHelpersTest(unittest.TestCase):
 
         return DeployJob(
             delivery_id="delivery-1",
-            target_ref="abc123",
+            target_ref="a" * 40,
             repository="max23468/docmolder",
             branch="main",
-            payload={},
         )
 
     def _signature(self, secret: str, body: bytes) -> str:

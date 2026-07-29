@@ -5,4 +5,4 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/opt/docmolder/bin/update-duckdns.sh
+ExecStart=/usr/local/sbin/docmolder-update-duckdns

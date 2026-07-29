@@ -133,7 +133,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        run: pipx install uv==0.11.32
+        run: python -m pip install --require-hashes -r requirements-tools.lock
 
       - name: Verify dependency lock
         run: make lock-check
@@ -170,7 +170,7 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: requirements-dev.lock
 
       - name: Install package
         run: bash scripts/ci_install.sh
@@ -201,7 +201,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: requirements-dev.lock
 
       - name: Install package
         run: bash scripts/ci_install.sh
@@ -231,13 +231,13 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: pyproject.toml
+          cache-dependency-path: requirements-dev.lock
 
       - name: Install package
         run: bash scripts/ci_install.sh
 
       - name: Build package
-        run: python -m build
+        run: python -m build --no-isolation
 
       - name: Upload package artifacts
         uses: actions/upload-artifact@v7

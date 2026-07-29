@@ -21,7 +21,8 @@ DEPLOY_RELEVANT_PATTERNS = (
 CODE_PATTERNS = (
     "src/**",
     "pyproject.toml",
-    "requirements.lock",
+    "requirements*.in",
+    "requirements*.lock",
     "requirements*.txt",
     "uv.lock",
 )
@@ -65,7 +66,8 @@ CI_PATTERNS = (
 
 DEPENDENCY_PATTERNS = (
     "pyproject.toml",
-    "requirements.lock",
+    "requirements*.in",
+    "requirements*.lock",
     "requirements*.txt",
     "uv.lock",
 )

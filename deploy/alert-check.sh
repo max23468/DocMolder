@@ -8,8 +8,10 @@ VENV_DIR="${DOCMOLDER_VENV_DIR:-$(cd "${APP_DIR}/.." && pwd)/venv}"
 export VENV_DIR
 
 # shellcheck source=deploy/env-load.sh
-source "${SCRIPT_DIR}/env-load.sh"
-load_docmolder_env_file "${ENV_FILE}"
+if [ -r "${ENV_FILE}" ]; then
+  source "${SCRIPT_DIR}/env-load.sh"
+  load_docmolder_env_file "${ENV_FILE}"
+fi
 
 VENV_DIR="${DOCMOLDER_VENV_DIR:-${VENV_DIR}}"
 SERVICE_NAME="${DOCMOLDER_SERVICE_NAME:-docmolder}"

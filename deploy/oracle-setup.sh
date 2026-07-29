@@ -65,8 +65,9 @@ if ! id -u "${APP_USER}" >/dev/null 2>&1; then
   sudo useradd --system --create-home --home /var/lib/docmolder --shell /usr/sbin/nologin "${APP_USER}"
 fi
 
-sudo mkdir -p "${APP_ROOT}" "${ENV_DIR}" "${DATA_DIR}"
+sudo mkdir -p "${APP_ROOT}" "${ENV_DIR}" "${DATA_DIR}" "${BACKUP_DIR}"
 sudo chown -R "${APP_USER}:${APP_GROUP}" "${APP_ROOT}"
+sudo chmod 700 "${DATA_DIR}" "${BACKUP_DIR}"
 
 if [ ! -d "${APP_DIR}/.git" ]; then
   sudo -u "${APP_USER}" git clone https://github.com/max23468/DocMolder.git "${APP_DIR}"
@@ -74,8 +75,6 @@ else
   sudo -u "${APP_USER}" git -C "${APP_DIR}" fetch origin
   sudo -u "${APP_USER}" git -C "${APP_DIR}" reset --hard origin/main
 fi
-
-sudo -u "${APP_USER}" git config --global --add safe.directory "${APP_DIR}" || true
 
 choose_python
 
@@ -104,7 +103,10 @@ sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.service" /etc/systemd/system/doc
 sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.timer" /etc/systemd/system/docmolder-alertcheck.timer
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.service" /etc/systemd/system/docmolder-reconcile.service
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.timer" /etc/systemd/system/docmolder-reconcile.timer
-sudo install -D -m 755 "${APP_DIR}/deploy/install-github-webhook.sh" /opt/docmolder/bin/install-github-webhook.sh
+sudo install -o root -g root -m 755 "${APP_DIR}/deploy/update-vps.sh" /usr/local/sbin/docmolder-update-vps
+sudo install -o root -g root -m 755 "${APP_DIR}/deploy/update-duckdns.sh" /usr/local/sbin/docmolder-update-duckdns
+sudo install -o root -g root -m 440 "${APP_DIR}/deploy/docmolder-deploy.sudoers" /etc/sudoers.d/docmolder-deploy
+sudo visudo -cf /etc/sudoers.d/docmolder-deploy
 sudo systemctl daemon-reload
 sudo bash "${APP_DIR}/deploy/install-static-site.sh"
 sudo bash "${APP_DIR}/deploy/install-github-webhook.sh"
@@ -118,4 +120,4 @@ echo "4. Esegui: sudo systemctl enable --now docmolder-alertcheck.timer"
 echo "5. Esegui: sudo systemctl enable --now docmolder-reconcile.timer"
 echo "6. Controlla: sudo systemctl status docmolder"
 echo "7. Log: sudo journalctl -u docmolder -f"
-echo "8. Per gli update futuri usa: sudo ${APP_DIR}/deploy/update-vps.sh"
+echo "8. Per gli update futuri usa: sudo /usr/local/sbin/docmolder-update-vps deploy origin/main"

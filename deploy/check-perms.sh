@@ -25,19 +25,19 @@ check_file_mode() {
   echo "OK ${path} mode=${actual}"
 }
 
-check_dir_exists() {
+check_private_dir() {
   local path="$1"
   if [ ! -d "${path}" ]; then
     echo "MISSING_DIR ${path}"
     return 1
   fi
-  echo "OK ${path}"
+  check_file_mode "${path}" "700"
 }
 
 status=0
 check_file_mode "${ENV_FILE}" "600" || status=1
-check_dir_exists "${RUNTIME_DIR}" || status=1
-check_dir_exists "${BACKUP_DIR}" || status=1
+check_private_dir "${RUNTIME_DIR}" || status=1
+check_private_dir "${BACKUP_DIR}" || status=1
 
 if [ -e "${DATABASE_PATH}" ]; then
   db_mode="$(stat -c '%a' "${DATABASE_PATH}")"

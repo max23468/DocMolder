@@ -68,6 +68,16 @@ class SmokeTelegramDesktopScriptTest(unittest.TestCase):
 
             self.assertEqual(list(asset_dir.iterdir()), [])
 
+    def test_asset_directory_preserves_unrelated_files(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            asset_dir = Path(temp_dir)
+            unrelated = asset_dir / "keep.txt"
+            unrelated.write_text("keep", encoding="utf-8")
+
+            with self.assertRaisesRegex(ValueError, "non è gestita"):
+                build_assets(asset_dir)
+            self.assertEqual(unrelated.read_text(encoding="utf-8"), "keep")
+
 
 if __name__ == "__main__":
     unittest.main()

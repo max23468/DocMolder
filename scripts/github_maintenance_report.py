@@ -10,6 +10,7 @@ from typing import Any
 
 CODEX_INBOX_TITLE = "Codex feedback inbox"
 RELEASABLE_PR_TYPES = {"feat", "fix", "deps", "docs"}
+TERMINAL_CONTROL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
 
 def run(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -176,7 +177,7 @@ def collect_report(*, limit: int) -> dict[str, object]:
 
 def print_pr(pr: dict[str, object]) -> str:
     number = pr.get("number")
-    title = pr.get("title")
+    title = TERMINAL_CONTROL_RE.sub("", str(pr.get("title") or ""))
     state = "draft" if pr.get("isDraft") else "ready"
     url = pr.get("url")
     return f"#{number} {state}: {title} ({url})"
