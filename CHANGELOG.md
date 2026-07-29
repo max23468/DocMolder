@@ -8,6 +8,12 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.11](https://github.com/max23468/DocMolder/compare/v2.0.10...v2.0.11) (2026-07-29)
+
+### Correzioni
+
+* **security:** separa i percorsi privilegiati dal checkout applicativo e impone limiti, permessi e validazioni sugli input non fidati ([#254](https://github.com/max23468/DocMolder/pull/254)) ([9c33432](https://github.com/max23468/DocMolder/commit/9c3343247be5a1430f15ed59134c69f84cec833f))
+
 ## [2.0.10](https://github.com/max23468/DocMolder/compare/v2.0.9...v2.0.10) (2026-07-26)
 
 ### Correzioni
