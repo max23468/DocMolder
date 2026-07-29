@@ -26,6 +26,7 @@ def backup_sqlite_database(
     backup_path = backup_root / _build_backup_name(source_path, current_time)
 
     with _connect_read_only(source_path) as source, closing(sqlite3.connect(backup_path)) as destination:
+        backup_path.chmod(0o600)
         source.backup(destination)
         destination.commit()
 
@@ -50,6 +51,7 @@ def restore_sqlite_database(
     temp_target_path = target_path.with_suffix(f"{target_path.suffix}.restore-tmp")
 
     with _connect_read_only(source_backup_path) as source, closing(sqlite3.connect(temp_target_path)) as destination:
+        temp_target_path.chmod(0o600)
         source.backup(destination)
         destination.commit()
 

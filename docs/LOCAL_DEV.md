@@ -17,21 +17,21 @@ presente, altrimenti ripiega su `python3`. Per forzare un interprete specifico:
 make setup PYTHON_BOOTSTRAP=/percorso/a/python3.13
 ```
 
-Le dipendenze di runtime sono bloccate con hash in `requirements.lock`
-(generato con `uv`), così local e VPS installano lo stesso insieme
-riproducibile. Dopo aver modificato le dipendenze in `pyproject.toml`,
-rigenera il lock e ricommittalo:
+Le dipendenze sono bloccate con hash: `requirements.lock` per il runtime,
+`requirements-dev.lock` per sviluppo/CI, `requirements-tools.lock` per il
+bootstrap CI e `requirements-build.lock` per il backend di build. Dopo una
+modifica ai manifest rigenera tutti i lock:
 
 ```bash
-make lock         # rigenera requirements.lock
-make lock-check   # verifica che il lock risolva pyproject.toml senza cambiare i pin
+make lock
+make lock-check
 ```
 
 `bash scripts/ci_verify.sh` fallisce se dipendenze, versioni o hash del lock
 sono incompatibili con `pyproject.toml` (quando `uv` è disponibile); le sole
 annotazioni `# via` non contano come drift. Sul VPS `update-vps.sh` installa da
 `requirements.lock` con `--require-hashes` e poi il pacchetto in editable con
-`--no-deps`.
+`--no-deps`; la CI usa allo stesso modo i lock dev/tooling.
 
 2. Crea `.env`:
 
@@ -170,7 +170,7 @@ Il controllo blocca i casi che rendono rumorosa la pubblicazione: `HEAD detached
 Per riattivare i controlli automatici locali prima del push:
 
 ```bash
-make install-hooks
+make ci-static
 ```
 
 ## Flusso quotidiano consigliato

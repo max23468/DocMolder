@@ -207,7 +207,7 @@ fi
         makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
         lock_check = (ROOT / "scripts" / "check_lock_sync.sh").read_text(encoding="utf-8")
 
-        self.assertIn("pipx install uv==0.11.32", workflow)
+        self.assertIn("python -m pip install --require-hashes -r requirements-tools.lock", workflow)
         self.assertIn("make lock-check", workflow)
         self.assertEqual(workflow.count("bash scripts/ci_install.sh"), 3)
         self.assertIn("--python-version 3.11", makefile)
@@ -251,7 +251,7 @@ case "${1:-}" in
     exit 0
     ;;
   api)
-    if [[ "$*" == *"/pulls/"*"/comments"* ]]; then
+    if [[ "$*" == *"/pulls/"*"/comments"* ]] || [[ "$*" == *"/issues/"*"/comments"* ]]; then
       printf '[]\\n'
     else
       printf '{"data":{"repository":{"pullRequest":{"reviewThreads":{"nodes":[]},"comments":{"nodes":[]}}}}}\\n'

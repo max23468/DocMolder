@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       target_ref:
-        description: Git tag, branch or SHA to redeploy
+        description: Tag or SHA already merged into main
         required: true
 
 permissions:
@@ -27,10 +27,22 @@ jobs:
       TARGET_REF: ${{ inputs.target_ref }}
 
     steps:
-      - name: Checkout target revision
+      - name: Checkout trusted base
         uses: actions/checkout@v7
         with:
-          ref: ${{ env.TARGET_REF }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate rollback revision
+        run: |
+          set -euo pipefail
+          git fetch --force --tags origin main
+          target_sha="$(git rev-parse --verify --end-of-options "${TARGET_REF}^{commit}")"
+          if ! git merge-base --is-ancestor "${target_sha}" origin/main; then
+            echo "::error::Rollback target is not part of origin/main."
+            exit 1
+          fi
+          echo "TARGET_SHA=${target_sha}" >> "${GITHUB_ENV}"
 
       - name: Validate deploy secrets
         env:
@@ -39,7 +51,7 @@ jobs:
           set -euo pipefail
 
           missing=0
-          for var in DOCMOLDER_VPS_HOST DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64; do
+          for var in DOCMOLDER_VPS_HOST DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 DOCMOLDER_VPS_SSH_KNOWN_HOSTS; do
             if [ -z "${!var:-}" ]; then
               echo "::error::Missing required secret: ${var}"
               missing=1
@@ -72,36 +84,10 @@ jobs:
           touch "${HOME}/.ssh/known_hosts"
           chmod 644 "${HOME}/.ssh/known_hosts"
 
-          if [ -n "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS:-}" ]; then
-            printf '%s\n' "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
-            echo "SSH_STRICT=yes" >> "${GITHUB_ENV}"
-          else
-            echo "SSH_STRICT=accept-new" >> "${GITHUB_ENV}"
-          fi
+          printf '%s\n' "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+          echo "SSH_STRICT=yes" >> "${GITHUB_ENV}"
 
-      - name: Sync target revision to VPS
-        run: |
-          set -euo pipefail
-          export COPYFILE_DISABLE=1
-
-          tar \
-            --exclude=.git \
-            --exclude=.venv \
-            --exclude=.mypy_cache \
-            --exclude=.pytest_cache \
-            --exclude=__pycache__ \
-            -czf - . \
-          | ssh \
-              -i "${HOME}/.ssh/docmolder_vps" \
-              -p "${DOCMOLDER_VPS_PORT}" \
-              -o BatchMode=yes \
-              -o ConnectTimeout=15 \
-              -o ServerAliveInterval=30 \
-              -o StrictHostKeyChecking="${SSH_STRICT}" \
-              "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
-              "sudo mkdir -p /opt/docmolder/app && sudo rm -rf /opt/docmolder/app/* /opt/docmolder/app/.[!.]* /opt/docmolder/app/..?* && sudo tar -xzf - -C /opt/docmolder/app"
-
-      - name: Install, restart and smoke check
+      - name: Roll back to trusted main revision
         run: |
           set -euo pipefail
 
@@ -113,11 +99,7 @@ jobs:
             -o ServerAliveInterval=30 \
             -o StrictHostKeyChecking="${SSH_STRICT}" \
             "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
-            "sudo env -i PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin bash -lc 'set -euo pipefail
-            bash /opt/docmolder/app/deploy/install-vps.sh
-            source /opt/docmolder/app/deploy/env-load.sh
-            load_docmolder_env_file /etc/docmolder/docmolder.env
-            /opt/docmolder/venv/bin/python -m docmolder.healthcheck --check-service-active --service-name \"\${DOCMOLDER_SERVICE_NAME:-docmolder}\"'"
+            "sudo /usr/local/sbin/docmolder-update-vps rollback '${TARGET_SHA}'"
 
       - name: Rollback summary
         if: always()
@@ -125,6 +107,6 @@ jobs:
           {
             echo "## Rollback VPS"
             echo ""
-            echo "- Target ref: \`${TARGET_REF}\`"
+            echo "- Target revision: \`${TARGET_SHA:-not-resolved}\`"
             echo "- Workflow conclusion: \`${{ job.status }}\`"
           } >> "${GITHUB_STEP_SUMMARY}"

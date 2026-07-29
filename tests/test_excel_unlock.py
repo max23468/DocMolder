@@ -56,6 +56,14 @@ class ExcelUnlockerTest(unittest.TestCase):
         with self.assertRaisesRegex(ExcelUnlockError, "Non ho trovato protezioni"):
             self.unlocker.unlock_editing(source, "libero_unlocked")
 
+    def test_ooxml_budget_rejects_zip_bomb_ratio(self) -> None:
+        item = zipfile.ZipInfo("xl/worksheets/sheet1.xml")
+        item.file_size = 2_000_000
+        item.compress_size = 1
+
+        with self.assertRaisesRegex(ExcelUnlockError, "rapporto di compressione"):
+            self.unlocker._validate_ooxml_budget([item])
+
     def test_binary_excel_uses_libreoffice_for_xls_and_keeps_suffix(self) -> None:
         source = self.runtime_dir / "protetto.xls"
         source.write_bytes(b"binary-excel-placeholder")

@@ -35,7 +35,7 @@ crea il symlink `/usr/local/bin/python3.13`:
 
 ```bash
 sudo /opt/docmolder/app/deploy/install-python313.sh
-sudo /opt/docmolder/app/deploy/update-vps.sh
+sudo /usr/local/sbin/docmolder-update-vps deploy origin/main
 ```
 
 Se usi un interprete 3.13 diverso, passalo esplicitamente senza toccare Python
@@ -43,7 +43,7 @@ di sistema:
 
 ```bash
 sudo DOCMOLDER_PYTHON_BIN=/percorso/a/python3.13 /opt/docmolder/app/deploy/install-vps.sh
-sudo DOCMOLDER_PYTHON_BIN=/percorso/a/python3.13 /opt/docmolder/app/deploy/update-vps.sh
+sudo DOCMOLDER_PYTHON_BIN=/percorso/a/python3.13 /opt/docmolder/app/deploy/install-vps.sh
 ```
 
 Configura ambiente:
@@ -114,7 +114,7 @@ con la procedura release manuale documentata; il commit di release viene poi dep
 Deploy manuale mirato, solo come fallback esplicito:
 
 ```bash
-sudo /opt/docmolder/app/deploy/update-vps.sh
+sudo /usr/local/sbin/docmolder-update-vps deploy origin/main
 ```
 
 Usa `Deploy VPS` in GitHub Actions solo se lo chiedi esplicitamente; il
@@ -126,11 +126,17 @@ Deploy automatico via webhook:
 ```bash
 sudo systemctl status docmolder-github-webhook.service
 sudo journalctl -u docmolder-github-webhook.service -n 50 --no-pager
-sudo cat /etc/docmolder/github-webhook.env
+sudo grep -E '^(DOCMOLDER_GITHUB_WEBHOOK_HOST|DOCMOLDER_GITHUB_WEBHOOK_PORT|DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY|DOCMOLDER_GITHUB_WEBHOOK_BRANCH)=' /etc/docmolder/github-webhook.env
 ```
 
-Il listener webhook riceve gli eventi GitHub su `/webhooks/github/deploy`, verifica la firma HMAC e lancia `update-vps.sh` sul commit ricevuto. L'endpoint di health del listener è `/webhooks/github/healthz`.
-Quando il deploy aggiorna unit o script del listener già attivo, `install-github-webhook.sh` evita il restart dentro al processo che sta servendo il webhook: se gira nel worker scrive un marker in `/run/docmolder-github-webhook/restart-requested`, poi il listener lo consuma a fine job e pianifica il restart con `systemd-run --on-active=1s`. Fuori dal worker il restart è immediato.
+Il listener webhook riceve gli eventi GitHub su `/webhooks/github/deploy`,
+verifica firma HMAC, repository, branch e SHA, poi invoca il controller
+root-owned `/usr/local/sbin/docmolder-update-vps`. L’health locale è
+`/webhooks/github/healthz` e non viene pubblicato dal vhost Nginx.
+
+Gli aggiornamenti di unit systemd, sudoers o controller richiedono una
+riesecuzione manuale dell’installer da una revisione verificata: il deploy
+automatico non esegue mai come root gli script del checkout applicativo.
 
 Il listener non include step di rilascio non supportati dal percorso ufficiale.
 In questa fase non sono previsti riavvii automatici di release esterne alla procedura release manuale documentata.
@@ -162,13 +168,13 @@ Il percorso normale resta comunque il backup locale con lo script sulla VPS.
 Healthcheck operativo:
 
 ```bash
-sudo /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name docmolder
+sudo -u docmolder /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name docmolder
 ```
 
 Report operations completo:
 
 ```bash
-sudo /opt/docmolder/venv/bin/python /opt/docmolder/app/scripts/ops_report.py --check-service
+sudo -u docmolder /opt/docmolder/venv/bin/python /opt/docmolder/app/scripts/ops_report.py --check-service
 ```
 
 Profilo locale/VPS dei flussi pesanti:
@@ -180,13 +186,13 @@ sudo -u docmolder /opt/docmolder/venv/bin/python /opt/docmolder/app/scripts/prof
 Smoke check post-deploy con retry:
 
 ```bash
-sudo /opt/docmolder/app/deploy/smoke-check.sh
+sudo -u docmolder /opt/docmolder/app/deploy/smoke-check.sh
 ```
 
 Aggiornamento Duck DNS manuale:
 
 ```bash
-sudo /opt/docmolder/bin/update-duckdns.sh
+sudo /usr/local/sbin/docmolder-update-duckdns
 sudo journalctl -u docmolder-duckdns.service -n 20 --no-pager
 ```
 
@@ -229,7 +235,7 @@ Questa è la VPS corretta di DocMolder: usare questo host/dominio per deploy e v
 Duck DNS e mantenuto dalla VPS con:
 
 - config root-only: `/etc/docmolder/duckdns.env`
-- updater versionato: `deploy/update-duckdns.sh`, installato come `/opt/docmolder/bin/update-duckdns.sh`
+- updater versionato: `deploy/update-duckdns.sh`, installato root-owned come `/usr/local/sbin/docmolder-update-duckdns`
 - timer: `docmolder-duckdns.timer`
 
 Config minima:
@@ -254,7 +260,7 @@ Il timer aggiorna periodicamente il record Duck DNS verso l'IP pubblico della VP
 ```bash
 dig +short docmolder.duckdns.org
 sudo systemctl status docmolder-duckdns.timer
-sudo /opt/docmolder/bin/update-duckdns.sh
+sudo /usr/local/sbin/docmolder-update-duckdns
 ```
 
 HTTPS e predisposto con Nginx e Certbot:

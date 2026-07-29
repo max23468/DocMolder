@@ -5,7 +5,7 @@ import process from "node:process";
 
 const repository = process.env.GITHUB_REPOSITORY;
 const token = process.env.GITHUB_TOKEN;
-const codexLoginPattern = new RegExp(process.env.CODEX_BOT_LOGIN_PATTERN ?? "codex", "i");
+const codexLogins = new Set(["chatgpt-codex-connector", "chatgpt-codex-connector[bot]"]);
 const inboxIssueTitle = process.env.CODEX_INBOX_ISSUE_TITLE ?? "Codex feedback inbox";
 const inboxIssueLabel = process.env.CODEX_INBOX_ISSUE_LABEL ?? "codex-feedback-inbox";
 const repositoryName = repository?.split("/")[1] ?? "repository";
@@ -363,7 +363,7 @@ async function listReviewThreadComments(threadId, cursor) {
 
 function isCodexThread(thread) {
   return thread.comments.nodes.some((comment) =>
-    codexLoginPattern.test(comment.author?.login ?? ""),
+    codexLogins.has(comment.author?.login ?? ""),
   );
 }
 
@@ -685,7 +685,7 @@ function renderThreadLocation(thread) {
 
 function getFirstCodexComment(thread) {
   return thread.comments.nodes.find((comment) =>
-    codexLoginPattern.test(comment.author?.login ?? ""),
+    codexLogins.has(comment.author?.login ?? ""),
   );
 }
 

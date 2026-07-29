@@ -8,7 +8,7 @@ Questo file raccoglie decisioni architetturali e di prodotto già prese, in form
 - [Perimetro prodotto: utility documentale chat-first](#perimetro-prodotto-utility-documentale-chat-first)
 - [Soft launch prima, feature dopo](#soft-launch-prima-feature-dopo)
 - [Polling invece di webhook pubblici](#polling-invece-di-webhook-pubblici)
-- [Webhook privato per deploy e hook locali](#webhook-privato-per-deploy-e-hook-locali)
+- [Webhook privato per deploy e controlli locali](#webhook-privato-per-deploy-e-controlli-locali)
 - [Inbox event-driven per commenti Codex](#inbox-event-driven-per-commenti-codex)
 - [Retention breve dei file temporanei](#retention-breve-dei-file-temporanei)
 - [Auto-orientamento PDF invece di rotazione manuale come azione primaria](#auto-orientamento-pdf-invece-di-rotazione-manuale-come-azione-primaria)
@@ -98,29 +98,28 @@ Conseguenze:
 - il vhost pubblico resta un sito statico di presentazione e ingresso verso Telegram finché non viene deciso un endpoint DocMolder specifico
 - eventuali evoluzioni API-first, webhook Telegram o UI web richiederebbero una decisione nuova
 
-## Webhook privato per deploy e hook locali
+## Webhook privato per deploy e controlli locali
 
 Decisione:
 - l'automazione ordinaria usa CI prudente sulle PR non draft verso `main` e webhook privati GitHub -> VPS per il deploy
 - il listener webhook gira sulla VPS dietro Nginx e verifica firma HMAC, repository e branch prima di lanciare `deploy/update-vps.sh`
 - il listener non include più passaggi extra di rilascio nel flusso standard; il rilascio operativo passa dal percorso di release manuale documentato
 - il bump versione, il changelog, i tag e le GitHub Release sono gestiti dalla procedura release manuale documentata
-- i controlli di qualità locale vivono in hook `git` installabili con `make install-hooks`
+- i controlli di qualità locale restano comandi espliciti, senza hook eseguiti automaticamente dal worktree
 - eventuali token GitHub usati per operazioni manuali non sono parte del percorso operativo standard; in caso di necessità si usano secret GitHub e non file env persistenti non più presenti in questo flusso
 
 Motivazione:
 - mantiene il consumo Actions controllato: CI PR e workflow operativi solo manuali
 - mantiene versioni, changelog, tag e GitHub Releases allineati nel flusso standard GitHub
 - mantiene il listener semplice e confinato alla VPS, non al runtime Telegram
-- mantiene gate locali e hook come primo feedback economico prima del push
+- mantiene gate locali espliciti come primo feedback economico prima del push
 
 Conseguenze:
 - il deploy automatico dipende da un webhook GitHub configurato esplicitamente sulla repository
 - le release ordinarie dipendono dal passaggio con la procedura release manuale documentata dopo merge su `main`
 - la release automatica VPS, se riabilitata come fallback, dipende da un token GitHub con permessi di scrittura sui contenuti del repository
 - la VPS deve esporre un endpoint HTTPS dedicato al listener, ma non un runtime web applicativo generalista
-- gli hook locali possono bloccare push non pronti prima che arrivino su GitHub
-- se il webhook o gli hook non sono configurati, il percorso resta manuale ma non si rompe il bot
+- se il webhook non è configurato, il percorso resta manuale ma non si rompe il bot
 - (deprecato) i commit `chore(main): release docmolder X.Y.Z` non producono una nuova release; oggi la release passa per la procedura release manuale documentata
 
 ## Inbox event-driven per commenti Codex

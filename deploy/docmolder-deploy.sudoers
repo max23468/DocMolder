@@ -1,0 +1,1 @@
+docmolder ALL=(root) NOPASSWD: /usr/local/sbin/docmolder-update-vps *

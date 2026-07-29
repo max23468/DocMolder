@@ -46,7 +46,7 @@ Strumenti locali:
 - `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR pronta; con `DOCMOLDER_PUBLISH_DRAFT=1` apri una draft esplicita, con `DOCMOLDER_PUBLISH_MERGE=1` chiedi merge assistito local-first, con `DOCMOLDER_USE_GH_ACTIONS=1` riattivi il fallback legacy watch/check/ready/auto-merge.
 - La procedura release manuale documentata: gestisce la release dalla PR/branch di release, aggiornando changelog, versioni, tag e GitHub Release.
 - `scripts/publish_doctor.py` e `scripts/preflight_publish.sh`: verificano allineamento tra metadata di release, versione pacchetto, `__version__`, changelog e ultimo tag locale.
-- `make install-hooks`: installa i hook Git locali che eseguono i controlli prima del push.
+- `make ci-static`: esegue esplicitamente i controlli rapidi prima del push.
 - `docmolder-github-webhook.service`: listener systemd sulla VPS che riceve il webhook GitHub privato e lancia il deploy.
 - `scripts/cleanup_merged_branches.sh` o `make cleanup-branches`: elimina branch locali `codex/*` già mergiati.
 

@@ -74,6 +74,16 @@ def load_rest_review_comments(owner: str, repo: str, number: int) -> list[dict[s
     return json.loads(result.stdout or "[]")
 
 
+def load_rest_pr_comments(owner: str, repo: str, number: int) -> list[dict[str, object]]:
+    result = run(
+        ["gh", "api", f"repos/{owner}/{repo}/issues/{number}/comments", "--paginate"],
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "gh api PR comments failed")
+    return json.loads(result.stdout or "[]")
+
+
 def load_pr_threads(owner: str, repo: str, number: int) -> dict[str, object]:
     query = """
     query($owner: String!, $repo: String!, $number: Int!) {
@@ -132,6 +142,7 @@ def body_summary(body: str) -> str:
 def find_bot_comments(
     payload: dict[str, object],
     rest_comments: list[dict[str, object]],
+    rest_pr_comments: list[dict[str, object]],
     *,
     head_oid: str,
     include_resolved: bool,
@@ -178,12 +189,29 @@ def find_bot_comments(
             )
             seen_urls.add(str(comment.get("url") or ""))
 
+    for comment in rest_pr_comments:
+        author = ((comment.get("user") or {}).get("login") or "")
+        url = str(comment.get("html_url") or "")
+        if author not in BOT_LOGINS or url in seen_urls:
+            continue
+        found.append(
+            BotComment(
+                author=author,
+                body=str(comment.get("body") or ""),
+                path="(PR comment)",
+                url=url,
+                resolved=False,
+                source="rest-pr-comment",
+            )
+        )
+        seen_urls.add(url)
+
     for comment in rest_comments:
         author = ((comment.get("user") or {}).get("login") or "")
         url = str(comment.get("html_url") or "")
         if author not in BOT_LOGINS or url in seen_urls:
             continue
-        if not include_outdated and comment.get("commit_id") != head_oid:
+        if not include_outdated and comment.get("commit_id") != head_oid and comment.get("position") is None:
             continue
         found.append(
             BotComment(
@@ -224,6 +252,7 @@ def main() -> int:
         comments = find_bot_comments(
             load_pr_threads(owner, repo, number),
             load_rest_review_comments(owner, repo, number),
+            load_rest_pr_comments(owner, repo, number),
             head_oid=head_oid,
             include_resolved=args.include_resolved,
             include_outdated=args.include_outdated,

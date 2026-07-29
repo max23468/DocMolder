@@ -47,7 +47,7 @@ jobs:
           set -euo pipefail
 
           missing=0
-          for var in DOCMOLDER_VPS_HOST DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64; do
+          for var in DOCMOLDER_VPS_HOST DOCMOLDER_VPS_SSH_PRIVATE_KEY_B64 DOCMOLDER_VPS_SSH_KNOWN_HOSTS; do
             if [ -z "${!var:-}" ]; then
               echo "::error::Missing required secret: ${var}"
               missing=1
@@ -83,12 +83,8 @@ jobs:
           touch "${HOME}/.ssh/known_hosts"
           chmod 644 "${HOME}/.ssh/known_hosts"
 
-          if [ -n "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS:-}" ]; then
-            printf '%s\n' "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
-            echo "SSH_STRICT=yes" >> "${GITHUB_ENV}"
-          else
-            echo "SSH_STRICT=accept-new" >> "${GITHUB_ENV}"
-          fi
+          printf '%s\n' "${DOCMOLDER_VPS_SSH_KNOWN_HOSTS}" > "${HOME}/.ssh/known_hosts"
+          echo "SSH_STRICT=yes" >> "${GITHUB_ENV}"
 
       - name: Update env file and restart service
         run: |
@@ -127,11 +123,19 @@ jobs:
           upsert_env() {
             key="\$1"
             value="\$2"
-            if grep -q "^\${key}=" "\${ENV_FILE}"; then
-              sed -i "s#^\${key}=.*#\${key}=\${value}#" "\${ENV_FILE}"
-            else
-              printf '%s=%s\n' "\${key}" "\${value}" >> "\${ENV_FILE}"
-            fi
+            python3 - "\${ENV_FILE}" "\${key}" "\${value}" <<'PY'
+          import sys
+          from pathlib import Path
+
+          path = Path(sys.argv[1])
+          key = sys.argv[2]
+          value = sys.argv[3]
+          lines = path.read_text(encoding="utf-8").splitlines()
+          updated = [f"{key}={value}" if line.startswith(f"{key}=") else line for line in lines]
+          if not any(line.startswith(f"{key}=") for line in lines):
+              updated.append(f"{key}={value}")
+          path.write_text("\n".join(updated) + "\n", encoding="utf-8")
+          PY
           }
 
           upsert_env "DOCMOLDER_ADMIN_USER_IDS" "\${DOCMOLDER_ADMIN_USER_IDS}"

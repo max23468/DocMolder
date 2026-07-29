@@ -18,9 +18,10 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 ## Package manager e lockfile
 
 - Python: `pip` dentro virtualenv.
-- Lockfile Python: `requirements.lock`, generato da `pyproject.toml` con hash e
-  verificato da `make lock-check` senza promuovere automaticamente versioni
-  transitive più recenti.
+- Lockfile Python: `requirements.lock` per runtime, `requirements-dev.lock` per
+  sviluppo/CI, `requirements-tools.lock` per il bootstrap CI e
+  `requirements-build.lock` per il backend di build; tutti hanno hash e sono
+  verificati da `make lock-check`.
 - JavaScript/TypeScript: non applicabile.
 - Lockfile JS: non applicabile.
 
@@ -68,7 +69,7 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 - publish standard PR: `scripts/publish_change.sh "<titolo conventional>"`
 - publish docs-only minuscolo: `make publish-docs TITLE="chore(docs): <descrizione>"`
 - deploy ordinario: webhook privato GitHub -> VPS
-- deploy manuale fallback: `sudo /opt/docmolder/app/deploy/update-vps.sh` sulla VPS
+- deploy manuale fallback: `sudo /usr/local/sbin/docmolder-update-vps` sulla VPS
 
 ## Release, deploy e verifiche
 

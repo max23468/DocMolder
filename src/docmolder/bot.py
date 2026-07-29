@@ -15,14 +15,16 @@ from zoneinfo import ZoneInfo
 
 from telegram import Document, InlineKeyboardMarkup, Message, PhotoSize, Update, User
 from telegram import MenuButtonCommands
-from telegram.constants import ParseMode
+from telegram.constants import ChatType, ParseMode
 from telegram.error import BadRequest, NetworkError, RetryAfter, TelegramError, TimedOut
 from telegram.ext import (
     Application,
+    ApplicationHandlerStop,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -213,6 +215,8 @@ class SensitiveLogFilter(logging.Filter):
             record.args = tuple(_redact_sensitive_arg(arg) for arg in record.args)
         elif isinstance(record.args, dict):
             record.args = {key: _redact_sensitive_arg(value) for key, value in record.args.items()}
+        record.exc_info = None
+        record.exc_text = None
         return True
 
 
@@ -244,6 +248,15 @@ def _configure_logging() -> None:
 
 def _get_dependencies(context: ContextTypes.DEFAULT_TYPE) -> BotDependencies:
     return context.application.bot_data["deps"]
+
+
+async def _private_chat_only(update: Update, _context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat = update.effective_chat
+    if chat is None or chat.type == ChatType.PRIVATE:
+        return
+    if update.effective_message is not None:
+        await update.effective_message.reply_text("Per proteggere i tuoi documenti, usa DocMolder solo nella chat privata con il bot.")
+    raise ApplicationHandlerStop
 
 
 def _get_service_mode(deps: BotDependencies) -> str:
@@ -3086,6 +3099,7 @@ def build_application(settings: Settings) -> Application:
     )
     application.bot_data["deps"] = deps
 
+    application.add_handler(TypeHandler(Update, _private_chat_only), group=-1)
     application.add_handler(CommandHandler("start", start_command))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("history", history_command))
@@ -4340,12 +4354,24 @@ async def _download_session_files(
     session: UserSession,
     input_dir: Path,
 ) -> list[Path]:
+    deps: BotDependencies = application.bot_data["deps"]
+    max_file_bytes = deps.settings.max_file_size_mb * 1024 * 1024
+    max_job_bytes = max_file_bytes * min(deps.settings.max_session_files, 5)
+    downloaded_bytes = 0
     downloaded_paths: list[Path] = []
     for index, session_file in enumerate(session.files, start=1):
         telegram_file = await application.bot.get_file(session_file.telegram_file_id)
         file_name = sanitize_filename(session_file.file_name)
         target_path = input_dir / f"{index:02d}_{file_name}"
         await telegram_file.download_to_drive(custom_path=str(target_path))
+        file_bytes = target_path.stat().st_size
+        downloaded_bytes += file_bytes
+        if file_bytes > max_file_bytes or downloaded_bytes > max_job_bytes:
+            target_path.unlink(missing_ok=True)
+            raise ProcessingUserError(
+                "I file scaricati superano il budget del job. "
+                f"Limite: {deps.settings.max_file_size_mb} MB per file e {max_job_bytes // (1024 * 1024)} MB totali."
+            )
         downloaded_paths.append(target_path)
     return downloaded_paths
 

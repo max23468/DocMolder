@@ -6,6 +6,7 @@ import hmac
 import json
 import os
 import queue
+import re
 import subprocess
 import threading
 from dataclasses import asdict, dataclass, field
@@ -28,6 +29,15 @@ def env_int(name: str, default: int) -> int:
         return int(raw)
     except ValueError as exc:
         raise ValueError(f"Invalid integer value for {name}: {raw!r}") from exc
+
+
+def env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name, str(default)).strip().lower()
+    if raw in {"1", "true", "yes"}:
+        return True
+    if raw in {"0", "false", "no"}:
+        return False
+    raise ValueError(f"Invalid boolean value for {name}: {raw!r}")
 
 
 def normalize_repo_name(value: str) -> str:
@@ -65,10 +75,9 @@ class WebhookConfig:
     branch: str
     secret: str
     deploy_script: str
+    deploy_with_sudo: bool
     deploy_timeout_seconds: int
     max_body_bytes: int
-    restart_marker_path: str
-    service_name: str
 
     @classmethod
     def from_env(cls) -> "WebhookConfig":
@@ -80,14 +89,13 @@ class WebhookConfig:
             repository=normalize_repo_name(os.getenv("DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY", "max23468/DocMolder")),
             branch=normalize_branch(os.getenv("DOCMOLDER_GITHUB_WEBHOOK_BRANCH", "main")),
             secret=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SECRET", "").strip(),
-            deploy_script=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT", "/opt/docmolder/app/deploy/update-vps.sh").strip(),
+            deploy_script=os.getenv(
+                "DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT",
+                "/usr/local/sbin/docmolder-update-vps",
+            ).strip(),
+            deploy_with_sudo=env_bool("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_WITH_SUDO", True),
             deploy_timeout_seconds=env_int("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_TIMEOUT_SECONDS", 3600),
             max_body_bytes=env_int("DOCMOLDER_GITHUB_WEBHOOK_MAX_BODY_BYTES", 1_048_576),
-            restart_marker_path=os.getenv(
-                "DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER",
-                "/run/docmolder-github-webhook/restart-requested",
-            ).strip(),
-            service_name=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SERVICE_NAME", "docmolder-github-webhook.service").strip(),
         )
 
     @property
@@ -105,7 +113,6 @@ class DeployJob:
     target_ref: str
     repository: str
     branch: str
-    payload: dict[str, Any]
     received_at: str = field(default_factory=utc_now)
 
 
@@ -122,7 +129,9 @@ class DeployState:
 class GitHubDeployWebhookApp:
     def __init__(self, config: WebhookConfig) -> None:
         self.config = config
-        self.jobs: queue.Queue[DeployJob] = queue.Queue()
+        self.jobs: queue.Queue[DeployJob] = queue.Queue(maxsize=1)
+        self.seen_delivery_ids: dict[str, None] = {}
+        self.enqueue_lock = threading.Lock()
         self.state = DeployState()
         self.stop_event = threading.Event()
         self.worker = threading.Thread(target=self._worker_loop, name="docmolder-github-webhook-worker", daemon=True)
@@ -132,19 +141,20 @@ class GitHubDeployWebhookApp:
 
     def stop(self) -> None:
         self.stop_event.set()
-        self.jobs.put(
-            DeployJob(
-                delivery_id="stop",
-                target_ref=self.config.target_ref,
-                repository=self.config.repository,
-                branch=self.config.branch,
-                payload={},
-            )
-        )
         self.worker.join(timeout=5)
 
-    def enqueue(self, job: DeployJob) -> None:
-        self.jobs.put(job)
+    def enqueue(self, job: DeployJob) -> str:
+        with self.enqueue_lock:
+            if job.delivery_id in self.seen_delivery_ids:
+                return "duplicate"
+            try:
+                self.jobs.put_nowait(job)
+            except queue.Full:
+                return "full"
+            self.seen_delivery_ids[job.delivery_id] = None
+            if len(self.seen_delivery_ids) > 1000:
+                self.seen_delivery_ids.pop(next(iter(self.seen_delivery_ids)))
+            return "queued"
 
     def status(self) -> dict[str, Any]:
         return {
@@ -152,17 +162,6 @@ class GitHubDeployWebhookApp:
             "configured": self.config.ready,
             "busy": self.state.busy,
             "queued_jobs": self.jobs.qsize(),
-            "webhook_path": self.config.webhook_path,
-            "health_path": self.config.health_path,
-            "repository": self.config.repository,
-            "branch": self.config.branch,
-            "restart_marker_path": self.config.restart_marker_path,
-            "service_name": self.config.service_name,
-            "last_job": self.state.last_job,
-            "last_result": self.state.last_result,
-            "last_error": self.state.last_error,
-            "last_started_at": self.state.last_started_at,
-            "last_finished_at": self.state.last_finished_at,
         }
 
     def _worker_loop(self) -> None:
@@ -171,10 +170,6 @@ class GitHubDeployWebhookApp:
                 job = self.jobs.get(timeout=0.5)
             except queue.Empty:
                 continue
-
-            if job.delivery_id == "stop":
-                self.jobs.task_done()
-                break
 
             self.state.busy = True
             self.state.last_job = asdict(job)
@@ -204,18 +199,14 @@ class GitHubDeployWebhookApp:
         if not script.exists():
             raise FileNotFoundError(f"Deploy script missing: {script}")
 
-        command = [str(script), job.target_ref]
+        command = [*(["sudo"] if self.config.deploy_with_sudo else []), str(script), "deploy", job.target_ref]
         print(f"[webhook] running: {' '.join(command)}", flush=True)
-        env = os.environ.copy()
-        env["DOCMOLDER_GITHUB_WEBHOOK_IN_WORKER"] = "1"
-        env["DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER"] = self.config.restart_marker_path
         result = subprocess.run(
             command,
             check=False,
             capture_output=True,
             text=True,
             timeout=self.config.deploy_timeout_seconds,
-            env=env,
         )
 
         if result.stdout:
@@ -240,53 +231,11 @@ class GitHubDeployWebhookApp:
             raise RuntimeError(f"Deploy script exited with {result.returncode}")
 
         print(f"[webhook] deploy OK for {job.target_ref}", flush=True)
-        restart_result = self._restart_webhook_if_requested()
-        self.state.last_result["webhook_restart"] = restart_result
-        self.state.last_result["ok"] = restart_result["ok"]
-        if not restart_result["ok"]:
-            self.state.last_error = str(restart_result.get("error") or "webhook restart scheduling failed")
-            raise RuntimeError(self.state.last_error)
-
-    def _restart_webhook_if_requested(self) -> dict[str, Any]:
-        marker = Path(self.config.restart_marker_path)
-        if not marker.exists():
-            return {"ok": True, "requested": False, "marker": str(marker)}
-
-        try:
-            marker.unlink()
-        except OSError as exc:
-            return {"ok": False, "requested": True, "marker": str(marker), "error": f"cannot remove restart marker: {exc}"}
-
-        unit_name = f"docmolder-github-webhook-restart-{int(datetime.now(timezone.utc).timestamp())}"
-        command = [
-            "systemd-run",
-            "--quiet",
-            "--collect",
-            f"--unit={unit_name}",
-            "--on-active=1s",
-            "/bin/systemctl",
-            "restart",
-            self.config.service_name,
-        ]
-        result = subprocess.run(command, check=False, capture_output=True, text=True)
-        payload: dict[str, Any] = {
-            "ok": result.returncode == 0,
-            "requested": True,
-            "marker": str(marker),
-            "returncode": result.returncode,
-            "unit": unit_name,
-            "service": self.config.service_name,
-        }
-        if result.returncode != 0:
-            payload["error"] = result.stderr.strip() or result.stdout.strip() or "systemd-run failed"
-        return payload
-
-
 class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
     server: "GitHubDeployWebhookHTTPServer"
 
     def do_GET(self) -> None:
-        if self.path not in {self.server.app.config.health_path, "/status"}:
+        if self.path != self.server.app.config.health_path:
             self.send_error(HTTPStatus.NOT_FOUND)
             return
 
@@ -348,9 +297,14 @@ class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
             target_ref=target_ref,
             repository=normalize_repo_name(str(payload["repository"]["full_name"])),
             branch=normalize_branch(str(payload["ref"])),
-            payload=payload,
         )
-        self.server.app.enqueue(job)
+        enqueue_result = self.server.app.enqueue(job)
+        if enqueue_result == "duplicate":
+            self._send_json(HTTPStatus.ACCEPTED, {"ok": True, "ignored": True, "reason": "duplicate delivery"})
+            return
+        if enqueue_result == "full":
+            self._send_json(HTTPStatus.SERVICE_UNAVAILABLE, {"ok": False, "error": "deploy queue full"})
+            return
         self._send_json(
             HTTPStatus.ACCEPTED,
             {"ok": True, "queued": True, "delivery_id": delivery_id, "target_ref": target_ref},
@@ -371,6 +325,9 @@ class GitHubDeployWebhookHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "invalid content-length"})
             return None
 
+        if size < 0:
+            self._send_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "invalid content-length"})
+            return None
         if size > self.server.app.config.max_body_bytes:
             self._send_json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False, "error": "payload too large"})
             return None
@@ -409,7 +366,7 @@ def should_accept_push(payload: dict[str, Any], expected_repo: str, expected_bra
         return False, None, "branch deleted"
 
     after = str(payload.get("after", ""))
-    if not after or after == ZERO_SHA:
+    if not re.fullmatch(r"[0-9a-f]{40}", after) or after == ZERO_SHA:
         return False, None, "missing target sha"
 
     return True, after, "push accepted"
@@ -424,7 +381,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--repository", default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY", "max23468/DocMolder"))
     parser.add_argument("--branch", default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_BRANCH", "main"))
     parser.add_argument("--secret", default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SECRET", ""))
-    parser.add_argument("--deploy-script", default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT", "/opt/docmolder/app/deploy/update-vps.sh"))
+    parser.add_argument(
+        "--deploy-script",
+        default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT", "/usr/local/sbin/docmolder-update-vps"),
+    )
+    parser.add_argument(
+        "--deploy-with-sudo",
+        action=argparse.BooleanOptionalAction,
+        default=env_bool("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_WITH_SUDO", True),
+    )
     parser.add_argument(
         "--deploy-timeout-seconds",
         type=int,
@@ -434,14 +399,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--max-body-bytes",
         type=int,
         default=env_int("DOCMOLDER_GITHUB_WEBHOOK_MAX_BODY_BYTES", 1_048_576),
-    )
-    parser.add_argument(
-        "--restart-marker-path",
-        default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_RESTART_MARKER", "/run/docmolder-github-webhook/restart-requested"),
-    )
-    parser.add_argument(
-        "--service-name",
-        default=os.getenv("DOCMOLDER_GITHUB_WEBHOOK_SERVICE_NAME", "docmolder-github-webhook.service"),
     )
     return parser.parse_args(argv)
 
@@ -457,10 +414,9 @@ def main(argv: list[str] | None = None) -> None:
         branch=normalize_branch(args.branch),
         secret=args.secret.strip(),
         deploy_script=args.deploy_script,
+        deploy_with_sudo=args.deploy_with_sudo,
         deploy_timeout_seconds=args.deploy_timeout_seconds,
         max_body_bytes=args.max_body_bytes,
-        restart_marker_path=args.restart_marker_path,
-        service_name=args.service_name,
     )
     app = GitHubDeployWebhookApp(config)
     server = GitHubDeployWebhookHTTPServer((config.host, config.port), GitHubDeployWebhookHandler, app)
@@ -475,8 +431,6 @@ def main(argv: list[str] | None = None) -> None:
                 "health_path": config.health_path,
                 "repository": config.repository,
                 "branch": config.branch,
-                "restart_marker_path": config.restart_marker_path,
-                "service_name": config.service_name,
                 "configured": config.ready,
             },
             ensure_ascii=False,

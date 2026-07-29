@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 import sys
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 import subprocess
 import zipfile
 
@@ -209,6 +209,17 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
 
         with self.assertRaises(ProcessingUserError):
             self.processor.split_pdf_pages(pdf_path, "single_split")
+
+    def test_split_pdf_pages_rejects_excessive_output_count(self) -> None:
+        pdf_path = self.runtime_dir / "too_many_pages.pdf"
+        writer = PdfWriter()
+        for _ in range(51):
+            writer.add_blank_page(width=200, height=200)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        with self.assertRaisesRegex(ProcessingUserError, "50"):
+            self.processor.split_pdf_pages(pdf_path, "too_many")
 
     def test_split_pdf_pages_can_return_separate_outputs(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_split_files" / "input"
@@ -967,12 +978,20 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
             ("2-1", "intervalli pagina"),
             ("due", "solo numeri"),
             ("4", "3 pagine"),
+            ("1-1000000000", "3 pagine"),
             ("1,1,2", "ogni pagina una sola volta"),
         ]
         for raw_value, expected_message in invalid_cases:
             with self.subTest(raw_value=raw_value):
                 with self.assertRaisesRegex(ProcessingUserError, expected_message):
                     self.processor._parse_page_selection(raw_value, pdf_path, mode="full_reorder")
+
+    def test_open_image_rejects_pixel_budget_before_decode(self) -> None:
+        image = MagicMock(width=50_000, height=50_000)
+        with patch("docmolder.processing.Image.open", return_value=image):
+            with self.assertRaisesRegex(ProcessingUserError, "budget"):
+                self.processor._open_image(self.runtime_dir / "huge.png")
+        image.close.assert_called_once()
 
     def test_auto_rotate_pdf_to_dominant_orientation_rotates_outlier_pages(self) -> None:
         pdf_path = self.runtime_dir / "mostly_portrait.pdf"

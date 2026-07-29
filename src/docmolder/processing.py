@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import re
 import shutil
 import subprocess
@@ -32,6 +33,10 @@ A4_MARGIN_NONE_PX = 0
 DOCUMENT_PHOTO_DETECTION_MAX_SIDE = 1800
 DOCUMENT_PHOTO_OUTPUT_MAX_SIDE = 2400
 IMAGE_PDF_DEFAULT_MAX_SOURCE_SIDE = 3200
+IMAGE_MAX_PIXELS = 40_000_000
+PDF_MAX_PAGES = 200
+PDF_SPLIT_MAX_PAGES = 50
+PDF_RASTER_MAX_PIXELS = 40_000_000
 _IMAGE_PDF_ACTION_OPTIONS: dict[SupportedAction, tuple[bool, bool]] = {
     SupportedAction.IMAGES_TO_PDF: (False, False),
     SupportedAction.IMAGES_TO_PDF_CROP: (True, False),
@@ -356,7 +361,7 @@ class DocumentProcessor:
         downscaled_images = 0
         for index, image_path in enumerate(image_paths, start=1):
             page_pdf_path = output_path.parent / f".{output_stem}_page_{index:04d}.pdf"
-            with Image.open(image_path) as image:
+            with self._open_image(image_path) as image:
                 corrected, was_downscaled = self._prepare_image_for_pdf(
                     image,
                     grayscale_output=grayscale_output,
@@ -419,7 +424,7 @@ class DocumentProcessor:
 
         try:
             for image_path in image_paths:
-                with Image.open(image_path) as image:
+                with self._open_image(image_path) as image:
                     corrected = ImageOps.exif_transpose(image).convert("RGB")
                     transformed = self._transform_document_photo(corrected, mode=mode)
                     warnings.update(transformed.warnings)
@@ -503,6 +508,10 @@ class DocumentProcessor:
         total_pages = len(reader.pages)
         if total_pages < 2:
             raise ProcessingUserError("Questo PDF ha una sola pagina: non ci sono pagine da dividere in più file.")
+        if total_pages > PDF_SPLIT_MAX_PAGES:
+            raise ProcessingUserError(
+                f"Questo PDF ha {total_pages} pagine. La divisione supporta al massimo {PDF_SPLIT_MAX_PAGES} pagine per job."
+            )
 
         pages_dir = pdf_path.parent / f"{output_stem}_pages"
         pages_dir.mkdir(parents=True, exist_ok=True)
@@ -674,12 +683,7 @@ class DocumentProcessor:
             raise ProcessingUserError("Per la rotazione manuale puoi usare solo 90, 180 o 270 gradi.")
         output_path = pdf_path.parent.parent / f"{output_stem}.pdf"
         try:
-            reader = PdfReader(str(pdf_path))
-            if reader.is_encrypted:
-                raise ProcessingUserError(
-                    "Questo PDF sembra protetto da password. "
-                    "Per ruotarlo, invia prima una versione non protetta."
-                )
+            reader = self._build_pdf_reader(pdf_path)
             writer = PdfWriter()
 
             for page in reader.pages:
@@ -810,13 +814,7 @@ class DocumentProcessor:
 
     def _auto_rotate_pdf_to_dominant_orientation(self, pdf_path: Path, output_path: Path) -> int:
         try:
-            reader = PdfReader(str(pdf_path))
-            if reader.is_encrypted:
-                raise ProcessingUserError(
-                    "Questo PDF sembra protetto da password. "
-                    "Per elaborarlo, invia prima una versione non protetta."
-                )
-
+            reader = self._build_pdf_reader(pdf_path)
             writer = PdfWriter()
             page_orientations = [self._get_displayed_page_orientation(page) for page in reader.pages]
             target_orientation = self._infer_target_page_orientation(page_orientations)
@@ -871,7 +869,7 @@ class DocumentProcessor:
         for index, image_path in enumerate(image_paths, start=1):
             suffix = image_path.suffix.lower() or ".jpg"
             output_path = image_path.parent / f"{output_stem}_{index}{suffix}"
-            with Image.open(image_path) as image:
+            with self._open_image(image_path) as image:
                 corrected = ImageOps.exif_transpose(image)
                 save_image = corrected
                 if suffix in {".jpg", ".jpeg"} and corrected.mode not in ("RGB", "L"):
@@ -909,10 +907,11 @@ class DocumentProcessor:
         image_format: str,
         jpeg_quality: int | None = None,
     ) -> None:
-        source = fitz.open(pdf_path)
+        source = self._open_pdf_document(pdf_path)
         destination = fitz.open()
         try:
             for page in source:
+                self._validate_pdf_raster_budget(page, dpi=dpi)
                 pixmap = page.get_pixmap(dpi=dpi, colorspace=colorspace, alpha=False)
                 image_bytes = pixmap.tobytes("png" if image_format == "png" else "ppm")
                 with Image.open(BytesIO(image_bytes)) as image:
@@ -969,6 +968,7 @@ class DocumentProcessor:
             return None
 
         zoom = 2
+        self._validate_pdf_raster_budget(page, dpi=72 * zoom)
         pixmap = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), colorspace=fitz.csRGB, alpha=False)
         image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
         try:
@@ -1251,6 +1251,11 @@ class DocumentProcessor:
                 "Questo PDF sembra protetto da password. "
                 "Per elaborarlo, invia prima una versione non protetta."
             )
+        if document.page_count > PDF_MAX_PAGES:
+            document.close()
+            raise ProcessingUserError(
+                f"Questo PDF ha più di {PDF_MAX_PAGES} pagine, oltre il budget massimo per un singolo job."
+            )
         return document
 
     def _build_pdf_reader(self, pdf_path: Path) -> PdfReader:
@@ -1260,6 +1265,10 @@ class DocumentProcessor:
                 raise ProcessingUserError(
                     "Questo PDF sembra protetto da password. "
                     "Per elaborarlo, invia prima una versione non protetta."
+                )
+            if len(reader.pages) > PDF_MAX_PAGES:
+                raise ProcessingUserError(
+                    f"Questo PDF ha più di {PDF_MAX_PAGES} pagine, oltre il budget massimo per un singolo job."
                 )
             return reader
         except (PdfReadError, FileNotDecryptedError) as exc:
@@ -1289,6 +1298,8 @@ class DocumentProcessor:
                 end = int(end_text.strip())
                 if start <= 0 or end <= 0 or start > end:
                     raise ProcessingUserError("Gli intervalli pagina devono essere validi, ad esempio 2-5.")
+                if end > total_pages:
+                    raise ProcessingUserError(f"Questo PDF ha {total_pages} pagine. Controlla la selezione e riprova.")
                 page_numbers.extend(range(start, end + 1))
             else:
                 if not token.isdigit():
@@ -1305,6 +1316,23 @@ class DocumentProcessor:
                 )
 
         return page_numbers
+
+    def _open_image(self, path: Path) -> Image.Image:
+        image = Image.open(path)
+        if image.width * image.height > IMAGE_MAX_PIXELS:
+            image.close()
+            raise ProcessingUserError(
+                f"Questa immagine supera il budget di {IMAGE_MAX_PIXELS:,} pixel. Riduci le dimensioni e riprova."
+            )
+        return image
+
+    def _validate_pdf_raster_budget(self, page: fitz.Page, *, dpi: float) -> None:
+        width = page.rect.width * dpi / 72
+        height = page.rect.height * dpi / 72
+        if not math.isfinite(width * height) or width <= 0 or height <= 0 or width * height > PDF_RASTER_MAX_PIXELS:
+            raise ProcessingUserError(
+                "Una pagina del PDF è troppo grande per la conversione raster. Riduci il formato pagina e riprova."
+            )
 
     def _format_page_numbers(self, page_numbers: list[int]) -> str:
         if not page_numbers:

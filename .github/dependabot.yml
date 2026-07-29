@@ -38,8 +38,10 @@ updates:
       - "dependencies"
       - "github-actions"
     groups:
-      # Un'unica PR per tutti gli aggiornamenti delle Action (anche major):
-      # basso rischio e gated dalla CI, quindi in auto-merge.
+      # Raggruppa solo minor/patch; i major restano PR singole con review manuale.
       github-actions:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"

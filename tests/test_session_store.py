@@ -26,6 +26,9 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
+    def test_database_file_is_private(self) -> None:
+        self.assertEqual(self.db_path.stat().st_mode & 0o777, 0o600)
+
     def test_job_lifecycle_updates_admin_stats(self) -> None:
         job = self.store.create_job(
             user_id=123,

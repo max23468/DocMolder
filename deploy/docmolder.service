@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 User=docmolder
 Group=docmolder
+UMask=0077
 WorkingDirectory=/opt/docmolder/app
 EnvironmentFile=/etc/docmolder/docmolder.env
 ExecStart=/opt/docmolder/venv/bin/docmolder

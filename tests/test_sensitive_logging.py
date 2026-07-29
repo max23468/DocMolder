@@ -42,6 +42,26 @@ class SensitiveLoggingTest(unittest.TestCase):
             ("https://api.telegram.org/bot<redacted>/getUpdates",),
         )
 
+    def test_sensitive_log_filter_drops_exception_traceback(self) -> None:
+        try:
+            raise RuntimeError("https://api.telegram.org/bot123456:secret/getMe")
+        except RuntimeError:
+            exc_info = sys.exc_info()
+        record = logging.LogRecord(
+            name="docmolder",
+            level=logging.ERROR,
+            pathname=__file__,
+            lineno=1,
+            msg="errore",
+            args=(),
+            exc_info=exc_info,
+        )
+
+        SensitiveLogFilter().filter(record)
+
+        self.assertIsNone(record.exc_info)
+        self.assertIsNone(record.exc_text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,6 +26,7 @@ decisioni, governance operativa e approfondimenti.
 - [TOOLCHAIN.md](./TOOLCHAIN.md): runtime, comandi, tool esterni e guardrail di versione.
 - [ONE_DOT_ZERO_READINESS.md](./ONE_DOT_ZERO_READINESS.md): criteri, checklist e record della promozione DocMolder a `1.0.0`.
 - [OPERATIONS_SECURITY.md](./OPERATIONS_SECURITY.md): sicurezza operativa, segreti, log, backup e incident response.
+- [SECURITY_HARDENING.md](./SECURITY_HARDENING.md): audit tecnici, correzioni e rischi residui.
 - [SERVICE_GOVERNANCE.md](./SERVICE_GOVERNANCE.md): dati trattati, retention, cancellazione e limiti del servizio.
 - [SMOKE_TESTS.md](./SMOKE_TESTS.md): strategia post-deploy per smoke test rapidi via Telegram Desktop scriptato e verifica UI mirata.
 - [GITHUB_ALIGNMENT.md](./GITHUB_ALIGNMENT.md): setup GitHub e best practice per maintainer singolo.

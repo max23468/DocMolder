@@ -10,7 +10,7 @@ Nel flusso standard con GitHub Actions prudente, il percorso consigliato è:
 
 1. Codex cloud prepara e pubblica il codice su GitHub.
 2. La PR non draft verso `main` passa `CI result`.
-3. Il maintainer mergea la PR e lascia che il webhook privato GitHub -> VPS lanci `sudo /opt/docmolder/app/deploy/update-vps.sh`.
+3. Il maintainer mergea la PR e lascia che il webhook privato GitHub -> VPS lanci il controller root-owned `/usr/local/sbin/docmolder-update-vps`.
 4. Se la PR richiede un rilascio, completa la procedura release manuale documentata da una copia pulita del `main`.
 5. La procedura release manuale documentata crea changelog, tag e GitHub Release; il webhook VPS deploya anche il commit di release.
 6. Le verifiche operative si eseguono via SSH diretto o con i comandi locali del repo.
@@ -21,14 +21,13 @@ Per deploy ordinari, il default operativo è il webhook privato GitHub -> VPS:
 
 1. fai lavorare Codex sul branch desiderato
 2. porta la modifica su `main` quando serve pubblicarla
-3. lascia che il webhook GitHub esegua il deploy, oppure aggiorna la VPS manualmente con `sudo /opt/docmolder/app/deploy/update-vps.sh` se il webhook non è disponibile
+3. lascia che il webhook GitHub esegua il deploy, oppure aggiorna la VPS manualmente con `sudo /usr/local/sbin/docmolder-update-vps deploy origin/main` se il webhook non è disponibile
 
-Per deploy di una revisione specifica:
+Per deploy manuali:
 
-- usa il webhook privato o il deploy manuale sulla VPS per un commit o ref specifico
-- passa `target_ref` a `update-vps.sh` se vuoi deployare un commit o ref specifico
+- usa il webhook privato o il controller root-owned per la revisione corrente di `main`
+- usa `Rollback VPS` solo per uno SHA completo già appartenente alla storia di `main`
 - usa `VPS Check` solo se vuoi verificare stato servizio, timer, disco e healthcheck senza copiare file
-- usa `Rollback VPS` solo se devi ripristinare una revisione già nota
 
 Il deploy automatico su `main` non usa GitHub Actions. I cambi solo documentali, test, changelog, issue template, istruzioni agent o workflow GitHub non attivano deploy; se serve comunque aggiornare la VPS dopo uno di quei cambi, usa il percorso manuale sulla VPS.
 
@@ -38,10 +37,11 @@ Questo flusso non richiede accesso dal runtime Codex cloud alla rete privata del
 
 Il webhook è immediato ma non ha ritentativi: se una consegna fallisce (VPS
 irraggiungibile o listener giù al momento del push), quel commit non verrebbe mai
-deployato. Per questo la VPS esegue anche `deploy/docmolder-autodeploy.sh` da un
-timer systemd (`docmolder-autodeploy.timer`, ~ogni 10 min): confronta il commit
-deployato (`HEAD` del checkout) con `origin/main` e, se il checkout è rimasto
-indietro, lancia `update-vps.sh` — con **rollback** automatico al commit
+deployato. Per questo la VPS esegue anche il controller root-owned
+`/usr/local/sbin/docmolder-update-vps` da un timer systemd
+(`docmolder-autodeploy.timer`, ~ogni 10 min): confronta il commit deployato
+(`HEAD` del checkout) con `origin/main` e, se il checkout è rimasto indietro,
+applica l’aggiornamento — con **rollback** automatico al commit
 precedente se il deploy fallisce. Webhook e timer sono serializzati dallo stesso
 lock in `update-vps.sh`, quindi non possono sovrapporsi.
 
@@ -67,7 +67,7 @@ Note operative:
 - `DOCMOLDER_GITHUB_WEBHOOK_SECRET` deve combaciare con il secret del webhook GitHub
 - `DOCMOLDER_GITHUB_WEBHOOK_REPOSITORY` dovrebbe restare `max23468/DocMolder`
 - `DOCMOLDER_GITHUB_WEBHOOK_BRANCH` dovrebbe restare `main`
-- `DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT` dovrebbe restare `/opt/docmolder/app/deploy/update-vps.sh`
+- `DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT` deve restare `/usr/local/sbin/docmolder-update-vps`
 - in questa fase non sono previsti automatismi release aggiuntivi lato VPS; i permessi token sono documentati solo per i flussi ufficiali previsti da procedura release manuale documentata.
 
 ## Fallback locale
@@ -80,11 +80,10 @@ Su `chatgpt.com`, il percorso da considerare ufficiale è il webhook GitHub quan
 
 Il webhook GitHub esegue:
 
-- sincronizzazione del repository verso `/opt/docmolder/app`
-- installazione o aggiornamento locale con `deploy/update-vps.sh`
+- validazione del push e dello SHA corrente di `origin/main`
+- aggiornamento del checkout e delle dipendenze come utente `docmolder` tramite
+  il controller root-owned
 - eventuale fallback esterno di release non è attivo nel flusso standard
-- controllo `systemctl status docmolder --no-pager`
-- controllo `systemctl status docmolder-db-backup.timer --no-pager`
-- stato operativo del listener nel journal di systemd
+- restart del solo servizio noto e smoke check come utente `docmolder`
 
 Per smoke test applicativi, continua a seguire [docs/SMOKE_TESTS.md](./SMOKE_TESTS.md).

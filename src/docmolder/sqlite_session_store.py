@@ -29,6 +29,7 @@ class SQLiteSessionStore:
         self._lock = Lock()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
+        self.db_path.chmod(0o600)
 
     def get(self, user_id: int) -> UserSession | None:
         with self._lock, self._connect() as connection:
