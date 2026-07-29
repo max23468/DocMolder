@@ -2,8 +2,10 @@
 set -euo pipefail
 
 readonly APP_USER="docmolder"
+readonly APP_GROUP="docmolder"
 readonly APP_DIR="/opt/docmolder/app"
 readonly VENV_DIR="/opt/docmolder/venv"
+readonly ENV_FILE="/etc/docmolder/docmolder.env"
 readonly SERVICE_NAME="docmolder"
 readonly WEBHOOK_SERVICE="docmolder-github-webhook.service"
 readonly DEPLOY_LOCK="/run/docmolder-update-vps.lock"
@@ -26,6 +28,8 @@ if [ "${TARGET_REF}" != "origin/main" ] && [[ ! "${TARGET_REF}" =~ ^[0-9a-f]{40}
 fi
 
 cd "${APP_DIR}"
+chown root:"${APP_GROUP}" "${ENV_FILE}"
+chmod 640 "${ENV_FILE}"
 previous_sha="$(sudo -u "${APP_USER}" git rev-parse HEAD)"
 sudo -u "${APP_USER}" git fetch origin
 remote_sha="$(sudo -u "${APP_USER}" git rev-parse origin/main)"

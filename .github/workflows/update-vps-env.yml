@@ -146,8 +146,8 @@ jobs:
           fi
           upsert_env "DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED" "\${DOCMOLDER_TELEGRAM_BRAND_SYNC_ENABLED}"
 
-          chown root:root "\${ENV_FILE}"
-          chmod 600 "\${ENV_FILE}"
+          chown root:docmolder "\${ENV_FILE}"
+          chmod 640 "\${ENV_FILE}"
 
           systemctl restart docmolder
           systemctl status docmolder --no-pager

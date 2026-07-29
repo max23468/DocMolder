@@ -11,10 +11,32 @@ class DeployScriptsTest(unittest.TestCase):
     def test_update_vps_runs_checkout_code_as_application_user(self) -> None:
         script = (ROOT / "deploy" / "update-vps.sh").read_text(encoding="utf-8")
 
+        self.assertLess(script.index('chmod 640 "${ENV_FILE}"'), script.index("install_revision()"))
         self.assertIn('sudo -u "${APP_USER}" git reset --hard', script)
         self.assertIn('sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip"', script)
         self.assertIn('sudo -u "${APP_USER}" bash "${APP_DIR}/deploy/smoke-check.sh"', script)
         self.assertNotIn('bash "${APP_DIR}/deploy/install-vps.sh"', script)
+
+    def test_vps_installers_allow_only_the_application_group_to_read_env(self) -> None:
+        for name in ("install-vps.sh", "oracle-setup.sh"):
+            script = (ROOT / "deploy" / name).read_text(encoding="utf-8")
+            self.assertIn('sudo chown root:"${APP_GROUP}"', script)
+            self.assertIn("sudo chmod 640", script)
+
+        for name in ("deploy-vps.yml", "rollback-vps.yml", "update-vps-env.yml"):
+            workflow = (ROOT / ".github" / "workflows" / name).read_text(encoding="utf-8")
+            self.assertIn("chown root:docmolder", workflow)
+            self.assertIn("chmod 640", workflow)
+
+    def test_vps_installers_migrate_all_privileged_deploy_paths(self) -> None:
+        webhook_installer = (ROOT / "deploy" / "install-github-webhook.sh").read_text(encoding="utf-8")
+        self.assertIn("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT=/opt/docmolder/app/deploy/update-vps.sh", webhook_installer)
+        self.assertIn("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT=/usr/local/sbin/docmolder-update-vps", webhook_installer)
+
+        for name in ("install-vps.sh", "oracle-setup.sh"):
+            script = (ROOT / "deploy" / name).read_text(encoding="utf-8")
+            self.assertIn("docmolder-autodeploy.service", script)
+            self.assertIn("docmolder-autodeploy.timer", script)
 
     def test_deploy_workflows_only_invoke_root_owned_controller(self) -> None:
         deploy = (ROOT / ".github" / "workflows" / "deploy-vps.yml").read_text(encoding="utf-8")
@@ -110,6 +132,8 @@ class DeployScriptsTest(unittest.TestCase):
         script = (ROOT / "deploy" / "check-perms.sh").read_text(encoding="utf-8")
 
         self.assertIn('check_file_mode "${path}" "700"', script)
+        self.assertIn('check_file_mode "${ENV_FILE}" "640"', script)
+        self.assertIn('check_file_owner "${ENV_FILE}" "root:docmolder"', script)
 
 
 if __name__ == "__main__":

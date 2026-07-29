@@ -137,8 +137,8 @@ fi
 sudo sed -i "s#^DOCMOLDER_RUNTIME_DIR=.*#DOCMOLDER_RUNTIME_DIR=${DATA_DIR}#" "${ENV_FILE}"
 sudo sed -i "s#^DOCMOLDER_DATABASE_PATH=.*#DOCMOLDER_DATABASE_PATH=${DATA_DIR}/docmolder.db#" "${ENV_FILE}"
 sudo sed -i "s#^DOCMOLDER_SQLITE_BACKUP_DIR=.*#DOCMOLDER_SQLITE_BACKUP_DIR=${BACKUP_DIR}#" "${ENV_FILE}"
-sudo chown root:root "${ENV_FILE}"
-sudo chmod 600 "${ENV_FILE}"
+sudo chown root:"${APP_GROUP}" "${ENV_FILE}"
+sudo chmod 640 "${ENV_FILE}"
 
 sudo cp "${APP_DIR}/deploy/docmolder.service" /etc/systemd/system/docmolder.service
 sudo cp "${APP_DIR}/deploy/docmolder-db-backup.service" /etc/systemd/system/docmolder-db-backup.service
@@ -147,6 +147,8 @@ sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.service" /etc/systemd/system/doc
 sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.timer" /etc/systemd/system/docmolder-alertcheck.timer
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.service" /etc/systemd/system/docmolder-reconcile.service
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.timer" /etc/systemd/system/docmolder-reconcile.timer
+sudo cp "${APP_DIR}/deploy/docmolder-autodeploy.service" /etc/systemd/system/docmolder-autodeploy.service
+sudo cp "${APP_DIR}/deploy/docmolder-autodeploy.timer" /etc/systemd/system/docmolder-autodeploy.timer
 sudo cp "${APP_DIR}/deploy/docmolder-duckdns.service" /etc/systemd/system/docmolder-duckdns.service
 sudo cp "${APP_DIR}/deploy/docmolder-duckdns.timer" /etc/systemd/system/docmolder-duckdns.timer
 sudo install -o root -g root -m 755 "${APP_DIR}/deploy/update-vps.sh" /usr/local/sbin/docmolder-update-vps
@@ -163,6 +165,7 @@ sudo systemctl try-restart systemd-journald.service || true
 sudo systemctl enable --now docmolder-db-backup.timer
 sudo systemctl enable --now docmolder-alertcheck.timer
 sudo systemctl enable --now docmolder-reconcile.timer
+sudo systemctl enable --now docmolder-autodeploy.timer
 if [ -f /etc/docmolder/duckdns.env ]; then
   sudo systemctl enable --now docmolder-duckdns.timer
 else

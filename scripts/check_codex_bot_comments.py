@@ -60,28 +60,25 @@ def pr_head_oid(number: int) -> str:
 
 
 def load_rest_review_comments(owner: str, repo: str, number: int) -> list[dict[str, object]]:
-    result = run(
-        [
-            "gh",
-            "api",
-            f"repos/{owner}/{repo}/pulls/{number}/comments",
-            "--paginate",
-        ],
-        check=False,
+    return load_paginated_rest_comments(
+        f"repos/{owner}/{repo}/pulls/{number}/comments",
+        error_message="gh api pull comments failed",
     )
-    if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "gh api pull comments failed")
-    return json.loads(result.stdout or "[]")
 
 
 def load_rest_pr_comments(owner: str, repo: str, number: int) -> list[dict[str, object]]:
-    result = run(
-        ["gh", "api", f"repos/{owner}/{repo}/issues/{number}/comments", "--paginate"],
-        check=False,
+    return load_paginated_rest_comments(
+        f"repos/{owner}/{repo}/issues/{number}/comments",
+        error_message="gh api PR comments failed",
     )
+
+
+def load_paginated_rest_comments(endpoint: str, *, error_message: str) -> list[dict[str, object]]:
+    result = run(["gh", "api", endpoint, "--paginate", "--slurp"], check=False)
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "gh api PR comments failed")
-    return json.loads(result.stdout or "[]")
+        raise RuntimeError(result.stderr.strip() or error_message)
+    pages = json.loads(result.stdout or "[]")
+    return [comment for page in pages for comment in page]
 
 
 def load_pr_threads(owner: str, repo: str, number: int) -> dict[str, object]:

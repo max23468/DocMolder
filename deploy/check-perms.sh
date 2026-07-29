@@ -34,8 +34,21 @@ check_private_dir() {
   check_file_mode "${path}" "700"
 }
 
+check_file_owner() {
+  local path="$1"
+  local expected="$2"
+  local actual
+  actual="$(stat -c '%U:%G' "${path}")"
+  if [ "${actual}" != "${expected}" ]; then
+    echo "BADOWNER ${path} expected=${expected} actual=${actual}"
+    return 1
+  fi
+  echo "OK ${path} owner=${actual}"
+}
+
 status=0
-check_file_mode "${ENV_FILE}" "600" || status=1
+check_file_mode "${ENV_FILE}" "640" || status=1
+check_file_owner "${ENV_FILE}" "root:docmolder" || status=1
 check_private_dir "${RUNTIME_DIR}" || status=1
 check_private_dir "${BACKUP_DIR}" || status=1
 
