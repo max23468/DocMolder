@@ -61,7 +61,9 @@ class SensitiveLoggingTest(unittest.TestCase):
 
         self.assertIsNone(record.exc_info)
         self.assertIn("RuntimeError", record.exc_text or "")
-        self.assertIn("bot<redacted>/getMe", record.exc_text or "")
+        self.assertIn("test_sensitive_logging.py", record.exc_text or "")
+        self.assertIn("<redacted>", record.exc_text or "")
+        self.assertNotIn("getMe", record.exc_text or "")
         self.assertNotIn("123456:secret", record.exc_text or "")
 
 

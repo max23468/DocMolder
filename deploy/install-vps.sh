@@ -165,7 +165,6 @@ sudo systemctl try-restart systemd-journald.service || true
 sudo systemctl enable --now docmolder-db-backup.timer
 sudo systemctl enable --now docmolder-alertcheck.timer
 sudo systemctl enable --now docmolder-reconcile.timer
-sudo systemctl enable --now docmolder-autodeploy.timer
 if [ -f /etc/docmolder/duckdns.env ]; then
   sudo systemctl enable --now docmolder-duckdns.timer
 else
@@ -177,6 +176,7 @@ if sudo grep -q '^DOCMOLDER_TELEGRAM_TOKEN=changeme$' "${ENV_FILE}" || sudo grep
   exit 0
 fi
 
+sudo systemctl enable --now docmolder-autodeploy.timer
 sudo systemctl enable --now docmolder
 sudo systemctl restart docmolder
 
