@@ -8,6 +8,14 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.12](https://github.com/max23468/DocMolder/compare/v2.0.11...v2.0.12) (2026-07-29)
+
+### Correzioni
+
+* **security:** completa la migrazione dei percorsi privilegiati, preserva smoke e audit dei permessi e recepisce il feedback Codex post-merge ([#257](https://github.com/max23468/DocMolder/pull/257)) ([b31d5e0](https://github.com/max23468/DocMolder/commit/b31d5e04bd9a0936893fdc09459f49870f04c106))
+* **security:** abilita l’auto-deploy solo a configurazione valida e conserva diagnostica priva di dati utente ([#258](https://github.com/max23468/DocMolder/pull/258)) ([06c69a0](https://github.com/max23468/DocMolder/commit/06c69a0d8b30beae8e2359e6980fa97ade7583fb))
+* **security:** mantiene la migrazione del controller nel solo installer privilegiato e ne verifica l’ordine operativo ([#260](https://github.com/max23468/DocMolder/pull/260)) ([9b65321](https://github.com/max23468/DocMolder/commit/9b65321b4fe236c55357f8d9e7c9df00abb42c20))
+
 ## [2.0.11](https://github.com/max23468/DocMolder/compare/v2.0.10...v2.0.11) (2026-07-29)
 
 ### Correzioni
