@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import shutil
+import traceback
 from collections import deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -215,8 +216,11 @@ class SensitiveLogFilter(logging.Filter):
             record.args = tuple(_redact_sensitive_arg(arg) for arg in record.args)
         elif isinstance(record.args, dict):
             record.args = {key: _redact_sensitive_arg(value) for key, value in record.args.items()}
-        record.exc_info = None
-        record.exc_text = None
+        if record.exc_info:
+            record.exc_text = _redact_sensitive_text("".join(traceback.format_exception(*record.exc_info)))
+            record.exc_info = None
+        elif record.exc_text:
+            record.exc_text = _redact_sensitive_text(record.exc_text)
         return True
 
 

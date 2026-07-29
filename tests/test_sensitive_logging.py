@@ -42,7 +42,7 @@ class SensitiveLoggingTest(unittest.TestCase):
             ("https://api.telegram.org/bot<redacted>/getUpdates",),
         )
 
-    def test_sensitive_log_filter_drops_exception_traceback(self) -> None:
+    def test_sensitive_log_filter_keeps_a_redacted_exception_traceback(self) -> None:
         try:
             raise RuntimeError("https://api.telegram.org/bot123456:secret/getMe")
         except RuntimeError:
@@ -60,7 +60,9 @@ class SensitiveLoggingTest(unittest.TestCase):
         SensitiveLogFilter().filter(record)
 
         self.assertIsNone(record.exc_info)
-        self.assertIsNone(record.exc_text)
+        self.assertIn("RuntimeError", record.exc_text or "")
+        self.assertIn("bot<redacted>/getMe", record.exc_text or "")
+        self.assertNotIn("123456:secret", record.exc_text or "")
 
 
 if __name__ == "__main__":

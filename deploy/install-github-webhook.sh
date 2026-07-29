@@ -23,6 +23,18 @@ if [ ! -f "${ENV_FILE}" ]; then
   sudo install -D -m 600 "${ENV_TEMPLATE}" "${ENV_FILE}"
 fi
 
+sudo python3 - "${ENV_FILE}" <<'PY'
+from pathlib import Path
+import sys
+
+env_file = Path(sys.argv[1])
+old = "DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT=/opt/docmolder/app/deploy/update-vps.sh"
+new = "DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT=/usr/local/sbin/docmolder-update-vps"
+lines = env_file.read_text(encoding="utf-8").splitlines()
+if old in lines:
+    env_file.write_text("\n".join(new if line == old else line for line in lines) + "\n", encoding="utf-8")
+PY
+
 if sudo grep -q '^DOCMOLDER_GITHUB_WEBHOOK_SECRET=changeme$' "${ENV_FILE}" || ! sudo grep -q '^DOCMOLDER_GITHUB_WEBHOOK_SECRET=' "${ENV_FILE}"; then
   generated_secret="$(python3 - <<'PY'
 import secrets

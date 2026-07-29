@@ -91,10 +91,10 @@ if [ ! -f "${ENV_DIR}/docmolder.env" ]; then
   sudo sed -i "s#^DOCMOLDER_RUNTIME_DIR=.*#DOCMOLDER_RUNTIME_DIR=${DATA_DIR}#" "${ENV_DIR}/docmolder.env"
   sudo sed -i "s#^DOCMOLDER_DATABASE_PATH=.*#DOCMOLDER_DATABASE_PATH=${DATA_DIR}/docmolder.db#" "${ENV_DIR}/docmolder.env"
   sudo sed -i "s#^DOCMOLDER_SQLITE_BACKUP_DIR=.*#DOCMOLDER_SQLITE_BACKUP_DIR=${BACKUP_DIR}#" "${ENV_DIR}/docmolder.env"
-  sudo chown root:root "${ENV_DIR}/docmolder.env"
-  sudo chmod 600 "${ENV_DIR}/docmolder.env"
   echo "Creato ${ENV_DIR}/docmolder.env. Modifica il file prima di avviare il servizio."
 fi
+sudo chown root:"${APP_GROUP}" "${ENV_DIR}/docmolder.env"
+sudo chmod 640 "${ENV_DIR}/docmolder.env"
 
 sudo cp "${APP_DIR}/deploy/docmolder.service" /etc/systemd/system/docmolder.service
 sudo cp "${APP_DIR}/deploy/docmolder-db-backup.service" /etc/systemd/system/docmolder-db-backup.service
@@ -103,6 +103,8 @@ sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.service" /etc/systemd/system/doc
 sudo cp "${APP_DIR}/deploy/docmolder-alertcheck.timer" /etc/systemd/system/docmolder-alertcheck.timer
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.service" /etc/systemd/system/docmolder-reconcile.service
 sudo cp "${APP_DIR}/deploy/docmolder-reconcile.timer" /etc/systemd/system/docmolder-reconcile.timer
+sudo cp "${APP_DIR}/deploy/docmolder-autodeploy.service" /etc/systemd/system/docmolder-autodeploy.service
+sudo cp "${APP_DIR}/deploy/docmolder-autodeploy.timer" /etc/systemd/system/docmolder-autodeploy.timer
 sudo install -o root -g root -m 755 "${APP_DIR}/deploy/update-vps.sh" /usr/local/sbin/docmolder-update-vps
 sudo install -o root -g root -m 755 "${APP_DIR}/deploy/update-duckdns.sh" /usr/local/sbin/docmolder-update-duckdns
 sudo install -o root -g root -m 440 "${APP_DIR}/deploy/docmolder-deploy.sudoers" /etc/sudoers.d/docmolder-deploy
@@ -118,6 +120,7 @@ echo "2. Esegui: sudo systemctl enable --now docmolder"
 echo "3. Esegui: sudo systemctl enable --now docmolder-db-backup.timer"
 echo "4. Esegui: sudo systemctl enable --now docmolder-alertcheck.timer"
 echo "5. Esegui: sudo systemctl enable --now docmolder-reconcile.timer"
-echo "6. Controlla: sudo systemctl status docmolder"
-echo "7. Log: sudo journalctl -u docmolder -f"
-echo "8. Per gli update futuri usa: sudo /usr/local/sbin/docmolder-update-vps deploy origin/main"
+echo "6. Esegui: sudo systemctl enable --now docmolder-autodeploy.timer"
+echo "7. Controlla: sudo systemctl status docmolder"
+echo "8. Log: sudo journalctl -u docmolder -f"
+echo "9. Per gli update futuri usa: sudo /usr/local/sbin/docmolder-update-vps deploy origin/main"

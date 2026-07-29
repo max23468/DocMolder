@@ -262,6 +262,21 @@ class CodexReportsTest(unittest.TestCase):
 
         self.assertEqual([comment.source for comment in comments], ["rest-pr-comment"])
 
+    def test_paginated_rest_comments_slurp_and_flatten_pages(self) -> None:
+        completed = SimpleNamespace(
+            returncode=0,
+            stdout='[[{"id": 1}], [{"id": 2}]]',
+            stderr="",
+        )
+        with patch.object(check_codex_bot_comments, "run", return_value=completed) as run:
+            comments = check_codex_bot_comments.load_paginated_rest_comments(
+                "repos/owner/repo/issues/1/comments",
+                error_message="failed",
+            )
+
+        self.assertEqual(comments, [{"id": 1}, {"id": 2}])
+        self.assertIn("--slurp", run.call_args.args[0])
+
     def test_check_codex_bot_comments_reports_repo_lookup_failures_as_errors(self) -> None:
         with (
             patch.object(check_codex_bot_comments.shutil, "which", return_value="/usr/bin/gh"),

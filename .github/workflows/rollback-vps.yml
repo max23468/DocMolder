@@ -99,7 +99,9 @@ jobs:
             -o ServerAliveInterval=30 \
             -o StrictHostKeyChecking="${SSH_STRICT}" \
             "${DOCMOLDER_VPS_USER}@${DOCMOLDER_VPS_HOST}" \
-            "sudo /usr/local/sbin/docmolder-update-vps rollback '${TARGET_SHA}'"
+            "sudo chown root:docmolder /etc/docmolder/docmolder.env &&
+             sudo chmod 640 /etc/docmolder/docmolder.env &&
+             sudo /usr/local/sbin/docmolder-update-vps rollback '${TARGET_SHA}'"
 
       - name: Rollback summary
         if: always()
