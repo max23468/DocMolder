@@ -11,6 +11,7 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import perf_counter
+from types import TracebackType
 from typing import TypedDict
 from zoneinfo import ZoneInfo
 
@@ -217,7 +218,7 @@ class SensitiveLogFilter(logging.Filter):
         elif isinstance(record.args, dict):
             record.args = {key: _redact_sensitive_arg(value) for key, value in record.args.items()}
         if record.exc_info:
-            record.exc_text = _redact_sensitive_text("".join(traceback.format_exception(*record.exc_info)))
+            record.exc_text = _format_safe_exception(record.exc_info)
             record.exc_info = None
         elif record.exc_text:
             record.exc_text = _redact_sensitive_text(record.exc_text)
@@ -228,6 +229,19 @@ def _redact_sensitive_arg(value: object) -> object:
     if isinstance(value, str):
         return _redact_sensitive_text(value)
     return value
+
+
+def _format_safe_exception(
+    exc_info: tuple[type[BaseException], BaseException, TracebackType | None],
+) -> str:
+    exception_type, _, exception_traceback = exc_info
+    stack = ""
+    if exception_traceback:
+        stack = "".join(
+            f'  File "{frame.filename}", line {frame.lineno}, in {frame.name}\n'
+            for frame in traceback.extract_tb(exception_traceback)
+        )
+    return f"Traceback (most recent call last):\n{stack}{exception_type.__name__}: <redacted>"
 
 
 def _redact_sensitive_text(text: str) -> str:
