@@ -12,7 +12,6 @@ class DeployScriptsTest(unittest.TestCase):
         script = (ROOT / "deploy" / "update-vps.sh").read_text(encoding="utf-8")
 
         self.assertLess(script.index('chmod 640 "${ENV_FILE}"'), script.index("install_revision()"))
-        self.assertIn("DOCMOLDER_GITHUB_WEBHOOK_DEPLOY_SCRIPT=/usr/local/sbin/docmolder-update-vps", script)
         self.assertIn('sudo -u "${APP_USER}" git reset --hard', script)
         self.assertIn('sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip"', script)
         self.assertIn('sudo -u "${APP_USER}" bash "${APP_DIR}/deploy/smoke-check.sh"', script)
@@ -38,6 +37,10 @@ class DeployScriptsTest(unittest.TestCase):
             script = (ROOT / "deploy" / name).read_text(encoding="utf-8")
             self.assertIn("docmolder-autodeploy.service", script)
             self.assertIn("docmolder-autodeploy.timer", script)
+            self.assertLess(
+                script.index('install -o root -g root -m 755 "${APP_DIR}/deploy/update-vps.sh"'),
+                script.index('bash "${APP_DIR}/deploy/install-github-webhook.sh"'),
+            )
 
         install_script = (ROOT / "deploy" / "install-vps.sh").read_text(encoding="utf-8")
         token_guard = install_script.index("DOCMOLDER_TELEGRAM_TOKEN=changeme")
