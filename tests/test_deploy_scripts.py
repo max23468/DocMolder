@@ -152,22 +152,35 @@ class DeployScriptsTest(unittest.TestCase):
             self.assertIn("requirements.lock", script)
             self.assertIn("--no-deps --no-build-isolation", script)
 
-    def test_dependabot_refreshes_all_generated_locks_without_running_pr_makefile(self) -> None:
-        workflow = (ROOT / ".github" / "workflows" / "dependabot-lock-refresh.yml").read_text(encoding="utf-8")
+    def test_dependabot_refreshes_locks_without_pr_code_holding_write_credentials(self) -> None:
+        build_workflow = (ROOT / ".github" / "workflows" / "dependabot-lock-refresh.yml").read_text(
+            encoding="utf-8"
+        )
+        commit_workflow = (ROOT / ".github" / "workflows" / "dependabot-lock-commit.yml").read_text(
+            encoding="utf-8"
+        )
 
-        self.assertIn("github.actor == 'dependabot[bot]'", workflow)
-        self.assertIn("head.repo.full_name == github.repository", workflow)
-        self.assertIn('"requirements*.in"', workflow)
-        self.assertEqual(workflow.count("uv pip compile"), 4)
-        self.assertEqual(workflow.count("--upgrade"), 4)
-        self.assertNotIn("make lock", workflow)
+        self.assertIn("pull_request:", build_workflow)
+        self.assertNotIn("pull_request_target", build_workflow)
+        self.assertIn("contents: read", build_workflow)
+        self.assertEqual(build_workflow.count("persist-credentials: false"), 2)
+        self.assertIn("trusted-base/requirements-tools.in", build_workflow)
+        self.assertEqual(build_workflow.count("uv pip compile"), 4)
+        self.assertEqual(build_workflow.count("--upgrade"), 4)
+        self.assertIn('workflows: ["Dependabot lock build"]', commit_workflow)
+        self.assertIn("contents: write", commit_workflow)
+        self.assertIn("workflow_run.actor.login == 'dependabot[bot]'", commit_workflow)
+        self.assertIn("workflow_run.head_repository.full_name == github.repository", commit_workflow)
+        self.assertNotIn("uv pip compile", commit_workflow)
+        self.assertNotIn("make lock", build_workflow + commit_workflow)
         for lock in (
             "requirements.lock",
             "requirements-dev.lock",
             "requirements-tools.lock",
             "requirements-build.lock",
         ):
-            self.assertIn(lock, workflow)
+            self.assertIn(lock, build_workflow)
+            self.assertIn(lock, commit_workflow)
 
     def test_permission_check_requires_private_runtime_directories(self) -> None:
         script = (ROOT / "deploy" / "check-perms.sh").read_text(encoding="utf-8")

@@ -7,7 +7,7 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - CI: `.github/workflows/ci.yml`
 - CodeQL: `.github/workflows/codeql.yml`
 - Dependabot Auto Merge: `.github/workflows/dependabot-auto-merge.yml`
-- Dependabot Lock Refresh: `.github/workflows/dependabot-lock-refresh.yml`
+- Dependabot Lock Build/Commit: `.github/workflows/dependabot-lock-refresh.yml`, `.github/workflows/dependabot-lock-commit.yml`
 - GitHub Maintenance: `.github/workflows/github-maintenance.yml`
 - Release Sanity: workflow dismesso
 - Deploy VPS: `.github/workflows/deploy-vps.yml`
