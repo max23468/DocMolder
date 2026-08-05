@@ -54,8 +54,9 @@ fi
 install_revision() {
   local revision="$1"
   sudo -u "${APP_USER}" git reset --hard "${revision}"
+  sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --require-hashes -r "${APP_DIR}/requirements-build.lock"
   sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --require-hashes -r "${APP_DIR}/requirements.lock"
-  sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}" --no-deps
+  sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}" --no-deps --no-build-isolation
   systemctl restart "${SERVICE_NAME}"
   sudo -u "${APP_USER}" bash "${APP_DIR}/deploy/smoke-check.sh"
 }

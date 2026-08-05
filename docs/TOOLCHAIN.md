@@ -22,6 +22,8 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
   sviluppo/CI, `requirements-tools.lock` per il bootstrap CI e
   `requirements-build.lock` per il backend di build; tutti hanno hash e sono
   verificati da `make lock-check`.
+- `make lock` aggiorna anche le dipendenze transitive; le PR Dependabot
+  rigenerano automaticamente tutti i lock prima dei gate.
 - JavaScript/TypeScript: non applicabile.
 - Lockfile JS: non applicabile.
 
@@ -36,8 +38,11 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 
 | Tool | Versione/canale | Uso |
 | --- | --- | --- |
-| `ruff` | `0.15.22` | lint/static check |
-| `coverage` | `>=7.15.2` | copertura test |
+| `pip` | `26.2.1` | installazione riproducibile da lock build |
+| `setuptools` | `83.0.0` | backend di build |
+| `uv` | `0.12.2` | generazione e verifica lock |
+| `ruff` | `0.16.1` | lint/static check |
+| `coverage` | `>=7.15.3` | copertura test |
 | `build` | `>=1.2.2` | package build |
 | `gh` | CLI autenticata locale | PR, issue, Actions e release |
 | `make` | sistema locale | comandi standardizzati |

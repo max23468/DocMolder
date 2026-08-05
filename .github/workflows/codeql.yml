@@ -78,8 +78,9 @@ jobs:
       - name: Install package
         if: ${{ !github.event.repository.private && steps.changes.outputs.code_changed == 'true' }}
         run: |
-          python -m pip install --upgrade pip
-          pip install -e .
+          python -m pip install --require-hashes -r requirements-build.lock
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install -e . --no-deps --no-build-isolation
 
       - name: Perform CodeQL analysis
         if: ${{ !github.event.repository.private && steps.changes.outputs.code_changed == 'true' }}

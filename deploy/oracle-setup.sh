@@ -83,8 +83,9 @@ if ! venv_matches_selected_python; then
   sudo -u "${APP_USER}" "${PYTHON_BIN}" -m venv "${VENV_DIR}"
 fi
 
-sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --upgrade pip
-sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}"
+sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --require-hashes -r "${APP_DIR}/requirements-build.lock"
+sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install --require-hashes -r "${APP_DIR}/requirements.lock"
+sudo -u "${APP_USER}" "${VENV_DIR}/bin/pip" install -e "${APP_DIR}" --no-deps --no-build-isolation
 
 if [ ! -f "${ENV_DIR}/docmolder.env" ]; then
   sudo cp "${APP_DIR}/.env.example" "${ENV_DIR}/docmolder.env"

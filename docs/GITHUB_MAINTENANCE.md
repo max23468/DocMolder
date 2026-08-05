@@ -7,6 +7,7 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - CI: `.github/workflows/ci.yml`
 - CodeQL: `.github/workflows/codeql.yml`
 - Dependabot Auto Merge: `.github/workflows/dependabot-auto-merge.yml`
+- Dependabot Lock Refresh: `.github/workflows/dependabot-lock-refresh.yml`
 - GitHub Maintenance: `.github/workflows/github-maintenance.yml`
 - Release Sanity: workflow dismesso
 - Deploy VPS: `.github/workflows/deploy-vps.yml`
@@ -110,6 +111,10 @@ Il workflow è diviso in gate indipendenti:
 - `CI result`: job finale unico da usare come status check required in branch protection.
 
 `Dependabot Auto Merge` marca come candidate solo le PR Dependabot non draft verso `main` con aggiornamenti non-major e non `direct:production`, salvo `github-actions`. Il merge avviene solo dopo una run `CI` riuscita e solo se lo SHA verificato coincide con la testa corrente della PR.
+
+`Dependabot Lock Refresh` usa esclusivamente comandi di lock definiti nel
+workflow trusted, rigenera i quattro lock con hash sulla branch Dependabot e
+committa solo quei file. Non esegue `Makefile` o script provenienti dalla PR.
 
 `CodeQL` resta disponibile solo su avvio esplicito con `workflow_dispatch`, scegliendo una ragione come `security-window`, `release-candidate`, `security-sensitive-change` o `manual-investigation`. `Main Commit Policy` e `Release Policy` restano assorbiti dai controlli locali e dal gate `PR policy`.
 

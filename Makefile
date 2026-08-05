@@ -7,16 +7,15 @@ PIP := $(VENV)/bin/pip
 
 setup:
 	$(PYTHON_BOOTSTRAP) -m venv $(VENV)
-	$(PIP) install --upgrade pip
-	$(PIP) install --require-hashes -r requirements-dev.lock
 	$(PIP) install --require-hashes -r requirements-build.lock
-	$(PIP) install -e . --no-deps
+	$(PIP) install --require-hashes -r requirements-dev.lock
+	$(PIP) install -e . --no-deps --no-build-isolation
 
 lock:
-	uv pip compile pyproject.toml --universal --python-version 3.11 --generate-hashes --no-header -o requirements.lock
-	uv pip compile pyproject.toml --extra dev --constraint requirements.lock --universal --python-version 3.11 --generate-hashes --no-header -o requirements-dev.lock
-	uv pip compile requirements-tools.in --universal --python-version 3.11 --generate-hashes --no-header -o requirements-tools.lock
-	uv pip compile requirements-build.in --universal --python-version 3.11 --generate-hashes --no-header -o requirements-build.lock
+	uv pip compile pyproject.toml --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements.lock
+	uv pip compile pyproject.toml --extra dev --constraint requirements.lock --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements-dev.lock
+	uv pip compile requirements-tools.in --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements-tools.lock
+	uv pip compile requirements-build.in --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements-build.lock
 
 lock-check:
 	bash scripts/check_lock_sync.sh

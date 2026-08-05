@@ -31,8 +31,8 @@ docmolder-sqlite-backup = "docmolder.sqlite_backup:main"
 [project.optional-dependencies]
 dev = [
   "build>=1.2.2",
-  "coverage>=7.15.2",
-  "ruff==0.15.22",
+  "coverage>=7.15.3",
+  "ruff==0.16.1",
 ]
 
 [tool.setuptools]
