@@ -8,6 +8,12 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.13](https://github.com/max23468/DocMolder/compare/v2.0.12...v2.0.13) (2026-08-05)
+
+### Manutenzione
+
+* **deps:** aggiorna toolchain e lock Python, rende riproducibili le installazioni CI/VPS e rigenera automaticamente i lock nelle PR Dependabot ([#262](https://github.com/max23468/DocMolder/pull/262)) ([da55230](https://github.com/max23468/DocMolder/commit/da55230307c69c1d348a9f2894b03c6dfd34c889))
+
 ## [2.0.12](https://github.com/max23468/DocMolder/compare/v2.0.11...v2.0.12) (2026-07-29)
 
 ### Correzioni
