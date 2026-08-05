@@ -23,7 +23,8 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
   `requirements-build.lock` per il backend di build; tutti hanno hash e sono
   verificati da `make lock-check`.
 - `make lock` aggiorna anche le dipendenze transitive; le PR Dependabot
-  rigenerano automaticamente tutti i lock prima dei gate.
+  rigenerano automaticamente tutti i lock in un job in sola lettura. Un job
+  trusted separato copia e committa esclusivamente i quattro lock generati.
 - JavaScript/TypeScript: non applicabile.
 - Lockfile JS: non applicabile.
 

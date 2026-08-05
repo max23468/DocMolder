@@ -1,60 +1,68 @@
-name: Dependabot lock refresh
+name: Dependabot lock build
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, reopened, synchronize]
     paths:
       - "pyproject.toml"
       - "requirements*.in"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: dependabot-lock-refresh-${{ github.event.pull_request.number }}
+  group: dependabot-lock-build-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
-  refresh-locks:
+  build-locks:
     if: github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Checkout Dependabot branch
+      - name: Checkout trusted base tooling
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted-base
+          persist-credentials: false
+
+      - name: Checkout Dependabot candidate
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
+          path: candidate
+          persist-credentials: false
 
       - name: Setup Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.13"
 
-      - name: Install the requested uv version
+      - name: Install trusted uv version
         shell: bash
         run: |
-          uv_requirement="$(sed -n '/^uv==[0-9][0-9.]*$/p' requirements-tools.in)"
+          uv_requirement="$(sed -n '/^uv==[0-9][0-9.]*$/p' trusted-base/requirements-tools.in)"
           test -n "${uv_requirement}"
           python -m pip install "${uv_requirement}"
 
-      - name: Regenerate hashed locks
+      - name: Regenerate hashed locks without write credentials
+        working-directory: candidate
         run: |
           uv pip compile pyproject.toml --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements.lock
           uv pip compile pyproject.toml --extra dev --constraint requirements.lock --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements-dev.lock
           uv pip compile requirements-tools.in --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements-tools.lock
           uv pip compile requirements-build.in --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements-build.lock
 
-      - name: Commit refreshed locks
-        env:
-          HEAD_REF: ${{ github.event.pull_request.head.ref }}
-        run: |
-          if git diff --quiet -- requirements.lock requirements-dev.lock requirements-tools.lock requirements-build.lock; then
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add requirements.lock requirements-dev.lock requirements-tools.lock requirements-build.lock
-          git commit -m "chore(deps): refresh hashed locks"
-          git push origin "HEAD:${HEAD_REF}"
+      - name: Upload generated locks
+        uses: actions/upload-artifact@v7
+        with:
+          name: dependabot-locks-${{ github.event.pull_request.number }}
+          path: |
+            candidate/requirements.lock
+            candidate/requirements-dev.lock
+            candidate/requirements-tools.lock
+            candidate/requirements-build.lock
+          if-no-files-found: error
+          retention-days: 1
