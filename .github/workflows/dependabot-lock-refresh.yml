@@ -1,0 +1,60 @@
+name: Dependabot lock refresh
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "pyproject.toml"
+      - "requirements*.in"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dependabot-lock-refresh-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  refresh-locks:
+    if: github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Dependabot branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Install the requested uv version
+        shell: bash
+        run: |
+          uv_requirement="$(sed -n '/^uv==[0-9][0-9.]*$/p' requirements-tools.in)"
+          test -n "${uv_requirement}"
+          python -m pip install "${uv_requirement}"
+
+      - name: Regenerate hashed locks
+        run: |
+          uv pip compile pyproject.toml --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements.lock
+          uv pip compile pyproject.toml --extra dev --constraint requirements.lock --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements-dev.lock
+          uv pip compile requirements-tools.in --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements-tools.lock
+          uv pip compile requirements-build.in --upgrade --universal --python-version 3.11 --generate-hashes --no-header -o requirements-build.lock
+
+      - name: Commit refreshed locks
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if git diff --quiet -- requirements.lock requirements-dev.lock requirements-tools.lock requirements-build.lock; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add requirements.lock requirements-dev.lock requirements-tools.lock requirements-build.lock
+          git commit -m "chore(deps): refresh hashed locks"
+          git push origin "HEAD:${HEAD_REF}"

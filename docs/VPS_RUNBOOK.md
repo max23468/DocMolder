@@ -355,7 +355,10 @@ sono superate in modo ricorrente e il recupero operativo resta possibile da
 - Riavvio automatico solo se richiesto, alle `04:00` (finestra a basso traffico).
 - Setup/riparazione one-shot: `sudo bash /opt/docmolder/app/deploy/install-auto-updates.sh` (idempotente; incluso anche in `install-vps.sh`).
 - Verifica: `systemctl list-timers apt-daily-upgrade.timer` e `cat /etc/apt/apt.conf.d/52docmolder-unattended-upgrades`; log in `/var/log/unattended-upgrades/`.
-- Le dipendenze Python del venv si aggiornano al deploy (`pip install`), guidate dagli aggiornamenti di `pyproject.toml` via Dependabot; le PR a basso rischio si auto-mergiano (vedi `.github/workflows/dependabot-auto-merge.yml`).
+- Le dipendenze Python del venv si aggiornano al deploy dai lock runtime e
+  build con hash; l'installazione editable non risolve dipendenze né crea un
+  ambiente build mutabile. Dependabot rigenera i lock e le PR a basso rischio
+  si auto-mergiano dopo i gate (vedi i workflow `dependabot-*`).
 
 ## Nota operativa
 
