@@ -206,6 +206,63 @@ class CodexReportsTest(unittest.TestCase):
 
         self.assertEqual(comments, [])
 
+    def test_clean_exact_head_codex_review_is_not_actionable(self) -> None:
+        payload = {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {"nodes": []},
+                        "comments": {
+                            "nodes": [
+                                {
+                                    "author": {"login": "chatgpt-codex-connector"},
+                                    "body": (
+                                        "Codex Review: Didn't find any major issues. Hooray!\n\n"
+                                        "**Reviewed commit:** `abcdef0123`"
+                                    ),
+                                    "url": "https://example.invalid/clean-review",
+                                }
+                            ]
+                        },
+                    }
+                }
+            }
+        }
+
+        comments = check_codex_bot_comments.find_bot_comments(
+            payload,
+            [],
+            [],
+            head_oid="abcdef0123456789",
+            include_resolved=False,
+            include_outdated=False,
+        )
+
+        self.assertEqual(comments, [])
+
+        payload["data"]["repository"]["pullRequest"]["comments"]["nodes"][0]["body"] += "\n\n**P2** Correggi."
+        comments = check_codex_bot_comments.find_bot_comments(
+            payload,
+            [],
+            [],
+            head_oid="abcdef0123456789",
+            include_resolved=False,
+            include_outdated=False,
+        )
+        self.assertEqual(len(comments), 1)
+
+    def test_ops_report_uses_env_aware_healthcheck_command(self) -> None:
+        with (
+            patch.object(ops_report, "load_health", return_value=({"ok": True}, None)),
+            patch.object(ops_report, "service_state", return_value={}),
+        ):
+            report = ops_report.collect_report(check_service=True)
+
+        self.assertEqual(
+            report["commands"]["health"],
+            "sudo -u docmolder env DOCMOLDER_SMOKE_CHECK_ATTEMPTS=1 /opt/docmolder/app/deploy/smoke-check.sh",
+        )
+
     def test_paginated_rest_pr_comments_cover_graphql_page_limit(self) -> None:
         payload = {
             "data": {
