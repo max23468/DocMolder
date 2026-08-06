@@ -9,10 +9,7 @@ import sys
 from dataclasses import dataclass
 
 
-BOT_LOGINS = {
-    "chatgpt-codex-connector",
-    "chatgpt-codex-connector[bot]",
-}
+BOT_LOGINS = {"chatgpt-codex-connector[bot]"}
 
 
 @dataclass(frozen=True)

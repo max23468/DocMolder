@@ -8,7 +8,6 @@ import shutil
 import subprocess
 from typing import Any
 
-CODEX_INBOX_TITLE = "Codex feedback inbox"
 RELEASABLE_PR_TYPES = {"feat", "fix", "deps", "docs"}
 TERMINAL_CONTROL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
@@ -131,33 +130,6 @@ def collect_report(*, limit: int) -> dict[str, object]:
         if isinstance(item, dict) and item.get("headBranch") == branch and item.get("headSha") == sha
     ]
 
-    inbox_issues, error = gh_json(
-        [
-            "issue",
-            "list",
-            "--search",
-            f'"{CODEX_INBOX_TITLE}" in:title',
-            "--state",
-            "all",
-            "--limit",
-            "10",
-            "--json",
-            "number,title,state,url,updatedAt",
-        ]
-    )
-    if error:
-        errors.append(f"Codex feedback inbox non leggibile: {error}")
-        inbox_issues = []
-    report["codex_feedback_inbox_issues"] = inbox_issues or []
-    report["codex_feedback_inbox"] = next(
-        (
-            issue
-            for issue in report["codex_feedback_inbox_issues"]
-            if isinstance(issue, dict) and issue.get("title") == CODEX_INBOX_TITLE and issue.get("state") == "OPEN"
-        ),
-        None,
-    )
-
     security_alerts, error = gh_json(
         [
             "api",
@@ -225,21 +197,6 @@ def print_text(report: dict[str, object]) -> None:
     else:
         print("- Nessuna run failed recente per branch e SHA corrente.")
 
-    print("\n## Codex feedback inbox")
-    inbox = report.get("codex_feedback_inbox")
-    inbox_issues = report.get("codex_feedback_inbox_issues") or []
-    if isinstance(inbox, dict):
-        print(f"- Aperta: #{inbox.get('number')} {inbox.get('title')} ({inbox.get('url')})")
-        duplicates = [
-            issue
-            for issue in inbox_issues
-            if isinstance(issue, dict) and issue.get("title") == CODEX_INBOX_TITLE and issue.get("number") != inbox.get("number")
-        ]
-        if duplicates:
-            print(f"- Duplicati/storici da controllare: {len(duplicates)}")
-    else:
-        print("- Nessuna inbox aperta rilevata; il workflow la creerà al prossimo evento utile.")
-
     print("\n## Actions failed recenti globali")
     failed_runs = report.get("failed_runs") or []
     if failed_runs:
@@ -252,7 +209,6 @@ def print_text(report: dict[str, object]) -> None:
     print("\n## Prossime azioni")
     print("- Se ci sono run failed sul branch/SHA corrente, usa `scripts/current_failed_runs.py` e `gh run view`.")
     print("- Le run globali servono per trend/manutenzione: non bloccare lavoro corrente su failure non correlate.")
-    print("- Se la Codex feedback inbox segnala thread actionable, risolvili prima del merge o apri un follow-up mirato.")
     print("- Usa `scripts/check_codex_bot_comments.py --pr <numero> --fail` come guardrail sulla PR corrente.")
     print("- Se ci sono PR con scope release aperte, verifica versione/changelog prima del merge.")
     print("- Se ci sono PR Dependabot, tratta prima security update o incompatibilita runtime.")

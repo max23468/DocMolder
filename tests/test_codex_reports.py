@@ -54,7 +54,7 @@ class CodexReportsTest(unittest.TestCase):
         self.assertFalse(report["ok"])
         self.assertIn("GitHub CLI", report["errors"][0])
 
-    def test_github_maintenance_report_filters_failed_runs_and_reports_codex_inbox(self) -> None:
+    def test_github_maintenance_report_filters_failed_runs(self) -> None:
         failed_runs = [
             {
                 "databaseId": 1,
@@ -71,16 +71,6 @@ class CodexReportsTest(unittest.TestCase):
                 "url": "https://example.invalid/new",
             },
         ]
-        inbox_issues = [
-            {
-                "number": 12,
-                "title": "Codex feedback inbox",
-                "state": "OPEN",
-                "url": "https://example.invalid/issues/12",
-                "updatedAt": "now",
-            }
-        ]
-
         with (
             patch.object(github_maintenance_report, "has_gh", return_value=True),
             patch.object(github_maintenance_report, "current_branch", return_value="main"),
@@ -89,13 +79,12 @@ class CodexReportsTest(unittest.TestCase):
             patch.object(
                 github_maintenance_report,
                 "gh_json",
-                side_effect=[([], None), (failed_runs, None), (inbox_issues, None), ([], None)],
+                side_effect=[([], None), (failed_runs, None), ([], None)],
             ),
         ):
             report = github_maintenance_report.collect_report(limit=5)
 
         self.assertEqual([item["databaseId"] for item in report["current_branch_failed_runs"]], [2])
-        self.assertEqual(report["codex_feedback_inbox"]["number"], 12)
 
     def test_github_maintenance_report_flags_conventional_releasable_prs(self) -> None:
         open_prs = [
@@ -113,7 +102,7 @@ class CodexReportsTest(unittest.TestCase):
             patch.object(
                 github_maintenance_report,
                 "gh_json",
-                side_effect=[(open_prs, None), ([], None), ([], None), ([], None)],
+                side_effect=[(open_prs, None), ([], None), ([], None)],
             ),
         ):
             report = github_maintenance_report.collect_report(limit=5)
@@ -126,21 +115,6 @@ class CodexReportsTest(unittest.TestCase):
         )
 
         self.assertNotIn("\x1b", rendered)
-
-    def test_codex_feedback_inbox_workflow_uses_shared_inbox_contract(self) -> None:
-        workflow = ROOT / ".github" / "workflows" / "codex-pr-comments.yml"
-        handler = ROOT / ".github" / "scripts" / "handle-codex-pr-comments.mjs"
-
-        self.assertIn("pull_request_target:", workflow.read_text(encoding="utf-8"))
-        handler_text = handler.read_text(encoding="utf-8")
-        self.assertIn('new Set(["chatgpt-codex-connector", "chatgpt-codex-connector[bot]"])', handler_text)
-        self.assertIn("CODEX_INBOX_MARKER", handler_text)
-        self.assertIn("normalizeInboxMarkerName(repositoryName)", handler_text)
-        self.assertIn("automaticPrComments: false", handler_text)
-        self.assertNotIn("codex-feedback-request", handler_text)
-        workflow_text = workflow.read_text(encoding="utf-8")
-        self.assertNotIn("github.event.pull_request.head", workflow_text)
-        self.assertIn("github.event.comment.author_association", workflow_text)
 
     def test_dependabot_major_updates_require_manual_review(self) -> None:
         workflow = (ROOT / ".github" / "workflows" / "dependabot-auto-merge.yml").read_text(encoding="utf-8")
@@ -197,7 +171,7 @@ class CodexReportsTest(unittest.TestCase):
                                     "comments": {
                                         "nodes": [
                                             {
-                                                "author": {"login": "chatgpt-codex-connector"},
+                                                "author": {"login": "chatgpt-codex-connector[bot]"},
                                                 "body": "resolved",
                                                 "url": "https://example.invalid/comment",
                                             }
@@ -213,7 +187,7 @@ class CodexReportsTest(unittest.TestCase):
         }
         rest_comments = [
             {
-                "user": {"login": "chatgpt-codex-connector"},
+                "user": {"login": "chatgpt-codex-connector[bot]"},
                 "body": "resolved",
                 "path": "src/docmolder/processing.py",
                 "html_url": "https://example.invalid/comment",
@@ -245,7 +219,7 @@ class CodexReportsTest(unittest.TestCase):
         }
         rest_pr_comments = [
             {
-                "user": {"login": "chatgpt-codex-connector"},
+                "user": {"login": "chatgpt-codex-connector[bot]"},
                 "body": "feedback oltre il limite GraphQL",
                 "html_url": "https://example.invalid/pr-comment",
             }

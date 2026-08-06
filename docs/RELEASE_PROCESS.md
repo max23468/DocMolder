@@ -2,7 +2,7 @@
 
 Questa guida descrive il processo standard per portare una modifica da PR a release e deploy.
 Il percorso ordinario resta local-first per lo sviluppo, con guardrail GitHub
-prudente: controlli locali, PR pronta, `CI result`, merge su `main` e webhook VPS.
+prudente: controlli locali, PR pronta, `CI result`, `codex-review`, merge su `main` e webhook VPS.
 
 ## Indice
 
@@ -25,8 +25,8 @@ Percorso standard:
 
 `publish_change.sh` esegue già `publish_doctor`, `preflight_publish`, commit
 se necessario, push, generazione body PR e controllo commenti Codex connector.
-Non aspettare workflow operativi GitHub nel flusso ordinario; sulle PR non draft
-verso `main` deve però passare `CI result`.
+Sulle PR non draft verso `main` devono passare `CI result` e lo status
+`codex-review` riferito all'HEAD esatto.
 
 Prima del merge resta valido il divieto di modificare manualmente
 `CHANGELOG.md`, il campo `version` di
@@ -41,7 +41,7 @@ Regole operative essenziali:
 - nessun push diretto su `main` (salvo eccezioni esplicitamente documentate)
 - PR con titolo in formato Conventional Commits
 - squash merge su `main`
-- la review esterna non è requisito formale nel contesto maintainer singolo: si richiedono self-review, CI locale e `CI result` secondo il flusso.
+- la review umana esterna non è requisito formale nel contesto maintainer singolo: si richiedono self-review, CI locale, `CI result` e `codex-review` secondo il flusso.
 - eccezione: modifiche minuscole solo documentali (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`) si pubblicano direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR
 - niente bump manuali di versione o changelog nelle PR normali
 - per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"`: di default crea una PR pronta, non draft, e si ferma con il prossimo passo operativo
@@ -87,7 +87,7 @@ Il flusso ufficiale manuale è:
    git commit -m "chore(release): vX.Y.Z"
    git push -u origin codex/release-docmolder-X.Y.Z
    gh pr create --base main --head codex/release-docmolder-X.Y.Z --title "chore(release): vX.Y.Z" --body "Release DocMolder X.Y.Z"
-   # mergea la PR di release solo dopo gate verdi e inbox pulita
+   # mergea la PR di release solo dopo gate verdi e thread Codex correnti risolti
    gh pr merge --squash --delete-branch
    git switch main
    git pull --ff-only
@@ -158,7 +158,7 @@ make build
 ```
 
 `make ci` resta il gate locale completo e include anche il package build. Su
-GitHub, `CI result` è il gate remoto prudente per le PR non draft verso `main`.
+GitHub, `CI result` e `codex-review` sono i gate remoti per le PR non draft verso `main`.
 
 ## Deploy
 
