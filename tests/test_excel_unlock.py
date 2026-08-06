@@ -280,7 +280,7 @@ class ExcelProcessingTest(unittest.TestCase):
         _write_minimal_xlsx(source, protected=False)
 
         with self.assertRaises(ProcessingUserError):
-            self.processor.process(SupportedAction.EXCEL_UNLOCK_EDITING, [source], "libero_unlocked")
+            self.processor.excel.unlock_editing(source, "libero_unlocked")
 
 
 def _write_minimal_xlsx(path: Path, *, protected: bool) -> None:
