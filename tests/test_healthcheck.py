@@ -22,7 +22,7 @@ from docmolder.healthcheck import (
     main,
     render_text_report,
 )
-from docmolder.session_store import SQLiteSessionStore
+from docmolder.sqlite_session_store import SQLiteSessionStore
 
 
 class HealthcheckTest(unittest.TestCase):

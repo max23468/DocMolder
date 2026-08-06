@@ -71,8 +71,6 @@ Non è:
 
 ### Persistenza
 
-- `src/docmolder/session_store.py`
-  - facciata compatibile per store sessioni/job
 - `src/docmolder/session_store_protocol.py`
   - protocollo condiviso dello store
 - `src/docmolder/sqlite_session_store.py`

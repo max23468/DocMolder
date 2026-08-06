@@ -20,7 +20,7 @@ from docmolder.bot import (
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
 from docmolder.models import AdminActionStat, AdminStats, AdminUserStat
-from docmolder.session_store import InMemorySessionStore
+from docmolder.in_memory_session_store import InMemorySessionStore
 
 
 class BotAdminReportsTest(unittest.IsolatedAsyncioTestCase):

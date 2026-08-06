@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from docmolder.config import Settings
 from docmolder.models import JobStatus
 from docmolder.reconcile import main, render_text_report, run_reconciliation
-from docmolder.session_store import SQLiteSessionStore
+from docmolder.sqlite_session_store import SQLiteSessionStore
 
 
 class ReconcileTest(unittest.TestCase):

@@ -51,7 +51,7 @@ from docmolder.bot import (
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
 from docmolder.models import FileKind, UserSession
-from docmolder.session_store import InMemorySessionStore
+from docmolder.in_memory_session_store import InMemorySessionStore
 from docmolder.action_catalog import build_session_file
 
 

@@ -14,7 +14,7 @@ from docmolder.bot import BotDependencies, _process_job
 from docmolder.config import Settings
 from docmolder.models import JobStatus, SupportedAction
 from docmolder.processing import DocumentProcessor, ProcessingOutput, ProcessingResult, ProcessingUserError
-from docmolder.session_store import InMemorySessionStore
+from docmolder.in_memory_session_store import InMemorySessionStore
 
 
 class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
