@@ -21,7 +21,3 @@ class ExternalServiceError(AppError):
 
 class TelegramApiError(ExternalServiceError):
     """Raised for Telegram Bot API failures."""
-
-
-class ProcessingError(AppError):
-    """Raised for document-processing failures that should stay user-readable."""
