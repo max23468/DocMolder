@@ -10,30 +10,6 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeployEnvLoadTest(unittest.TestCase):
-    def test_existing_environment_overrides_env_file(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            env_file = Path(tmp) / "docmolder.env"
-            env_file.write_text("DOCMOLDER_SMOKE_CHECK_ATTEMPTS=12\n", encoding="utf-8")
-
-            result = subprocess.run(
-                [
-                    "bash",
-                    "-c",
-                    (
-                        "export DOCMOLDER_SMOKE_CHECK_ATTEMPTS=1; "
-                        "source deploy/env-load.sh; "
-                        f"load_docmolder_env_file {env_file}; "
-                        "printf '%s' \"${DOCMOLDER_SMOKE_CHECK_ATTEMPTS}\""
-                    ),
-                ],
-                cwd=ROOT,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-
-        self.assertEqual(result.stdout, "1")
-
     def test_env_loader_trims_unquoted_values_and_expands_safe_venv_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             env_file = Path(tmp) / "docmolder.env"

@@ -16,9 +16,12 @@ class DeployScriptsTest(unittest.TestCase):
             runbook,
         )
         self.assertIn(
-            "sudo -u docmolder env DOCMOLDER_SMOKE_CHECK_ATTEMPTS=1 /opt/docmolder/app/deploy/smoke-check.sh",
+            "sudo -u docmolder /opt/docmolder/app/deploy/smoke-check.sh 1",
             runbook,
         )
+
+        smoke_check = (ROOT / "deploy" / "smoke-check.sh").read_text(encoding="utf-8")
+        self.assertIn('ATTEMPTS="${1:-${DOCMOLDER_SMOKE_CHECK_ATTEMPTS:-12}}"', smoke_check)
 
     def test_update_vps_runs_checkout_code_as_application_user(self) -> None:
         script = (ROOT / "deploy" / "update-vps.sh").read_text(encoding="utf-8")

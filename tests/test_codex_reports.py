@@ -270,7 +270,7 @@ class CodexReportsTest(unittest.TestCase):
 
         self.assertEqual(
             report["commands"]["health"],
-            "sudo -u docmolder env DOCMOLDER_SMOKE_CHECK_ATTEMPTS=1 /opt/docmolder/app/deploy/smoke-check.sh",
+            "sudo -u docmolder /opt/docmolder/app/deploy/smoke-check.sh 1",
         )
 
     def test_paginated_rest_pr_comments_cover_graphql_page_limit(self) -> None:
