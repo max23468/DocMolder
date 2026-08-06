@@ -10,6 +10,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeployEnvLoadTest(unittest.TestCase):
+    def test_smoke_check_rejects_non_positive_attempts(self) -> None:
+        result = subprocess.run(
+            ["bash", "-c", "DOCMOLDER_ENV_FILE=/dev/null bash deploy/smoke-check.sh 0"],
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("intero positivo", result.stderr)
+
     def test_env_loader_trims_unquoted_values_and_expands_safe_venv_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             env_file = Path(tmp) / "docmolder.env"
