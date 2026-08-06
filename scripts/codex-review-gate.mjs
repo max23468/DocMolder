@@ -96,6 +96,7 @@ export function classifyCodexReview({
     }
 
     if (
+      belongsToAttempt &&
       timestamp(requestedAt) > 0 &&
       timestamp(comment.created_at) >= timestamp(requestedAt) &&
       now - timestamp(requestedAt) >= 30_000 &&
@@ -169,11 +170,14 @@ export function classifyCodexReview({
   );
 }
 
+export const latestCodexStatus = (statuses) =>
+  statuses.find((status) => status.context === "codex-review");
+
 export const hasSuccessfulCodexStatus = (statuses) =>
-  statuses.find((status) => status.context === "codex-review")?.state === "success";
+  latestCodexStatus(statuses)?.state === "success";
 
 export const codexRetryCutoff = (statuses, fallback) =>
-  statuses.find((status) => status.context === "codex-review")?.created_at ?? fallback;
+  latestCodexStatus(statuses)?.created_at ?? fallback;
 
 export const latestCodexInvocation = (comments, requestedAt) =>
   comments
@@ -293,6 +297,15 @@ async function main() {
   if (reusesExistingReview) {
     previousStatuses = await all(`/repos/${repository}/commits/${headSha}/statuses`);
     if (hasSuccessfulCodexStatus(previousStatuses)) return;
+    if (latestCodexStatus(previousStatuses)?.state === "pending") {
+      await setStatus(
+        repository,
+        headSha,
+        "error",
+        "Rerun avviato mentre la review precedente era ancora in corso",
+      );
+      return;
+    }
   }
 
   await setStatus(

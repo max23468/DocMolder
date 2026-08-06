@@ -8,6 +8,7 @@ import {
   codexRetryCutoff,
   hasSuccessfulCodexStatus,
   isRetryableGitHubResponse,
+  latestCodexStatus,
   latestCodexInvocation,
   pullRequestNumber,
   retryGitHubWrite,
@@ -463,6 +464,43 @@ test("un errore successivo a eyes chiude il tentativo", () => {
   );
 });
 
+test("un retry ignora errori non correlati alla specifica invocazione", () => {
+  assert.equal(
+    classify({
+      requiresReviewedCommit: true,
+      comments: [
+        {
+          user: bot,
+          created_at: "2026-08-04T12:00:03Z",
+          body: "Codex could not complete the review",
+        },
+      ],
+      progressReactions: [{ user: bot, content: "eyes", created_at: "2026-08-04T12:00:02Z" }],
+    }).state,
+    "pending",
+  );
+});
+
+test("un retry chiude l'errore successivo a eyes sulla specifica invocazione", () => {
+  const eyes = { user: bot, content: "eyes", created_at: "2026-08-04T12:00:02Z" };
+  assert.equal(
+    classify({
+      requiresReviewedCommit: true,
+      comments: [
+        {
+          user: bot,
+          created_at: "2026-08-04T12:00:03Z",
+          body: "Codex could not complete the review",
+        },
+      ],
+      exactReactions: [eyes],
+      progressReactions: [eyes],
+      reactions: [eyes],
+    }).state,
+    "failure",
+  );
+});
+
 test("un rerun ignora un errore transitorio storico", () => {
   assert.equal(
     classify({
@@ -602,6 +640,16 @@ test("un rerun riusa soltanto l'ultimo status Codex riuscito dello stesso SHA", 
       { context: "codex-review", state: "success" },
     ]),
     false,
+  );
+});
+
+test("il rerun riconosce uno status precedente ancora pending", () => {
+  assert.equal(
+    latestCodexStatus([
+      { context: "codex-review", state: "pending" },
+      { context: "codex-review", state: "failure" },
+    ])?.state,
+    "pending",
   );
 });
 
