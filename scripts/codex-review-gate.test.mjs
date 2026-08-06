@@ -155,6 +155,7 @@ test("un rerun non riusa il pollice di una vecchia invocazione", () => {
         {
           id: 1,
           user: { login: "max23468" },
+          author_association: "OWNER",
           body: "@codex review",
           created_at: "2026-08-04T12:00:01Z",
         },
@@ -545,20 +546,28 @@ test("il polling mantiene cinque ore senza saturare la quota con cinque PR", () 
   assert.ok((5 * 5 * 60 * 60 * 1000) / CODEX_REVIEW_POLLING.intervalMs <= 500);
 });
 
-test("legge le reazioni dall'ultima invocazione Codex del tentativo corrente", () => {
+test("legge le reazioni dall'ultima invocazione Codex fidata del tentativo corrente", () => {
   assert.equal(
     latestCodexInvocation(
       [
-        { id: 1, user: bot, body: "@codex review", created_at: "2026-08-04T12:00:03Z" },
+        {
+          id: 1,
+          user: { login: "outsider" },
+          author_association: "NONE",
+          body: "@codex review",
+          created_at: "2026-08-04T12:00:04Z",
+        },
         {
           id: 2,
           user: { login: "max23468" },
-          body: "@codex review",
+          author_association: "OWNER",
+          body: "puoi fare @codex review?",
           created_at: "2026-08-04T12:00:01Z",
         },
         {
           id: 3,
           user: { login: "max23468" },
+          author_association: "OWNER",
           body: "@codex review",
           created_at: "2026-08-04T12:00:02Z",
         },

@@ -184,8 +184,8 @@ export const latestCodexInvocation = (comments, requestedAt) =>
     .filter(
       (comment) =>
         timestamp(requestedAt) > 0 &&
-        comment.user?.login !== CODEX_BOT &&
-        /@codex\s+review\b/i.test(comment.body) &&
+        ["OWNER", "MEMBER", "COLLABORATOR"].includes(comment.author_association) &&
+        /^\s*@codex\s+review\s*$/i.test(comment.body) &&
         timestamp(comment.created_at) >= timestamp(requestedAt),
     )
     .sort((left, right) => timestamp(right.created_at) - timestamp(left.created_at))[0];
