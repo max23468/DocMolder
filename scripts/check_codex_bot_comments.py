@@ -141,12 +141,10 @@ def body_summary(body: str) -> str:
     return "(commento senza testo)"
 
 
-def is_clean_exact_head_review(body: str, head_oid: str) -> bool:
-    reviewed_commit = REVIEWED_COMMIT_RE.search(body)
+def is_clean_review(body: str) -> bool:
     return bool(
         CLEAN_REVIEW_RE.search(body)
-        and reviewed_commit
-        and head_oid.lower().startswith(reviewed_commit.group(1).lower())
+        and REVIEWED_COMMIT_RE.search(body)
         and not FINDING_RE.search(body)
     )
 
@@ -192,7 +190,7 @@ def find_bot_comments(
             body = str(comment.get("body") or "")
             url = str(comment.get("url") or "")
             seen_urls.add(url)
-            if is_clean_exact_head_review(body, head_oid):
+            if is_clean_review(body):
                 continue
             found.append(
                 BotComment(
@@ -211,7 +209,7 @@ def find_bot_comments(
         if author not in BOT_LOGINS or url in seen_urls:
             continue
         body = str(comment.get("body") or "")
-        if is_clean_exact_head_review(body, head_oid):
+        if is_clean_review(body):
             continue
         found.append(
             BotComment(

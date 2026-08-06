@@ -206,7 +206,7 @@ class CodexReportsTest(unittest.TestCase):
 
         self.assertEqual(comments, [])
 
-    def test_clean_exact_head_codex_review_is_not_actionable(self) -> None:
+    def test_clean_codex_reviews_are_not_actionable(self) -> None:
         payload = {
             "data": {
                 "repository": {
@@ -238,6 +238,16 @@ class CodexReportsTest(unittest.TestCase):
             include_outdated=False,
         )
 
+        self.assertEqual(comments, [])
+
+        comments = check_codex_bot_comments.find_bot_comments(
+            payload,
+            [],
+            [],
+            head_oid="fedcba9876543210",
+            include_resolved=False,
+            include_outdated=False,
+        )
         self.assertEqual(comments, [])
 
         payload["data"]["repository"]["pullRequest"]["comments"]["nodes"][0]["body"] += "\n\n**P2** Correggi."

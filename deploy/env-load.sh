@@ -48,6 +48,9 @@ load_docmolder_env_file() {
     if [[ ! "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
       continue
     fi
+    if declare -p "${key}" >/dev/null 2>&1; then
+      continue
+    fi
 
     value="${line#*=}"
     quoted=""
