@@ -5,8 +5,14 @@ Tutte le release di `DocMolder` sono tracciate qui.
 Il changelog segue un flusso orientato a GitHub:
 
 - le versioni sono gestite con Semantic Versioning
-- le release sono preparate da `release-please`
+- le release sono preparate manualmente secondo la procedura canonica documentata
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
+
+## [2.0.15](https://github.com/max23468/DocMolder/compare/v2.0.14...v2.0.15) (2026-08-06)
+
+### Documentazione
+
+* **release:** allinea il changelog al processo manuale canonico e rimuove il riferimento non più attivo a Release Please
 
 ## [2.0.14](https://github.com/max23468/DocMolder/compare/v2.0.13...v2.0.14) (2026-08-06)
 
