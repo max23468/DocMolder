@@ -165,10 +165,10 @@ gh workflow run vps-backup.yml --ref main
 
 Il percorso normale resta comunque il backup locale con lo script sulla VPS.
 
-Healthcheck operativo:
+Healthcheck operativo, con l'ambiente VPS e un singolo tentativo:
 
 ```bash
-sudo -u docmolder /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name docmolder
+sudo -u docmolder /opt/docmolder/app/deploy/smoke-check.sh 1
 ```
 
 Report operations completo:
@@ -326,7 +326,7 @@ Le soglie iniziali della Fase 13 servono a proteggere il soft launch:
 Se una soglia viene superata:
 
 1. apri `/admin` e controlla `Manutenzione`, `Coda` e `Health`
-2. esegui `docmolder-healthcheck --check-service-active --service-name docmolder`
+2. esegui `sudo -u docmolder /opt/docmolder/app/deploy/smoke-check.sh 1`
 3. se il problema è carico o abuso, metti il bot in manutenzione da `/admin` o abilita temporaneamente `DOCMOLDER_ALLOWED_USER_IDS`
 4. se il problema e storico job/database, esegui una run mirata di reconcile o riduci temporaneamente `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`
 5. se il problema continua dopo mitigazione, sospendi promozione pubblica e valuta una decisione dedicata su VPS, SQLite o coda esterna

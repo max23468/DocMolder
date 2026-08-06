@@ -14,8 +14,12 @@ load_docmolder_env_file "${ENV_FILE}"
 VENV_DIR="${DOCMOLDER_VENV_DIR:-${VENV_DIR}}"
 SERVICE_NAME="${DOCMOLDER_SERVICE_NAME:-docmolder}"
 HEALTHCHECK_BIN="${DOCMOLDER_HEALTHCHECK_BIN:-${VENV_DIR}/bin/docmolder-healthcheck}"
-ATTEMPTS="${DOCMOLDER_SMOKE_CHECK_ATTEMPTS:-12}"
+ATTEMPTS="${1:-${DOCMOLDER_SMOKE_CHECK_ATTEMPTS:-12}}"
 SLEEP_SECONDS="${DOCMOLDER_SMOKE_CHECK_SLEEP_SECONDS:-5}"
+if ! [[ "${ATTEMPTS}" =~ ^[1-9][0-9]*$ ]]; then
+  echo "DOCMOLDER_SMOKE_CHECK_ATTEMPTS deve essere un intero positivo." >&2
+  exit 2
+fi
 
 cd "${APP_DIR}"
 for attempt in $(seq 1 "${ATTEMPTS}"); do

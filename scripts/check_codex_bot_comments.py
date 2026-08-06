@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -14,6 +15,9 @@ BOT_LOGINS = {
     "chatgpt-codex-connector",
     "chatgpt-codex-connector[bot]",
 }
+CLEAN_REVIEW_RE = re.compile(r"^Codex Review: Didn't find any major issues\.", re.MULTILINE)
+REVIEWED_COMMIT_RE = re.compile(r"\*\*Reviewed commit:\*\*\s*`([0-9a-f]{10,40})`", re.IGNORECASE)
+FINDING_RE = re.compile(r"\bP[0-3]\b")
 
 
 @dataclass(frozen=True)
@@ -137,6 +141,14 @@ def body_summary(body: str) -> str:
     return "(commento senza testo)"
 
 
+def is_clean_review(body: str) -> bool:
+    return bool(
+        CLEAN_REVIEW_RE.search(body)
+        and REVIEWED_COMMIT_RE.search(body)
+        and not FINDING_RE.search(body)
+    )
+
+
 def find_bot_comments(
     payload: dict[str, object],
     rest_comments: list[dict[str, object]],
@@ -175,27 +187,34 @@ def find_bot_comments(
     for comment in pull["comments"]["nodes"]:  # type: ignore[index]
         author = ((comment.get("author") or {}).get("login") or "")
         if author in BOT_LOGINS:
+            body = str(comment.get("body") or "")
+            url = str(comment.get("url") or "")
+            seen_urls.add(url)
+            if is_clean_review(body):
+                continue
             found.append(
                 BotComment(
                     author=author,
-                    body=str(comment.get("body") or ""),
+                    body=body,
                     path="(PR comment)",
-                    url=str(comment.get("url") or ""),
+                    url=url,
                     resolved=False,
                     source="graphql-pr-comment",
                 )
             )
-            seen_urls.add(str(comment.get("url") or ""))
 
     for comment in rest_pr_comments:
         author = ((comment.get("user") or {}).get("login") or "")
         url = str(comment.get("html_url") or "")
         if author not in BOT_LOGINS or url in seen_urls:
             continue
+        body = str(comment.get("body") or "")
+        if is_clean_review(body):
+            continue
         found.append(
             BotComment(
                 author=author,
-                body=str(comment.get("body") or ""),
+                body=body,
                 path="(PR comment)",
                 url=url,
                 resolved=False,

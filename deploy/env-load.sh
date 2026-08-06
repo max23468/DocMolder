@@ -48,7 +48,6 @@ load_docmolder_env_file() {
     if [[ ! "${key}" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
       continue
     fi
-
     value="${line#*=}"
     quoted=""
     case "${value}" in

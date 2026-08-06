@@ -75,7 +75,7 @@ def collect_report(*, check_service: bool) -> dict[str, object]:
         "services": services,
         "commands": {
             "logs": "sudo journalctl -u docmolder -n 80 --no-pager",
-            "health": "sudo -u docmolder /opt/docmolder/venv/bin/docmolder-healthcheck --check-service-active --service-name docmolder",
+            "health": "sudo -u docmolder /opt/docmolder/app/deploy/smoke-check.sh 1",
             "reconcile": "sudo -u docmolder /opt/docmolder/venv/bin/docmolder-reconcile",
             "smoke": "sudo -u docmolder /opt/docmolder/app/deploy/smoke-check.sh",
             "duckdns": "sudo /usr/local/sbin/docmolder-update-duckdns",

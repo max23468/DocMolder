@@ -8,6 +8,21 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DeployScriptsTest(unittest.TestCase):
+    def test_vps_runbook_uses_env_aware_healthcheck_entrypoint(self) -> None:
+        runbook = (ROOT / "docs" / "VPS_RUNBOOK.md").read_text(encoding="utf-8")
+
+        self.assertNotIn(
+            "sudo -u docmolder /opt/docmolder/venv/bin/docmolder-healthcheck",
+            runbook,
+        )
+        self.assertIn(
+            "sudo -u docmolder /opt/docmolder/app/deploy/smoke-check.sh 1",
+            runbook,
+        )
+
+        smoke_check = (ROOT / "deploy" / "smoke-check.sh").read_text(encoding="utf-8")
+        self.assertIn('ATTEMPTS="${1:-${DOCMOLDER_SMOKE_CHECK_ATTEMPTS:-12}}"', smoke_check)
+
     def test_update_vps_runs_checkout_code_as_application_user(self) -> None:
         script = (ROOT / "deploy" / "update-vps.sh").read_text(encoding="utf-8")
 
