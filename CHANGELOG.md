@@ -8,6 +8,12 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate da `release-please`
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.0.14](https://github.com/max23468/DocMolder/compare/v2.0.13...v2.0.14) (2026-08-06)
+
+### Correzioni
+
+* **ops:** evita falsi blocchi sui riepiloghi Codex puliti e rende affidabile l'healthcheck manuale con ambiente VPS ([#267](https://github.com/max23468/DocMolder/pull/267)) ([92ae04d](https://github.com/max23468/DocMolder/commit/92ae04d6139323f5dc173f81d62deba68972b5ad))
+
 ## [2.0.13](https://github.com/max23468/DocMolder/compare/v2.0.12...v2.0.13) (2026-08-05)
 
 ### Manutenzione
