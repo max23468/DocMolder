@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from docmolder.config import Settings
-from docmolder.session_store import SessionStore
+from docmolder.session_store_protocol import SessionStore
 
 ACCESS_META_PREFIX = "access:"
 ACCESS_STATUS_PENDING = "pending"

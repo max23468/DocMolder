@@ -50,8 +50,9 @@ Fuori perimetro senza decisione esplicita:
 - `src/docmolder/processing.py`: pipeline documentale.
 - `src/docmolder/excel_unlock.py`: sblocco modifica Excel e integrazione
   LibreOffice per `.xls`.
-- `src/docmolder/session_store.py` e
-  `src/docmolder/sqlite_session_store.py`: persistenza sessioni/job.
+- `src/docmolder/session_store_protocol.py`: contratto condiviso della persistenza.
+- `src/docmolder/sqlite_session_store.py`: persistenza runtime di sessioni/job.
+- `src/docmolder/in_memory_session_store.py`: implementazione isolata usata nei test.
 - `src/docmolder/sqlite_backup.py`: backup e restore verificati del database
   SQLite.
 - `src/docmolder/action_catalog.py`: regole azioni supportate e naming output.

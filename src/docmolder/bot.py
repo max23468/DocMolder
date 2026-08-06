@@ -127,7 +127,8 @@ from docmolder.action_catalog import (
     infer_supported_actions,
     sanitize_filename,
 )
-from docmolder.session_store import SQLiteSessionStore, SessionStore
+from docmolder.session_store_protocol import SessionStore
+from docmolder.sqlite_session_store import SQLiteSessionStore
 from docmolder.telegram_messaging import send_telegram_message
 from docmolder.text_requests import (
     _build_quick_action_guidance,

@@ -12,7 +12,7 @@ from docmolder.config import Settings
 from docmolder.healthcheck import build_health_report
 from docmolder.logging_utils import log_event
 from docmolder.processing import DocumentProcessor
-from docmolder.session_store import SQLiteSessionStore
+from docmolder.sqlite_session_store import SQLiteSessionStore
 
 LOGGER = logging.getLogger("docmolder.reconcile")
 

@@ -79,7 +79,7 @@ from docmolder.processing import ProcessingOutput
 from docmolder.processing import ProcessingResult
 from docmolder.models import CompressionPreset, FileKind, SupportedAction, UserSession
 from docmolder.keyboards import build_main_menu_keyboard
-from docmolder.session_store import InMemorySessionStore
+from docmolder.in_memory_session_store import InMemorySessionStore
 from docmolder.action_catalog import build_session_file
 
 

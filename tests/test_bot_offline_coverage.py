@@ -33,7 +33,7 @@ from docmolder.config import Settings
 from docmolder.models import FileKind, SupportedAction, UserSession
 from docmolder.processing import DocumentProcessor
 from docmolder.processing import ProcessingUserError
-from docmolder.session_store import InMemorySessionStore
+from docmolder.in_memory_session_store import InMemorySessionStore
 
 
 class BotOfflineCoverageTest(unittest.IsolatedAsyncioTestCase):

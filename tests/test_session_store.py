@@ -12,9 +12,14 @@ import gc
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.session_store import InMemorySessionStore, SQLiteSessionStore
+from docmolder.in_memory_session_store import InMemorySessionStore
 from docmolder.models import JobStatus
-from docmolder.sqlite_session_store import _build_since_window_condition, _job_from_row, _safe_average
+from docmolder.sqlite_session_store import SQLiteSessionStore, _build_since_window_condition, _job_from_row, _safe_average
+
+
+class SessionStoreModuleBoundaryTest(unittest.TestCase):
+    def test_compatibility_facade_is_absent(self) -> None:
+        self.assertFalse((Path(__file__).resolve().parents[1] / "src/docmolder/session_store.py").exists())
 
 
 class SQLiteSessionStoreJobsTest(unittest.TestCase):
