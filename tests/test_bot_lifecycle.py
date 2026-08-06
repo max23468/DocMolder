@@ -14,16 +14,20 @@ from telegram.ext import ApplicationHandlerStop
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.action_catalog import build_session_file
-from docmolder.bot import (
-    MIXED_SESSION_MESSAGE,
+from docmolder.messages import MIXED_SESSION_MESSAGE
+from docmolder.bot_jobs import (
     _download_session_files,
     _job_worker,
     _post_shutdown,
+)
+from docmolder.bot_runtime import (
     _private_chat_only,
+)
+from docmolder.bot_sessions import (
     _validate_session_for_upload,
 )
 from docmolder.models import FileKind, UserSession
-from docmolder.processing import ProcessingUserError
+from docmolder.processing_models import ProcessingUserError
 
 
 class BotLifecycleTest(unittest.IsolatedAsyncioTestCase):
@@ -66,8 +70,8 @@ class BotLifecycleTest(unittest.IsolatedAsyncioTestCase):
         application = SimpleNamespace(bot_data={"deps": deps})
 
         with (
-            patch("docmolder.bot._process_job", new=AsyncMock(side_effect=RuntimeError("boom"))),
-            patch("docmolder.bot.logger.exception") as log_exception,
+            patch("docmolder.bot_jobs._process_job", new=AsyncMock(side_effect=RuntimeError("boom"))),
+            patch("docmolder.bot_runtime.logger.exception") as log_exception,
         ):
             worker_task = asyncio.create_task(_job_worker(application))
             await asyncio.wait_for(queue.join(), timeout=1)

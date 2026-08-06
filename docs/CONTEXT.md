@@ -46,8 +46,9 @@ Fuori perimetro senza decisione esplicita:
 ## Componenti principali
 
 - `src/docmolder/main.py`: entrypoint applicazione.
-- `src/docmolder/bot.py`: handler Telegram e orchestrazione flussi utente.
-- `src/docmolder/processing.py`: pipeline documentale.
+- `src/docmolder/bot.py`: wiring e dispatch Telegram; i flussi vivono nei moduli `bot_*` per responsabilità.
+- `src/docmolder/admin_reporting.py`: report operativi e rilevamento anomalie admin.
+- `src/docmolder/processing.py`: coordinatore delle capacità PDF, immagini, foto-documento, Ghostscript ed Excel.
 - `src/docmolder/excel_unlock.py`: sblocco modifica Excel e integrazione
   LibreOffice per `.xls`.
 - `src/docmolder/session_store_protocol.py`: contratto condiviso della persistenza.

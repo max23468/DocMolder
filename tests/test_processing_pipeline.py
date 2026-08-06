@@ -4,6 +4,7 @@ from io import BytesIO
 import tempfile
 import unittest
 from pathlib import Path
+import shutil
 import sys
 from unittest.mock import MagicMock, patch
 import subprocess
@@ -17,7 +18,8 @@ from pypdf import PdfReader, PdfWriter
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.models import CompressionPreset, DocumentPhotoMode, SupportedAction
-from docmolder.processing import A4_MARGIN_WIDE_PX, DocumentProcessor, ProcessingUserError
+from docmolder.processing import DocumentProcessor
+from docmolder.processing_models import A4_MARGIN_WIDE_PX, ProcessingUserError
 
 
 def _save_realistic_document_photo(path: Path, *, near_edge: bool = False, low_contrast: bool = False) -> None:
@@ -70,18 +72,31 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         pdf_path = Path("/tmp/input.pdf")
         output_path = Path("/tmp/output.pdf")
 
-        command = self.processor._build_ghostscript_grayscale_command("gs", pdf_path, output_path)
+        command = self.processor.ghostscript._build_ghostscript_grayscale_command("gs", pdf_path, output_path)
 
         self.assertIn("-sColorConversionStrategy=Gray", command)
         self.assertIn("-dProcessColorModel=/DeviceGray", command)
         self.assertIn(f"-sOutputFile={output_path}", command)
         self.assertEqual(command[-1], str(pdf_path))
 
+    def test_real_ghostscript_grayscale_smoke(self) -> None:
+        if shutil.which("gs") is None:
+            self.skipTest("Ghostscript non disponibile")
+        pdf_path = self.runtime_dir / "ghostscript_source.pdf"
+        output_path = self.runtime_dir / "ghostscript_gray.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=200, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        self.assertTrue(self.processor.ghostscript._run_ghostscript_grayscale(pdf_path, output_path))
+        self.assertEqual(len(PdfReader(str(output_path)).pages), 1)
+
     def test_build_ghostscript_compress_command(self) -> None:
         pdf_path = Path("/tmp/input.pdf")
         output_path = Path("/tmp/output.pdf")
 
-        command = self.processor._build_ghostscript_compress_command(
+        command = self.processor.ghostscript._build_ghostscript_compress_command(
             ghostscript="gs",
             pdf_path=pdf_path,
             output_path=output_path,
@@ -97,10 +112,13 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         output_path = Path("/tmp/output.pdf")
 
         with (
-            patch("docmolder.processing.shutil.which", return_value="gs"),
-            patch("docmolder.processing.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["gs"], timeout=5)),
+            patch("docmolder.ghostscript_processing.shutil.which", return_value="gs"),
+            patch(
+                "docmolder.ghostscript_processing.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd=["gs"], timeout=5),
+            ),
         ):
-            result = self.processor._run_ghostscript_grayscale(pdf_path, output_path)
+            result = self.processor.ghostscript._run_ghostscript_grayscale(pdf_path, output_path)
 
         self.assertFalse(result)
 
@@ -109,38 +127,43 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         output_path = Path("/tmp/output.pdf")
 
         with (
-            patch("docmolder.processing.shutil.which", return_value="gs"),
-            patch("docmolder.processing.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["gs"], timeout=5)),
+            patch("docmolder.ghostscript_processing.shutil.which", return_value="gs"),
+            patch(
+                "docmolder.ghostscript_processing.subprocess.run",
+                side_effect=subprocess.TimeoutExpired(cmd=["gs"], timeout=5),
+            ),
         ):
-            result = self.processor._run_ghostscript_compress(pdf_path, output_path, quality_profile="/ebook")
+            result = self.processor.ghostscript._run_ghostscript_compress(
+                pdf_path, output_path, quality_profile="/ebook"
+            )
 
         self.assertFalse(result)
 
     def test_merge_requires_at_least_two_pdfs(self) -> None:
         with self.assertRaises(ProcessingUserError):
-            self.processor.merge_pdfs([], "merged")
+            self.processor.pdf.merge_pdfs([], "merged")
 
     def test_images_to_pdf_requires_inputs(self) -> None:
         with self.assertRaises(ProcessingUserError):
-            self.processor.images_to_pdf([], "images")
+            self.processor.images.images_to_pdf([], "images")
 
     def test_auto_orient_requires_inputs(self) -> None:
         with self.assertRaises(ProcessingUserError):
-            self.processor.auto_orient_images([], "oriented")
+            self.processor.images.auto_orient_images([], "oriented")
 
     def test_grayscale_rejects_invalid_pdf(self) -> None:
         invalid_pdf = self.runtime_dir / "invalid.pdf"
         invalid_pdf.write_text("not a real pdf", encoding="utf-8")
 
         with self.assertRaises(ProcessingUserError):
-            self.processor.pdf_to_grayscale(invalid_pdf, "grayscale")
+            self.processor.pdf.pdf_to_grayscale(invalid_pdf, "grayscale")
 
     def test_grayscale_rejects_empty_pdf(self) -> None:
         empty_pdf = self.runtime_dir / "empty.pdf"
         empty_pdf.write_bytes(b"")
 
         with self.assertRaises(ProcessingUserError):
-            self.processor.pdf_to_grayscale(empty_pdf, "grayscale_empty")
+            self.processor.pdf.pdf_to_grayscale(empty_pdf, "grayscale_empty")
 
     def test_compress_rejects_password_protected_pdf(self) -> None:
         protected_pdf = self.runtime_dir / "protected.pdf"
@@ -151,7 +174,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
             writer.write(handle)
 
         with self.assertRaises(ProcessingUserError):
-            self.processor.compress_pdf(protected_pdf, "compressed", CompressionPreset.MEDIUM)
+            self.processor.pdf.compress_pdf(protected_pdf, "compressed", CompressionPreset.MEDIUM)
 
     def test_extract_pdf_pages_creates_subset(self) -> None:
         pdf_path = self.runtime_dir / "source_extract.pdf"
@@ -162,7 +185,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        result = self.processor.extract_pdf_pages(pdf_path, "extracted", page_selection="1,3")
+        result = self.processor.pdf.extract_pdf_pages(pdf_path, "extracted", page_selection="1,3")
 
         self.assertTrue(result.output_path.exists())
         reader = PdfReader(str(result.output_path))
@@ -180,7 +203,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        result = self.processor.split_pdf_pages(pdf_path, "split_pages")
+        result = self.processor.pdf.split_pdf_pages(pdf_path, "split_pages")
 
         self.assertTrue(result.output_path.exists())
         self.assertEqual(result.output_name, "split_pages.zip")
@@ -208,7 +231,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
             writer.write(handle)
 
         with self.assertRaises(ProcessingUserError):
-            self.processor.split_pdf_pages(pdf_path, "single_split")
+            self.processor.pdf.split_pdf_pages(pdf_path, "single_split")
 
     def test_split_pdf_pages_rejects_excessive_output_count(self) -> None:
         pdf_path = self.runtime_dir / "too_many_pages.pdf"
@@ -219,7 +242,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
             writer.write(handle)
 
         with self.assertRaisesRegex(ProcessingUserError, "50"):
-            self.processor.split_pdf_pages(pdf_path, "too_many")
+            self.processor.pdf.split_pdf_pages(pdf_path, "too_many")
 
     def test_split_pdf_pages_can_return_separate_outputs(self) -> None:
         input_dir = self.runtime_dir / "jobs" / "job_split_files" / "input"
@@ -231,7 +254,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        result = self.processor.split_pdf_pages(pdf_path, "split_files", output_as_zip=False)
+        result = self.processor.pdf.split_pdf_pages(pdf_path, "split_files", output_as_zip=False)
 
         self.assertEqual(result.output_name, "split_files_pagina_01.pdf")
         self.assertEqual([output.name for output in result.additional_outputs], ["split_files_pagina_02.pdf"])
@@ -248,7 +271,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
             writer.write(handle)
 
         with self.assertRaises(ProcessingUserError):
-            self.processor.reorder_pdf_pages(pdf_path, "reordered", page_selection="3,1")
+            self.processor.pdf.reorder_pdf_pages(pdf_path, "reordered", page_selection="3,1")
 
     def test_reorder_pdf_pages_accepts_space_separated_order(self) -> None:
         pdf_path = self.runtime_dir / "source_reorder_spaces.pdf"
@@ -258,7 +281,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        result = self.processor.reorder_pdf_pages(pdf_path, "reordered_spaces", page_selection="3 1 2")
+        result = self.processor.pdf.reorder_pdf_pages(pdf_path, "reordered_spaces", page_selection="3 1 2")
 
         reader = PdfReader(str(result.output_path))
         self.assertEqual(len(reader.pages), 3)
@@ -271,7 +294,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        result = self.processor.delete_pdf_pages(pdf_path, "deleted", page_selection="2-3")
+        result = self.processor.pdf.delete_pdf_pages(pdf_path, "deleted", page_selection="2-3")
 
         self.assertTrue(result.output_path.exists())
         reader = PdfReader(str(result.output_path))
@@ -286,7 +309,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
             writer.write(handle)
 
         with self.assertRaises(ProcessingUserError):
-            self.processor.rotate_pdf(pdf_path, "rotated_invalid", 45)
+            self.processor.pdf.rotate_pdf(pdf_path, "rotated_invalid", 45)
 
     def test_add_text_watermark_creates_output(self) -> None:
         pdf_path = self.runtime_dir / "source_watermark.pdf"
@@ -295,7 +318,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        result = self.processor.add_text_watermark(pdf_path, "watermarked", watermark_text="BOZZA")
+        result = self.processor.pdf.add_text_watermark(pdf_path, "watermarked", watermark_text="BOZZA")
 
         self.assertTrue(result.output_path.exists())
         self.assertIn("BOZZA", result.message)
@@ -305,7 +328,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         draw = ImageDraw.Draw(image)
         draw.rectangle((60, 40, 340, 260), fill="black")
 
-        cropped = self.processor._auto_crop_scan_borders(image)
+        cropped = self.processor.images._auto_crop_scan_borders(image)
 
         self.assertLess(cropped.width, image.width)
         self.assertLess(cropped.height, image.height)
@@ -365,7 +388,9 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         finally:
             document.close()
 
-        result = self.processor.process(SupportedAction.PDF_CROP, [pdf_path], "cropped_rotated_pdf", auto_rotate_pdf=False)
+        result = self.processor.process(
+            SupportedAction.PDF_CROP, [pdf_path], "cropped_rotated_pdf", auto_rotate_pdf=False
+        )
 
         cropped = fitz.open(result.output_path)
         try:
@@ -407,9 +432,6 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         finally:
             cropped.close()
 
-    def test_process_dispatcher_covers_every_supported_action(self) -> None:
-        self.assertEqual(set(self.processor._action_handlers), set(SupportedAction))
-
     def test_process_rejects_unknown_action_and_missing_required_options(self) -> None:
         pdf_path = self.runtime_dir / "source_missing_options.pdf"
         writer = PdfWriter()
@@ -445,13 +467,23 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         image_path = input_dir / "photo.jpg"
         Image.new("RGB", (80, 60), "white").save(image_path)
 
-        merge = self.processor.process(SupportedAction.PDF_MERGE, [first_pdf, second_pdf], "merged_dispatch", auto_rotate_pdf=False)
+        merge = self.processor.process(
+            SupportedAction.PDF_MERGE, [first_pdf, second_pdf], "merged_dispatch", auto_rotate_pdf=False
+        )
         split = self.processor.process(SupportedAction.PDF_SPLIT, [first_pdf], "split_dispatch", split_output_zip=False)
-        extract = self.processor.process(SupportedAction.PDF_EXTRACT_PAGES, [first_pdf], "extract_dispatch", page_selection="1")
-        reorder = self.processor.process(SupportedAction.PDF_REORDER_PAGES, [first_pdf], "reorder_dispatch", page_selection="2 1")
-        delete = self.processor.process(SupportedAction.PDF_DELETE_PAGES, [first_pdf], "delete_dispatch", page_selection="2")
+        extract = self.processor.process(
+            SupportedAction.PDF_EXTRACT_PAGES, [first_pdf], "extract_dispatch", page_selection="1"
+        )
+        reorder = self.processor.process(
+            SupportedAction.PDF_REORDER_PAGES, [first_pdf], "reorder_dispatch", page_selection="2 1"
+        )
+        delete = self.processor.process(
+            SupportedAction.PDF_DELETE_PAGES, [first_pdf], "delete_dispatch", page_selection="2"
+        )
         rotate = self.processor.process(SupportedAction.PDF_ROTATE, [first_pdf], "rotate_dispatch", rotate_degrees=90)
-        watermark = self.processor.process(SupportedAction.PDF_WATERMARK, [first_pdf], "watermark_dispatch", watermark_text="BOZZA")
+        watermark = self.processor.process(
+            SupportedAction.PDF_WATERMARK, [first_pdf], "watermark_dispatch", watermark_text="BOZZA"
+        )
         oriented = self.processor.process(SupportedAction.AUTO_ORIENT, [image_path], "oriented_dispatch")
 
         for result in [merge, split, extract, reorder, delete, rotate, watermark, oriented]:
@@ -546,7 +578,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         image_path = input_dir / "photo.jpg"
         _save_realistic_document_photo(image_path)
 
-        result = self.processor.document_photos_to_pdf(
+        result = self.processor.document_photos.document_photos_to_pdf(
             [image_path],
             "document_photo_color",
             mode=DocumentPhotoMode.COLOR,
@@ -561,7 +593,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         image_path = input_dir / "photo.jpg"
         _save_realistic_document_photo(image_path)
 
-        result = self.processor.document_photos_to_pdf(
+        result = self.processor.document_photos.document_photos_to_pdf(
             [image_path],
             "document_photo_bw",
             mode=DocumentPhotoMode.BW,
@@ -588,8 +620,8 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
     def test_document_photo_fallback_caps_image_before_enhancement(self) -> None:
         image = Image.new("RGB", (3600, 2800), "white")
 
-        with patch.object(self.processor, "_detect_document_photo_corners", return_value=None):
-            transformed = self.processor._transform_document_photo(image)
+        with patch.object(self.processor.document_photos, "_detect_document_photo_corners", return_value=None):
+            transformed = self.processor.document_photos._transform_document_photo(image)
 
         self.assertEqual(transformed.mode, "fallback")
         self.assertLessEqual(max(transformed.image.size), 2400 + (2400 // 45 * 2))
@@ -600,7 +632,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         image_path = input_dir / "photo.jpg"
         Image.new("RGB", (320, 180), "white").save(image_path)
 
-        result = self.processor.images_to_pdf([image_path], "original_layout", use_a4_layout=False)
+        result = self.processor.images.images_to_pdf([image_path], "original_layout", use_a4_layout=False)
 
         self.assertTrue(result.output_path.exists())
         self.assertIn("formato originale", result.message)
@@ -611,7 +643,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         image_path = input_dir / "photo.jpg"
         Image.new("RGB", (320, 180), "white").save(image_path)
 
-        result = self.processor.images_to_pdf(
+        result = self.processor.images.images_to_pdf(
             [image_path],
             "a4_wide",
             use_a4_layout=True,
@@ -627,7 +659,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         image_path = input_dir / "photo.jpg"
         Image.new("RGB", (320, 180), "white").save(image_path)
 
-        result = self.processor.images_to_pdf([image_path], "gray_direct", grayscale_output=True)
+        result = self.processor.images.images_to_pdf([image_path], "gray_direct", grayscale_output=True)
 
         self.assertTrue(result.output_path.exists())
         self.assertIn("scala di grigi", result.message)
@@ -639,7 +671,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         Image.new("RGB", (900, 620), "white").save(image_path)
         processor = DocumentProcessor(self.runtime_dir, image_pdf_max_source_side_px=160)
 
-        result = processor.images_to_pdf([image_path], "huge_downscaled", use_a4_layout=False)
+        result = processor.images.images_to_pdf([image_path], "huge_downscaled", use_a4_layout=False)
 
         self.assertTrue(result.output_path.exists())
         self.assertIn("Ho ridotto 1 immagine molto grande", result.message)
@@ -652,7 +684,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         Image.new("RGB", (320, 180), "white").save(first_image)
         Image.new("RGB", (320, 180), "white").save(second_image)
 
-        result = self.processor.images_to_pdf([first_image, second_image], "streamed")
+        result = self.processor.images.images_to_pdf([first_image, second_image], "streamed")
 
         self.assertTrue(result.output_path.exists())
         self.assertFalse((input_dir / ".streamed_page_0001.pdf").exists())
@@ -665,13 +697,13 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         source = Image.new("RGB", (20, 20), "white")
         prepared = Image.new("RGB", (900, 620), "white")
         processor = DocumentProcessor(self.runtime_dir, image_pdf_max_source_side_px=160)
-        processor.image_pdf_max_source_side_px = 160
+        processor.images.image_pdf_max_source_side_px = 160
 
         with (
             patch.object(ImageOps, "exif_transpose", return_value=prepared),
             patch.object(Image.Image, "copy", side_effect=AssertionError("unexpected full-size copy")),
         ):
-            result, was_downscaled = processor._prepare_image_for_pdf(
+            result, was_downscaled = processor.images._prepare_image_for_pdf(
                 source,
                 grayscale_output=False,
                 auto_crop=False,
@@ -689,7 +721,11 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         image_path = input_dir / "photo.jpg"
         Image.new("RGB", (320, 180), "white").save(image_path)
 
-        with patch.object(self.processor, "pdf_to_grayscale", side_effect=AssertionError("unexpected roundtrip")):
+        with patch.object(
+            self.processor.pdf,
+            "pdf_to_grayscale",
+            side_effect=AssertionError("unexpected roundtrip"),
+        ):
             result = self.processor.process(SupportedAction.IMAGES_TO_PDF_GRAYSCALE, [image_path], "gray_process")
 
         self.assertTrue(result.output_path.exists())
@@ -706,7 +742,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         corrupt_pdf.write_text("not a pdf", encoding="utf-8")
 
         with self.assertRaises(ProcessingUserError):
-            self.processor.merge_pdfs([valid_pdf, corrupt_pdf], "merged_corrupt")
+            self.processor.pdf.merge_pdfs([valid_pdf, corrupt_pdf], "merged_corrupt")
 
     def test_compress_light_handles_multipage_pdf(self) -> None:
         multipage_pdf = self.runtime_dir / "multipage.pdf"
@@ -716,7 +752,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with multipage_pdf.open("wb") as handle:
             writer.write(handle)
 
-        result = self.processor.compress_pdf(multipage_pdf, "multipage_light", CompressionPreset.LIGHT)
+        result = self.processor.pdf.compress_pdf(multipage_pdf, "multipage_light", CompressionPreset.LIGHT)
 
         self.assertTrue(result.output_path.exists())
         self.assertIn("livello light", result.message)
@@ -730,7 +766,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        result = self.processor.compress_pdf(pdf_path, "already_small_light", CompressionPreset.LIGHT)
+        result = self.processor.pdf.compress_pdf(pdf_path, "already_small_light", CompressionPreset.LIGHT)
 
         self.assertTrue(result.output_path.exists())
         self.assertIn("non lo rende più leggero", result.message)
@@ -742,21 +778,21 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         prepared_path.write_bytes(b"%PDF-prepared")
 
         with (
-            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 2)),
-            patch.object(self.processor, "_validate_pdf_for_processing"),
-            patch.object(self.processor, "_run_ghostscript_grayscale", return_value=False),
-            patch.object(self.processor, "_convert_pdf_images_to_grayscale_native", return_value=True),
+            patch.object(self.processor.pdf, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 2)),
+            patch.object(self.processor.pdf, "_validate_pdf_for_processing"),
+            patch.object(self.processor.ghostscript, "_run_ghostscript_grayscale", return_value=False),
+            patch.object(self.processor.pdf, "_convert_pdf_images_to_grayscale_native", return_value=True),
         ):
-            native = self.processor.pdf_to_grayscale(pdf_path, "grayscale_native")
+            native = self.processor.pdf.pdf_to_grayscale(pdf_path, "grayscale_native")
 
         with (
-            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 0)),
-            patch.object(self.processor, "_validate_pdf_for_processing"),
-            patch.object(self.processor, "_run_ghostscript_grayscale", return_value=False),
-            patch.object(self.processor, "_convert_pdf_images_to_grayscale_native", return_value=False),
-            patch.object(self.processor, "_render_pdf_as_images") as render,
+            patch.object(self.processor.pdf, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 0)),
+            patch.object(self.processor.pdf, "_validate_pdf_for_processing"),
+            patch.object(self.processor.ghostscript, "_run_ghostscript_grayscale", return_value=False),
+            patch.object(self.processor.pdf, "_convert_pdf_images_to_grayscale_native", return_value=False),
+            patch.object(self.processor.pdf, "_render_pdf_as_images") as render,
         ):
-            raster = self.processor.pdf_to_grayscale(pdf_path, "grayscale_raster")
+            raster = self.processor.pdf.pdf_to_grayscale(pdf_path, "grayscale_raster")
 
         self.assertEqual(native.processing_mode, "native")
         self.assertTrue(native.auto_rotation_applied)
@@ -772,30 +808,30 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         prepared_path.write_bytes(b"%PDF-prepared")
 
         with (
-            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 1)),
-            patch.object(self.processor, "_validate_pdf_for_processing"),
-            patch.object(self.processor, "_compress_pdf_conservative", return_value=False),
-            patch.object(self.processor, "_run_ghostscript_compress", return_value=True),
+            patch.object(self.processor.pdf, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 1)),
+            patch.object(self.processor.pdf, "_validate_pdf_for_processing"),
+            patch.object(self.processor.pdf, "_compress_pdf_conservative", return_value=False),
+            patch.object(self.processor.ghostscript, "_run_ghostscript_compress", return_value=True),
         ):
-            ghostscript = self.processor.compress_pdf(pdf_path, "compress_ghostscript", CompressionPreset.MEDIUM)
+            ghostscript = self.processor.pdf.compress_pdf(pdf_path, "compress_ghostscript", CompressionPreset.MEDIUM)
 
         with (
-            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 0)),
-            patch.object(self.processor, "_validate_pdf_for_processing"),
-            patch.object(self.processor, "_compress_pdf_conservative", return_value=False),
-            patch.object(self.processor, "_run_ghostscript_compress", return_value=False),
-            patch.object(self.processor, "_compress_pdf_lossless") as lossless,
+            patch.object(self.processor.pdf, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 0)),
+            patch.object(self.processor.pdf, "_validate_pdf_for_processing"),
+            patch.object(self.processor.pdf, "_compress_pdf_conservative", return_value=False),
+            patch.object(self.processor.ghostscript, "_run_ghostscript_compress", return_value=False),
+            patch.object(self.processor.pdf, "_compress_pdf_lossless") as lossless,
         ):
-            lossless_result = self.processor.compress_pdf(pdf_path, "compress_lossless", CompressionPreset.MEDIUM)
+            lossless_result = self.processor.pdf.compress_pdf(pdf_path, "compress_lossless", CompressionPreset.MEDIUM)
 
         with (
-            patch.object(self.processor, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 0)),
-            patch.object(self.processor, "_validate_pdf_for_processing"),
-            patch.object(self.processor, "_compress_pdf_conservative", return_value=False),
-            patch.object(self.processor, "_run_ghostscript_compress", return_value=False),
-            patch.object(self.processor, "_render_pdf_as_images") as render,
+            patch.object(self.processor.pdf, "_prepare_single_pdf_for_processing", return_value=(prepared_path, 0)),
+            patch.object(self.processor.pdf, "_validate_pdf_for_processing"),
+            patch.object(self.processor.pdf, "_compress_pdf_conservative", return_value=False),
+            patch.object(self.processor.ghostscript, "_run_ghostscript_compress", return_value=False),
+            patch.object(self.processor.pdf, "_render_pdf_as_images") as render,
         ):
-            raster = self.processor.compress_pdf(pdf_path, "compress_raster", CompressionPreset.STRONG)
+            raster = self.processor.pdf.compress_pdf(pdf_path, "compress_raster", CompressionPreset.STRONG)
 
         self.assertEqual(ghostscript.processing_mode, "ghostscript")
         self.assertTrue(ghostscript.auto_rotation_applied)
@@ -815,7 +851,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
 
         conservative_output = self.runtime_dir / "conservative_output.pdf"
         self.assertTrue(
-            self.processor._compress_pdf_conservative(
+            self.processor.pdf._compress_pdf_conservative(
                 pdf_path,
                 conservative_output,
                 image_quality=70,
@@ -826,30 +862,42 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         self.assertTrue(conservative_output.exists())
 
         grayscale_output = self.runtime_dir / "native_grayscale_output.pdf"
-        with self.assertLogs("docmolder.processing", level="ERROR"):
-            self.assertFalse(self.processor._convert_pdf_images_to_grayscale_native(pdf_path, grayscale_output))
+        with self.assertLogs("docmolder.pdf_processing", level="ERROR"):
+            self.assertFalse(self.processor.pdf._convert_pdf_images_to_grayscale_native(pdf_path, grayscale_output))
 
         with (
-            patch("docmolder.processing.shutil.which", return_value="gs"),
-            patch("docmolder.processing.subprocess.run", return_value=subprocess.CompletedProcess(["gs"], 0)),
+            patch("docmolder.ghostscript_processing.shutil.which", return_value="gs"),
+            patch(
+                "docmolder.ghostscript_processing.subprocess.run", return_value=subprocess.CompletedProcess(["gs"], 0)
+            ),
         ):
-            self.assertTrue(self.processor._run_ghostscript_grayscale(pdf_path, self.runtime_dir / "gray_gs.pdf"))
             self.assertTrue(
-                self.processor._run_ghostscript_compress(pdf_path, self.runtime_dir / "compress_gs.pdf", "/screen")
+                self.processor.ghostscript._run_ghostscript_grayscale(pdf_path, self.runtime_dir / "gray_gs.pdf")
+            )
+            self.assertTrue(
+                self.processor.ghostscript._run_ghostscript_compress(
+                    pdf_path, self.runtime_dir / "compress_gs.pdf", "/screen"
+                )
             )
 
         with (
-            patch("docmolder.processing.shutil.which", return_value="gs"),
+            patch("docmolder.ghostscript_processing.shutil.which", return_value="gs"),
             patch(
-                "docmolder.processing.subprocess.run",
+                "docmolder.ghostscript_processing.subprocess.run",
                 side_effect=subprocess.CalledProcessError(1, ["gs"]),
             ),
         ):
-            with self.assertLogs("docmolder.processing", level="ERROR"):
-                self.assertFalse(self.processor._run_ghostscript_grayscale(pdf_path, self.runtime_dir / "gray_gs_fail.pdf"))
-            with self.assertLogs("docmolder.processing", level="ERROR"):
+            with self.assertLogs("docmolder.ghostscript_processing", level="ERROR"):
                 self.assertFalse(
-                    self.processor._run_ghostscript_compress(pdf_path, self.runtime_dir / "compress_gs_fail.pdf", "/screen")
+                    self.processor.ghostscript._run_ghostscript_grayscale(
+                        pdf_path, self.runtime_dir / "gray_gs_fail.pdf"
+                    )
+                )
+            with self.assertLogs("docmolder.ghostscript_processing", level="ERROR"):
+                self.assertFalse(
+                    self.processor.ghostscript._run_ghostscript_compress(
+                        pdf_path, self.runtime_dir / "compress_gs_fail.pdf", "/screen"
+                    )
                 )
 
     def test_auto_orient_images_returns_single_file_and_zip_for_batches(self) -> None:
@@ -860,8 +908,8 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         Image.new("RGBA", (80, 60), (255, 255, 255, 255)).save(first)
         Image.new("RGB", (80, 60), "white").save(second)
 
-        single = self.processor.auto_orient_images([first], "single_oriented")
-        batch = self.processor.auto_orient_images([first, second], "batch_oriented")
+        single = self.processor.images.auto_orient_images([first], "single_oriented")
+        batch = self.processor.images.auto_orient_images([first, second], "batch_oriented")
 
         self.assertEqual(single.output_name, "single_oriented_1.png")
         self.assertTrue(single.output_path.exists())
@@ -878,8 +926,10 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         png_output = self.runtime_dir / "render_png.pdf"
         jpeg_output = self.runtime_dir / "render_jpeg.pdf"
 
-        self.processor._render_pdf_as_images(pdf_path, png_output, dpi=72, colorspace=fitz.csGRAY, image_format="png")
-        self.processor._render_pdf_as_images(
+        self.processor.pdf._render_pdf_as_images(
+            pdf_path, png_output, dpi=72, colorspace=fitz.csGRAY, image_format="png"
+        )
+        self.processor.pdf._render_pdf_as_images(
             pdf_path,
             jpeg_output,
             dpi=72,
@@ -894,7 +944,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
     def test_processing_helpers_cover_edge_cases_without_external_tools(self) -> None:
         self.assertIn(
             "formato originale",
-            self.processor._build_images_to_pdf_message(
+            self.processor.images._build_images_to_pdf_message(
                 auto_crop=True,
                 grayscale_output=True,
                 use_a4_layout=False,
@@ -902,58 +952,69 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
                 downscaled_images=2,
             ),
         )
-        self.assertEqual(self.processor._describe_a4_margin(0), "nessun bordo")
-        self.assertEqual(self.processor._format_page_numbers([]), "")
-        self.assertEqual(self.processor._format_page_numbers([2]), "2")
-        self.assertEqual(self.processor._build_compression_feedback(self.runtime_dir / "missing.pdf", self.runtime_dir / "missing-out.pdf"), "")
+        self.assertEqual(self.processor.images._describe_a4_margin(0), "nessun bordo")
+        self.assertEqual(self.processor.pdf._format_page_numbers([]), "")
+        self.assertEqual(self.processor.pdf._format_page_numbers([2]), "2")
+        self.assertEqual(
+            self.processor.pdf._build_compression_feedback(
+                self.runtime_dir / "missing.pdf", self.runtime_dir / "missing-out.pdf"
+            ),
+            "",
+        )
         empty = self.runtime_dir / "empty.bin"
         empty.write_bytes(b"")
         nonempty = self.runtime_dir / "nonempty.bin"
         nonempty.write_bytes(b"x")
-        self.assertEqual(self.processor._build_compression_feedback(empty, nonempty), "")
+        self.assertEqual(self.processor.pdf._build_compression_feedback(empty, nonempty), "")
         bigger = self.runtime_dir / "bigger.bin"
         bigger.write_bytes(b"x" * 100)
         smaller = self.runtime_dir / "smaller.bin"
         smaller.write_bytes(b"x" * 97)
-        self.assertIn("minima", self.processor._build_compression_feedback(bigger, smaller))
+        self.assertIn("minima", self.processor.pdf._build_compression_feedback(bigger, smaller))
 
         small = Image.new("RGB", (20, 20), "white")
-        self.assertEqual(self.processor._auto_crop_scan_borders(small).size, small.size)
+        self.assertEqual(self.processor.images._auto_crop_scan_borders(small).size, small.size)
         blank = Image.new("RGB", (120, 120), "white")
-        self.assertEqual(self.processor._auto_crop_scan_borders(blank).size, blank.size)
+        self.assertEqual(self.processor.images._auto_crop_scan_borders(blank).size, blank.size)
         full = Image.new("RGB", (120, 120), "black")
-        self.assertEqual(self.processor._auto_crop_scan_borders(full).size, full.size)
+        self.assertEqual(self.processor.images._auto_crop_scan_borders(full).size, full.size)
         bordered = Image.new("RGB", (180, 180), "white")
         ImageDraw.Draw(bordered).rectangle((45, 45, 135, 135), fill="black")
-        self.assertLess(self.processor._auto_crop_scan_borders(bordered).size[0], bordered.size[0])
+        self.assertLess(self.processor.images._auto_crop_scan_borders(bordered).size[0], bordered.size[0])
 
         rgba = Image.new("RGBA", (4000, 1200), (255, 255, 255, 255))
-        prepared, was_downscaled = self.processor._prepare_image_for_pdf(rgba, grayscale_output=False, auto_crop=False)
+        prepared, was_downscaled = self.processor.images._prepare_image_for_pdf(
+            rgba, grayscale_output=False, auto_crop=False
+        )
         try:
             self.assertEqual(prepared.mode, "RGB")
             self.assertTrue(was_downscaled)
-            self.assertLessEqual(max(prepared.size), self.processor.image_pdf_max_source_side_px)
+            self.assertLessEqual(max(prepared.size), self.processor.images.image_pdf_max_source_side_px)
         finally:
             prepared.close()
 
         huge = Image.new("RGB", (3000, 1000), "white")
-        limited = self.processor._limit_document_photo_output_size(huge)
+        limited = self.processor.document_photos._limit_document_photo_output_size(huge)
         self.assertLessEqual(max(limited.size), 2400)
-        same_size = self.processor._limit_document_photo_output_size(blank)
+        same_size = self.processor.document_photos._limit_document_photo_output_size(blank)
         self.assertEqual(same_size.size, blank.size)
-        self.assertIsNone(self.processor._infer_target_page_orientation(["portrait", "landscape"]))
+        self.assertIsNone(self.processor.pdf._infer_target_page_orientation(["portrait", "landscape"]))
 
-        warnings = self.processor._detect_document_photo_quality_warnings(Image.new("RGB", (200, 200), "black"))
+        warnings = self.processor.document_photos._detect_document_photo_quality_warnings(
+            Image.new("RGB", (200, 200), "black")
+        )
         self.assertIn("foto_scura", warnings)
-        bright_warnings = self.processor._detect_document_photo_quality_warnings(Image.new("RGB", (200, 200), "white"))
+        bright_warnings = self.processor.document_photos._detect_document_photo_quality_warnings(
+            Image.new("RGB", (200, 200), "white")
+        )
         self.assertIn("foto_molto_chiara", bright_warnings)
 
         tiny_quad = np.array([[0, 0], [10, 0], [10, 10], [0, 10]], dtype="float32")
-        self.assertFalse(self.processor._is_plausible_document_quad(tiny_quad, (200, 200)))
+        self.assertFalse(self.processor.document_photos._is_plausible_document_quad(tiny_quad, (200, 200)))
         edge_quad = np.array([[0, 10], [100, 10], [100, 180], [0, 180]], dtype="float32")
-        self.assertTrue(self.processor._document_corners_touch_image_edge(edge_quad, (120, 200)))
+        self.assertTrue(self.processor.document_photos._document_corners_touch_image_edge(edge_quad, (120, 200)))
 
-        message = self.processor._build_document_photos_to_pdf_message(
+        message = self.processor.document_photos._build_document_photos_to_pdf_message(
             total_images=1,
             perspective_count=0,
             fallback_count=1,
@@ -984,13 +1045,13 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         for raw_value, expected_message in invalid_cases:
             with self.subTest(raw_value=raw_value):
                 with self.assertRaisesRegex(ProcessingUserError, expected_message):
-                    self.processor._parse_page_selection(raw_value, pdf_path, mode="full_reorder")
+                    self.processor.pdf._parse_page_selection(raw_value, pdf_path, mode="full_reorder")
 
     def test_open_image_rejects_pixel_budget_before_decode(self) -> None:
         image = MagicMock(width=50_000, height=50_000)
-        with patch("docmolder.processing.Image.open", return_value=image):
+        with patch("docmolder.image_processing.Image.open", return_value=image):
             with self.assertRaisesRegex(ProcessingUserError, "budget"):
-                self.processor._open_image(self.runtime_dir / "huge.png")
+                self.processor.images._open_image(self.runtime_dir / "huge.png")
         image.close.assert_called_once()
 
     def test_auto_rotate_pdf_to_dominant_orientation_rotates_outlier_pages(self) -> None:
@@ -1003,7 +1064,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        rotated_pages = self.processor._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
+        rotated_pages = self.processor.pdf._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
 
         self.assertEqual(rotated_pages, 1)
         reader = PdfReader(str(output_path))
@@ -1022,7 +1083,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        rotated_pages = self.processor._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
+        rotated_pages = self.processor.pdf._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
 
         self.assertEqual(rotated_pages, 1)
         reader = PdfReader(str(output_path))
@@ -1039,7 +1100,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        rotated_pages = self.processor._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
+        rotated_pages = self.processor.pdf._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
 
         self.assertEqual(rotated_pages, 0)
         self.assertFalse(output_path.exists())
@@ -1054,7 +1115,7 @@ class DocumentProcessorPipelineTest(unittest.TestCase):
         with pdf_path.open("wb") as handle:
             writer.write(handle)
 
-        rotated_pages = self.processor._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
+        rotated_pages = self.processor.pdf._auto_rotate_pdf_to_dominant_orientation(pdf_path, output_path)
 
         self.assertEqual(rotated_pages, 1)
         reader = PdfReader(str(output_path))

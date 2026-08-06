@@ -9,9 +9,11 @@ from unittest.mock import AsyncMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import (
+from docmolder.bot_runtime import (
     BotDependencies,
     _invalid_callback_message,
+)
+from docmolder.bot_menu import (
     handle_action_callback,
     handle_compression_callback,
     handle_rotate_callback,
@@ -113,7 +115,11 @@ class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
 
         await handle_action_callback(update, context)
 
-        labels = [button.text for row in query.edit_message_text.await_args.kwargs["reply_markup"].inline_keyboard for button in row]
+        labels = [
+            button.text
+            for row in query.edit_message_text.await_args.kwargs["reply_markup"].inline_keyboard
+            for button in row
+        ]
         self.assertIn("Meno azioni", labels)
         self.assertIn("Aggiungi watermark", labels)
 

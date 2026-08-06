@@ -12,27 +12,31 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from telegram.error import BadRequest
 
 from docmolder.action_catalog import build_session_file
-from docmolder.bot import (
-    ADMIN_ONLY_MESSAGE,
+from docmolder.messages import ADMIN_ONLY_MESSAGE, SESSION_EMPTY_MESSAGE, UNAUTHORIZED_MESSAGE
+from docmolder.bot_runtime import (
     BotDependencies,
-    SESSION_EMPTY_MESSAGE,
-    UNAUTHORIZED_MESSAGE,
     _invalid_callback_message,
+)
+from docmolder.bot_admin import (
     access_review_command,
     admin_command,
     handle_access_review_callback,
-    handle_action_callback,
     handle_admin_callback,
-    handle_compression_callback,
-    handle_delete_data_callback,
-    handle_split_output_callback,
     maintenance_overview_command,
     request_access_command,
+)
+from docmolder.bot_menu import (
+    handle_action_callback,
+    handle_compression_callback,
+    handle_split_output_callback,
+)
+from docmolder.bot_sessions import (
+    handle_delete_data_callback,
 )
 from docmolder.config import Settings
 from docmolder.models import FileKind, SupportedAction, UserSession
 from docmolder.processing import DocumentProcessor
-from docmolder.processing import ProcessingUserError
+from docmolder.processing_models import ProcessingUserError
 from docmolder.in_memory_session_store import InMemorySessionStore
 
 
@@ -385,7 +389,7 @@ class BotOfflineCoverageTest(unittest.IsolatedAsyncioTestCase):
 
         self._save_pdf_session(pending_action="pdf_split")
         processing_error_query = self._query("split_output:zip", message_id=795)
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(side_effect=ProcessingUserError("PDF non valido"))):
+        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(side_effect=ProcessingUserError("PDF non valido"))):
             await handle_split_output_callback(SimpleNamespace(callback_query=processing_error_query), self._context())
         self.assertIn("PDF non valido", processing_error_query.edit_message_text.await_args.args[0])
 

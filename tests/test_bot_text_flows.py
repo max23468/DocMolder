@@ -9,8 +9,10 @@ from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import (
+from docmolder.bot_runtime import (
     BotDependencies,
+)
+from docmolder.bot_menu import (
     handle_menu_text,
 )
 from docmolder.config import Settings
@@ -83,7 +85,9 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=89))) as enqueue_job:
+        with patch(
+            "docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=89))
+        ) as enqueue_job:
             await handle_menu_text(update, context)
 
         enqueue_job.assert_awaited_once()
@@ -139,7 +143,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=8))) as enqueue_job:
+        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=8))) as enqueue_job:
             await handle_menu_text(update, context)
 
         enqueue_job.assert_not_awaited()
@@ -158,7 +162,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
             )
         )
         message = SimpleNamespace(
-            text="Crea PDF da immagini",
+            text="Crea PDF",
             chat_id=99,
             message_id=457,
             reply_text=AsyncMock(),
@@ -169,7 +173,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock()) as enqueue_job:
+        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock()) as enqueue_job:
             await handle_menu_text(update, context)
 
         enqueue_job.assert_not_awaited()
@@ -204,6 +208,27 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Come vuoi sistemare", message.reply_text.await_args.args[0])
         self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
 
+    async def test_invalid_pending_document_photo_input_keeps_the_session_pending(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("img-1", "foto_documento.jpg", FileKind.IMAGE)],
+                pending_action="document_photo_mode",
+            )
+        )
+        message = SimpleNamespace(text="non saprei", chat_id=99, message_id=4572, reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_menu_text(update, context)
+
+        self.assertEqual(self.store.get(7).pending_action, "document_photo_mode")
+        self.assertEqual(len(self.store._jobs), 0)
+        self.assertIn("Come vuoi sistemare", message.reply_text.await_args.args[0])
+
     async def test_text_request_for_document_photo_fix_can_enqueue_explicit_bw_profile(self) -> None:
         self.store.save(
             UserSession(
@@ -223,7 +248,9 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=33))) as enqueue_job:
+        with patch(
+            "docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=33))
+        ) as enqueue_job:
             await handle_menu_text(update, context)
 
         enqueue_call = enqueue_job.await_args.kwargs
@@ -253,7 +280,9 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=10))) as enqueue_job:
+        with patch(
+            "docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=10))
+        ) as enqueue_job:
             await handle_menu_text(update, context)
 
         enqueue_job.assert_not_awaited()
@@ -280,7 +309,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
+        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
             await handle_menu_text(update, context)
 
         enqueue_call = enqueue_job.await_args.kwargs
@@ -309,7 +338,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
+        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
             await handle_menu_text(update, context)
 
         self.assertEqual(enqueue_job.await_args.kwargs["compression_preset"], CompressionPreset.STRONG)
@@ -334,7 +363,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
+        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
             await handle_menu_text(update, context)
 
         self.assertEqual(enqueue_job.await_args.kwargs["compression_preset"], CompressionPreset.LIGHT)

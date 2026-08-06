@@ -13,29 +13,29 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from telegram.error import TelegramError
 from telegram.error import NetworkError, RetryAfter
 
-from docmolder.bot import (
+from docmolder.bot_runtime import (
     BotDependencies,
-    ADMIN_ONLY_MESSAGE,
-    _build_access_status_message,
+    _build_service_unavailable_message,
+    _retry_after_seconds,
+    _telegram_api_call,
+)
+from docmolder.messages import ADMIN_ONLY_MESSAGE
+from docmolder.admin_reporting import (
     _build_admin_health_report,
     _build_admin_maintenance_overview,
     _build_admin_queue_report,
-    _build_policy_message,
-    _build_service_unavailable_message,
     _build_telegram_metrics_report,
     _extract_metric_entries,
-    _resolve_job_selector,
-    _resolve_user_job_selector,
-    _retry_after_seconds,
-    _telegram_api_call,
-    _handle_start_payload,
+)
+from docmolder.bot_admin import (
+    _build_access_status_message,
+    _build_policy_message,
     _maybe_notify_admins_about_new_user,
     handle_admin_callback,
     access_command,
     access_review_command,
     admin_command,
     handle_access_review_callback,
-    handle_menu_text,
     health_command,
     job_command,
     metrics_command,
@@ -45,7 +45,17 @@ from docmolder.bot import (
     request_access_command,
     retry_command,
     resume_command,
+)
+from docmolder.bot_results import (
+    _resolve_job_selector,
+    _resolve_user_job_selector,
+)
+from docmolder.bot_menu import (
+    _handle_start_payload,
+    handle_menu_text,
     start_command,
+)
+from docmolder.bot_sessions import (
     status_command,
 )
 from docmolder.config import Settings
@@ -307,6 +317,20 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("approved", message.reply_text.await_args.args[0])
         self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "access_review")
 
+    async def test_access_review_command_rejects_non_numeric_admin_input(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        message = SimpleNamespace(text="/approve_user abc", reply_text=AsyncMock())
+        update = SimpleNamespace(
+            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            effective_message=message,
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot, args=["abc"])
+
+        await access_review_command(update, context)
+
+        self.assertIn("Uso corretto", message.reply_text.await_args.args[0])
+        self.assertEqual(self.store.list_audit_log_entries(limit=1), [])
+
     async def test_access_review_callback_approves_pending_user(self) -> None:
         self.deps.settings.admin_user_ids = [7]
         query = SimpleNamespace(
@@ -342,7 +366,7 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_telegram_api_call_retries_rate_limit_and_network_errors(self) -> None:
         mocked_call = AsyncMock(side_effect=[RetryAfter(1), NetworkError("temp"), "ok"])
-        with patch("docmolder.bot.asyncio.sleep", new=AsyncMock()) as sleep_mock:
+        with patch("docmolder.bot_runtime.asyncio.sleep", new=AsyncMock()) as sleep_mock:
             result = await _telegram_api_call("sendMessage", mocked_call)
 
         self.assertEqual(result, "ok")
@@ -589,7 +613,9 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
             effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
             effective_message=message,
         )
-        context = SimpleNamespace(application=self.application, bot=self.bot, args=[str(source_job.id), "--no-auto-rotate"])
+        context = SimpleNamespace(
+            application=self.application, bot=self.bot, args=[str(source_job.id), "--no-auto-rotate"]
+        )
 
         await retry_command(update, context)
 

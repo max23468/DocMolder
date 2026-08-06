@@ -50,18 +50,26 @@ Non è:
 ### Bot Telegram
 
 - `src/docmolder/bot.py`
-  - handler Telegram, wizard utente, admin console, queue worker e messaggi
+  - wiring delle dipendenze e registrazione del dispatch Telegram
+- `src/docmolder/bot_sessions.py`, `bot_menu.py`, `bot_results.py`, `bot_admin.py`, `bot_jobs.py`
+  - sessioni e file, menu/callback, risultati e cronologia, comandi amministrativi ed elaborazione job
+- `src/docmolder/admin_reporting.py`
+  - report operativi periodici e rilevamento anomalie amministrative
 - `src/docmolder/action_catalog.py`
   - catalogo centrale di azioni, analisi sessione, naming output e compatibilità tra file e operazioni
 - `src/docmolder/telegram_messaging.py`
   - chunking messaggi lunghi e fallback parse-mode per invii Telegram gestiti
 - limiti leggeri per upload e job utente
-  - gestiti nel runtime Telegram in `src/docmolder/bot.py`, con stato anti-burst minimo e temporaneo in `app_meta`
+  - gestiti nei moduli runtime e sessione del bot, con stato anti-burst minimo e temporaneo in `app_meta`
 
 ### Pipeline documentale
 
 - `src/docmolder/processing.py`
-  - trasformazioni PDF e immagini, dispatch azione -> handler, fallback, downscale preventivo immagini enormi, cleanup job e metriche di processing
+  - coordinatore sottile e dispatch azione -> capacità
+- `src/docmolder/pdf_processing.py`, `image_processing.py`, `document_photo_processing.py`
+  - trasformazioni PDF, immagini/scansioni e foto-documento
+- `src/docmolder/ghostscript_processing.py`, `excel_processing.py`, `job_files.py`
+  - integrazione Ghostscript, capacità Excel e lifecycle dei file temporanei
 - `docs/PDF_PIPELINE.md`
   - dettaglia compromessi tra percorsi nativi, Ghostscript e fallback raster
 - `src/docmolder/excel_unlock.py`

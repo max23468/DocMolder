@@ -8,7 +8,8 @@ from typing import Protocol
 from telegram.ext import Application
 
 from docmolder.models import CompressionPreset, DocumentPhotoMode, JobPayload, JobRecord, SupportedAction, UserSession
-from docmolder.processing import A4_MARGIN_NARROW_PX, DocumentProcessor, ProcessingResult, ProcessingUserError
+from docmolder.processing import DocumentProcessor
+from docmolder.processing_models import A4_MARGIN_NARROW_PX, ProcessingResult, ProcessingUserError
 from docmolder.action_catalog import build_output_stem, build_session_file, infer_session_analysis
 from docmolder.session_store_protocol import SessionStore
 

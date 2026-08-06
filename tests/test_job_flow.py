@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from docmolder.action_catalog import build_session_file
 from docmolder.job_flow import enqueue_job, run_job_payload
 from docmolder.models import FileKind, JobPayload, SupportedAction, UserSession
-from docmolder.processing import A4_MARGIN_NARROW_PX, ProcessingResult, ProcessingUserError
+from docmolder.processing_models import A4_MARGIN_NARROW_PX, ProcessingResult, ProcessingUserError
 from docmolder.in_memory_session_store import InMemorySessionStore
 
 

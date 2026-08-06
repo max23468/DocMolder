@@ -95,8 +95,7 @@ FILE_TOO_LARGE_MESSAGE = (
 )
 
 UPLOAD_RATE_LIMIT_MESSAGE = (
-    "Stai inviando file troppo rapidamente. "
-    "Aspetta qualche secondo e poi riprova con meno file per volta."
+    "Stai inviando file troppo rapidamente. Aspetta qualche secondo e poi riprova con meno file per volta."
 )
 
 JOB_QUEUE_LIMIT_MESSAGE = (
@@ -161,8 +160,7 @@ def build_pending_action_queued_message(action: SupportedAction, job_id: int, ra
     if action == SupportedAction.PDF_SPLIT:
         if cleaned_value.lower() in {"zip", "archivio", "zip unico"}:
             return (
-                f"Divisione PDF presa in carico con ZIP unico. Job #{job_id} in coda.\n"
-                "Ti invio lo ZIP appena è pronto."
+                f"Divisione PDF presa in carico con ZIP unico. Job #{job_id} in coda.\nTi invio lo ZIP appena è pronto."
             )
         return (
             f"Divisione PDF presa in carico con PDF separati. Job #{job_id} in coda.\n"
@@ -229,7 +227,9 @@ def build_text_request_queued_message(
             f"Job #{job_id} in coda.\nTi invio il file appena è pronto.{extra_note}"
         )
     if action == SupportedAction.AUTO_ORIENT:
-        return f"Correzione orientamento presa in carico. Job #{job_id} in coda.\nTi invio il risultato appena è pronto."
+        return (
+            f"Correzione orientamento presa in carico. Job #{job_id} in coda.\nTi invio il risultato appena è pronto."
+        )
     if action == SupportedAction.PDF_ROTATE:
         return f"Rotazione manuale presa in carico. Job #{job_id} in coda.\nTi invio il PDF appena è pronto."
     if action == SupportedAction.PDF_WATERMARK:

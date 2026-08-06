@@ -10,12 +10,16 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import (
+from docmolder.bot_runtime import (
     BotDependencies,
+)
+from docmolder.bot_sessions import (
     _consume_upload_slot,
-    _has_capacity_for_new_job,
     _load_persisted_upload_history,
     _persist_upload_history,
+)
+from docmolder.bot_jobs import (
+    _has_capacity_for_new_job,
 )
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
@@ -45,7 +49,9 @@ class RateLimitHelpersTest(unittest.TestCase):
             database_path=runtime_dir / "docmolder.db",
         )
         self.store = InMemorySessionStore()
-        self.deps = BotDependencies(settings=settings, session_store=self.store, processor=DocumentProcessor(runtime_dir))
+        self.deps = BotDependencies(
+            settings=settings, session_store=self.store, processor=DocumentProcessor(runtime_dir)
+        )
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
