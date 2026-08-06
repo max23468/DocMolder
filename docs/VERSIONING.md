@@ -37,7 +37,7 @@ Policy del progetto:
 - il titolo della PR è parte del processo di versioning, non solo descrizione editoriale
 - ogni commit che entra su `main` deve provenire da una PR squashata
 - eccezione stretta: commit diretti `chore(docs):` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
-- `CI result` è il guardrail GitHub Actions richiesto sulle PR non draft verso `main`
+- `CI result` e `codex-review` sono i guardrail GitHub richiesti sulle PR non draft verso `main`
 - i controlli locali (`publish_doctor`, `preflight`, test mirati o `ci_verify`) restano la verifica primaria ed economica prima del push
 - `scripts/publish_change.sh` è il percorso standard per commit, push e PR pronta; draft, merge assistito e follow-up Actions richiedono variabili esplicite
 
@@ -189,7 +189,7 @@ Se una modifica potrebbe stare in più sezioni, scegli quella più utile per chi
 
 1. `scripts/publish_change.sh "<titolo conventional>"` apre una PR pronta con titolo convenzionale
 2. la PR viene squash-mergeata su `main`
-3. `CI result` passa sulla PR non draft
+3. `CI result` e `codex-review` passano sull'HEAD esatto della PR non draft
 4. il webhook VPS deploya il merge su `main`
 5. se la PR merita rilascio, completa la procedura release manuale documentata dalla copia pulita di `main`
 6. lo script aggiorna `CHANGELOG.md`, `pyproject.toml`, `src/docmolder/__init__.py`, tag `vX.Y.Z` e GitHub Release
@@ -200,7 +200,7 @@ il flusso operativo standard include anche il passaggio manuale della procedura 
 
 Non usare `main` per commit manuali o push diretti. Se una modifica è urgente,
 si apre comunque una PR piccola e la si squash-mergea dopo i gate locali
-rilevanti e `CI result`.
+rilevanti, `CI result` e `codex-review`.
 
 ## Promozioni major
 

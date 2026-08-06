@@ -99,8 +99,8 @@ Prima di procedere:
    `docs/BACKLOG.md`, `docs/TOOLCHAIN.md` e i documenti vicini al task;
 4. per release o deploy leggere `docs/VERSIONING.md`,
    `docs/RELEASE_PROCESS.md` e `docs/VPS_RUNBOOK.md`;
-5. controllare Codex feedback inbox prima di PR ready, merge, publish, deploy o
-   release;
+5. controllare lo status `codex-review` e i thread Codex della PR corrente
+   prima di PR ready, merge, publish, deploy o release;
 6. scegliere verifiche proporzionate: docs-only di solito `git diff --check` e
    preflight mirato; runtime/VPS richiede gate locali e controlli da runbook.
 

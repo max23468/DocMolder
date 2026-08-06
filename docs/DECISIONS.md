@@ -9,7 +9,7 @@ Questo file raccoglie decisioni architetturali e di prodotto già prese, in form
 - [Soft launch prima, feature dopo](#soft-launch-prima-feature-dopo)
 - [Polling invece di webhook pubblici](#polling-invece-di-webhook-pubblici)
 - [Webhook privato per deploy e controlli locali](#webhook-privato-per-deploy-e-controlli-locali)
-- [Inbox event-driven per commenti Codex](#inbox-event-driven-per-commenti-codex)
+- [Gate Codex sull'HEAD esatto](#gate-codex-sullhead-esatto)
 - [Retention breve dei file temporanei](#retention-breve-dei-file-temporanei)
 - [Auto-orientamento PDF invece di rotazione manuale come azione primaria](#auto-orientamento-pdf-invece-di-rotazione-manuale-come-azione-primaria)
 - [Fallback conservativi nella pipeline PDF](#fallback-conservativi-nella-pipeline-pdf)
@@ -122,26 +122,24 @@ Conseguenze:
 - se il webhook non è configurato, il percorso resta manuale ma non si rompe il bot
 - (deprecato) i commit `chore(main): release docmolder X.Y.Z` non producono una nuova release; oggi la release passa per la procedura release manuale documentata
 
-## Inbox event-driven per commenti Codex
+## Gate Codex sull'HEAD esatto
 
 Decisione:
-- i commenti del Codex connector bot vengono gestiti tramite una issue unica `Codex feedback inbox`
-- il workflow `.github/workflows/codex-pr-comments.yml` aggiorna la inbox su eventi PR trusted, commenti issue, dispatch manuale e scansione programmata ogni 6 ore
-- la scansione usa i review thread GitHub come fonte di verita, separando thread actionable e storico compatto
-- il workflow commenta `@codex address that feedback` sulle PR con thread actionable, senza duplicare richieste gia pubblicate per gli stessi thread
-- non si usano piu file Markdown/JSON committati o report locali come inbox dei commenti Codex
-- i prossimi passi operativi restano dichiarati in chat e nei report locali, partendo dalla inbox quando segnala feedback da gestire
+- il workflow `.github/workflows/codex-review-gate.yml` pubblica lo status richiesto `codex-review` sull'HEAD esatto della PR
+- il gate esegue soltanto codice del branch predefinito fidato e accetta segnali esclusivamente da `chatgpt-codex-connector[bot]`
+- ogni nuovo SHA o nuovo tentativo invalida review, reazioni, finding ed errori precedenti; i finding P0-P3 correnti prevalgono su qualsiasi approvazione
+- il workflow può restare verde mentre lo status `pending`, `failure` o `error` impedisce il merge
+- i thread actionable restano letti direttamente sulla PR corrente dal preflight locale; non esiste una inbox globale separata
 
 Motivazione:
-- i commenti Codex devono diventare lavoro visibile appena arrivano, senza attendere controlli manuali periodici
-- lo stato dei commenti appartiene a GitHub, non al repository sorgente
-- una inbox unica riduce il rischio di perdere thread su PR chiuse, mergiate o non correnti
+- un gate basato sul solo esito del workflow può diventare verde senza provare che Codex abbia approvato l'ultimo commit
+- legare segnali, timestamp e `original_commit_id` al tentativo corrente evita riuso di approvazioni o finding obsoleti
+- eseguire il codice dalla default branch evita che una PR controlli un workflow privilegiato `pull_request_target`
 
 Conseguenze:
-- prima di dichiarare pronta o pubblicata una PR, si controllano la PR corrente e la `Codex feedback inbox`
-- i commenti su PR non piu modificabili diventano follow-up mirati quando sono azionabili
-- il workflow esegue sempre lo script dalla default branch trusted, non dal codice proposto nella PR che ha generato l'evento
-- il click "Resolve conversation" non ha un trigger dedicato affidabile: la inbox si riallinea con eventi successivi, dispatch manuale o scansione programmata
+- dopo ogni nuovo commit si richiede `@codex review` e si attende lo status sull'HEAD esatto
+- prima del merge si controllano anche i thread della PR corrente con `scripts/check_codex_bot_comments.py --pr <numero> --fail`
+- la PR che introduce per la prima volta il workflow richiede bootstrap esplicito: `pull_request_target` legge ancora il branch predefinito precedente
 
 ## Retention breve dei file temporanei
 

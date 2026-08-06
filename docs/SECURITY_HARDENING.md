@@ -79,11 +79,11 @@ prima della classificazione.
   e tutti i workflow VPS richiedono `known_hosts`. Regressioni:
   `tests.test_deploy_scripts`. Nessun rischio residuo noto nel percorso
   automatico.
-- **Workflow GitHub privilegiati** (2, 31, 46-47): il workflow
-  `pull_request_target` poteva eseguire lo script della PR e l’identità bot era
-  troppo permissiva. Ora usa solo il branch base, limita gli `issue_comment` ad
-  associazioni fidate, riconosce due login esatti e non auto-mergea major.
-  Regressioni: `tests.test_codex_reports`. Il workflow Dependabot conserva
+- **Workflow GitHub privilegiati** (2, 31, 46-47): i workflow
+  `pull_request_target` potevano eseguire script della PR e l’identità bot era
+  troppo permissiva. Ora il gate review usa solo la default branch fidata,
+  riconosce esclusivamente `chatgpt-codex-connector[bot]` e non auto-mergea major.
+  Regressioni: `scripts/codex-review-gate.test.mjs` e `tests.test_codex_reports`. Il workflow Dependabot conserva
   token write, ma non esegue codice della PR.
 - **Webhook deploy** (3, 5, 15-16 e gruppo health): confermati
   `Content-Length` negativo, stato pubblico verboso, replay e coda illimitata.
