@@ -9,7 +9,11 @@ import sys
 from dataclasses import dataclass
 
 
-BOT_LOGINS = {"chatgpt-codex-connector[bot]"}
+# GitHub REST include il suffisso bot; GraphQL normalizza lo stesso GitHub App login.
+BOT_LOGINS = {
+    "chatgpt-codex-connector",
+    "chatgpt-codex-connector[bot]",
+}
 
 
 @dataclass(frozen=True)

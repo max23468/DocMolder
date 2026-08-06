@@ -171,7 +171,7 @@ class CodexReportsTest(unittest.TestCase):
                                     "comments": {
                                         "nodes": [
                                             {
-                                                "author": {"login": "chatgpt-codex-connector[bot]"},
+                                                "author": {"login": "chatgpt-codex-connector"},
                                                 "body": "resolved",
                                                 "url": "https://example.invalid/comment",
                                             }
@@ -187,7 +187,7 @@ class CodexReportsTest(unittest.TestCase):
         }
         rest_comments = [
             {
-                "user": {"login": "chatgpt-codex-connector[bot]"},
+                "user": {"login": "chatgpt-codex-connector"},
                 "body": "resolved",
                 "path": "src/docmolder/processing.py",
                 "html_url": "https://example.invalid/comment",
