@@ -141,7 +141,7 @@ test("un rerun non riusa il pollice di una vecchia invocazione", () => {
     classify({
       exactReactions: [reaction],
       reactions: [reaction],
-      requestedAt: 0,
+      requestedAt: "2026-08-04T12:00:02Z",
       requiresReviewedCommit: true,
     }).state,
     "pending",
@@ -156,7 +156,7 @@ test("un rerun non riusa il pollice di una vecchia invocazione", () => {
           created_at: "2026-08-04T12:00:01Z",
         },
       ],
-      0,
+      "2026-08-04T12:00:02Z",
     ),
     undefined,
   );
@@ -258,7 +258,7 @@ test("un finding top-level sull'HEAD prevale sul riepilogo pulito", () => {
   );
 });
 
-test("un finding top-level senza marker prevale sul riepilogo pulito", () => {
+test("un finding top-level senza correlazione non migra su un nuovo tentativo", () => {
   assert.equal(
     classify({
       requiresReviewedCommit: true,
@@ -272,6 +272,25 @@ test("un finding top-level senza marker prevale sul riepilogo pulito", () => {
           user: bot,
           created_at: "2026-08-04T12:00:02Z",
           body: `Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``,
+        },
+      ],
+    }).state,
+    "success",
+  );
+});
+
+test("un finding top-level dopo eyes sulla specifica invocazione blocca", () => {
+  const eyes = { user: bot, content: "eyes", created_at: "2026-08-04T12:00:01Z" };
+  assert.equal(
+    classify({
+      requiresReviewedCommit: true,
+      exactReactions: [eyes],
+      reactions: [eyes],
+      comments: [
+        {
+          user: bot,
+          created_at: "2026-08-04T12:00:02Z",
+          body: "**P2** Correggi il gate.",
         },
       ],
     }).state,
@@ -300,10 +319,10 @@ test("un finding top-level marcato su un altro SHA non blocca l'HEAD", () => {
   );
 });
 
-test("un rerun ignora i finding top-level senza SHA", () => {
+test("un rerun ignora i finding top-level precedenti al cutoff", () => {
   assert.equal(
     classify({
-      requestedAt: 0,
+      requestedAt: "2026-08-04T12:00:02Z",
       requiresReviewedCommit: true,
       comments: [
         {
@@ -313,7 +332,7 @@ test("un rerun ignora i finding top-level senza SHA", () => {
         },
         {
           user: bot,
-          created_at: "2026-08-04T12:00:02Z",
+          created_at: "2026-08-04T12:00:03Z",
           body: `Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``,
         },
       ],
@@ -445,7 +464,7 @@ test("un errore successivo a eyes chiude il tentativo", () => {
 test("un rerun ignora un errore transitorio storico", () => {
   assert.equal(
     classify({
-      requestedAt: 0,
+      requestedAt: "2026-08-04T12:00:02Z",
       requiresReviewedCommit: true,
       comments: [
         {
@@ -458,11 +477,24 @@ test("un rerun ignora un errore transitorio storico", () => {
         {
           user: bot,
           commit_id: headSha,
-          submitted_at: "2026-08-04T12:00:02Z",
+          submitted_at: "2026-08-04T12:00:03Z",
           body: "",
         },
       ],
-      reactions: [{ user: bot, content: "+1", created_at: "2026-08-04T12:00:03Z" }],
+      reactions: [{ user: bot, content: "+1", created_at: "2026-08-04T12:00:04Z" }],
+    }).state,
+    "success",
+  );
+});
+
+test("un rerun sullo stesso SHA accetta la nuova invocazione esatta", () => {
+  const reaction = { user: bot, content: "+1", created_at: "2026-08-04T12:00:03Z" };
+  assert.equal(
+    classify({
+      exactReactions: [reaction],
+      reactions: [reaction],
+      requestedAt: "2026-08-04T12:00:02Z",
+      requiresReviewedCommit: true,
     }).state,
     "success",
   );

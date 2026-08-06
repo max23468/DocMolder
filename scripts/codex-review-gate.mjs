@@ -25,6 +25,14 @@ export function classifyCodexReview({
 }) {
   const completions = [];
   const cleanComments = [];
+  const exactEyesAt = exactReactions
+    .filter(
+      (reaction) =>
+        reaction.user?.login === CODEX_BOT &&
+        reaction.content === "eyes" &&
+        timestamp(reaction.created_at) >= timestamp(requestedAt),
+    )
+    .reduce((latest, reaction) => Math.max(latest, timestamp(reaction.created_at)), 0);
   const latestEyesAt = progressReactions
     .filter(
       (reaction) =>
@@ -57,8 +65,13 @@ export function classifyCodexReview({
     if (comment.user?.login !== CODEX_BOT) continue;
 
     const commit = reviewedCommit(comment.body);
+    const belongsToAttempt = commit
+      ? headSha.startsWith(commit)
+      : requiresReviewedCommit
+        ? exactEyesAt > 0 && timestamp(comment.created_at) >= exactEyesAt
+        : timestamp(requestedAt) > 0;
     if (
-      (commit ? headSha.startsWith(commit) : timestamp(requestedAt) > 0) &&
+      belongsToAttempt &&
       timestamp(comment.created_at) >= timestamp(requestedAt) &&
       /\bP[0-3]\b/.test(comment.body)
     ) {
@@ -244,6 +257,7 @@ async function reviewSignals(repository, number, requestedAt) {
 }
 
 async function main() {
+  const attemptStartedAt = new Date().toISOString();
   const event = JSON.parse(
     await (await import("node:fs/promises")).readFile(process.env.GITHUB_EVENT_PATH),
   );
@@ -276,7 +290,7 @@ async function main() {
   }
 
   const freshReview = ["opened", "ready_for_review"].includes(event.action);
-  const requestedAt = reusesExistingReview ? 0 : pullRequest.updated_at;
+  const requestedAt = reusesExistingReview ? attemptStartedAt : pullRequest.updated_at;
   for (let attempt = 0; attempt < CODEX_REVIEW_POLLING.attempts; attempt += 1) {
     let signals;
     try {
