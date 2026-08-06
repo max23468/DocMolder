@@ -5,10 +5,12 @@ import { test } from "node:test";
 import {
   CODEX_REVIEW_POLLING,
   classifyCodexReview,
+  codexRetryCutoff,
   hasSuccessfulCodexStatus,
   isRetryableGitHubResponse,
   latestCodexInvocation,
   pullRequestNumber,
+  retryGitHubWrite,
 } from "./codex-review-gate.mjs";
 
 const headSha = "0123456789abcdef0123456789abcdef01234567";
@@ -541,6 +543,49 @@ test("ritenta soltanto errori GitHub recuperabili", () => {
   assert.equal(isRetryableGitHubResponse(403, "0"), true);
   assert.equal(isRetryableGitHubResponse(403, "4999"), false);
   assert.equal(isRetryableGitHubResponse(404, null), false);
+});
+
+test("il retry manuale parte dallo status Codex precedente dello stesso SHA", () => {
+  assert.equal(
+    codexRetryCutoff(
+      [
+        {
+          context: "codex-review",
+          state: "failure",
+          created_at: "2026-08-04T12:00:01Z",
+        },
+      ],
+      "2026-08-04T11:00:00Z",
+    ),
+    "2026-08-04T12:00:01Z",
+  );
+  assert.equal(codexRetryCutoff([], "2026-08-04T11:00:00Z"), "2026-08-04T11:00:00Z");
+});
+
+test("le scritture GitHub ritentano soltanto errori recuperabili", async () => {
+  let attempts = 0;
+  const waits = [];
+  const result = await retryGitHubWrite(
+    async () => {
+      attempts += 1;
+      if (attempts < 3) throw Object.assign(new Error("rate limit"), { retryable: true });
+      return "ok";
+    },
+    async (ms) => waits.push(ms),
+  );
+  assert.equal(result, "ok");
+  assert.equal(attempts, 3);
+  assert.deepEqual(waits, [5_000, 5_000]);
+
+  attempts = 0;
+  await assert.rejects(
+    retryGitHubWrite(async () => {
+      attempts += 1;
+      throw Object.assign(new Error("forbidden"), { retryable: false });
+    }),
+    /forbidden/,
+  );
+  assert.equal(attempts, 1);
 });
 
 test("un rerun riusa soltanto l'ultimo status Codex riuscito dello stesso SHA", () => {

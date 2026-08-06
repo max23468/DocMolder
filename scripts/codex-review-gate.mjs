@@ -172,6 +172,9 @@ export function classifyCodexReview({
 export const hasSuccessfulCodexStatus = (statuses) =>
   statuses.find((status) => status.context === "codex-review")?.state === "success";
 
+export const codexRetryCutoff = (statuses, fallback) =>
+  statuses.find((status) => status.context === "codex-review")?.created_at ?? fallback;
+
 export const latestCodexInvocation = (comments, requestedAt) =>
   comments
     .filter(
@@ -191,6 +194,21 @@ export function pullRequestNumber(event, input) {
 
 export const isRetryableGitHubResponse = (status, remaining) =>
   status === 429 || status >= 500 || (status === 403 && remaining === "0");
+
+export async function retryGitHubWrite(
+  operation,
+  wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      const retryable = error instanceof TypeError || error?.retryable;
+      if (!retryable || attempt === 2) throw error;
+      await wait(5_000);
+    }
+  }
+}
 
 async function request(path, options = {}) {
   const response = await fetch(`https://api.github.com${path}`, {
@@ -225,15 +243,17 @@ async function all(path) {
 }
 
 async function setStatus(repository, sha, state, description) {
-  await request(`/repos/${repository}/statuses/${sha}`, {
-    method: "POST",
-    body: JSON.stringify({
-      state,
-      context: "codex-review",
-      description,
-      target_url: `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+  await retryGitHubWrite(() =>
+    request(`/repos/${repository}/statuses/${sha}`, {
+      method: "POST",
+      body: JSON.stringify({
+        state,
+        context: "codex-review",
+        description,
+        target_url: `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+      }),
     }),
-  });
+  );
 }
 
 async function reviewSignals(repository, number, requestedAt) {
@@ -257,7 +277,6 @@ async function reviewSignals(repository, number, requestedAt) {
 }
 
 async function main() {
-  const attemptStartedAt = new Date().toISOString();
   const event = JSON.parse(
     await (await import("node:fs/promises")).readFile(process.env.GITHUB_EVENT_PATH),
   );
@@ -269,10 +288,11 @@ async function main() {
   const headSha = pullRequest.head.sha;
   const reusesExistingReview =
     process.env.GITHUB_EVENT_NAME === "workflow_dispatch" || event.action === "reopened";
+  let previousStatuses = [];
 
   if (reusesExistingReview) {
-    const statuses = await all(`/repos/${repository}/commits/${headSha}/statuses`);
-    if (hasSuccessfulCodexStatus(statuses)) return;
+    previousStatuses = await all(`/repos/${repository}/commits/${headSha}/statuses`);
+    if (hasSuccessfulCodexStatus(previousStatuses)) return;
   }
 
   await setStatus(
@@ -290,7 +310,9 @@ async function main() {
   }
 
   const freshReview = ["opened", "ready_for_review"].includes(event.action);
-  const requestedAt = reusesExistingReview ? attemptStartedAt : pullRequest.updated_at;
+  const requestedAt = reusesExistingReview
+    ? codexRetryCutoff(previousStatuses, pullRequest.updated_at)
+    : pullRequest.updated_at;
   for (let attempt = 0; attempt < CODEX_REVIEW_POLLING.attempts; attempt += 1) {
     let signals;
     try {
