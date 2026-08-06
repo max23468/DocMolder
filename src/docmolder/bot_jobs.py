@@ -3,71 +3,18 @@ import asyncio
 import logging
 from pathlib import Path
 from time import perf_counter
-from telegram.ext import Application, ContextTypes
+from telegram.ext import Application
 from docmolder.job_flow import (
-    enqueue_job as enqueue_job_flow,
-    enqueue_job_from_existing_payload as enqueue_job_from_existing_payload_flow,
     run_job_payload as run_job_payload_flow,
 )
 from docmolder.logging_utils import log_event
 from docmolder.messages import GENERIC_ERROR_MESSAGE
-from docmolder.models import CompressionPreset, DocumentPhotoMode, FileKind, JobRecord, SupportedAction, UserSession
-from docmolder.processing_models import A4_MARGIN_NARROW_PX, ProcessingResult, ProcessingUserError
+from docmolder.models import FileKind, JobRecord, SupportedAction, UserSession
+from docmolder.processing_models import ProcessingResult, ProcessingUserError
 from docmolder.action_catalog import sanitize_filename
 import docmolder.admin_reporting as admin_reporting
 import docmolder.bot_results as bot_results
 import docmolder.bot_runtime as bot_runtime
-import docmolder.bot_sessions as bot_sessions
-
-
-async def _enqueue_job(
-    context: ContextTypes.DEFAULT_TYPE,
-    user_id: int,
-    chat_id: int,
-    reply_to_message_id: int | None,
-    action: SupportedAction,
-    session: UserSession,
-    compression_preset: CompressionPreset | None = None,
-    rotate_degrees: int | None = None,
-    page_selection: str | None = None,
-    watermark_text: str | None = None,
-    auto_rotate_pdf: bool = True,
-    image_pdf_use_a4: bool = True,
-    image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
-    split_output_zip: bool = True,
-    document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
-) -> JobRecord:
-    deps = bot_runtime._get_dependencies(context)
-    return await enqueue_job_flow(
-        deps=deps,
-        user_id=user_id,
-        chat_id=chat_id,
-        reply_to_message_id=reply_to_message_id,
-        action=action,
-        session=session,
-        compression_preset=compression_preset,
-        rotate_degrees=rotate_degrees,
-        page_selection=page_selection,
-        watermark_text=watermark_text,
-        auto_rotate_pdf=auto_rotate_pdf,
-        image_pdf_use_a4=image_pdf_use_a4,
-        image_pdf_margin_px=image_pdf_margin_px,
-        split_output_zip=split_output_zip,
-        document_photo_mode=document_photo_mode,
-    )
-
-
-async def _enqueue_job_from_existing_payload(
-    context: ContextTypes.DEFAULT_TYPE,
-    source_job: JobRecord,
-    reply_to_message_id: int | None,
-    *,
-    auto_rotate_pdf: bool | None = None,
-) -> JobRecord:
-    deps = bot_runtime._get_dependencies(context)
-    return await enqueue_job_from_existing_payload_flow(
-        deps=deps, source_job=source_job, reply_to_message_id=reply_to_message_id, auto_rotate_pdf=auto_rotate_pdf
-    )
 
 
 async def _run_job_payload(application: Application, job: JobRecord, job_dir: Path) -> ProcessingResult:
@@ -116,10 +63,6 @@ async def _post_shutdown(application: Application) -> None:
             await deps.admin_report_task
         except asyncio.CancelledError:
             pass
-
-
-def _has_capacity_for_new_job(user_id: int, deps: bot_runtime.BotDependencies) -> bool:
-    return deps.session_store.count_active_jobs_for_user(user_id) < deps.settings.max_active_jobs_per_user
 
 
 async def _job_worker(application: Application) -> None:
@@ -288,7 +231,7 @@ async def _process_job(application: Application, job_id: int) -> None:
             if (
                 isinstance(result_file_id, str)
                 and (result_file_name is None or isinstance(result_file_name, str))
-                and (bot_sessions._infer_document_kind(result_document) == FileKind.PDF)
+                and (bot_runtime._infer_document_kind(result_document) == FileKind.PDF)
             ):
                 deps.session_store.save(
                     bot_results._build_result_pdf_session(job.user_id, result_file_id, result_file_name)

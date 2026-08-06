@@ -11,7 +11,13 @@ from docmolder.keyboards import (
     build_result_pdf_keyboard,
     build_split_output_keyboard,
 )
-from docmolder.messages import UNAUTHORIZED_MESSAGE
+from docmolder.messages import (
+    UNAUTHORIZED_MESSAGE,
+    build_compression_prompt,
+    build_job_queue_limit_message,
+    build_split_output_prompt,
+    document_photo_mode_label,
+)
 from docmolder.models import (
     FileKind,
     JobPayload,
@@ -30,11 +36,8 @@ from docmolder.action_catalog import (
     infer_result_followup_actions,
     sanitize_filename,
 )
-import docmolder.bot_admin as bot_admin
-import docmolder.bot_jobs as bot_jobs
-import docmolder.bot_menu as bot_menu
 import docmolder.bot_runtime as bot_runtime
-import docmolder.bot_sessions as bot_sessions
+import docmolder.job_flow as job_flow
 
 
 async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -55,18 +58,7 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     )
 
 
-async def last_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    prepared = await bot_runtime._prepare_message_handler(update, context)
-    if prepared is None:
-        return
-    deps, user, message = prepared
-    bot_runtime._record_command_metric(deps, "last")
-    await _rerun_latest_user_job(context=context, deps=deps, user_id=user.id, message=message)
-
-
-async def _rerun_latest_user_job(
-    *, context: ContextTypes.DEFAULT_TYPE, deps: bot_runtime.BotDependencies, user_id: int, message: Message
-) -> None:
+async def _rerun_latest_user_job(*, deps: bot_runtime.BotDependencies, user_id: int, message: Message) -> None:
     jobs = deps.session_store.list_user_jobs(user_id, limit=1)
     if not jobs:
         await message.reply_text(
@@ -74,19 +66,19 @@ async def _rerun_latest_user_job(
             reply_markup=build_main_menu_keyboard(),
         )
         return
-    if not bot_jobs._has_capacity_for_new_job(user_id, deps):
-        await message.reply_text(bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+    if not job_flow.has_capacity_for_new_job(user_id, deps):
+        await message.reply_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
     source_job = jobs[0]
-    rerun_job = await bot_jobs._enqueue_job_from_existing_payload(
-        context=context, source_job=source_job, reply_to_message_id=message.message_id
+    rerun_job = await job_flow.enqueue_job_from_existing_payload(
+        deps=deps, source_job=source_job, reply_to_message_id=message.message_id
     )
     await message.reply_text(_build_history_rerun_message(source_job, rerun_job.id))
 
 
 async def handle_result_action_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     user = query.from_user
@@ -96,9 +88,9 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await query.message.reply_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     document = query.message.document
-    if document is None or bot_sessions._infer_document_kind(document) != FileKind.PDF:
+    if document is None or bot_runtime._infer_document_kind(document) != FileKind.PDF:
         await query.message.reply_text(
             "Non riesco più a recuperare questo PDF. Inviamelo di nuovo e lo converto subito.",
             reply_to_message_id=query.message.message_id,
@@ -107,9 +99,9 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
     action = (query.data or "").removeprefix("result:")
     bot_runtime._record_callback_metric(deps, f"result:{action.split(':', 1)[0]}")
     if action.startswith("undo_rotate:"):
-        if not bot_jobs._has_capacity_for_new_job(user.id, deps):
+        if not job_flow.has_capacity_for_new_job(user.id, deps):
             await query.message.reply_text(
-                bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user),
+                build_job_queue_limit_message(deps.settings.max_active_jobs_per_user),
                 reply_to_message_id=query.message.message_id,
             )
             return
@@ -127,17 +119,17 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
                 reply_to_message_id=query.message.message_id,
             )
             return
-        rerun_job = await bot_jobs._enqueue_job_from_existing_payload(
-            context=context, source_job=source_job, reply_to_message_id=query.message.message_id, auto_rotate_pdf=False
+        rerun_job = await job_flow.enqueue_job_from_existing_payload(
+            deps=deps, source_job=source_job, reply_to_message_id=query.message.message_id, auto_rotate_pdf=False
         )
         await query.message.reply_text(
             _build_rerun_without_rotation_message(source_job, rerun_job.id),
             reply_to_message_id=query.message.message_id,
         )
         return
-    if not bot_jobs._has_capacity_for_new_job(user.id, deps):
+    if not job_flow.has_capacity_for_new_job(user.id, deps):
         await query.message.reply_text(
-            bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user),
+            build_job_queue_limit_message(deps.settings.max_active_jobs_per_user),
             reply_to_message_id=query.message.message_id,
         )
         return
@@ -152,7 +144,10 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
     deps.session_store.save(session)
     if selected_action == SupportedAction.PDF_COMPRESS:
         await query.message.reply_text(
-            bot_menu._build_compression_prompt(user.id, deps),
+            build_compression_prompt(
+                bot_runtime._get_stored_compression_preset(deps, user.id, preset_only=True),
+                bot_runtime._get_stored_compression_preset(deps, user.id),
+            ),
             reply_to_message_id=query.message.message_id,
             reply_markup=build_compression_keyboard(
                 bot_runtime._get_stored_compression_preset(deps, user.id, preset_only=True)
@@ -171,7 +166,10 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         session.touch()
         deps.session_store.save(session)
         await query.message.reply_text(
-            bot_menu._build_split_output_prompt(user.id, deps),
+            build_split_output_prompt(
+                bot_runtime._get_stored_split_output_choice(deps, user.id, preset_only=True),
+                bot_runtime._get_stored_split_output_choice(deps, user.id),
+            ),
             reply_to_message_id=query.message.message_id,
             reply_markup=build_split_output_keyboard(
                 bot_runtime._get_stored_split_output_choice(deps, user.id, preset_only=True)
@@ -191,8 +189,8 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
             bot_runtime._build_pending_action_prompt(selected_action), reply_to_message_id=query.message.message_id
         )
         return
-    job = await bot_jobs._enqueue_job(
-        context=context,
+    job = await job_flow.enqueue_job(
+        deps=deps,
         user_id=user.id,
         chat_id=query.message.chat_id,
         reply_to_message_id=query.message.message_id,
@@ -208,7 +206,7 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
 
 async def handle_history_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     user = query.from_user
@@ -220,7 +218,7 @@ async def handle_history_callback(update: Update, context: ContextTypes.DEFAULT_
             bot_runtime._build_service_unavailable_message(), reply_to_message_id=query.message.message_id
         )
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     try:
         _, action, raw_job_id = (query.data or "").split(":", 2)
         job_id = int(raw_job_id)
@@ -240,14 +238,14 @@ async def handle_history_callback(update: Update, context: ContextTypes.DEFAULT_
         )
         return
     if action == "rerun":
-        if not bot_jobs._has_capacity_for_new_job(user.id, deps):
+        if not job_flow.has_capacity_for_new_job(user.id, deps):
             await query.message.reply_text(
-                bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user),
+                build_job_queue_limit_message(deps.settings.max_active_jobs_per_user),
                 reply_to_message_id=query.message.message_id,
             )
             return
-        rerun_job = await bot_jobs._enqueue_job_from_existing_payload(
-            context=context, source_job=job, reply_to_message_id=query.message.message_id
+        rerun_job = await job_flow.enqueue_job_from_existing_payload(
+            deps=deps, source_job=job, reply_to_message_id=query.message.message_id
         )
         await query.message.reply_text(
             _build_history_rerun_message(job, rerun_job.id), reply_to_message_id=query.message.message_id
@@ -280,29 +278,6 @@ def _resolve_job_selector(deps: bot_runtime.BotDependencies, selector: str) -> J
     except ValueError:
         return None
     return deps.session_store.get_job(job_id)
-
-
-def _resolve_user_job_selector(deps: bot_runtime.BotDependencies, user_id: int, selector: str) -> JobRecord | None:
-    normalized = selector.strip().lower()
-    if not normalized:
-        return None
-    if normalized == "latest":
-        recent_jobs = deps.session_store.list_user_jobs(user_id, limit=1)
-        return recent_jobs[0] if recent_jobs else None
-    status_selectors = {
-        "failed": JobStatus.FAILED,
-        "running": JobStatus.RUNNING,
-        "queued": JobStatus.QUEUED,
-        "succeeded": JobStatus.SUCCEEDED,
-    }
-    if normalized in status_selectors:
-        status = status_selectors[normalized]
-        jobs = deps.session_store.list_user_jobs(user_id, limit=1, statuses=(status,))
-        return jobs[0] if jobs else None
-    job = _resolve_job_selector(deps, normalized)
-    if job is None or job.user_id != user_id:
-        return None
-    return job
 
 
 def _format_job_line(job: JobRecord) -> str:
@@ -408,7 +383,7 @@ def _build_user_history_job_detail(job: JobRecord) -> str:
     if job.action.startswith("images_to_pdf"):
         detail_lines.append("Impaginazione: A4" if payload.image_pdf_use_a4 else "Impaginazione: formato originale")
     if job.action == SupportedAction.DOCUMENT_PHOTO_FIX.value:
-        detail_lines.append(f"Profilo scansione: {bot_menu._document_photo_mode_label(payload.document_photo_mode)}")
+        detail_lines.append(f"Profilo scansione: {document_photo_mode_label(payload.document_photo_mode)}")
     if job.action == SupportedAction.PDF_SPLIT.value:
         detail_lines.append(
             "Output divisione: ZIP unico" if payload.split_output_zip else "Output divisione: PDF separati"

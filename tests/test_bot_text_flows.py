@@ -86,7 +86,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
         with patch(
-            "docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=89))
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=89))
         ) as enqueue_job:
             await handle_menu_text(update, context)
 
@@ -143,7 +143,9 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=8))) as enqueue_job:
+        with patch(
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=8))
+        ) as enqueue_job:
             await handle_menu_text(update, context)
 
         enqueue_job.assert_not_awaited()
@@ -173,7 +175,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock()) as enqueue_job:
+        with patch("docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock()) as enqueue_job:
             await handle_menu_text(update, context)
 
         enqueue_job.assert_not_awaited()
@@ -249,7 +251,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
         with patch(
-            "docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=33))
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=33))
         ) as enqueue_job:
             await handle_menu_text(update, context)
 
@@ -281,7 +283,7 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
         with patch(
-            "docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=10))
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=10))
         ) as enqueue_job:
             await handle_menu_text(update, context)
 
@@ -309,7 +311,9 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
+        with patch(
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))
+        ) as enqueue_job:
             await handle_menu_text(update, context)
 
         enqueue_call = enqueue_job.await_args.kwargs
@@ -338,7 +342,9 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
+        with patch(
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))
+        ) as enqueue_job:
             await handle_menu_text(update, context)
 
         self.assertEqual(enqueue_job.await_args.kwargs["compression_preset"], CompressionPreset.STRONG)
@@ -363,7 +369,9 @@ class BotTextFlowsTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))) as enqueue_job:
+        with patch(
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=9))
+        ) as enqueue_job:
             await handle_menu_text(update, context)
 
         self.assertEqual(enqueue_job.await_args.kwargs["compression_preset"], CompressionPreset.LIGHT)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+import html
 import logging
 import re
 import shutil
@@ -8,9 +9,10 @@ from collections import deque
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import TracebackType
-from telegram import InlineKeyboardMarkup, Message, Update, User
+from zoneinfo import ZoneInfo
+from telegram import Document, InlineKeyboardMarkup, Message, Update, User
 from telegram import MenuButtonCommands
-from telegram.constants import ChatType
+from telegram.constants import ChatType, ParseMode
 from telegram.error import NetworkError, RetryAfter, TelegramError, TimedOut
 from telegram.ext import Application, ApplicationHandlerStop, ContextTypes
 from docmolder.config import Settings
@@ -24,7 +26,12 @@ from docmolder.access_control import (
     set_dynamic_access_status as _set_dynamic_access_status,
 )
 from docmolder.branding import TELEGRAM_DESCRIPTION, TELEGRAM_NAME, TELEGRAM_SHORT_DESCRIPTION, build_telegram_commands
-from docmolder.keyboards import build_admin_dashboard_keyboard, build_main_menu_keyboard, build_session_actions_keyboard
+from docmolder.keyboards import (
+    build_access_review_keyboard,
+    build_admin_dashboard_keyboard,
+    build_main_menu_keyboard,
+    build_session_actions_keyboard,
+)
 from docmolder.logging_utils import log_event
 from docmolder.messages import (
     ADMIN_ONLY_MESSAGE,
@@ -35,7 +42,7 @@ from docmolder.messages import (
     build_processing_started_message,
     build_text_request_queued_message,
 )
-from docmolder.models import CompressionPreset, JobStatus, SupportedAction, UserSession
+from docmolder.models import CompressionPreset, FileKind, JobStatus, SupportedAction, UserSession
 from docmolder.processing import DocumentProcessor
 from docmolder.processing_models import A4_MARGIN_NARROW_PX, A4_MARGIN_NONE_PX, A4_MARGIN_WIDE_PX
 from docmolder.retry import run_async_with_retry
@@ -43,8 +50,6 @@ from docmolder.action_catalog import SessionAnalysis, build_session_recap, infer
 from docmolder.session_store_protocol import SessionStore
 from docmolder.telegram_messaging import send_telegram_message
 from docmolder.text_requests import _normalize_keyword_text
-import docmolder.bot_admin as bot_admin
-import docmolder.bot_sessions as bot_sessions
 
 logger = logging.getLogger(__name__)
 _TELEGRAM_TOKEN_IN_URL_RE = re.compile("/bot[^/]+/")
@@ -553,6 +558,21 @@ def _is_image_pdf_action(action: SupportedAction) -> bool:
     }
 
 
+def _infer_document_kind(document: Document) -> FileKind | None:
+    mime_type = document.mime_type or ""
+    file_name = (document.file_name or "").lower()
+    suffix = Path(file_name).suffix.lower()
+    if mime_type == "application/pdf" or suffix == ".pdf":
+        return FileKind.PDF
+    if mime_type.startswith("image/") or suffix in {".jpg", ".jpeg", ".png", ".webp"}:
+        return FileKind.IMAGE
+    if suffix == ".xlsb":
+        return None
+    if suffix in {".xlsx", ".xlsm", ".xls"} or mime_type in _EXCEL_SUFFIX_BY_MIME_TYPE:
+        return FileKind.EXCEL
+    return None
+
+
 def _build_admin_keyboard(deps: BotDependencies) -> InlineKeyboardMarkup:
     available_statuses = {
         status
@@ -564,11 +584,15 @@ def _build_admin_keyboard(deps: BotDependencies) -> InlineKeyboardMarkup:
     )
 
 
+def _purge_expired_sessions(deps: BotDependencies) -> None:
+    deps.session_store.purge_expired(deps.settings.session_ttl_minutes)
+
+
 async def _prepare_message_handler(
     update: Update, context: ContextTypes.DEFAULT_TYPE, *, require_admin: bool = False
 ) -> tuple[BotDependencies, User, Message] | None:
     deps = _get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    _purge_expired_sessions(deps)
     user = update.effective_user
     message = update.effective_message
     if user is None or message is None:
@@ -583,7 +607,7 @@ async def _prepare_message_handler(
     if not require_admin and _is_service_paused(deps) and (not _is_admin(user.id, deps.settings)):
         await message.reply_text(_build_service_unavailable_message())
         return None
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await _maybe_notify_admins_about_new_user(user, context)
     return (deps, user, message)
 
 
@@ -604,7 +628,7 @@ async def _handle_unauthorized_access_attempt(
     if current_status != _ACCESS_STATUS_PENDING:
         _set_dynamic_access_status(deps, user.id, _ACCESS_STATUS_PENDING)
         _append_audit_log(deps, "request_access", actor_user_id=user.id, outcome="pending", target_user_id=user.id)
-        await bot_admin._notify_admins_about_access_request(user, context, deps)
+        await _notify_admins_about_access_request(user, context, deps)
         await message.reply_text(
             "Accesso non ancora attivo. Ho inviato una richiesta all'admin: quando viene approvata potrai usare il bot.",
             reply_markup=build_main_menu_keyboard(),
@@ -623,3 +647,85 @@ def _parse_meta_datetime(value: str | None) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed
+
+
+async def _maybe_notify_admins_about_new_user(user: User | None, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if user is None:
+        return
+    deps = _get_dependencies(context)
+    if not deps.settings.admin_user_ids:
+        return
+    is_new = deps.session_store.register_user(
+        user_id=user.id, username=user.username, first_name=user.first_name, last_name=user.last_name
+    )
+    if not is_new:
+        return
+    notification_text = _build_new_user_notification(user)
+    for admin_user_id in deps.settings.admin_user_ids:
+        last_sent_at = _parse_meta_datetime(
+            deps.session_store.get_meta(_new_user_admin_meta_key(admin_user_id, "last_sent_at"))
+        )
+        pending_count_key = _new_user_admin_meta_key(admin_user_id, "pending_count")
+        now = datetime.now(timezone.utc)
+        if last_sent_at is not None and (now - last_sent_at).total_seconds() < _NEW_USER_NOTIFICATION_COOLDOWN_SECONDS:
+            _increment_meta_counter(deps, pending_count_key)
+            continue
+        pending_count = _get_meta_counter(deps, pending_count_key)
+        admin_notification_text = notification_text
+        if pending_count > 0:
+            admin_notification_text = (
+                f"{notification_text}\n\nNel frattempo altri {pending_count} utenti nuovi hanno già aperto il bot."
+            )
+        try:
+            await _safe_send_message(
+                context.bot,
+                chat_id=admin_user_id,
+                text=admin_notification_text,
+                deps=deps,
+                parse_mode=ParseMode.HTML,
+                disable_web_page_preview=True,
+            )
+            deps.session_store.set_meta(_new_user_admin_meta_key(admin_user_id, "last_sent_at"), now.isoformat())
+            deps.session_store.set_meta(pending_count_key, "0")
+        except TelegramError:
+            logger.exception("Impossibile inviare la notifica nuovo utente all'admin %s", admin_user_id)
+
+
+def _build_new_user_notification(user: User) -> str:
+    timestamp = datetime.now(ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y alle %H:%M:%S")
+    full_name_value = getattr(user, "full_name", None) or " ".join(
+        (part for part in [getattr(user, "first_name", None), getattr(user, "last_name", None)] if part)
+    )
+    full_name = html.escape(full_name_value or "Sconosciuto")
+    username_value = getattr(user, "username", None)
+    username = f"@{html.escape(username_value)}" if username_value else "non disponibile"
+    profile_link = f'<a href="tg://user?id={user.id}">Apri profilo Telegram</a>'
+    public_link = f' | <a href="https://t.me/{html.escape(username_value)}">Apri username</a>' if username_value else ""
+    return f"Nuovo utente al primo accesso su <b>DocMolder</b>.\nData e ora: {timestamp}\nID utente: <code>{user.id}</code>\nNome: {full_name}\nUsername: {username}\nLink: {profile_link}{public_link}"
+
+
+async def _notify_admins_about_access_request(
+    user: User, context: ContextTypes.DEFAULT_TYPE, deps: BotDependencies
+) -> None:
+    if not deps.settings.admin_user_ids:
+        return
+    full_name = html.escape(
+        getattr(user, "full_name", None)
+        or " ".join((part for part in [user.first_name, user.last_name] if part))
+        or "Sconosciuto"
+    )
+    username = f"@{html.escape(user.username)}" if user.username else "non disponibile"
+    text = f"Richiesta accesso DocMolder\nID utente: <code>{user.id}</code>\nNome: {full_name}\nUsername: {username}"
+    for admin_user_id in deps.settings.admin_user_ids:
+        try:
+            await _safe_send_message(
+                context.bot,
+                chat_id=admin_user_id,
+                text=text,
+                deps=deps,
+                parse_mode=ParseMode.HTML,
+                reply_markup=build_access_review_keyboard(user.id),
+                disable_web_page_preview=True,
+            )
+        except TelegramError:
+            logger.exception("Impossibile inviare richiesta accesso all'admin %s", admin_user_id)

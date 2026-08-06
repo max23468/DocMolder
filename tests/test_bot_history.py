@@ -292,7 +292,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         update = SimpleNamespace(callback_query=query)
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=5))) as enqueue_job:
+        with patch(
+            "docmolder.bot_results.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=5))
+        ) as enqueue_job:
             await handle_result_action_callback(update, context)
 
         enqueue_job.assert_awaited_once()

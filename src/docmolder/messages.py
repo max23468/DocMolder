@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from docmolder.branding import BRAND_NAME, BRAND_TAGLINE
-from docmolder.models import CompressionPreset, SupportedAction
+from docmolder.models import CompressionPreset, DocumentPhotoMode, SupportedAction
 
 PUBLIC_PRIVACY_URL = "https://docmolder.duckdns.org/privacy.html"
 
@@ -116,6 +116,58 @@ SERVICE_UNAVAILABLE_MESSAGE = (
     "DocMolder è in modalità manutenzione in questo momento. "
     "Riprova tra poco o controlla /status. Gli admin possono continuare a usare i comandi di controllo."
 )
+
+
+def build_job_queue_limit_message(max_active_jobs_per_user: int) -> str:
+    return (
+        f"{JOB_QUEUE_LIMIT_MESSAGE} Limite attuale: {max_active_jobs_per_user} job attivi per utente. "
+        "Prossimo passo: attendi l'ultimo risultato o usa /status."
+    )
+
+
+def build_compression_prompt(saved_preset: str | None, saved_preference: str | None) -> str:
+    if saved_preset:
+        saved_note = f"\nPreset leggero pronto: {saved_preset}."
+    elif saved_preference:
+        saved_note = f"\nUltima scelta rapida salvata: {saved_preference}."
+    else:
+        saved_note = ""
+    return (
+        "Hai scelto la compressione PDF. Seleziona il livello.\n"
+        "Leggera preserva di più il file; Media e Forte cercano una riduzione più evidente."
+        f"{saved_note}"
+    )
+
+
+def build_split_output_prompt(saved_preset: str | None, saved_preference: str | None) -> str:
+    if saved_preset == "zip":
+        saved_note = "\nPreset leggero pronto: ZIP unico."
+    elif saved_preset == "files":
+        saved_note = "\nPreset leggero pronto: PDF separati."
+    elif saved_preference == "zip":
+        saved_note = "\nUltima scelta rapida salvata: ZIP unico."
+    elif saved_preference == "files":
+        saved_note = "\nUltima scelta rapida salvata: PDF separati."
+    else:
+        saved_note = ""
+    return f"{build_pending_action_prompt(SupportedAction.PDF_SPLIT)}{saved_note}"
+
+
+def build_document_photo_mode_prompt() -> str:
+    return (
+        "Come vuoi sistemare la foto del documento?\n"
+        "- Più leggibile: migliora contrasto e pulizia generale.\n"
+        "- Mantieni colore: conserva il colore del foglio.\n"
+        "- Bianco/nero pulito: crea una scansione ad alto contrasto."
+    )
+
+
+def document_photo_mode_label(mode: DocumentPhotoMode) -> str:
+    if mode == DocumentPhotoMode.COLOR:
+        return "Mantieni colore"
+    if mode == DocumentPhotoMode.BW:
+        return "Bianco/nero pulito"
+    return "Più leggibile"
 
 
 def build_pending_action_prompt(action: SupportedAction) -> str:

@@ -16,6 +16,7 @@ from telegram.error import NetworkError, RetryAfter
 from docmolder.bot_runtime import (
     BotDependencies,
     _build_service_unavailable_message,
+    _maybe_notify_admins_about_new_user,
     _retry_after_seconds,
     _telegram_api_call,
 )
@@ -28,34 +29,21 @@ from docmolder.admin_reporting import (
     _extract_metric_entries,
 )
 from docmolder.bot_admin import (
-    _build_access_status_message,
-    _build_policy_message,
-    _maybe_notify_admins_about_new_user,
     handle_admin_callback,
-    access_command,
-    access_review_command,
     admin_command,
     handle_access_review_callback,
-    health_command,
-    job_command,
-    metrics_command,
-    pause_command,
-    policy_command,
-    queue_command,
-    request_access_command,
-    retry_command,
-    resume_command,
 )
 from docmolder.bot_results import (
     _resolve_job_selector,
-    _resolve_user_job_selector,
 )
 from docmolder.bot_menu import (
+    _build_policy_message,
     _handle_start_payload,
     handle_menu_text,
     start_command,
 )
 from docmolder.bot_sessions import (
+    _build_access_status_message,
     status_command,
 )
 from docmolder.config import Settings
@@ -127,26 +115,6 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(RuntimeError):
             await _maybe_notify_admins_about_new_user(user, context)
-
-    async def test_pause_and_resume_commands_toggle_service_mode(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        message = SimpleNamespace(reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await pause_command(update, context)
-        self.assertEqual(self.store.get_meta("service_mode"), "maintenance")
-
-        await resume_command(update, context)
-        self.assertEqual(self.store.get_meta("service_mode"), "normal")
-        self.assertEqual(
-            [entry.outcome for entry in self.store.list_audit_log_entries(limit=2)],
-            ["normal", "maintenance"],
-        )
-        self.assertEqual(message.reply_text.await_count, 2)
 
     async def test_maintenance_mode_blocks_regular_user_text_requests(self) -> None:
         self.store.set_meta("service_mode", "maintenance")
@@ -225,29 +193,6 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("Azione già ricevuta", query.edit_message_text.await_args_list[-1].args[0])
 
-    async def test_queue_and_health_commands_return_live_reports(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        queued_job = self.store.create_job(
-            user_id=7,
-            chat_id=99,
-            reply_to_message_id=123,
-            action="pdf_compress",
-            payload_json='{"files":[]}',
-        )
-        self.store.mark_job_running(queued_job.id)
-        message = SimpleNamespace(reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await queue_command(update, context)
-        await health_command(update, context)
-
-        self.assertIn("Coda operativa", message.reply_text.await_args_list[0].args[0])
-        self.assertIn("Health operativo", message.reply_text.await_args_list[1].args[0])
-
     async def test_unauthorized_user_attempt_creates_pending_access_request(self) -> None:
         self.deps.settings.allowed_user_ids = [7]
         self.deps.settings.admin_user_ids = [999]
@@ -281,55 +226,6 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.store.get_meta("access:55:status"), "pending")
         self.bot.send_message.assert_awaited_once()
         self.assertIn("richiesta all'admin", message.reply_text.await_args.args[0])
-
-    async def test_request_access_command_does_not_duplicate_pending_request(self) -> None:
-        self.deps.settings.allowed_user_ids = [7]
-        self.deps.settings.admin_user_ids = [999]
-        self.bot.send_message = AsyncMock()
-        self.store.set_meta("access:55:status", "pending")
-        message = SimpleNamespace(reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=55, username="mario", first_name="Mario", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await request_access_command(update, context)
-
-        self.assertEqual(self.store.get_meta("access:55:status"), "pending")
-        self.bot.send_message.assert_not_awaited()
-        self.assertEqual(self.store.list_audit_log_entries(limit=10), [])
-        self.assertIn("già in attesa di approvazione", message.reply_text.await_args.args[0])
-
-    async def test_access_review_command_approves_dynamic_user(self) -> None:
-        self.deps.settings.allowed_user_ids = [7]
-        self.deps.settings.admin_user_ids = [7]
-        message = SimpleNamespace(text="/approve_user 55", reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot, args=["55"])
-
-        await access_review_command(update, context)
-
-        self.assertEqual(self.store.get_meta("access:55:status"), "approved")
-        self.assertIn("approved", message.reply_text.await_args.args[0])
-        self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "access_review")
-
-    async def test_access_review_command_rejects_non_numeric_admin_input(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        message = SimpleNamespace(text="/approve_user abc", reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot, args=["abc"])
-
-        await access_review_command(update, context)
-
-        self.assertIn("Uso corretto", message.reply_text.await_args.args[0])
-        self.assertEqual(self.store.list_audit_log_entries(limit=1), [])
 
     async def test_access_review_callback_approves_pending_user(self) -> None:
         self.deps.settings.admin_user_ids = [7]
@@ -432,198 +328,6 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Input atteso: Watermark testuale", message.reply_text.await_args.args[0])
         self.assertIn("/history", message.reply_text.await_args.args[0])
 
-    async def test_access_command_returns_access_summary_without_active_session(self) -> None:
-        message = SimpleNamespace(reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await access_command(update, context)
-
-        self.assertIn("Stato accesso DocMolder", message.reply_text.await_args.args[0])
-        self.assertIn("Accesso account: consentito", message.reply_text.await_args.args[0])
-
-    async def test_policy_command_remains_available_to_restricted_user(self) -> None:
-        self.deps.settings.allowed_user_ids = [7]
-        message = SimpleNamespace(reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=55, username="mario", first_name="Mario", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await policy_command(update, context)
-
-        self.assertIn(55, self.store._known_user_ids)
-        self.assertIn("Policy sintetica", message.reply_text.await_args.args[0])
-        self.assertIn("privacy.html", message.reply_text.await_args.args[0])
-
-    async def test_request_access_command_reports_active_access_without_admin_ping(self) -> None:
-        self.deps.settings.admin_user_ids = [999]
-        self.bot.send_message = AsyncMock()
-        message = SimpleNamespace(reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username="mario", first_name="Mario", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await request_access_command(update, context)
-
-        self.bot.send_message.assert_not_awaited()
-        self.assertIn("già attivo", message.reply_text.await_args.args[0])
-
-    async def test_request_access_command_reports_blocked_access_without_admin_ping(self) -> None:
-        self.deps.settings.allowed_user_ids = [7]
-        self.deps.settings.admin_user_ids = [999]
-        self.bot.send_message = AsyncMock()
-        self.store.set_meta("access:55:status", "blocked")
-        message = SimpleNamespace(reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=55, username="mario", first_name="Mario", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await request_access_command(update, context)
-
-        self.bot.send_message.assert_not_awaited()
-        self.assertIn("accesso è sospeso", message.reply_text.await_args.args[0])
-
-    async def test_metrics_command_returns_telegram_metrics_report(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        self.store.set_meta("telegram_metric:command:start", "4")
-        self.store.set_meta("telegram_metric:upload:photo", "2")
-        self.store.set_meta("telegram_metric:callback:history:rerun", "3")
-        message = SimpleNamespace(reply_text=AsyncMock())
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await metrics_command(update, context)
-
-        self.assertIn("Metriche Telegram", message.reply_text.await_args.args[0])
-        self.assertIn("/start: 4", message.reply_text.await_args.args[0])
-        self.assertIn("foto: 2", message.reply_text.await_args.args[0])
-        self.assertIn("history:rerun: 3", message.reply_text.await_args.args[0])
-
-    async def test_job_command_shows_job_detail_for_admin(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        job = self.store.create_job(
-            user_id=11,
-            chat_id=99,
-            reply_to_message_id=123,
-            action="pdf_compress",
-            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":"medium"}',
-        )
-        self.store.mark_job_succeeded(job.id, "Completato")
-        message = SimpleNamespace(reply_text=AsyncMock(), message_id=400)
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot, args=[str(job.id)])
-
-        await job_command(update, context)
-
-        self.assertIn("Dettaglio Job", message.reply_text.await_args.args[0])
-        self.assertIn("Compressione: medium", message.reply_text.await_args.args[0])
-
-    async def test_job_command_accepts_failed_selector(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        job = self.store.create_job(
-            user_id=11,
-            chat_id=99,
-            reply_to_message_id=123,
-            action="pdf_compress",
-            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":"medium"}',
-        )
-        self.store.mark_job_failed(job.id, "Errore di test")
-        message = SimpleNamespace(reply_text=AsyncMock(), message_id=402)
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot, args=["failed"])
-
-        await job_command(update, context)
-
-        self.assertIn(f"Dettaglio Job #{job.id}", message.reply_text.await_args.args[0])
-
-    async def test_job_command_accepts_succeeded_selector(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        job = self.store.create_job(
-            user_id=11,
-            chat_id=99,
-            reply_to_message_id=123,
-            action="pdf_grayscale",
-            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":null}',
-        )
-        self.store.mark_job_succeeded(job.id, "Completato")
-        message = SimpleNamespace(reply_text=AsyncMock(), message_id=404)
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot, args=["succeeded"])
-
-        await job_command(update, context)
-
-        self.assertIn(f"Dettaglio Job #{job.id}", message.reply_text.await_args.args[0])
-
-    async def test_retry_command_requeues_existing_job_for_admin(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        source_job = self.store.create_job(
-            user_id=11,
-            chat_id=99,
-            reply_to_message_id=123,
-            action="pdf_grayscale",
-            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":null}',
-        )
-        message = SimpleNamespace(reply_text=AsyncMock(), message_id=401)
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot, args=[str(source_job.id)])
-
-        await retry_command(update, context)
-
-        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
-        self.assertEqual(len(queued_jobs), 1)
-        self.assertEqual(queued_jobs[0].rerun_of_job_id, source_job.id)
-        self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "admin_retry_job")
-        self.assertIn("Ripeto il job", message.reply_text.await_args.args[0])
-
-    async def test_retry_command_can_disable_auto_rotation(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        source_job = self.store.create_job(
-            user_id=11,
-            chat_id=99,
-            reply_to_message_id=123,
-            action="pdf_compress",
-            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"compression_preset":"medium","auto_rotate_pdf":true}',
-        )
-        message = SimpleNamespace(reply_text=AsyncMock(), message_id=403)
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(
-            application=self.application, bot=self.bot, args=[str(source_job.id), "--no-auto-rotate"]
-        )
-
-        await retry_command(update, context)
-
-        queued_jobs = [job for job in self.store._jobs.values() if job.id != source_job.id]
-        self.assertEqual(len(queued_jobs), 1)
-        self.assertIn('"auto_rotate_pdf": false', queued_jobs[0].payload_json)
-        self.assertIn("senza rotazione automatica", message.reply_text.await_args.args[0])
-
     def test_resolve_job_selector_supports_latest_failed_and_running(self) -> None:
         latest_job = self.store.create_job(
             user_id=1,
@@ -663,55 +367,6 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(_resolve_job_selector(self.deps, "queued").id, latest_job.id)
         self.assertEqual(_resolve_job_selector(self.deps, "succeeded").id, succeeded_job.id)
         self.assertEqual(_resolve_job_selector(self.deps, str(latest_job.id)).id, latest_job.id)
-
-    def test_resolve_user_job_selector_scopes_latest_to_user(self) -> None:
-        own_job = self.store.create_job(
-            user_id=7,
-            chat_id=99,
-            reply_to_message_id=123,
-            action="pdf_grayscale",
-            payload_json='{"files":[]}',
-        )
-        self.store.create_job(
-            user_id=8,
-            chat_id=99,
-            reply_to_message_id=124,
-            action="pdf_compress",
-            payload_json='{"files":[]}',
-        )
-
-        self.assertEqual(_resolve_user_job_selector(self.deps, 7, "latest").id, own_job.id)
-
-    def test_resolve_user_job_selector_rejects_other_user_job_id(self) -> None:
-        other_job = self.store.create_job(
-            user_id=8,
-            chat_id=99,
-            reply_to_message_id=124,
-            action="pdf_compress",
-            payload_json='{"files":[]}',
-        )
-
-        self.assertIsNone(_resolve_user_job_selector(self.deps, 7, str(other_job.id)))
-
-    def test_resolve_user_job_selector_finds_status_beyond_recent_page(self) -> None:
-        failed_job = self.store.create_job(
-            user_id=7,
-            chat_id=99,
-            reply_to_message_id=123,
-            action="pdf_grayscale",
-            payload_json='{"files":[]}',
-        )
-        self.store.mark_job_failed(failed_job.id, "boom")
-        for index in range(60):
-            self.store.create_job(
-                user_id=7,
-                chat_id=99,
-                reply_to_message_id=200 + index,
-                action="pdf_compress",
-                payload_json='{"files":[]}',
-            )
-
-        self.assertEqual(_resolve_user_job_selector(self.deps, 7, "failed").id, failed_job.id)
 
     def test_extract_metric_entries_sorts_by_count_desc(self) -> None:
         entries = _extract_metric_entries(
@@ -795,20 +450,3 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
         await handle_admin_callback(update, context)
 
         self.assertIn(f"Dettaglio Job #{latest_job.id}", query.edit_message_text.await_args.args[0])
-
-    async def test_retry_command_help_mentions_supported_selectors(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        message = SimpleNamespace(reply_text=AsyncMock(), message_id=405)
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot, args=[])
-
-        await retry_command(update, context)
-
-        self.assertIn("latest|failed|running|queued|succeeded", message.reply_text.await_args.args[0])
-
-
-if __name__ == "__main__":
-    unittest.main()

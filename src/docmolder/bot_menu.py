@@ -12,16 +12,22 @@ from docmolder.keyboards import (
     build_rotate_keyboard,
     build_split_output_keyboard,
 )
-from docmolder.messages import HELP_MESSAGE, SESSION_EMPTY_MESSAGE, UNAUTHORIZED_MESSAGE, WELCOME_MESSAGE
+from docmolder.messages import (
+    HELP_MESSAGE,
+    PUBLIC_PRIVACY_URL,
+    SESSION_EMPTY_MESSAGE,
+    UNAUTHORIZED_MESSAGE,
+    WELCOME_MESSAGE,
+    build_job_queue_limit_message,
+)
 from docmolder.models import CompressionPreset, DocumentPhotoMode, SupportedAction
 from docmolder.processing_models import A4_MARGIN_NARROW_PX, A4_MARGIN_NONE_PX, A4_MARGIN_WIDE_PX, ProcessingUserError
 from docmolder.action_catalog import infer_supported_actions
 from docmolder.text_requests import _build_quick_action_guidance, _resolve_text_request
-import docmolder.bot_admin as bot_admin
-import docmolder.bot_jobs as bot_jobs
 import docmolder.bot_results as bot_results
 import docmolder.bot_runtime as bot_runtime
 import docmolder.bot_sessions as bot_sessions
+import docmolder.job_flow as job_flow
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -49,7 +55,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     user = query.from_user
@@ -59,7 +65,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await query.edit_message_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     bot_sessions._cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
@@ -129,13 +135,11 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
             ),
         )
         return
-    if not bot_jobs._has_capacity_for_new_job(user.id, deps):
-        await query.edit_message_text(
-            bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user)
-        )
+    if not job_flow.has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
-    job = await bot_jobs._enqueue_job(
-        context=context,
+    job = await job_flow.enqueue_job(
+        deps=deps,
         user_id=user.id,
         chat_id=query.message.chat_id,
         reply_to_message_id=query.message.message_id,
@@ -148,7 +152,7 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
 
 async def handle_compression_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     preset = (query.data or "").removeprefix("compress:")
@@ -160,24 +164,22 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await query.edit_message_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     bot_sessions._cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
         return
-    if not bot_jobs._has_capacity_for_new_job(user.id, deps):
-        await query.edit_message_text(
-            bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user)
-        )
+    if not job_flow.has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
     try:
         compression_preset = CompressionPreset(preset)
     except ValueError:
         await query.edit_message_text(bot_runtime._invalid_callback_message())
         return
-    job = await bot_jobs._enqueue_job(
-        context=context,
+    job = await job_flow.enqueue_job(
+        deps=deps,
         user_id=user.id,
         chat_id=query.message.chat_id,
         reply_to_message_id=query.message.message_id,
@@ -194,7 +196,7 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
 
 async def handle_split_output_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     output_choice = (query.data or "").removeprefix("split_output:")
@@ -206,7 +208,7 @@ async def handle_split_output_callback(update: Update, context: ContextTypes.DEF
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await query.edit_message_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     bot_sessions._cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
@@ -217,10 +219,8 @@ async def handle_split_output_callback(update: Update, context: ContextTypes.DEF
             "Questa scelta non è più compatibile con la sessione corrente. Inviami un singolo PDF oppure usa /reset per ripartire."
         )
         return
-    if not bot_jobs._has_capacity_for_new_job(user.id, deps):
-        await query.edit_message_text(
-            bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user)
-        )
+    if not job_flow.has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
     if output_choice == "zip":
         split_output_zip = True
@@ -232,8 +232,8 @@ async def handle_split_output_callback(update: Update, context: ContextTypes.DEF
         await query.edit_message_text(bot_runtime._invalid_callback_message())
         return
     try:
-        job = await bot_jobs._enqueue_job(
-            context=context,
+        job = await job_flow.enqueue_job(
+            deps=deps,
             user_id=user.id,
             chat_id=query.message.chat_id,
             reply_to_message_id=query.message.message_id,
@@ -253,7 +253,7 @@ async def handle_split_output_callback(update: Update, context: ContextTypes.DEF
 
 async def handle_rotate_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     user = query.from_user
@@ -263,20 +263,18 @@ async def handle_rotate_callback(update: Update, context: ContextTypes.DEFAULT_T
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await query.edit_message_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
         return
     degrees = int((query.data or "").removeprefix("rotate:"))
     bot_runtime._record_callback_metric(deps, f"rotate:{degrees}")
-    if not bot_jobs._has_capacity_for_new_job(user.id, deps):
-        await query.edit_message_text(
-            bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user)
-        )
+    if not job_flow.has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
-    job = await bot_jobs._enqueue_job(
-        context=context,
+    job = await job_flow.enqueue_job(
+        deps=deps,
         user_id=user.id,
         chat_id=query.message.chat_id,
         reply_to_message_id=query.message.message_id,
@@ -292,7 +290,7 @@ async def handle_rotate_callback(update: Update, context: ContextTypes.DEFAULT_T
 
 async def handle_images_pdf_layout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     user = query.from_user
@@ -302,7 +300,7 @@ async def handle_images_pdf_layout_callback(update: Update, context: ContextType
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await query.edit_message_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
@@ -338,7 +336,7 @@ async def handle_images_pdf_layout_callback(update: Update, context: ContextType
 
 async def handle_images_pdf_margin_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     user = query.from_user
@@ -348,7 +346,7 @@ async def handle_images_pdf_margin_callback(update: Update, context: ContextType
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await query.edit_message_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
@@ -378,7 +376,7 @@ async def handle_images_pdf_margin_callback(update: Update, context: ContextType
 
 async def handle_images_pdf_preset_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     user = query.from_user
@@ -388,7 +386,7 @@ async def handle_images_pdf_preset_callback(update: Update, context: ContextType
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await query.edit_message_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
@@ -421,7 +419,7 @@ async def handle_images_pdf_preset_callback(update: Update, context: ContextType
 
 async def handle_document_photo_mode_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     query = update.callback_query
     await bot_runtime._safe_answer_callback(query)
     user = query.from_user
@@ -431,7 +429,7 @@ async def handle_document_photo_mode_callback(update: Update, context: ContextTy
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await query.edit_message_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     session = deps.session_store.get(user.id)
     if session is None or not session.files:
         await query.edit_message_text(SESSION_EMPTY_MESSAGE)
@@ -448,13 +446,11 @@ async def handle_document_photo_mode_callback(update: Update, context: ContextTy
             "Questa scelta non è più compatibile con la sessione corrente. Inviami una foto del documento oppure usa /reset per ripartire."
         )
         return
-    if not bot_jobs._has_capacity_for_new_job(user.id, deps):
-        await query.edit_message_text(
-            bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user)
-        )
+    if not job_flow.has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return
-    job = await bot_jobs._enqueue_job(
-        context=context,
+    job = await job_flow.enqueue_job(
+        deps=deps,
         user_id=user.id,
         chat_id=query.message.chat_id,
         reply_to_message_id=query.message.message_id,
@@ -474,7 +470,7 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
-    bot_sessions._purge_expired_sessions(deps)
+    bot_runtime._purge_expired_sessions(deps)
     user = update.effective_user
     message = update.effective_message
     if user is None or message is None:
@@ -485,7 +481,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
         await message.reply_text(bot_runtime._build_service_unavailable_message())
         return
-    await bot_admin._maybe_notify_admins_about_new_user(user, context)
+    await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     text = (message.text or "").strip()
     if text == "Sessione attiva":
         await bot_sessions.status_command(update, context)
@@ -501,7 +497,7 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
     session = deps.session_store.get(user.id)
     if bot_runtime._is_latest_job_rerun_text(text) and (not (session is not None and session.files)):
-        await bot_results._rerun_latest_user_job(context=context, deps=deps, user_id=user.id, message=message)
+        await bot_results._rerun_latest_user_job(deps=deps, user_id=user.id, message=message)
         return
     if session is not None and session.files:
         if session.pending_action is not None:
@@ -543,10 +539,8 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     "Non ho capito abbastanza bene la richiesta. Prova a riformularla in modo più diretto."
                 )
                 return
-            if not bot_jobs._has_capacity_for_new_job(user.id, deps):
-                await message.reply_text(
-                    bot_sessions._build_job_queue_limit_message(deps.settings.max_active_jobs_per_user)
-                )
+            if not job_flow.has_capacity_for_new_job(user.id, deps):
+                await message.reply_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
                 return
             if bot_runtime._is_image_pdf_action(action):
                 session.pending_action = bot_sessions._build_images_pdf_layout_pending_action(action)
@@ -572,8 +566,8 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             compression_preset = text_request.compression_preset
             if action == SupportedAction.PDF_COMPRESS:
                 compression_preset = bot_runtime._resolve_compression_preset_for_job(deps, user.id, compression_preset)
-            job = await bot_jobs._enqueue_job(
-                context=context,
+            job = await job_flow.enqueue_job(
+                deps=deps,
                 user_id=user.id,
                 chat_id=message.chat_id,
                 reply_to_message_id=message.message_id,
@@ -637,7 +631,7 @@ async def _handle_start_payload(
         await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
         return True
     if payload in {"privacy", "dati", "data"}:
-        await message.reply_text(bot_admin._build_policy_message(deps), reply_markup=build_main_menu_keyboard())
+        await message.reply_text(_build_policy_message(deps), reply_markup=build_main_menu_keyboard())
         return True
     if payload == "history":
         jobs = deps.session_store.list_user_jobs(user_id, limit=5)
@@ -701,6 +695,38 @@ def _document_photo_mode_label(mode: DocumentPhotoMode) -> str:
     if mode == DocumentPhotoMode.BW:
         return "Bianco/nero pulito"
     return "Più leggibile"
+
+
+def _build_policy_message(deps: bot_runtime.BotDependencies) -> str:
+    settings = deps.settings
+    return (
+        "Policy sintetica DocMolder\n\n"
+        "Uso supportato:\n"
+        "- invia PDF, immagini o scansioni nella chat privata con il bot\n"
+        "- ogni richiesta deve essere una trasformazione documentale chiara e circoscritta\n\n"
+        "Dati e retention:\n"
+        "- i file caricati servono solo per creare il risultato richiesto\n"
+        f"- le directory job temporanee vengono pulite dopo circa {settings.stale_job_retention_hours} ore\n"
+        f"- lo storico job live viene potato dopo {settings.job_history_retention_days} giorni\n"
+        "- il database conserva metadati tecnici dei job, preferenze minime, audit admin e metriche operative\n"
+        "- il contenuto dei documenti non viene scritto nei log e non va inserito in issue, test o report\n\n"
+        "Cancellazione:\n"
+        "- /reset azzera sessione, preferenze rapide e preset leggeri\n"
+        "- dallo stesso percorso puoi cancellare tutti i dati live con conferma inline\n"
+        "- i backup tecnici già creati non vengono riscritti e scadono con la loro retention breve\n\n"
+        "Preset:\n"
+        "- salvo solo impostazioni operative ripetute, come compressione, layout immagini PDF e output split\n"
+        "- non salvo contenuti dei documenti o nomi file dentro i preset\n\n"
+        "Limiti operativi:\n"
+        f"- file massimo: {settings.max_file_size_mb} MB\n"
+        f"- file per sessione: {settings.max_session_files}\n"
+        f"- job attivi per utente: {settings.max_active_jobs_per_user}\n"
+        f"- upload rapido: {settings.upload_burst_limit} file in {settings.upload_burst_window_seconds} secondi\n\n"
+        f"Dettagli pubblici: {PUBLIC_PRIVACY_URL}\n\n"
+        "Accesso:\n"
+        "- se il bot è ristretto, la richiesta accesso parte dal primo messaggio inviato al bot\n"
+        "- in manutenzione i nuovi job utente sono sospesi, mentre gli admin possono usare /admin"
+    )
 
 
 def _build_image_pdf_layout_prompt(user_id: int, deps: bot_runtime.BotDependencies) -> str:

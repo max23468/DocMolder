@@ -26,8 +26,10 @@ from docmolder.bot_runtime import (
     _get_stored_image_pdf_margin,
     _get_stored_split_output_choice,
     _increment_meta_counter,
+    _infer_document_kind,
     _is_replayed_callback,
     _is_service_paused,
+    _maybe_notify_admins_about_new_user,
     _record_callback_metric,
     _record_command_metric,
     _record_image_pdf_choice,
@@ -39,12 +41,9 @@ from docmolder.bot_runtime import (
 from docmolder.bot_sessions import (
     _build_image_session_intro,
     _build_file_too_large_message,
-    _build_image_session_message,
-    _build_job_queue_limit_message,
     _build_session_file_limit_message,
     _build_upload_rate_limit_message,
     _build_unsupported_document_message,
-    _infer_document_kind,
     _load_persisted_upload_history,
     _persist_upload_history,
     handle_document,
@@ -67,6 +66,7 @@ from docmolder.bot_menu import (
 )
 from docmolder.bot import build_application
 from docmolder.messages import (
+    build_job_queue_limit_message,
     build_processing_started_message as _build_processing_started_message,
     build_text_request_queued_message as _build_text_request_queued_message,
 )
@@ -76,9 +76,6 @@ from docmolder.access_control import (
     is_authorized_for_deps as _is_authorized_for_deps,
     list_dynamic_access_statuses as _list_dynamic_access_statuses,
     set_dynamic_access_status as _set_dynamic_access_status,
-)
-from docmolder.bot_admin import (
-    _maybe_notify_admins_about_new_user,
 )
 from docmolder.bot_jobs import (
     _sum_file_sizes,
@@ -373,20 +370,6 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("Preset leggero pronto: PDF separati", message)
 
-    def test_image_session_message_includes_structured_recap(self) -> None:
-        session = UserSession(
-            user_id=7,
-            files=[
-                build_session_file("img-1", "foto_1.jpg", FileKind.IMAGE),
-                build_session_file("img-2", "foto_2.jpg", FileKind.IMAGE),
-            ],
-        )
-
-        message = _build_image_session_message(session)
-
-        self.assertIn("Sessione corrente:", message)
-        self.assertIn("Azioni consigliate", message)
-
     def test_normalize_page_selection_text_accepts_space_separated_values(self) -> None:
         normalized = _normalize_page_selection_text("3 1 2 4-5")
 
@@ -431,7 +414,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             ),
             None,
         )
-        self.assertIn("4 job attivi", _build_job_queue_limit_message(4))
+        self.assertIn("4 job attivi", build_job_queue_limit_message(4))
         self.assertIn(
             "Watermark",
             _build_user_history_job_detail(
@@ -782,7 +765,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             reply_text=AsyncMock(),
         )
         with patch(
-            "docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=77))
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=77))
         ) as enqueue_job:
             await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=followup_message), context)
 
@@ -926,7 +909,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             reply_text=AsyncMock(),
         )
         with patch(
-            "docmolder.bot_jobs._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=88))
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=88))
         ) as enqueue_job:
             await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=compress_message), context)
 
