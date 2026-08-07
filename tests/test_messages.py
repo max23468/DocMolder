@@ -30,7 +30,7 @@ from docmolder.messages import (
     build_processing_started_message,
     build_text_request_queued_message,
 )
-from docmolder.processing import A4_MARGIN_NARROW_PX
+from docmolder.processing_models import A4_MARGIN_NARROW_PX
 
 
 class MessageGoldenTest(unittest.TestCase):
@@ -50,7 +50,9 @@ class MessageGoldenTest(unittest.TestCase):
         self.assertIn("best-effort", HELP_MESSAGE)
 
     def test_static_privacy_page_matches_public_command_surface(self) -> None:
-        privacy_page = (Path(__file__).resolve().parents[1] / "deploy/static/docmolder-site/privacy.html").read_text(encoding="utf-8")
+        privacy_page = (Path(__file__).resolve().parents[1] / "deploy/static/docmolder-site/privacy.html").read_text(
+            encoding="utf-8"
+        )
 
         self.assertIn("/start", privacy_page)
         self.assertIn("/help", privacy_page)
@@ -99,7 +101,9 @@ class MessageGoldenTest(unittest.TestCase):
     def test_keyboards_expose_guided_choices_and_presets(self) -> None:
         compression = build_compression_keyboard(preset="medium")
         split = build_split_output_keyboard(preset="zip")
-        layout = build_images_pdf_layout_keyboard("images_to_pdf", preset_layout="a4", preset_margin_px=str(A4_MARGIN_NARROW_PX))
+        layout = build_images_pdf_layout_keyboard(
+            "images_to_pdf", preset_layout="a4", preset_margin_px=str(A4_MARGIN_NARROW_PX)
+        )
         original_layout = build_images_pdf_layout_keyboard("images_to_pdf", preset_layout="original")
         margin = build_images_pdf_margin_keyboard("images_to_pdf")
         document_photo = build_document_photo_mode_keyboard()
@@ -113,7 +117,24 @@ class MessageGoldenTest(unittest.TestCase):
         delete_confirmation = build_delete_data_confirmation_keyboard()
         main_menu = build_main_menu_keyboard()
 
-        labels = [button.text for keyboard in [compression, split, layout, original_layout, margin, document_photo, rotate, history, result, delete_request, delete_confirmation] for row in keyboard.inline_keyboard for button in row]
+        labels = [
+            button.text
+            for keyboard in [
+                compression,
+                split,
+                layout,
+                original_layout,
+                margin,
+                document_photo,
+                rotate,
+                history,
+                result,
+                delete_request,
+                delete_confirmation,
+            ]
+            for row in keyboard.inline_keyboard
+            for button in row
+        ]
 
         self.assertIn("Usa preset: media", labels)
         self.assertIn("Usa preset: ZIP unico", labels)

@@ -8,15 +8,22 @@ from typing import Protocol
 from telegram.ext import Application
 
 from docmolder.models import CompressionPreset, DocumentPhotoMode, JobPayload, JobRecord, SupportedAction, UserSession
-from docmolder.processing import A4_MARGIN_NARROW_PX, DocumentProcessor, ProcessingResult, ProcessingUserError
+from docmolder.processing import DocumentProcessor
+from docmolder.processing_models import A4_MARGIN_NARROW_PX, ProcessingResult, ProcessingUserError
 from docmolder.action_catalog import build_output_stem, build_session_file, infer_session_analysis
+from docmolder.config import Settings
 from docmolder.session_store_protocol import SessionStore
 
 
 class JobFlowDependencies(Protocol):
+    settings: Settings
     session_store: SessionStore
     job_queue: asyncio.Queue[int]
     processor: DocumentProcessor
+
+
+def has_capacity_for_new_job(user_id: int, deps: JobFlowDependencies) -> bool:
+    return deps.session_store.count_active_jobs_for_user(user_id) < deps.settings.max_active_jobs_per_user
 
 
 async def enqueue_job(

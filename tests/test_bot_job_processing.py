@@ -13,70 +13,81 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from telegram.error import RetryAfter
 
-from docmolder.bot import (
+from docmolder.bot_runtime import (
     BotDependencies,
     _append_audit_log,
-    _build_image_session_intro,
-    _build_result_pdf_session,
     _sync_telegram_branding,
-    _build_compression_prompt,
-    _build_file_too_large_message,
-    _build_image_session_message,
-    _build_split_output_prompt,
-    _build_result_delivery_message,
-    _build_user_history_job_detail,
-    _build_job_queue_limit_message,
-    _normalize_page_selection_text,
     _record_user_choice,
-    _build_processing_started_message,
-    _maybe_notify_admins_about_new_user,
-    _build_text_request_queued_message,
-    _build_session_file_limit_message,
     _build_service_status_label,
-    _build_upload_rate_limit_message,
-    _build_unsupported_document_message,
-    _format_bytes,
-    _format_duration_ms,
-    _format_job_line,
-    _get_dynamic_access_status,
     _get_meta_counter,
     _get_service_mode,
     _get_stored_compression_preset,
     _get_stored_image_pdf_layout,
     _get_stored_image_pdf_margin,
     _get_stored_split_output_choice,
-    _infer_document_kind,
     _increment_meta_counter,
-    _is_authorized_for_deps,
+    _infer_document_kind,
     _is_replayed_callback,
     _is_service_paused,
-    _list_dynamic_access_statuses,
-    _load_persisted_upload_history,
-    _persist_upload_history,
+    _maybe_notify_admins_about_new_user,
     _record_callback_metric,
     _record_command_metric,
     _record_image_pdf_choice,
     _record_split_output_choice,
     _record_upload_metric,
     _resolve_compression_preset_for_job,
-    _set_dynamic_access_status,
     _set_service_mode,
-    _sum_file_sizes,
-    _sum_processing_result_sizes,
+)
+from docmolder.bot_sessions import (
+    _build_image_session_intro,
+    _build_file_too_large_message,
+    _build_session_file_limit_message,
+    _build_upload_rate_limit_message,
+    _build_unsupported_document_message,
+    _load_persisted_upload_history,
+    _persist_upload_history,
     handle_document,
     handle_photo,
-    _process_job,
-    build_application,
     handle_delete_data_callback,
+)
+from docmolder.bot_results import (
+    _build_result_pdf_session,
+    _build_result_delivery_message,
+    _build_user_history_job_detail,
+    _format_bytes,
+    _format_duration_ms,
+    _format_job_line,
+)
+from docmolder.bot_menu import (
+    _build_compression_prompt,
+    _build_split_output_prompt,
     handle_menu_text,
     start_command,
+)
+from docmolder.bot import build_application
+from docmolder.messages import (
+    build_job_queue_limit_message,
+    build_processing_started_message as _build_processing_started_message,
+    build_text_request_queued_message as _build_text_request_queued_message,
+)
+from docmolder.text_requests import _normalize_page_selection_text
+from docmolder.access_control import (
+    get_dynamic_access_status as _get_dynamic_access_status,
+    is_authorized_for_deps as _is_authorized_for_deps,
+    list_dynamic_access_statuses as _list_dynamic_access_statuses,
+    set_dynamic_access_status as _set_dynamic_access_status,
+)
+from docmolder.bot_jobs import (
+    _sum_file_sizes,
+    _sum_processing_result_sizes,
+    _process_job,
 )
 from docmolder.access_control import is_authorized
 from docmolder.config import Settings
 from docmolder.branding import TELEGRAM_NAME, build_telegram_commands
 from docmolder.processing import DocumentProcessor
-from docmolder.processing import ProcessingOutput
-from docmolder.processing import ProcessingResult
+from docmolder.processing_models import ProcessingOutput
+from docmolder.processing_models import ProcessingResult
 from docmolder.models import CompressionPreset, FileKind, SupportedAction, UserSession
 from docmolder.keyboards import build_main_menu_keyboard
 from docmolder.in_memory_session_store import InMemorySessionStore
@@ -216,9 +227,12 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(_is_replayed_callback(self.deps, user_id=7, callback_data="admin:pause", message_id=None))
         _append_audit_log(self.deps, "test_event", actor_user_id=7, outcome="ok", target_user_id=8, detail="detail")
         self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "test_event")
-        with patch.object(self.store, "append_audit_log_entry", side_effect=RuntimeError("audit failed")), self.assertLogs(
-            "docmolder.bot",
-            level="ERROR",
+        with (
+            patch.object(self.store, "append_audit_log_entry", side_effect=RuntimeError("audit failed")),
+            self.assertLogs(
+                "docmolder.bot_runtime",
+                level="ERROR",
+            ),
         ):
             _append_audit_log(self.deps, "test_event", actor_user_id=7, outcome="failed")
 
@@ -356,20 +370,6 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("Preset leggero pronto: PDF separati", message)
 
-    def test_image_session_message_includes_structured_recap(self) -> None:
-        session = UserSession(
-            user_id=7,
-            files=[
-                build_session_file("img-1", "foto_1.jpg", FileKind.IMAGE),
-                build_session_file("img-2", "foto_2.jpg", FileKind.IMAGE),
-            ],
-        )
-
-        message = _build_image_session_message(session)
-
-        self.assertIn("Sessione corrente:", message)
-        self.assertIn("Azioni consigliate", message)
-
     def test_normalize_page_selection_text_accepts_space_separated_values(self) -> None:
         normalized = _normalize_page_selection_text("3 1 2 4-5")
 
@@ -414,16 +414,19 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             ),
             None,
         )
-        self.assertIn("4 job attivi", _build_job_queue_limit_message(4))
-        self.assertIn("Watermark", _build_user_history_job_detail(
-            self.store.create_job(
-                user_id=7,
-                chat_id=99,
-                reply_to_message_id=123,
-                action="pdf_watermark",
-                payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"watermark_text":"BOZZA"}',
-            )
-        ))
+        self.assertIn("4 job attivi", build_job_queue_limit_message(4))
+        self.assertIn(
+            "Watermark",
+            _build_user_history_job_detail(
+                self.store.create_job(
+                    user_id=7,
+                    chat_id=99,
+                    reply_to_message_id=123,
+                    action="pdf_watermark",
+                    payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"watermark_text":"BOZZA"}',
+                )
+            ),
+        )
 
     async def test_context_reference_without_active_session_asks_for_safe_next_step(self) -> None:
         message = SimpleNamespace(
@@ -577,26 +580,6 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         message.reply_text.assert_awaited_once()
         self.assertIn("impaginazione A4", message.reply_text.await_args.args[0])
 
-    async def test_legacy_status_button_still_works_and_refreshes_keyboard(self) -> None:
-        message = SimpleNamespace(
-            text="Mostra sessione",
-            chat_id=99,
-            message_id=802,
-            reply_text=AsyncMock(),
-        )
-        update = SimpleNamespace(
-            effective_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
-            effective_message=message,
-        )
-        context = SimpleNamespace(application=self.application, bot=self.bot)
-
-        await handle_menu_text(update, context)
-
-        message.reply_text.assert_awaited_once()
-        self.assertIn("Stato accesso DocMolder", message.reply_text.await_args.args[0])
-        self.assertIn("Sessione corrente: vuota", message.reply_text.await_args.args[0])
-        self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
-
     async def test_new_status_button_works_and_refreshes_keyboard(self) -> None:
         message = SimpleNamespace(
             text="Sessione attiva",
@@ -617,7 +600,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Sessione corrente: vuota", message.reply_text.await_args.args[0])
         self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
 
-    async def test_legacy_reset_button_still_works_and_refreshes_keyboard(self) -> None:
+    async def test_reset_text_clears_session_and_refreshes_keyboard(self) -> None:
         self.store.save(
             UserSession(
                 user_id=7,
@@ -696,7 +679,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         context = SimpleNamespace(application=self.application, bot=self.bot)
         user = SimpleNamespace(id=7, username=None, first_name="Test", last_name=None)
 
-        with patch("docmolder.bot._schedule_image_session_notification", return_value=None):
+        with patch("docmolder.bot_sessions._schedule_image_session_notification", return_value=None):
             first_photo_message = SimpleNamespace(
                 chat_id=99,
                 message_id=1100,
@@ -755,9 +738,9 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             )
 
         with (
-            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot_jobs._run_job_payload", side_effect=fake_run_job_payload),
             patch(
-                "docmolder.bot._send_result",
+                "docmolder.bot_jobs._send_result",
                 new=AsyncMock(
                     return_value=SimpleNamespace(
                         document=SimpleNamespace(
@@ -781,7 +764,9 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             message_id=1104,
             reply_text=AsyncMock(),
         )
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=77))) as enqueue_job:
+        with patch(
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=77))
+        ) as enqueue_job:
             await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=followup_message), context)
 
         enqueue_job.assert_awaited_once()
@@ -923,12 +908,15 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
             message_id=1201,
             reply_text=AsyncMock(),
         )
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=88))) as enqueue_job:
+        with patch(
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=88))
+        ) as enqueue_job:
             await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=compress_message), context)
 
         enqueue_job.assert_awaited_once()
         self.assertEqual(enqueue_job.await_args.kwargs["action"], SupportedAction.PDF_COMPRESS)
         self.assertEqual(enqueue_job.await_args.kwargs["compression_preset"], CompressionPreset.MEDIUM)
+
 
 if __name__ == "__main__":
     unittest.main()

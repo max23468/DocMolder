@@ -7,16 +7,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import SensitiveLogFilter, _redact_sensitive_text
+from docmolder.bot_runtime import SensitiveLogFilter, _redact_sensitive_text
 
 
 class SensitiveLoggingTest(unittest.TestCase):
     def test_redact_sensitive_text_masks_telegram_bot_token_in_url(self) -> None:
-        text = (
-            'HTTP Request: POST '
-            'https://api.telegram.org/bot123456:ABCdef_GHI-123/getUpdates '
-            '"HTTP/1.1 200 OK"'
-        )
+        text = 'HTTP Request: POST https://api.telegram.org/bot123456:ABCdef_GHI-123/getUpdates "HTTP/1.1 200 OK"'
 
         redacted = _redact_sensitive_text(text)
 

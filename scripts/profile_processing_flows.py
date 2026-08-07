@@ -72,19 +72,19 @@ def build_profile(*, image_count: int, image_side: int, pdf_pages: int) -> dict[
         measurements = [
             _measure(
                 "images_to_pdf_a4",
-                lambda: processor.images_to_pdf(image_paths, "images_a4", use_a4_layout=True),
+                lambda: processor.images.images_to_pdf(image_paths, "images_a4", use_a4_layout=True),
             ),
             _measure(
                 "images_to_pdf_original",
-                lambda: processor.images_to_pdf(image_paths, "images_original", use_a4_layout=False),
+                lambda: processor.images.images_to_pdf(image_paths, "images_original", use_a4_layout=False),
             ),
             _measure(
                 "pdf_grayscale",
-                lambda: processor.pdf_to_grayscale(pdf_path, "source_gray"),
+                lambda: processor.pdf.pdf_to_grayscale(pdf_path, "source_gray"),
             ),
             _measure(
                 "pdf_compress_light",
-                lambda: processor.compress_pdf(pdf_path, "source_light", CompressionPreset.LIGHT),
+                lambda: processor.pdf.compress_pdf(pdf_path, "source_light", CompressionPreset.LIGHT),
             ),
         ]
 

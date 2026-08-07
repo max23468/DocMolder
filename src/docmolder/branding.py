@@ -42,13 +42,6 @@ MAIN_MENU_ROWS: tuple[tuple[str, str], ...] = (
 
 MAIN_MENU_PLACEHOLDER = "Invia PDF, immagini o Excel, oppure scegli un'azione rapida"
 
-LEGACY_MENU_LABELS: dict[str, str] = {
-    "Cosa posso fare": "Guida rapida",
-    "Crea PDF da immagini": "Crea PDF",
-    "Mostra sessione": "Sessione attiva",
-    "Azzera sessione": "Azzera sessione",
-}
-
 
 def build_telegram_commands() -> list[BotCommand]:
     return [BotCommand(command, description) for command, description in TELEGRAM_COMMANDS]

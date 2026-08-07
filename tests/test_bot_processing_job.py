@@ -10,10 +10,12 @@ from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import BotDependencies, _process_job
+from docmolder.bot_runtime import BotDependencies
+from docmolder.bot_jobs import _process_job
 from docmolder.config import Settings
 from docmolder.models import JobStatus, SupportedAction
-from docmolder.processing import DocumentProcessor, ProcessingOutput, ProcessingResult, ProcessingUserError
+from docmolder.processing import DocumentProcessor
+from docmolder.processing_models import ProcessingOutput, ProcessingResult, ProcessingUserError
 from docmolder.in_memory_session_store import InMemorySessionStore
 
 
@@ -97,8 +99,8 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
             sent_paths.append(result.output_path)
 
         with (
-            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
-            patch("docmolder.bot._send_result", side_effect=fake_send_result),
+            patch("docmolder.bot_jobs._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot_jobs._send_result", side_effect=fake_send_result),
         ):
             await _process_job(self.application, job.id)
 
@@ -124,12 +126,14 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
             )
 
         sent_message = SimpleNamespace(
-            document=SimpleNamespace(file_id="result-file-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf")
+            document=SimpleNamespace(
+                file_id="result-file-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"
+            )
         )
 
         with (
-            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
-            patch("docmolder.bot._send_result", new=AsyncMock(return_value=sent_message)),
+            patch("docmolder.bot_jobs._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot_jobs._send_result", new=AsyncMock(return_value=sent_message)),
         ):
             await _process_job(self.application, job.id)
 
@@ -164,8 +168,8 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
         )
 
         with (
-            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
-            patch("docmolder.bot._send_result", new=AsyncMock(return_value=sent_message)),
+            patch("docmolder.bot_jobs._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot_jobs._send_result", new=AsyncMock(return_value=sent_message)),
         ):
             await _process_job(self.application, job.id)
 
@@ -193,8 +197,8 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
             )
 
         with (
-            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
-            patch("docmolder.bot._send_result", new=AsyncMock()),
+            patch("docmolder.bot_jobs._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot_jobs._send_result", new=AsyncMock()),
         ):
             await _process_job(self.application, job.id)
 
@@ -225,8 +229,8 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
             )
 
         with (
-            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
-            patch("docmolder.bot._send_result", new=AsyncMock()),
+            patch("docmolder.bot_jobs._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot_jobs._send_result", new=AsyncMock()),
         ):
             await _process_job(self.application, job.id)
 
@@ -255,12 +259,34 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(self.processor, "create_job_dir", return_value=job_dir),
-            patch("docmolder.bot._run_job_payload", side_effect=fake_run_job_payload),
+            patch("docmolder.bot_jobs._run_job_payload", side_effect=fake_run_job_payload),
         ):
             await _process_job(self.application, job.id)
 
         self.assertFalse(job_dir.exists())
         self.assertEqual(self.store.get_job(job.id).status, JobStatus.FAILED)
+
+    async def test_process_job_marks_unexpected_failures_and_cleans_partial_files(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_grayscale",
+            payload_json='{"files":[]}',
+        )
+        job_dir = self.runtime_dir / "jobs" / "unexpected_failure"
+        job_dir.mkdir(parents=True, exist_ok=True)
+        (job_dir / "partial.tmp").write_text("temp", encoding="utf-8")
+
+        with (
+            patch.object(self.processor, "create_job_dir", return_value=job_dir),
+            patch("docmolder.bot_jobs._run_job_payload", side_effect=RuntimeError("boom")),
+        ):
+            await _process_job(self.application, job.id)
+
+        self.assertFalse(job_dir.exists())
+        self.assertEqual(self.store.get_job(job.id).status, JobStatus.FAILED)
+        self.bot.send_message.assert_awaited()
 
 
 if __name__ == "__main__":

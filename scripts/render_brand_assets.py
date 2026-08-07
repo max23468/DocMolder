@@ -7,7 +7,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from docmolder.brand_assets import render_brand_assets
+from docmolder.brand_assets import render_brand_assets  # noqa: E402
 
 
 def main() -> None:

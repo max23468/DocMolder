@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from docmolder.action_catalog import build_session_file
 from docmolder.models import DocumentPhotoMode, FileKind, SupportedAction, UserSession
-from docmolder.processing import A4_MARGIN_NARROW_PX, A4_MARGIN_NONE_PX, A4_MARGIN_WIDE_PX, ProcessingUserError
+from docmolder.processing_models import A4_MARGIN_NARROW_PX, A4_MARGIN_NONE_PX, A4_MARGIN_WIDE_PX, ProcessingUserError
 from docmolder.text_requests import (
     _build_quick_action_guidance,
     _normalize_page_selection_text,

@@ -7,7 +7,7 @@ from typing import Literal
 
 from docmolder.messages import build_pending_action_prompt as _build_pending_action_prompt
 from docmolder.models import CompressionPreset, DocumentPhotoMode, FileKind, SupportedAction, UserSession
-from docmolder.processing import (
+from docmolder.processing_models import (
     A4_MARGIN_NARROW_PX,
     A4_MARGIN_NONE_PX,
     A4_MARGIN_WIDE_PX,
@@ -453,7 +453,11 @@ def _resolve_text_request(session: UserSession, text: str) -> TextRequestResolut
             )
         if SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE in supported and mentions_crop and mentions_grayscale:
             return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF_CROP_GRAYSCALE)
-        if SupportedAction.IMAGES_TO_PDF_CROP in supported and mentions_crop and (mentions_pdf or mentions_grayscale or mentions_pdf_creation):
+        if (
+            SupportedAction.IMAGES_TO_PDF_CROP in supported
+            and mentions_crop
+            and (mentions_pdf or mentions_grayscale or mentions_pdf_creation)
+        ):
             return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF_CROP)
         if SupportedAction.IMAGES_TO_PDF_GRAYSCALE in supported and mentions_grayscale:
             return TextRequestResolution(kind="enqueue", action=SupportedAction.IMAGES_TO_PDF_GRAYSCALE)
@@ -524,7 +528,7 @@ def _extract_watermark_text(text: str) -> str | None:
 def _build_quick_action_guidance(session: UserSession | None, text: str) -> str | None:
     normalized = _normalize_free_text(text)
 
-    if text in {"Crea PDF", "Crea PDF da immagini"}:
+    if text == "Crea PDF":
         if session is None or not session.files:
             return "Inviami una o più immagini e creerò un PDF unico. Se vuoi, puoi mandarne diverse nella stessa sessione."
         if {item.kind for item in session.files} == {FileKind.PDF}:

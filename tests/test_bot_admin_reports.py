@@ -9,8 +9,10 @@ from unittest.mock import AsyncMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import (
+from docmolder.bot_runtime import (
     BotDependencies,
+)
+from docmolder.admin_reporting import (
     _build_admin_report,
     _build_periodic_admin_report,
     _maybe_send_admin_anomaly_alerts,

@@ -10,13 +10,15 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import (
+from docmolder.bot_runtime import (
     BotDependencies,
+)
+from docmolder.bot_sessions import (
     _consume_upload_slot,
-    _has_capacity_for_new_job,
     _load_persisted_upload_history,
     _persist_upload_history,
 )
+from docmolder.job_flow import has_capacity_for_new_job
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
 from docmolder.in_memory_session_store import InMemorySessionStore
@@ -45,7 +47,9 @@ class RateLimitHelpersTest(unittest.TestCase):
             database_path=runtime_dir / "docmolder.db",
         )
         self.store = InMemorySessionStore()
-        self.deps = BotDependencies(settings=settings, session_store=self.store, processor=DocumentProcessor(runtime_dir))
+        self.deps = BotDependencies(
+            settings=settings, session_store=self.store, processor=DocumentProcessor(runtime_dir)
+        )
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
@@ -103,11 +107,11 @@ class RateLimitHelpersTest(unittest.TestCase):
         self.assertIsNone(self.store.get_meta("upload_burst:42"))
 
     def test_has_capacity_for_new_job_reflects_active_jobs(self) -> None:
-        self.assertTrue(_has_capacity_for_new_job(7, self.deps))
+        self.assertTrue(has_capacity_for_new_job(7, self.deps))
         self.store.create_job(user_id=7, chat_id=1, reply_to_message_id=None, action="images_to_pdf", payload_json="{}")
         self.store.create_job(user_id=7, chat_id=1, reply_to_message_id=None, action="pdf_merge", payload_json="{}")
 
-        self.assertFalse(_has_capacity_for_new_job(7, self.deps))
+        self.assertFalse(has_capacity_for_new_job(7, self.deps))
 
 
 if __name__ == "__main__":

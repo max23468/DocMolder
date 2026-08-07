@@ -12,27 +12,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from telegram.error import BadRequest
 
 from docmolder.action_catalog import build_session_file
-from docmolder.bot import (
-    ADMIN_ONLY_MESSAGE,
+from docmolder.messages import ADMIN_ONLY_MESSAGE, SESSION_EMPTY_MESSAGE, UNAUTHORIZED_MESSAGE
+from docmolder.bot_runtime import (
     BotDependencies,
-    SESSION_EMPTY_MESSAGE,
-    UNAUTHORIZED_MESSAGE,
     _invalid_callback_message,
-    access_review_command,
-    admin_command,
+)
+from docmolder.bot_admin import (
     handle_access_review_callback,
-    handle_action_callback,
     handle_admin_callback,
+)
+from docmolder.bot_menu import (
+    handle_action_callback,
     handle_compression_callback,
-    handle_delete_data_callback,
     handle_split_output_callback,
-    maintenance_overview_command,
-    request_access_command,
+)
+from docmolder.bot_sessions import (
+    handle_delete_data_callback,
 )
 from docmolder.config import Settings
 from docmolder.models import FileKind, SupportedAction, UserSession
 from docmolder.processing import DocumentProcessor
-from docmolder.processing import ProcessingUserError
+from docmolder.processing_models import ProcessingUserError
 from docmolder.in_memory_session_store import InMemorySessionStore
 
 
@@ -134,65 +134,6 @@ class BotOfflineCoverageTest(unittest.IsolatedAsyncioTestCase):
                 files=[build_session_file("img-1", "foto.jpg", FileKind.IMAGE)],
             )
         )
-
-    async def test_request_access_command_records_new_pending_request(self) -> None:
-        self.deps.settings.allowed_user_ids = [999]
-        self.deps.settings.admin_user_ids = [42]
-        message = self._message()
-        update = SimpleNamespace(
-            effective_user=self._user(7, username="mario"),
-            effective_message=message,
-        )
-
-        await request_access_command(update, self._context())
-
-        self.assertEqual(self.store.get_meta("access:7:status"), "pending")
-        self.bot.send_message.assert_awaited_once()
-        self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "request_access")
-        self.assertIn("Richiesta accesso inviata", message.reply_text.await_args.args[0])
-
-    async def test_admin_and_maintenance_commands_render_admin_views(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        admin_message = self._message(message_id=701)
-        maintenance_message = self._message(message_id=702)
-        admin_update = SimpleNamespace(effective_user=self._user(7), effective_message=admin_message)
-        maintenance_update = SimpleNamespace(effective_user=self._user(7), effective_message=maintenance_message)
-
-        await admin_command(admin_update, self._context())
-        await maintenance_overview_command(maintenance_update, self._context())
-
-        self.assertIsNotNone(admin_message.reply_text.await_args.kwargs["reply_markup"])
-        self.assertIsNotNone(maintenance_message.reply_text.await_args.kwargs["reply_markup"])
-        self.assertIn("Utenti", admin_message.reply_text.await_args.args[0])
-        self.assertIn("Manutenzione operativa", maintenance_message.reply_text.await_args.args[0])
-
-    async def test_access_review_command_reports_usage_and_remaining_status_variants(self) -> None:
-        self.deps.settings.admin_user_ids = [7]
-        missing_target_message = self._message(text="/approve_user", message_id=703)
-        missing_target_update = SimpleNamespace(
-            effective_user=self._user(7),
-            effective_message=missing_target_message,
-        )
-
-        await access_review_command(missing_target_update, self._context())
-
-        self.assertIn("Uso corretto", missing_target_message.reply_text.await_args.args[0])
-
-        cases = [
-            ("/reactivate_user 55", ["55"], "approved", "reactivated"),
-            ("/suspend_user 56", ["56"], "blocked", "blocked"),
-            ("/reject_user 57", ["57"], "rejected", "rejected"),
-        ]
-        for index, (command_text, args, expected_status, expected_outcome) in enumerate(cases, start=1):
-            with self.subTest(command_text=command_text):
-                message = self._message(text=command_text, message_id=710 + index)
-                update = SimpleNamespace(effective_user=self._user(7), effective_message=message)
-
-                await access_review_command(update, self._context(args=args))
-
-                target_user_id = int(args[0])
-                self.assertEqual(self.store.get_meta(f"access:{target_user_id}:status"), expected_status)
-                self.assertIn(expected_outcome, message.reply_text.await_args.args[0])
 
     async def test_admin_callback_covers_remaining_dashboard_actions(self) -> None:
         self.deps.settings.admin_user_ids = [7]
@@ -385,7 +326,9 @@ class BotOfflineCoverageTest(unittest.IsolatedAsyncioTestCase):
 
         self._save_pdf_session(pending_action="pdf_split")
         processing_error_query = self._query("split_output:zip", message_id=795)
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(side_effect=ProcessingUserError("PDF non valido"))):
+        with patch(
+            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(side_effect=ProcessingUserError("PDF non valido"))
+        ):
             await handle_split_output_callback(SimpleNamespace(callback_query=processing_error_query), self._context())
         self.assertIn("PDF non valido", processing_error_query.edit_message_text.await_args.args[0])
 

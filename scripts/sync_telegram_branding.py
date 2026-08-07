@@ -16,15 +16,15 @@ from pydantic import ValidationError
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
-from docmolder.brand_assets import render_brand_assets
-from docmolder.branding import (
+from docmolder.brand_assets import render_brand_assets  # noqa: E402
+from docmolder.branding import (  # noqa: E402
     TELEGRAM_DESCRIPTION,
     TELEGRAM_NAME,
     TELEGRAM_SHORT_DESCRIPTION,
     build_telegram_commands,
     get_brand_asset_path,
 )
-from docmolder.config import load_settings
+from docmolder.config import load_settings  # noqa: E402
 
 
 def _call_bot_api(token: str, method: str, fields: dict[str, str], file_field: tuple[str, Path] | None = None) -> dict:

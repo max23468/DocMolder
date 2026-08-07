@@ -4,7 +4,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton,
 
 from docmolder.branding import MAIN_MENU_PLACEHOLDER, MAIN_MENU_ROWS
 from docmolder.models import JobStatus, SupportedAction, UserSession
-from docmolder.processing import A4_MARGIN_NARROW_PX, A4_MARGIN_NONE_PX, A4_MARGIN_WIDE_PX
+from docmolder.processing_models import A4_MARGIN_NARROW_PX, A4_MARGIN_NONE_PX, A4_MARGIN_WIDE_PX
 from docmolder.action_catalog import SessionAnalysis, get_action_label, infer_session_analysis
 
 _DEFAULT_ACTION_BUTTON_LIMIT = 3
@@ -46,7 +46,10 @@ def build_session_actions_keyboard(
     recommended_actions = list(analysis.recommended_actions)
     primary_actions = recommended_actions[:_DEFAULT_ACTION_BUTTON_LIMIT] or all_actions[:_DEFAULT_ACTION_BUTTON_LIMIT]
     visible_actions = all_actions if expanded else primary_actions
-    rows = [[InlineKeyboardButton(_build_action_button_label(action), callback_data=f"action:{action.value}")] for action in visible_actions]
+    rows = [
+        [InlineKeyboardButton(_build_action_button_label(action), callback_data=f"action:{action.value}")]
+        for action in visible_actions
+    ]
 
     hidden_actions = [action for action in all_actions if action not in primary_actions]
     if hidden_actions:
@@ -64,7 +67,9 @@ def build_compression_keyboard(preset: str | None = None) -> InlineKeyboardMarku
         [InlineKeyboardButton("Forte", callback_data="compress:strong")],
     ]
     if preset in _COMPRESSION_LABELS:
-        rows.insert(0, [InlineKeyboardButton(f"Usa preset: {_COMPRESSION_LABELS[preset]}", callback_data=f"compress:{preset}")])
+        rows.insert(
+            0, [InlineKeyboardButton(f"Usa preset: {_COMPRESSION_LABELS[preset]}", callback_data=f"compress:{preset}")]
+        )
     return InlineKeyboardMarkup(rows)
 
 
@@ -74,7 +79,14 @@ def build_split_output_keyboard(preset: str | None = None) -> InlineKeyboardMark
         [InlineKeyboardButton("PDF separati", callback_data="split_output:files")],
     ]
     if preset in _SPLIT_OUTPUT_LABELS:
-        rows.insert(0, [InlineKeyboardButton(f"Usa preset: {_SPLIT_OUTPUT_LABELS[preset]}", callback_data=f"split_output:{preset}")])
+        rows.insert(
+            0,
+            [
+                InlineKeyboardButton(
+                    f"Usa preset: {_SPLIT_OUTPUT_LABELS[preset]}", callback_data=f"split_output:{preset}"
+                )
+            ],
+        )
     return InlineKeyboardMarkup(rows)
 
 

@@ -9,15 +9,19 @@ from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from docmolder.bot import (
+from docmolder.bot_runtime import (
     BotDependencies,
+)
+from docmolder.bot_results import (
     _build_history_rerun_message,
     _build_user_history_job_detail,
     _build_user_history_summary,
     handle_history_callback,
     history_command,
-    handle_menu_text,
     handle_result_action_callback,
+)
+from docmolder.bot_menu import (
+    handle_menu_text,
     start_command,
 )
 from docmolder.config import Settings
@@ -274,7 +278,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(
             chat_id=99,
             message_id=321,
-            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            document=SimpleNamespace(
+                file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"
+            ),
             reply_text=reply_text,
         )
         query = SimpleNamespace(
@@ -286,7 +292,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         update = SimpleNamespace(callback_query=query)
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot._enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=5))) as enqueue_job:
+        with patch(
+            "docmolder.bot_results.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=5))
+        ) as enqueue_job:
             await handle_result_action_callback(update, context)
 
         enqueue_job.assert_awaited_once()
@@ -300,7 +308,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(
             chat_id=99,
             message_id=322,
-            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            document=SimpleNamespace(
+                file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"
+            ),
             reply_text=reply_text,
         )
         query = SimpleNamespace(
@@ -349,7 +359,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(
             chat_id=99,
             message_id=326,
-            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            document=SimpleNamespace(
+                file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"
+            ),
             reply_text=reply_text,
         )
         query = SimpleNamespace(
@@ -372,7 +384,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(
             chat_id=99,
             message_id=327,
-            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            document=SimpleNamespace(
+                file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"
+            ),
             reply_text=reply_text,
         )
         query = SimpleNamespace(
@@ -398,7 +412,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(
             chat_id=99,
             message_id=323,
-            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            document=SimpleNamespace(
+                file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"
+            ),
             reply_text=reply_text,
         )
         query = SimpleNamespace(
@@ -423,7 +439,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(
             chat_id=99,
             message_id=324,
-            document=SimpleNamespace(file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"),
+            document=SimpleNamespace(
+                file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"
+            ),
             reply_text=reply_text,
         )
         query = SimpleNamespace(
@@ -457,7 +475,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(
             chat_id=99,
             message_id=444,
-            document=SimpleNamespace(file_id="generated-pdf", file_name="docmolder_compressed.pdf", mime_type="application/pdf"),
+            document=SimpleNamespace(
+                file_id="generated-pdf", file_name="docmolder_compressed.pdf", mime_type="application/pdf"
+            ),
             reply_text=reply_text,
         )
         query = SimpleNamespace(
@@ -481,7 +501,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(
             chat_id=99,
             message_id=445,
-            document=SimpleNamespace(file_id="generated-pdf", file_name="docmolder_compressed.pdf", mime_type="application/pdf"),
+            document=SimpleNamespace(
+                file_id="generated-pdf", file_name="docmolder_compressed.pdf", mime_type="application/pdf"
+            ),
             reply_text=reply_text,
         )
         query = SimpleNamespace(
@@ -504,7 +526,9 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         message = SimpleNamespace(
             chat_id=99,
             message_id=446,
-            document=SimpleNamespace(file_id="generated-pdf", file_name="docmolder_compressed.pdf", mime_type="application/pdf"),
+            document=SimpleNamespace(
+                file_id="generated-pdf", file_name="docmolder_compressed.pdf", mime_type="application/pdf"
+            ),
             reply_text=reply_text,
         )
         query = SimpleNamespace(
@@ -629,7 +653,7 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         )
         context = SimpleNamespace(application=self.application, bot=self.bot)
 
-        with patch("docmolder.bot.history_command", new=AsyncMock()) as history_mock:
+        with patch("docmolder.bot_results.history_command", new=AsyncMock()) as history_mock:
             await handle_menu_text(update, context)
 
         history_mock.assert_awaited_once()

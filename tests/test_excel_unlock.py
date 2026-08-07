@@ -18,7 +18,8 @@ from docmolder.excel_unlock import (
     _libreoffice_python_env,
     _parse_uno_removed_count,
 )
-from docmolder.processing import DocumentProcessor, ProcessingUserError
+from docmolder.processing import DocumentProcessor
+from docmolder.processing_models import ProcessingUserError
 from docmolder.models import SupportedAction
 
 
@@ -231,11 +232,16 @@ class ExcelUnlockerTest(unittest.TestCase):
 
     def test_libo_helpers_cover_filter_env_and_removed_count_parsing(self) -> None:
         original_env = {"PYTHONPATH": "already-there"}
-        with patch.dict("docmolder.excel_unlock.os.environ", original_env, clear=True), patch.object(
-            Path,
-            "exists",
-            autospec=True,
-            side_effect=lambda path: str(path) in {"/usr/lib/libreoffice/program", "/usr/lib/python3/dist-packages"},
+        with (
+            patch.dict("docmolder.excel_unlock.os.environ", original_env, clear=True),
+            patch.object(
+                Path,
+                "exists",
+                autospec=True,
+                side_effect=lambda path: (
+                    str(path) in {"/usr/lib/libreoffice/program", "/usr/lib/python3/dist-packages"}
+                ),
+            ),
         ):
             env = _libreoffice_python_env()
 
@@ -274,7 +280,7 @@ class ExcelProcessingTest(unittest.TestCase):
         _write_minimal_xlsx(source, protected=False)
 
         with self.assertRaises(ProcessingUserError):
-            self.processor.process(SupportedAction.EXCEL_UNLOCK_EDITING, [source], "libero_unlocked")
+            self.processor.excel.unlock_editing(source, "libero_unlocked")
 
 
 def _write_minimal_xlsx(path: Path, *, protected: bool) -> None:
