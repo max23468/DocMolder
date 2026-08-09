@@ -1,217 +1,128 @@
+import { readFile } from "node:fs/promises";
 import { pathToFileURL } from "node:url";
 
 const CODEX_BOT = "chatgpt-codex-connector[bot]";
-const isDirectExecution =
-  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-// ponytail: 180 s limita cinque PR concorrenti a circa 500 richieste/ora; passare a
-// un'unica query GraphQL se la concorrenza reale cresce oltre questo livello.
+const TRUSTED_ASSOCIATIONS = new Set(["OWNER", "MEMBER", "COLLABORATOR"]);
 export const CODEX_REVIEW_POLLING = { attempts: 100, intervalMs: 180_000 };
 
 const timestamp = (value) => new Date(value ?? 0).getTime();
-const reviewedCommit = (body = "") =>
+const signalTimestamp = (signal) => timestamp(signal.submitted_at ?? signal.created_at);
+const matchesHead = (candidate, headSha) => Boolean(candidate && headSha.startsWith(candidate));
+
+export const reviewedCommit = (body = "") =>
   body.match(/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{10,40})`/i)?.[1];
 
-export function classifyCodexReview({
-  headSha,
-  requestedAt,
-  now = Date.now(),
-  comments,
-  exactReactions = [],
-  reactions,
-  progressReactions = reactions,
-  requiresReviewedCommit = false,
-  reviews = [],
-  reviewComments,
-}) {
-  const completions = [];
-  const cleanComments = [];
-  const exactEyesAt = exactReactions
-    .filter(
-      (reaction) =>
-        reaction.user?.login === CODEX_BOT &&
-        reaction.content === "eyes" &&
-        timestamp(reaction.created_at) >= timestamp(requestedAt),
-    )
-    .reduce((latest, reaction) => Math.max(latest, timestamp(reaction.created_at)), 0);
-  const latestEyesAt = progressReactions
-    .filter(
-      (reaction) =>
-        reaction.user?.login === CODEX_BOT &&
-        reaction.content === "eyes" &&
-        timestamp(reaction.created_at) >= timestamp(requestedAt),
-    )
-    .reduce((latest, reaction) => Math.max(latest, timestamp(reaction.created_at)), 0);
+export const findingPriority = (body = "") =>
+  body.match(/^(?:\*\*|<sub>)*(?:!?\[)?(P[0-3])(?: Badge)?(?:\]\([^)]*\)|\]\s*|\*\*)/m)?.[1];
 
-  for (const comment of reviewComments) {
-    if (
-      comment.user?.login === CODEX_BOT &&
-      (comment.original_commit_id ?? comment.commit_id) === headSha &&
-      timestamp(comment.created_at) >= timestamp(requestedAt) &&
-      /\bP[0-3]\b/.test(comment.body)
-    ) {
-      completions.push({
-        state: "failure",
-        at: timestamp(comment.created_at),
-        description: "Codex ha trovato problemi nell'ultimo commit",
-      });
-    }
-  }
+export const isAutomaticFirstReview = (eventName, action) =>
+  eventName === "pull_request_target" && ["opened", "ready_for_review"].includes(action);
 
-  if (completions.length) {
-    return completions.sort((left, right) => right.at - left.at)[0];
-  }
-
-  for (const comment of comments) {
-    if (comment.user?.login !== CODEX_BOT) continue;
-
-    const commit = reviewedCommit(comment.body);
-    const belongsToAttempt = commit
-      ? headSha.startsWith(commit)
-      : requiresReviewedCommit
-        ? exactEyesAt > 0 && timestamp(comment.created_at) >= exactEyesAt
-        : timestamp(requestedAt) > 0;
-    if (
-      belongsToAttempt &&
-      timestamp(comment.created_at) >= timestamp(requestedAt) &&
-      /\bP[0-3]\b/.test(comment.body)
-    ) {
-      completions.push({
-        state: "failure",
-        at: timestamp(comment.created_at),
-        description: "Codex ha trovato problemi nell'ultimo commit",
-      });
-    }
-
-    if (
-      commit &&
-      headSha.startsWith(commit) &&
-      timestamp(comment.created_at) >= timestamp(requestedAt) &&
-      /^Codex Review: Didn't find any major issues\./m.test(comment.body)
-    ) {
-      completions.push({
-        state: "success",
-        at: timestamp(comment.created_at),
-        description: "Codex ha approvato l'ultimo commit",
-      });
-    }
-
-    if (
-      belongsToAttempt &&
-      timestamp(requestedAt) > 0 &&
-      timestamp(comment.created_at) >= timestamp(requestedAt) &&
-      now - timestamp(requestedAt) >= 30_000 &&
-      timestamp(comment.created_at) >= latestEyesAt &&
-      /reached your Codex usage limits|could not complete|unable to review|something went wrong|unknown error/i.test(
-        comment.body,
-      )
-    ) {
-      completions.push({
-        state: "failure",
-        at: timestamp(comment.created_at),
-        description: "La review Codex non è stata completata",
-      });
-    }
-  }
-
-  const commentFailure = completions
-    .filter((completion) => completion.state === "failure")
-    .sort((left, right) => right.at - left.at)[0];
-  if (commentFailure) return commentFailure;
-
-  for (const review of reviews) {
-    const commit = review.commit_id ?? reviewedCommit(review.body);
-    if (
-      review.user?.login === CODEX_BOT &&
-      commit &&
-      headSha.startsWith(commit) &&
-      timestamp(review.submitted_at) >= timestamp(requestedAt)
-    ) {
-      cleanComments.push(timestamp(review.submitted_at));
-    }
-  }
-
-  const thumbsUpAt = reactions
-    .filter(
-      (reaction) =>
-        reaction.user?.login === CODEX_BOT &&
-        reaction.content === "+1" &&
-        timestamp(reaction.created_at) >= timestamp(requestedAt),
-    )
-    .reduce((latest, reaction) => Math.max(latest, timestamp(reaction.created_at)), 0);
-  const exactThumbsUpAt = exactReactions
-    .filter(
-      (reaction) =>
-        timestamp(requestedAt) > 0 &&
-        reaction.user?.login === CODEX_BOT &&
-        reaction.content === "+1" &&
-        timestamp(reaction.created_at) >= timestamp(requestedAt),
-    )
-    .reduce((latest, reaction) => Math.max(latest, timestamp(reaction.created_at)), 0);
-
-  if (thumbsUpAt) {
-    if (!requiresReviewedCommit || exactThumbsUpAt) {
-      cleanComments.push(exactThumbsUpAt || thumbsUpAt);
-    }
-    for (const commentAt of cleanComments) {
-      if (thumbsUpAt < commentAt) continue;
-      completions.push({
-        state: "success",
-        at: Math.max(thumbsUpAt, commentAt),
-        description: "Codex ha approvato l'ultimo commit",
-      });
-    }
-  }
-
-  return (
-    completions.sort((left, right) => right.at - left.at)[0] ?? {
-      state: "pending",
-      description: "In attesa della review Codex sull'ultimo commit",
-    }
-  );
-}
-
-export const latestCodexStatus = (statuses) =>
-  statuses.find((status) => status.context === "codex-review");
-
-export const hasSuccessfulCodexStatus = (statuses) =>
-  latestCodexStatus(statuses)?.state === "success";
-
-export const codexRetryCutoff = (statuses, fallback) =>
-  latestCodexStatus(statuses)?.created_at ?? fallback;
-
-export const latestCodexInvocation = (comments, requestedAt) =>
+export const latestCodexInvocation = (comments, headAvailableAt) =>
   comments
     .filter(
       (comment) =>
-        timestamp(requestedAt) > 0 &&
-        ["OWNER", "MEMBER", "COLLABORATOR"].includes(comment.author_association) &&
+        comment.user?.login !== CODEX_BOT &&
+        TRUSTED_ASSOCIATIONS.has(comment.author_association) &&
         /^\s*@codex\s+review\s*$/i.test(comment.body) &&
-        timestamp(comment.created_at) >= timestamp(requestedAt),
+        timestamp(comment.created_at) >= timestamp(headAvailableAt),
     )
     .sort((left, right) => timestamp(right.created_at) - timestamp(left.created_at))[0];
 
-export function pullRequestNumber(event, input) {
-  const number = String(event.pull_request?.number ?? input);
-  if (!/^\d+$/.test(number)) throw new Error("Numero PR non valido");
-  return number;
-}
+export function classifyCodexReview({
+  automatic = false,
+  comments = [],
+  headSha,
+  invocationReactions = [],
+  now = Date.now(),
+  prReactions = [],
+  requestedAt,
+  reviewComments = [],
+  reviews = [],
+}) {
+  const afterRequest = (signal) => signalTimestamp(signal) >= timestamp(requestedAt);
+  const exactInline = reviewComments.filter(
+    (comment) => comment.user?.login === CODEX_BOT && comment.original_commit_id === headSha,
+  );
+  const exactTopLevel = comments.filter(
+    (comment) =>
+      comment.user?.login === CODEX_BOT && matchesHead(reviewedCommit(comment.body), headSha),
+  );
+  const exactReviews = reviews.filter(
+    (review) =>
+      review.user?.login === CODEX_BOT &&
+      (review.commit_id === headSha || matchesHead(reviewedCommit(review.body), headSha)) &&
+      afterRequest(review),
+  );
+  const exactSignals = [...exactInline, ...exactTopLevel, ...exactReviews];
 
-export const isRetryableGitHubResponse = (status, remaining) =>
-  status === 429 || status >= 500 || (status === 403 && remaining === "0");
+  const blockingFinding = exactSignals
+    .filter((signal) => ["P0", "P1"].includes(findingPriority(signal.body)))
+    .sort((left, right) => signalTimestamp(right) - signalTimestamp(left))[0];
+  if (blockingFinding) {
+    return {
+      state: "failure",
+      description: `Codex ha trovato un finding ${findingPriority(blockingFinding.body)}`,
+    };
+  }
 
-export async function retryGitHubWrite(
-  operation,
-  wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-) {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      return await operation();
-    } catch (error) {
-      const retryable = error instanceof TypeError || error?.retryable;
-      if (!retryable || attempt === 2) throw error;
-      await wait(5_000);
+  const completionTimes = exactReviews.map(signalTimestamp);
+  for (const comment of exactTopLevel) {
+    if (
+      afterRequest(comment) &&
+      (/^Codex Review: Didn't find any major issues\./m.test(comment.body) ||
+        ["P2", "P3"].includes(findingPriority(comment.body)))
+    ) {
+      completionTimes.push(signalTimestamp(comment));
     }
   }
+
+  const reactions = automatic ? prReactions : invocationReactions;
+  for (const reaction of reactions) {
+    if (
+      reaction.user?.login === CODEX_BOT &&
+      reaction.content === "+1" &&
+      timestamp(reaction.created_at) >= timestamp(requestedAt)
+    ) {
+      completionTimes.push(timestamp(reaction.created_at));
+    }
+  }
+
+  const operationalErrorAt = comments
+    .filter(
+      (comment) =>
+        comment.user?.login === CODEX_BOT &&
+        afterRequest(comment) &&
+        /reached your Codex usage limits|could not complete|unable to review|something went wrong|unknown error/i.test(
+          comment.body,
+        ),
+    )
+    .reduce((latest, comment) => Math.max(latest, signalTimestamp(comment)), 0);
+  const completionAt = Math.max(...completionTimes, 0);
+  if (operationalErrorAt > completionAt) {
+    return { state: "error", description: "La review Codex non è stata completata" };
+  }
+
+  const settledAt = Math.max(completionAt, ...exactSignals.map(signalTimestamp));
+  if (completionAt && now - settledAt >= 30_000) {
+    const advisory = exactSignals.some((signal) =>
+      ["P2", "P3"].includes(findingPriority(signal.body)),
+    );
+    return {
+      state: "success",
+      description: advisory
+        ? "Codex: solo finding P2/P3 advisory"
+        : "Codex ha approvato l'ultimo commit",
+    };
+  }
+
+  return { state: "pending", description: "In attesa della review Codex" };
+}
+
+export function pullRequestNumber(event, input) {
+  const number = String(event.pull_request?.number ?? event.issue?.number ?? input);
+  if (!/^\d+$/.test(number)) throw new Error("Numero PR non valido");
+  return number;
 }
 
 async function request(path, options = {}) {
@@ -224,14 +135,7 @@ async function request(path, options = {}) {
       ...options.headers,
     },
   });
-  if (!response.ok) {
-    const error = new Error(`${options.method ?? "GET"} ${path}: ${response.status}`);
-    error.retryable = isRetryableGitHubResponse(
-      response.status,
-      response.headers.get("x-ratelimit-remaining"),
-    );
-    throw error;
-  }
+  if (!response.ok) throw new Error(`${options.method ?? "GET"} ${path}: ${response.status}`);
   return response.json();
 }
 
@@ -247,105 +151,61 @@ async function all(path) {
 }
 
 async function setStatus(repository, sha, state, description) {
-  await retryGitHubWrite(() =>
-    request(`/repos/${repository}/statuses/${sha}`, {
-      method: "POST",
-      body: JSON.stringify({
-        state,
-        context: "codex-review",
-        description,
-        target_url: `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}`,
-      }),
+  await request(`/repos/${repository}/statuses/${sha}`, {
+    method: "POST",
+    body: JSON.stringify({
+      state,
+      context: "codex-review",
+      description,
+      target_url: `${process.env.GITHUB_SERVER_URL}/${repository}/actions/runs/${process.env.GITHUB_RUN_ID}`,
     }),
-  );
-}
-
-async function reviewSignals(repository, number, requestedAt) {
-  const [comments, reactions, reviews, reviewComments] = await Promise.all([
-    all(`/repos/${repository}/issues/${number}/comments`),
-    all(`/repos/${repository}/issues/${number}/reactions`),
-    all(`/repos/${repository}/pulls/${number}/reviews`),
-    all(`/repos/${repository}/pulls/${number}/comments`),
-  ]);
-  const invocation = latestCodexInvocation(comments, requestedAt);
-  const invocationReactions = invocation
-    ? await all(`/repos/${repository}/issues/comments/${invocation.id}/reactions`)
-    : [];
-  return [
-    comments,
-    [...reactions, ...invocationReactions],
-    reviews,
-    reviewComments,
-    invocationReactions,
-  ];
+  });
 }
 
 async function main() {
-  const event = JSON.parse(
-    await (await import("node:fs/promises")).readFile(process.env.GITHUB_EVENT_PATH),
-  );
+  const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, "utf8"));
   const repository = process.env.GITHUB_REPOSITORY;
-  const requestedNumber = pullRequestNumber(event, process.env.PULL_REQUEST_NUMBER);
-  const pullRequest =
-    event.pull_request ?? (await request(`/repos/${repository}/pulls/${requestedNumber}`));
-  const number = pullRequest.number;
+  const number = pullRequestNumber(event, process.env.PULL_REQUEST_NUMBER);
+  const pullRequest = await request(`/repos/${repository}/pulls/${number}`);
   const headSha = pullRequest.head.sha;
-  const reusesExistingReview =
-    process.env.GITHUB_EVENT_NAME === "workflow_dispatch" || event.action === "reopened";
-  let previousStatuses = [];
+  const headCommit = await request(`/repos/${repository}/commits/${headSha}`);
+  const automatic = isAutomaticFirstReview(process.env.GITHUB_EVENT_NAME, event.action);
+  const headAvailableAt =
+    event.action === "synchronize"
+      ? event.pull_request.updated_at
+      : headCommit.commit.committer.date;
 
-  if (reusesExistingReview) {
-    previousStatuses = await all(`/repos/${repository}/commits/${headSha}/statuses`);
-    if (hasSuccessfulCodexStatus(previousStatuses)) return;
-    if (latestCodexStatus(previousStatuses)?.state === "pending") {
-      await setStatus(
-        repository,
-        headSha,
-        "error",
-        "Rerun avviato mentre la review precedente era ancora in corso",
-      );
-      return;
-    }
-  }
-
-  await setStatus(
-    repository,
-    headSha,
-    "pending",
-    "In attesa della review Codex sull'ultimo commit",
-  );
+  await setStatus(repository, headSha, "pending", "In attesa della review Codex");
   if (pullRequest.draft) return;
 
-  if (["opened", "ready_for_review"].includes(event.action)) {
-    await new Promise((resolve) => setTimeout(resolve, 30_000));
-    const currentPullRequest = await request(`/repos/${repository}/pulls/${number}`);
-    if (currentPullRequest.head.sha !== headSha) return;
-  }
-
-  const freshReview = ["opened", "ready_for_review"].includes(event.action);
-  const requestedAt = reusesExistingReview
-    ? codexRetryCutoff(previousStatuses, pullRequest.updated_at)
-    : pullRequest.updated_at;
   for (let attempt = 0; attempt < CODEX_REVIEW_POLLING.attempts; attempt += 1) {
-    let signals;
-    try {
-      signals = await reviewSignals(repository, number, requestedAt);
-    } catch (error) {
-      if (!(error instanceof TypeError) && !error.retryable) throw error;
-      console.warn(`Lettura GitHub transitoria, nuovo tentativo: ${error.message}`);
-      await new Promise((resolve) => setTimeout(resolve, CODEX_REVIEW_POLLING.intervalMs));
-      continue;
-    }
-    const [comments, reactions, reviews, reviewComments, exactReactions] = signals;
+    const [comments, prReactions, reviews, reviewComments] = await Promise.all([
+      all(`/repos/${repository}/issues/${number}/comments`),
+      all(`/repos/${repository}/issues/${number}/reactions`),
+      all(`/repos/${repository}/pulls/${number}/reviews`),
+      all(`/repos/${repository}/pulls/${number}/comments`),
+    ]);
+    const latestInvocation = latestCodexInvocation(comments, headAvailableAt);
+    const invocation =
+      process.env.GITHUB_EVENT_NAME !== "issue_comment" ||
+      latestInvocation?.id === event.comment?.id
+        ? latestInvocation
+        : undefined;
+    const invocationReactions = invocation
+      ? await all(`/repos/${repository}/issues/comments/${invocation.id}/reactions`)
+      : [];
+    const requestedAt = automatic
+      ? (event.pull_request?.updated_at ?? pullRequest.created_at)
+      : (invocation?.created_at ?? headAvailableAt);
     const result = classifyCodexReview({
-      headSha,
-      requestedAt,
+      automatic,
       comments,
-      exactReactions,
-      reactions,
-      requiresReviewedCommit: !freshReview,
-      reviews,
+      headSha,
+      invocationReactions,
+      prReactions,
+      requestedAt,
       reviewComments,
+      reviews,
     });
     if (result.state !== "pending") {
       await setStatus(repository, headSha, result.state, result.description);
@@ -357,29 +217,11 @@ async function main() {
   await setStatus(repository, headSha, "error", "Review Codex non conclusa entro cinque ore");
 }
 
+const isDirectExecution =
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (process.env.GITHUB_ACTIONS === "true" && isDirectExecution) {
-  await main().catch(async (error) => {
+  await main().catch((error) => {
     console.error(error);
-    const event = JSON.parse(
-      await (await import("node:fs/promises")).readFile(process.env.GITHUB_EVENT_PATH),
-    );
-    let requestedNumber;
-    try {
-      requestedNumber = pullRequestNumber(event, process.env.PULL_REQUEST_NUMBER);
-    } catch {
-      return;
-    }
-    const pullRequest =
-      event.pull_request ??
-      (await request(`/repos/${process.env.GITHUB_REPOSITORY}/pulls/${requestedNumber}`).catch(
-        () => null,
-      ));
-    if (!pullRequest) return;
-    await setStatus(
-      process.env.GITHUB_REPOSITORY,
-      pullRequest.head.sha,
-      "error",
-      "Impossibile verificare la review Codex",
-    ).catch(console.error);
+    process.exitCode = 1;
   });
 }

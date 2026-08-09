@@ -41,7 +41,6 @@ Strumenti locali:
 - `scripts/classify_changes.py`: classifica il diff in docs/test/CI/code/ops/deploy e segnala file riservati al flusso di rilascio.
 - `scripts/preflight_publish.sh` o `make preflight-publish`: blocca branch sbagliati e version bump/changelog manuali prima del push.
 - `scripts/current_failed_runs.py`: mostra solo run failed del branch e SHA correnti, evitando di inseguire failure vecchie o non correlate.
-- `scripts/check_codex_bot_comments.py`: blocca ready/merge quando il Codex connector bot ha lasciato commenti aperti sulla PR.
 - `scripts/publish_doctor.py` o `make publish-doctor`: verifica in un unico punto branch/base, detached HEAD, divergenza da `origin/main`, file riservati, run failed correnti e commenti bot aperti.
 - `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
 - `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR pronta; con `DOCMOLDER_PUBLISH_DRAFT=1` apri una draft esplicita, con `DOCMOLDER_PUBLISH_MERGE=1` chiedi merge assistito local-first, con `DOCMOLDER_USE_GH_ACTIONS=1` riattivi il fallback legacy watch/check/ready/auto-merge.
@@ -72,7 +71,7 @@ Usa poi una sola corsia, dichiarandola nella risposta finale:
 - **PR draft esplicita**: usa `DOCMOLDER_PUBLISH_DRAFT=1 scripts/publish_change.sh "<titolo conventional>"` solo quando vuoi aprire un confronto anticipato senza dichiarare il cambio pronto.
 - **PR + deploy/release follow-through**: solo quando il classificatore indica `deploy_relevant` o il titolo produce release. Dopo il merge controlla webhook VPS, servizio, log recenti e il flusso di release manuale.
 
-Se `publish_doctor` segnala branch indietro/divergente, detached HEAD, run failed correnti o commenti bot aperti, correggi quello prima di creare o aggiornare la PR.
+Se `publish_doctor` segnala branch indietro/divergente, detached HEAD o run failed correnti, correggi quello prima di creare o aggiornare la PR.
 
 ### Gate Codex sulle PR
 
@@ -82,15 +81,17 @@ esatto della PR.
 
 Il gate:
 
-- parte su `opened`, `synchronize`, `reopened`, `ready_for_review` e dispatch manuale validato;
+- parte su `opened`, `synchronize`, `reopened`, `ready_for_review`, invocazione esatta e dispatch manuale validato;
 - esegue soltanto script e workflow della default branch fidata;
 - pubblica `pending`, `success`, `failure` o `error` senza rendere rosso il run;
 - invalida tutte le prove precedenti a ogni nuovo SHA o tentativo;
-- blocca sempre i finding P0-P3 correnti, anche in presenza di approvazioni;
-- pagina tutte le API e ritenta solo rete, 429, 5xx e 403 con quota esaurita;
-- usa 100 tentativi ogni 180 secondi, pari a cinque ore.
+- blocca sempre i finding P0/P1 correnti, anche in presenza di approvazioni;
+- lascia P2/P3 advisory solo dopo una review conclusa e un breve assestamento dei segnali;
+- attende fino a cinque ore, mantenendo bloccante ogni errore tecnico o timeout.
 
-Dopo ogni nuovo commit pubblica `@codex review`. La reazione positiva del bot
+All'apertura o al passaggio da draft a ready la review parte automaticamente e
+non si pubblica alcuna richiesta. Dopo ogni nuovo commit o per un retry si
+pubblica una sola riga `@codex review`. La reazione positiva del bot
 sulla specifica invocazione, una review con `commit_id` o un marker `Reviewed
 commit` devono riferirsi all'HEAD corrente. La PR che introduce il workflow usa
 un bootstrap manuale, perché `pull_request_target` esegue ancora la versione del
@@ -99,10 +100,11 @@ branch predefinito precedente.
 Per la PR corrente resta valido il guardrail locale:
 
 ```bash
-python3 scripts/check_codex_bot_comments.py --pr <numero> --fail
+gh pr checks <numero> --watch --interval 10
 ```
 
-Quando la inbox segnala feedback actionable, il prossimo passo in chat deve essere esplicito: risolvere nella PR corrente se coerente, aprire una PR correttiva mirata se la PR originale e chiusa/mergiata, oppure dichiarare il falso positivo/non azionabile.
+Lo status `codex-review` è l'unica fonte operativa dell'esito Codex: la vecchia
+feedback inbox e il parsing locale dei thread non fanno più parte del flusso.
 
 ## CI automatica a consumo ridotto
 

@@ -209,7 +209,7 @@ def print_text(report: dict[str, object]) -> None:
     print("\n## Prossime azioni")
     print("- Se ci sono run failed sul branch/SHA corrente, usa `scripts/current_failed_runs.py` e `gh run view`.")
     print("- Le run globali servono per trend/manutenzione: non bloccare lavoro corrente su failure non correlate.")
-    print("- Usa `scripts/check_codex_bot_comments.py --pr <numero> --fail` come guardrail sulla PR corrente.")
+    print("- Verifica `codex-review` sull'HEAD corrente prima del merge.")
     print("- Se ci sono PR con scope release aperte, verifica versione/changelog prima del merge.")
     print("- Se ci sono PR Dependabot, tratta prima security update o incompatibilita runtime.")
 
