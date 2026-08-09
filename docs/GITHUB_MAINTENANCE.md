@@ -43,7 +43,7 @@ Strumenti locali:
 - `scripts/current_failed_runs.py`: mostra solo run failed del branch e SHA correnti, evitando di inseguire failure vecchie o non correlate.
 - `scripts/publish_doctor.py` o `make publish-doctor`: verifica in un unico punto branch/base, detached HEAD, divergenza da `origin/main`, file riservati, run failed correnti e commenti bot aperti.
 - `scripts/generate_pr_body.py`: genera un body PR coerente con impatto deploy/release e lista file.
-- `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR pronta; con `DOCMOLDER_PUBLISH_DRAFT=1` apri una draft esplicita, con `DOCMOLDER_PUBLISH_MERGE=1` chiedi merge assistito local-first, con `DOCMOLDER_USE_GH_ACTIONS=1` riattivi il fallback legacy watch/check/ready/auto-merge.
+- `scripts/publish_change.sh "<titolo conventional>"`: publish doctor, preflight, commit se serve, push e PR pronta; con `DOCMOLDER_PUBLISH_DRAFT=1` apri una draft esplicita e con `DOCMOLDER_PUBLISH_MERGE=1` chiedi il merge assistito local-first.
 - La procedura release manuale documentata: gestisce la release dalla PR/branch di release, aggiornando changelog, versioni, tag e GitHub Release.
 - `scripts/publish_doctor.py` e `scripts/preflight_publish.sh`: verificano allineamento tra metadata di release, versione pacchetto, `__version__`, changelog e ultimo tag locale.
 - `make ci-static`: esegue esplicitamente i controlli rapidi prima del push.
@@ -66,8 +66,8 @@ make publish-doctor
 
 Usa poi una sola corsia, dichiarandola nella risposta finale:
 
-- **Docs minuscoli diretti**: solo `AGENTS.md`, `README.md` o `docs/**`, titolo `chore(docs): ...`, nessun deploy/release atteso. Da `main` aggiornato usa `make publish-docs TITLE="chore(docs): <descrizione>"`: lo script esegue publish doctor, preflight, commit e push diretto senza PR. Evita questa corsia se il cambio tocca workflow, script, codice runtime, configurazione, release-owned files o istruzioni operative ambigue.
-- **PR standard**: default per codice, CI, script, test, configurazione e docs operative non banali. Usa `scripts/publish_change.sh "<titolo conventional>"`, poi self-review/merge e verifica webhook VPS.
+- **Docs-only**: per `AGENTS.md`, `README.md` o `docs/**` usa un branch dedicato e `make publish-docs TITLE="chore(docs): <descrizione>"`; lo script apre la PR standard e il cambio non richiede deploy o release.
+- **PR standard**: default per ogni modifica. Usa `scripts/publish_change.sh "<titolo conventional>"`, poi self-review/merge e verifica webhook VPS quando il diff è deploy-relevant.
 - **PR draft esplicita**: usa `DOCMOLDER_PUBLISH_DRAFT=1 scripts/publish_change.sh "<titolo conventional>"` solo quando vuoi aprire un confronto anticipato senza dichiarare il cambio pronto.
 - **PR + deploy/release follow-through**: solo quando il classificatore indica `deploy_relevant` o il titolo produce release. Dopo il merge controlla webhook VPS, servizio, log recenti e il flusso di release manuale.
 
@@ -133,8 +133,6 @@ committa solo quei file. Non esegue `Makefile` o script provenienti dalla PR.
 ## Rilascio manuale operativo
 
 La procedura release manuale documentata aggiorna changelog, `CHANGELOG.md`, `pyproject.toml` e `src/docmolder/__init__.py` dopo il merge di una PR rilasciabile, creando tag e GitHub Release da checkout pulita.
-
-Il fallback legacy non rientra più nel percorso operativo standard.
 
 I controlli di coerenza release sono eseguiti nei report/check locali e nel processo di PR.
 

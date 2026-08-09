@@ -108,11 +108,6 @@ def open_pr_number(branch: str) -> int | None:
     return int(result.stdout.strip())
 
 
-def direct_docs_shortcut_allowed(impact: dict[str, object]) -> bool:
-    paths = [str(path) for path in impact.get("changed_files", [])]
-    return bool(paths) and all(path in {"AGENTS.md", "README.md"} or path.startswith("docs/") for path in paths)
-
-
 def add_issue(issues: list[Issue], level: str, message: str) -> None:
     issues.append(Issue(level=level, message=message))
 
@@ -176,16 +171,7 @@ def collect_report(*, base_branch: str, skip_fetch: bool, skip_github: bool) -> 
         details["deploy_relevant"] = impact.get("deploy_relevant")
         details["release_owned"] = impact.get("release_owned")
         details["docs_only"] = impact.get("docs_only")
-        direct_docs_candidate = (
-            protected_branch
-            and bool(impact.get("docs_only"))
-            and direct_docs_shortcut_allowed(impact)
-            and not bool(impact.get("deploy_relevant"))
-            and not bool(impact.get("release_owned"))
-        )
-        if protected_branch and direct_docs_candidate:
-            add_issue(issues, "notice", "Branch principale ammessa solo per publish docs-only minuscolo.")
-        elif protected_branch:
+        if protected_branch:
             add_issue(issues, "blocker", f"Sei su {branch}: pubblica da una branch dedicata.")
         if impact.get("release_owned"):
             expected_version = release_version_from_branch(branch)

@@ -65,14 +65,18 @@ class PublishScriptsTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    def test_preflight_allows_staged_docs_only_change_on_main(self) -> None:
+    def test_preflight_rejects_staged_docs_only_change_on_main(self) -> None:
         (self.repo / "README.md").write_text("readme\nupdated\n", encoding="utf-8")
         run(["git", "add", "README.md"], self.repo)
 
-        result = run(["bash", "scripts/preflight_publish.sh", "origin/main"], self.repo)
+        result = run(
+            ["bash", "scripts/preflight_publish.sh", "origin/main"],
+            self.repo,
+            check=False,
+        )
 
-        self.assertIn("publish diretto su main ammesso", result.stdout)
-        self.assertIn("Preflight publish OK.", result.stdout)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Crea una branch dedicata", result.stderr)
 
     def test_preflight_rejects_runtime_to_docs_rename_on_main(self) -> None:
         run(["git", "mv", "src/runtime.py", "docs/runtime.py"], self.repo)
@@ -212,20 +216,19 @@ fi
         self.assertIn("--python-version 3.11", makefile)
         self.assertIn("--python-version 3.11", lock_check)
 
-    def test_publish_change_pushes_existing_direct_docs_commit(self) -> None:
+    def test_publish_change_rejects_base_branch(self) -> None:
         (self.repo / "docs" / "guide.md").write_text("guide\nupdated\n", encoding="utf-8")
         run(["git", "add", "docs/guide.md"], self.repo)
         run(["git", "commit", "-m", "chore(docs): update guide"], self.repo)
-        before_push = run(["git", "rev-parse", "HEAD"], self.repo).stdout.strip()
 
         result = run(
             ["bash", "scripts/publish_change.sh", "chore(docs): publish pending docs"],
             self.repo,
+            check=False,
         )
-        origin_main = run(["git", "rev-parse", "origin/main"], self.repo).stdout.strip()
 
-        self.assertEqual(origin_main, before_push)
-        self.assertNotIn("Nessun cambio documentale da pubblicare.", result.stdout)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("crea un branch dedicato", result.stderr)
 
     def write_fake_gh(self) -> tuple[Path, Path]:
         bin_dir = self.root / "bin"
@@ -370,22 +373,6 @@ exit 1
         self.assertIn("pr checks 1 --watch --interval 10", log)
         self.assertNotIn("pr merge 1 --auto", log)
         self.assertIn("pr merge 1 --squash --delete-branch --subject fix(runtime): merge runtime (#1)", log)
-
-    def test_publish_change_actions_fallback_keeps_legacy_followup(self) -> None:
-        run(["git", "switch", "-c", "codex/actions-runtime"], self.repo)
-        (self.repo / "src" / "runtime.py").write_text("print('actions')\n", encoding="utf-8")
-        bin_dir, log_path = self.write_fake_gh()
-        env = self.fake_gh_env(bin_dir, log_path)
-        env["DOCMOLDER_USE_GH_ACTIONS"] = "1"
-
-        run(["bash", "scripts/publish_change.sh", "fix(runtime): actions runtime"], self.repo, env=env)
-        log = log_path.read_text(encoding="utf-8")
-
-        self.assertIn("pr create --draft --base main --head codex/actions-runtime", log)
-        self.assertIn("pr checks 1 --watch --interval 10", log)
-        self.assertIn("pr ready 1", log)
-        self.assertIn("pr merge 1 --auto --squash --delete-branch --subject fix(runtime): actions runtime (#1)", log)
-
 
 if __name__ == "__main__":
     unittest.main()
