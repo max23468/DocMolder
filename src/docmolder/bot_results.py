@@ -98,6 +98,25 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         return
     action = (query.data or "").removeprefix("result:")
     bot_runtime._record_callback_metric(deps, f"result:{action.split(':', 1)[0]}")
+    if action in {"more", "less"}:
+        await query.edit_message_reply_markup(
+            reply_markup=build_result_pdf_keyboard(
+                quick_actions=infer_result_followup_actions(None), expanded=action == "more"
+            )
+        )
+        return
+    if action == "merge":
+        session = _build_result_pdf_session(user.id, document.file_id, document.file_name)
+        session.pending_action = SupportedAction.PDF_MERGE.value
+        deps.session_store.save(session)
+        deps.session_store.record_flow_event(
+            user.id, session.created_at.isoformat(), "action_selected", SupportedAction.PDF_MERGE.value
+        )
+        await query.message.reply_text(
+            "PDF pronto per l'unione. Inviami uno o più PDF nell'ordine desiderato, poi tocca “Unisci PDF”.",
+            reply_to_message_id=query.message.message_id,
+        )
+        return
     if action.startswith("undo_rotate:"):
         if not job_flow.has_capacity_for_new_job(user.id, deps):
             await query.message.reply_text(
@@ -142,7 +161,11 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         return
     session = _build_result_pdf_session(user.id, document.file_id, document.file_name)
     deps.session_store.save(session)
+    deps.session_store.record_flow_event(user.id, session.created_at.isoformat(), "action_selected", selected_action.value)
     if selected_action == SupportedAction.PDF_COMPRESS:
+        session.pending_action = selected_action.value
+        session.touch()
+        deps.session_store.save(session)
         await query.message.reply_text(
             build_compression_prompt(
                 bot_runtime._get_stored_compression_preset(deps, user.id, preset_only=True),
@@ -155,6 +178,9 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         )
         return
     if selected_action == SupportedAction.PDF_ROTATE:
+        session.pending_action = selected_action.value
+        session.touch()
+        deps.session_store.save(session)
         await query.message.reply_text(
             "Di quanti gradi vuoi ruotare tutte le pagine del PDF?\nScelta rapida: tocca uno dei pulsanti qui sotto.",
             reply_to_message_id=query.message.message_id,

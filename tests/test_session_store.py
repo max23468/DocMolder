@@ -205,6 +205,7 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         )
         self.store.register_user(55, "mario", "Mario", None)
         self.store.record_completed_action(55, "pdf_compress")
+        self.store.record_flow_event(55, "flow-55", "upload", "pdf")
         self.store.set_user_preference(55, "compression_preset", "medium")
         self.store.set_user_preset(55, "compression_preset", "medium")
         self.store.set_meta("access:55:status", "approved")
@@ -230,6 +231,7 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertEqual(report.sessions_deleted, 1)
         self.assertEqual(report.jobs_deleted, 1)
         self.assertEqual(report.usage_events_deleted, 1)
+        self.assertEqual(report.flow_events_deleted, 1)
         self.assertEqual(report.known_users_deleted, 1)
         self.assertEqual(report.meta_deleted, 4)
         self.assertEqual(report.audit_entries_scrubbed, 1)
@@ -243,6 +245,16 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
         self.assertEqual(audit_entry.actor_user_id, 7)
         self.assertIsNone(audit_entry.target_user_id)
         self.assertEqual(audit_entry.detail, "")
+
+    def test_flow_events_are_counted_without_document_metadata(self) -> None:
+        self.store.record_flow_event(55, "flow-55", "upload", "pdf")
+        self.store.record_flow_event(55, "flow-55", "action_selected", "pdf_compress")
+
+        self.assertEqual(self.store.count_flow_events(), {"action_selected": 1, "upload": 1})
+        with self.store._connect() as connection:
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(flow_events)")}
+        self.assertNotIn("file_name", columns)
+        self.assertNotIn("content", columns)
 
     def test_purge_expired_removes_only_expired_sessions(self) -> None:
         from docmolder.action_catalog import build_session_file

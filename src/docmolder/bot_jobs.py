@@ -9,7 +9,7 @@ from docmolder.job_flow import (
 )
 from docmolder.logging_utils import log_event
 from docmolder.messages import GENERIC_ERROR_MESSAGE
-from docmolder.models import FileKind, JobRecord, SupportedAction, UserSession
+from docmolder.models import JobPayload, JobRecord, SupportedAction, UserSession
 from docmolder.processing_models import ProcessingResult, ProcessingUserError
 from docmolder.action_catalog import sanitize_filename
 import docmolder.admin_reporting as admin_reporting
@@ -93,9 +93,16 @@ async def _cleanup_worker(deps: bot_runtime.BotDependencies) -> None:
 
 def _run_cleanup_cycle(deps: bot_runtime.BotDependencies) -> None:
     removed_dirs = deps.processor.cleanup_stale_job_dirs(deps.settings.stale_job_retention_hours)
+    pruned_flow_events = deps.session_store.prune_flow_events(deps.settings.job_history_retention_days)
     if removed_dirs:
         bot_runtime.logger.info("Cleanup schedulato: rimosse %s cartelle temporanee residue.", removed_dirs)
-    log_event(bot_runtime.logger, logging.INFO, "cleanup_cycle_complete", removed_dirs=removed_dirs)
+    log_event(
+        bot_runtime.logger,
+        logging.INFO,
+        "cleanup_cycle_complete",
+        removed_dirs=removed_dirs,
+        pruned_flow_events=pruned_flow_events,
+    )
 
 
 async def _process_job(application: Application, job_id: int) -> None:
@@ -103,6 +110,7 @@ async def _process_job(application: Application, job_id: int) -> None:
     job = deps.session_store.get_job(job_id)
     if job is None:
         return
+    flow_id = JobPayload.from_json(job.payload_json).flow_id or f"job:{job.id}"
     deps.session_store.mark_job_running(job_id)
     job = deps.session_store.get_job(job_id)
     if job is None:
@@ -131,6 +139,7 @@ async def _process_job(application: Application, job_id: int) -> None:
                 )
                 return
             deps.session_store.mark_job_failed(job.id, str(exc))
+            deps.session_store.record_flow_event(job.user_id, flow_id, "failed", job.action)
             log_event(
                 bot_runtime.logger,
                 logging.WARNING,
@@ -160,6 +169,7 @@ async def _process_job(application: Application, job_id: int) -> None:
                 return
             bot_runtime.logger.exception("Errore durante il job %s", job.id)
             deps.session_store.mark_job_failed(job.id, GENERIC_ERROR_MESSAGE)
+            deps.session_store.record_flow_event(job.user_id, flow_id, "failed", job.action)
             log_event(
                 bot_runtime.logger,
                 logging.ERROR,
@@ -199,6 +209,7 @@ async def _process_job(application: Application, job_id: int) -> None:
             duration_ms=duration_ms,
         )
         deps.session_store.record_completed_action(job.user_id, job.action)
+        deps.session_store.record_flow_event(job.user_id, flow_id, "succeeded", job.action)
         log_event(
             bot_runtime.logger,
             logging.INFO,
@@ -211,7 +222,7 @@ async def _process_job(application: Application, job_id: int) -> None:
             input_bytes=input_bytes,
             output_bytes=output_bytes,
         )
-        result_message = await _send_result(
+        await _send_result(
             application.bot,
             job.chat_id,
             job.reply_to_message_id,
@@ -220,22 +231,6 @@ async def _process_job(application: Application, job_id: int) -> None:
             source_action=SupportedAction(job.action),
             source_job_id=job.id,
         )
-        if (
-            not result.additional_outputs
-            and result_message is not None
-            and (getattr(result_message, "document", None) is not None)
-        ):
-            result_document = result_message.document
-            result_file_id = getattr(result_document, "file_id", None)
-            result_file_name = getattr(result_document, "file_name", None)
-            if (
-                isinstance(result_file_id, str)
-                and (result_file_name is None or isinstance(result_file_name, str))
-                and (bot_runtime._infer_document_kind(result_document) == FileKind.PDF)
-            ):
-                deps.session_store.save(
-                    bot_results._build_result_pdf_session(job.user_id, result_file_id, result_file_name)
-                )
     finally:
         deps.processor.cleanup_job_dir(job_dir)
 

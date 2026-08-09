@@ -63,6 +63,8 @@ class DocumentProcessor:
         image_pdf_use_a4: bool = True,
         image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
         split_output_zip: bool = True,
+        split_page_groups: str | None = None,
+        split_chunk_size: int | None = None,
         document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
     ) -> ProcessingResult:
         if action in _IMAGE_PDF_ACTION_OPTIONS:
@@ -84,7 +86,13 @@ class DocumentProcessor:
         if action == SupportedAction.PDF_MERGE:
             return self.pdf.merge_pdfs(input_paths, output_stem, auto_rotate_pdf=auto_rotate_pdf)
         if action == SupportedAction.PDF_SPLIT:
-            return self.pdf.split_pdf_pages(input_paths[0], output_stem, output_as_zip=split_output_zip)
+            return self.pdf.split_pdf_pages(
+                input_paths[0],
+                output_stem,
+                output_as_zip=split_output_zip,
+                page_groups=split_page_groups,
+                chunk_size=split_chunk_size,
+            )
         if action == SupportedAction.PDF_GRAYSCALE:
             return self.pdf.pdf_to_grayscale(input_paths[0], output_stem, auto_rotate_pdf=auto_rotate_pdf)
         if action == SupportedAction.PDF_CROP:

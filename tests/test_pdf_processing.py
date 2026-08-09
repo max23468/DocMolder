@@ -139,6 +139,35 @@ class PdfProcessorTest(ProcessingTestCase):
         self.assertTrue(result.additional_outputs[0].path.exists())
         self.assertIn("PDF separati", result.message)
 
+    def test_split_pdf_pages_supports_custom_groups_and_fixed_chunks(self) -> None:
+        pdf_path = self.runtime_dir / "source_grouped.pdf"
+        writer = PdfWriter()
+        for _ in range(6):
+            writer.add_blank_page(width=200, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        grouped = self.processor.pdf.split_pdf_pages(pdf_path, "grouped", page_groups="1-2 | 3-6")
+        chunked = self.processor.pdf.split_pdf_pages(pdf_path, "chunked", chunk_size=2)
+
+        with zipfile.ZipFile(grouped.output_path) as archive:
+            page_counts = [len(PdfReader(BytesIO(archive.read(name))).pages) for name in archive.namelist()]
+        with zipfile.ZipFile(chunked.output_path) as archive:
+            chunk_counts = [len(PdfReader(BytesIO(archive.read(name))).pages) for name in archive.namelist()]
+        self.assertEqual(page_counts, [2, 4])
+        self.assertEqual(chunk_counts, [2, 2, 2])
+
+    def test_split_pdf_pages_rejects_custom_groups_that_omit_pages(self) -> None:
+        pdf_path = self.runtime_dir / "source_invalid_groups.pdf"
+        writer = PdfWriter()
+        for _ in range(4):
+            writer.add_blank_page(width=200, height=300)
+        with pdf_path.open("wb") as handle:
+            writer.write(handle)
+
+        with self.assertRaisesRegex(ProcessingUserError, "tutte le 4 pagine"):
+            self.processor.pdf.split_pdf_pages(pdf_path, "invalid_groups", page_groups="1-2 | 4")
+
     def test_reorder_pdf_pages_requires_full_unique_order(self) -> None:
         pdf_path = self.runtime_dir / "source_reorder.pdf"
         writer = PdfWriter()

@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -18,6 +19,8 @@ from docmolder.admin_reporting import (
     _maybe_send_admin_anomaly_alerts,
     _detect_admin_anomaly_alerts,
     _maybe_send_admin_report_for_period,
+    _is_periodic_admin_report_enabled,
+    _set_periodic_admin_report_enabled,
 )
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
@@ -68,6 +71,16 @@ class BotAdminReportsTest(unittest.IsolatedAsyncioTestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def test_periodic_report_toggle_defaults_on_and_avoids_backfill_when_reenabled(self) -> None:
+        self.assertTrue(_is_periodic_admin_report_enabled(self.deps, "daily"))
+        _set_periodic_admin_report_enabled(self.deps, "daily", False)
+        self.assertFalse(_is_periodic_admin_report_enabled(self.deps, "daily"))
+
+        _set_periodic_admin_report_enabled(self.deps, "daily", True, now=datetime(2026, 8, 9, 15, 0))
+
+        self.assertTrue(_is_periodic_admin_report_enabled(self.deps, "daily"))
+        self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-08-09")
 
     def test_build_admin_report_includes_processing_metrics(self) -> None:
         report = _build_admin_report(

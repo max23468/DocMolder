@@ -120,9 +120,10 @@ Non è:
 1. Il catalogo costruisce una analisi strutturata della sessione: inventario file, azioni supportate, azioni esposte, azioni consigliate, azioni avanzate, warning e prossimo passo.
 2. Recap e tastiera riusano la stessa analisi per evitare inferenze duplicate nello stesso passaggio.
 3. La tastiera azioni deriva dalla sessione corrente e mostra prima un set breve di azioni consigliate.
-4. Le azioni compatibili ma meno frequenti restano dietro `Altre azioni`, senza cambiare i callback storici delle singole azioni.
-5. I wizard di dettaglio mostrano solo le opzioni del passo corrente, ad esempio compressione, split, rotazione, profilo foto documento o impaginazione A4; se esiste un preset leggero compatibile, aggiungono una scorciatoia senza togliere le scelte manuali.
-6. La tastiera admin mostra scorciatoie agli ultimi job solo per gli stati presenti nel database.
+4. Le azioni compatibili ma meno frequenti restano dietro `Pagine e altre modifiche`; compressione e divisione espongono anche un avvio immediato con il default salvato.
+5. I wizard di dettaglio mostrano solo le opzioni del passo corrente e includono sempre un'uscita esplicita; se esiste un preset leggero compatibile, aggiungono una scorciatoia senza togliere le scelte manuali.
+6. I risultati PDF restano azionabili dal messaggio Telegram, ma non diventano automaticamente una nuova sessione persistita.
+7. La tastiera admin mostra scorciatoie agli ultimi job solo per gli stati presenti nel database e controlli indipendenti per i riepiloghi periodici.
 
 ### Storico e retry
 
@@ -133,9 +134,9 @@ Non è:
 
 ### Cancellazione dati live
 
-1. `/reset` resta il percorso per azzerare sessione, preferenze rapide e preset leggeri.
-2. Lo stesso flusso espone una cancellazione completa con conferma inline obbligatoria.
-3. La cancellazione completa rimuove dati live dell'utente: sessione, preferenze, preset, storico job personale, usage events e metadati utente.
+1. `/reset` azzera soltanto la sessione e il passaggio corrente.
+2. `/start privacy` espone separatamente ripristino di preferenze/preset e cancellazione completa con conferma inline obbligatoria.
+3. La cancellazione completa rimuove dati live dell'utente: sessione, preferenze, preset, storico job personale, usage events, flow events e metadati utente.
 4. Le voci audit che riferiscono l'utente vengono anonimizzate; i log restano sintetici.
 5. I backup SQLite già creati non vengono riscritti retroattivamente e scadono secondo la retention dei backup.
 

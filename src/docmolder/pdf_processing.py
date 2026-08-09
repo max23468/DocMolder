@@ -52,7 +52,13 @@ class PdfProcessor:
         )
 
     def split_pdf_pages(
-        self, pdf_path: Path, output_stem: str, *, output_as_zip: bool = True
+        self,
+        pdf_path: Path,
+        output_stem: str,
+        *,
+        output_as_zip: bool = True,
+        page_groups: str | None = None,
+        chunk_size: int | None = None,
     ) -> processing_models.ProcessingResult:
         reader = self._build_pdf_reader(pdf_path)
         total_pages = len(reader.pages)
@@ -66,21 +72,26 @@ class PdfProcessor:
             )
         pages_dir = pdf_path.parent / f"{output_stem}_pages"
         pages_dir.mkdir(parents=True, exist_ok=True)
+        groups = self._build_split_groups(pdf_path, total_pages, page_groups=page_groups, chunk_size=chunk_size)
         page_paths: list[Path] = []
-        page_digits = max(2, len(str(total_pages)))
-        for index, page in enumerate(reader.pages, start=1):
+        part_digits = max(2, len(str(len(groups))))
+        part_label = "pagina" if page_groups is None and chunk_size is None else "parte"
+        for index, group in enumerate(groups, start=1):
             page_writer = PdfWriter()
-            page_writer.add_page(page)
-            page_path = pages_dir / f"{output_stem}_pagina_{index:0{page_digits}d}.pdf"
+            for page_number in group:
+                page_writer.add_page(reader.pages[page_number - 1])
+            page_path = pages_dir / f"{output_stem}_{part_label}_{index:0{part_digits}d}.pdf"
             with page_path.open("wb") as handle:
                 page_writer.write(handle)
             page_paths.append(page_path)
+        forced_zip = (not output_as_zip) and len(page_paths) > 10
+        output_as_zip = output_as_zip or forced_zip
         if not output_as_zip:
             first_path, *additional_paths = page_paths
             return processing_models.ProcessingResult(
                 output_path=first_path,
                 output_name=first_path.name,
-                message=f"PDF pronto. Ho diviso il documento in {total_pages} file e te li invio come PDF separati.",
+                message=f"PDF pronto. Ho diviso il documento in {len(page_paths)} file e te li invio come PDF separati.",
                 processing_mode="native",
                 additional_outputs=[
                     processing_models.ProcessingOutput(path=page_path, name=page_path.name)
@@ -91,12 +102,42 @@ class PdfProcessor:
         with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for page_path in page_paths:
                 archive.write(page_path, arcname=page_path.name)
+        mode_label = "uno per pagina" if page_groups is None and chunk_size is None else "secondo i gruppi richiesti"
+        message = f"PDF pronto. Ho creato {len(page_paths)} file, {mode_label}, raccolti in un archivio ZIP."
+        if forced_zip:
+            message += " Ho usato lo ZIP per evitare di inviare più di 10 allegati separati."
         return processing_models.ProcessingResult(
             output_path=archive_path,
             output_name=archive_path.name,
-            message=f"PDF pronto. Ho diviso il documento in {total_pages} file, uno per pagina, raccolti in un archivio ZIP.",
+            message=message,
             processing_mode="native",
         )
+
+    def _build_split_groups(
+        self, pdf_path: Path, total_pages: int, *, page_groups: str | None, chunk_size: int | None
+    ) -> list[list[int]]:
+        if page_groups is not None and chunk_size is not None:
+            raise processing_models.ProcessingUserError("Scegli gruppi personalizzati oppure blocchi da N pagine.")
+        if chunk_size is not None:
+            if chunk_size < 1 or chunk_size >= total_pages:
+                raise processing_models.ProcessingUserError(
+                    f"Scegli un numero tra 1 e {total_pages - 1} pagine per ogni file."
+                )
+            return [list(range(start, min(start + chunk_size, total_pages + 1))) for start in range(1, total_pages + 1, chunk_size)]
+        if page_groups is None:
+            return [[page_number] for page_number in range(1, total_pages + 1)]
+        raw_groups = [item.strip() for item in re.split(r"[|;]", page_groups) if item.strip()]
+        if len(raw_groups) < 2:
+            raise processing_models.ProcessingUserError(
+                "Indica almeno due gruppi separati da |, ad esempio 1-3 | 4-6."
+            )
+        groups = [self._parse_page_selection(item, pdf_path, mode="selection") for item in raw_groups]
+        flattened = [page for group in groups for page in group]
+        if len(flattened) != total_pages or set(flattened) != set(range(1, total_pages + 1)):
+            raise processing_models.ProcessingUserError(
+                f"I gruppi devono includere tutte le {total_pages} pagine una sola volta. Esempio: 1-3 | 4-{total_pages}."
+            )
+        return groups
 
     def pdf_to_grayscale(
         self, pdf_path: Path, output_stem: str, auto_rotate_pdf: bool = True

@@ -38,7 +38,7 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Compressione PDF solo su richiesta
 - Feedback pratico quando la compressione riduce poco o non conviene
 - Unione PDF
-- Divisione PDF in un file per pagina, con scelta tra ZIP unico e PDF separati
+- Divisione PDF per pagina, gruppi personalizzati o blocchi da N pagine, con ZIP o allegati separati quando il volume è contenuto
 - Estrazione pagine da un PDF
 - Riordino pagine di un PDF
 - Eliminazione pagine da un PDF
@@ -53,8 +53,8 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 - Preset leggeri per scelte ricorrenti di compressione, split e immagini verso PDF, senza salvare contenuti o nomi file
 - Self-service essenziale con `/start`, `/help`, `/history`, `/status` e `/reset`
 - Deep link Telegram essenziali per guida, storico e stato
-- Console admin Telegram accorpata in `/admin`, con queue, health, metrics, manutenzione, access review, pause/resume e scorciatoie inline
-- Metriche Telegram leggere e alert admin meno rumorosi
+- Console admin Telegram accorpata in `/admin`, con queue, health, metrics, manutenzione, access review, pause/resume e toggle indipendenti dei riepiloghi giornalieri e settimanali
+- Metriche Telegram e funnel privacy-safe, con retention breve e senza nomi o contenuti dei documenti
 - Nomi output più leggibili, derivati dal file sorgente e dall'azione eseguita
 
 ## Flusso utente
@@ -62,8 +62,8 @@ Questo perimetro serve come filtro per la roadmap: accettiamo soprattutto evoluz
 1. L'utente invia uno o più file.
 2. Il bot riconosce il contesto della sessione.
 3. Il bot propone solo azioni compatibili con i file ricevuti.
-4. L'utente sceglie l'azione con pulsanti inline.
-5. Il bot elabora e restituisce il risultato.
+4. L'utente sceglie l'azione con pulsanti inline; compressione e divisione possono partire subito con l'ultima scelta salvata.
+5. Il bot elabora e restituisce il risultato, lasciando il lavoro successivo vuoto finché l'utente non sceglie esplicitamente di continuare sul PDF ottenuto.
 6. I file temporanei vengono cancellati automaticamente.
 
 ## Sicurezza operativa
@@ -85,7 +85,7 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - creazione PDF da immagini
 - scelta guidata A4 / formato originale per i PDF creati da immagini
 - unione PDF
-- divisione PDF in un file per pagina, con scelta tra ZIP unico e PDF separati
+- divisione PDF per pagina, gruppi personalizzati o blocchi da N pagine; oltre 10 output separati il bot usa automaticamente uno ZIP
 - estrazione pagine PDF
 - riordino pagine PDF
 - eliminazione pagine PDF
@@ -100,8 +100,8 @@ Questo repository contiene già una prima implementazione funzionante del flusso
 - raddrizzamento foto documento con feedback su foto scure, sfocate o bordo incerto
 - storico lavori utente con recupero rapido del job via rilancio
 - self-service utente con `/start`, `/help`, `/history`, `/status` e `/reset`
-- tastiere inline contestuali: azioni consigliate in evidenza, azioni avanzate dietro espansione
-- console admin Telegram live accorpata in `/admin`, con dashboard inline per queue, health, maintenance, metrics, access review, pause/resume e ultimi job disponibili
+- tastiere inline contestuali: azioni consigliate in evidenza, annulla/indietro nei wizard e gestione ordine/rimozione nei batch di unione
+- console admin Telegram live accorpata in `/admin`, con dashboard inline per queue, health, maintenance, metrics, access review, pause/resume, riepiloghi periodici e ultimi job disponibili
 - metriche e retry Bot API per i flussi Telegram più sensibili
 
 ## Nota sul motore PDF attuale
@@ -243,11 +243,11 @@ Comandi utente:
 - `/help` per guida rapida, limiti, dati e flussi consigliati
 - `/history` per vedere gli ultimi job personali, aprirne i dettagli essenziali o rilanciarli
 - `/status` per vedere accesso, service mode, sessione corrente, coda personale e ultimo job
-- `/reset` per azzerare sessione, ultime scelte rapide e preset, con opzione di cancellazione dati live
+- `/reset` per iniziare un nuovo lavoro senza cancellare preferenze, preset o storico
 
 Deep link pubblico utile:
 
-- `/start privacy` per riepilogo sintetico su dati, retention, limiti e cancellazione
+- `/start privacy` per riepilogo sintetico su dati e retention, ripristino delle preferenze e cancellazione completa dei dati live
 
 Comando admin nascosto dalla lista pubblica:
 

@@ -72,7 +72,7 @@ Motivazione:
   coerenti con il perimetro prudente del servizio
 
 Conseguenze:
-- Fase 9 ha chiuso retention live, pruning e cancellazione completa self-service dentro `/reset`
+- Fase 9 ha chiuso retention live, pruning e cancellazione completa self-service; il reset operativo resta separato dalla gestione dati esposta in `/start privacy`
 - Fase 10 ha rafforzato onboarding, privacy pubblica e sito statico senza introdurre una web app
 - Fase 11 ha introdotto preset automatici leggeri e cancellabili, senza salvare contenuti o nomi file
 - Fase 12 ha migliorato scansioni dentro "Raddrizza foto documento", lasciando OCR fuori dal perimetro pubblico

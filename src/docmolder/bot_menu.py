@@ -11,6 +11,7 @@ from docmolder.keyboards import (
     build_main_menu_keyboard,
     build_rotate_keyboard,
     build_split_output_keyboard,
+    build_delete_data_request_keyboard,
 )
 from docmolder.messages import (
     HELP_MESSAGE,
@@ -82,7 +83,11 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
     except ValueError:
         await query.edit_message_text(bot_runtime._invalid_callback_message())
         return
+    deps.session_store.record_flow_event(user.id, session.created_at.isoformat(), "action_selected", action)
     if action == SupportedAction.PDF_COMPRESS.value:
+        session.pending_action = action
+        session.touch()
+        deps.session_store.save(session)
         await query.edit_message_text(
             _build_compression_prompt(user.id, deps),
             reply_markup=build_compression_keyboard(
@@ -91,6 +96,9 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         )
         return
     if action == SupportedAction.PDF_ROTATE.value:
+        session.pending_action = action
+        session.touch()
+        deps.session_store.save(session)
         await query.edit_message_text(
             "Di quanti gradi vuoi ruotare tutte le pagine del PDF?", reply_markup=build_rotate_keyboard()
         )
@@ -126,6 +134,9 @@ async def handle_action_callback(update: Update, context: ContextTypes.DEFAULT_T
         await query.edit_message_text(bot_runtime._build_pending_action_prompt(SupportedAction(action)))
         return
     if bot_runtime._is_image_pdf_action(resolved_action):
+        session.pending_action = bot_sessions._build_images_pdf_layout_pending_action(resolved_action)
+        session.touch()
+        deps.session_store.save(session)
         await query.edit_message_text(
             _build_image_pdf_layout_prompt(user.id, deps),
             reply_markup=build_images_pdf_layout_keyboard(
@@ -194,6 +205,58 @@ async def handle_compression_callback(update: Update, context: ContextTypes.DEFA
     )
 
 
+async def handle_quick_action_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = bot_runtime._get_dependencies(context)
+    bot_runtime._purge_expired_sessions(deps)
+    query = update.callback_query
+    await bot_runtime._safe_answer_callback(query)
+    user = query.from_user
+    if not _is_authorized_for_deps(user.id if user else None, deps):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if bot_runtime._is_service_paused(deps) and (not _is_admin(user.id if user else None, deps.settings)):
+        await query.edit_message_text(bot_runtime._build_service_unavailable_message())
+        return
+    session = deps.session_store.get(user.id)
+    if session is None or not session.files:
+        await query.edit_message_text(SESSION_EMPTY_MESSAGE)
+        return
+    try:
+        action = SupportedAction((query.data or "").removeprefix("quick:"))
+    except ValueError:
+        await query.edit_message_text(bot_runtime._invalid_callback_message())
+        return
+    deps.session_store.record_flow_event(user.id, session.created_at.isoformat(), "action_selected", action.value)
+    if action not in {SupportedAction.PDF_COMPRESS, SupportedAction.PDF_SPLIT} or action not in infer_supported_actions(session):
+        await query.edit_message_text("Questa azione non è più compatibile con il lavoro corrente.")
+        return
+    if not job_flow.has_capacity_for_new_job(user.id, deps):
+        await query.edit_message_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
+        return
+    kwargs = {}
+    if action == SupportedAction.PDF_COMPRESS:
+        kwargs["compression_preset"] = bot_runtime._resolve_compression_preset_for_job(deps, user.id, None)
+    else:
+        kwargs["split_output_zip"] = bot_runtime._get_stored_split_output_choice(deps, user.id) != "files"
+    job = await job_flow.enqueue_job(
+        deps=deps,
+        user_id=user.id,
+        chat_id=query.message.chat_id,
+        reply_to_message_id=query.message.message_id,
+        action=action,
+        session=session,
+        **kwargs,
+    )
+    deps.session_store.delete(user.id)
+    if action == SupportedAction.PDF_COMPRESS:
+        await query.edit_message_text(
+            bot_runtime._build_text_request_queued_message(action, job.id, kwargs["compression_preset"])
+        )
+    else:
+        detail = "ZIP" if kwargs.get("split_output_zip") else "PDF separati"
+        await query.edit_message_text(bot_runtime._build_pending_action_queued_message(action, job.id, detail))
+
+
 async def handle_split_output_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     deps = bot_runtime._get_dependencies(context)
     bot_runtime._purge_expired_sessions(deps)
@@ -218,6 +281,21 @@ async def handle_split_output_callback(update: Update, context: ContextTypes.DEF
         await query.edit_message_text(
             "Questa scelta non è più compatibile con la sessione corrente. Inviami un singolo PDF oppure usa /reset per ripartire."
         )
+        return
+    if output_choice in {"groups", "chunks"}:
+        session.pending_action = (
+            bot_runtime._PENDING_PDF_SPLIT_GROUPS
+            if output_choice == "groups"
+            else bot_runtime._PENDING_PDF_SPLIT_CHUNKS
+        )
+        session.touch()
+        deps.session_store.save(session)
+        prompt = (
+            "Scrivi i gruppi separati da |. Ogni pagina deve comparire una sola volta.\nEsempio: 1-3 | 4-6 | 7-10."
+            if output_choice == "groups"
+            else "Quante pagine vuoi in ogni PDF? Scrivi un numero intero, ad esempio 5."
+        )
+        await query.edit_message_text(prompt)
         return
     if not job_flow.has_capacity_for_new_job(user.id, deps):
         await query.edit_message_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
@@ -316,6 +394,9 @@ async def handle_images_pdf_layout_callback(update: Update, context: ContextType
         await query.edit_message_text("Questa opzione non è supportata per il PDF richiesto.")
         return
     if layout_choice == "a4":
+        session.pending_action = bot_sessions._build_images_pdf_margin_pending_action(action)
+        session.touch()
+        deps.session_store.save(session)
         await query.edit_message_text(
             "Che bordi vuoi nell'impaginazione A4?", reply_markup=build_images_pdf_margin_keyboard(action.value)
         )
@@ -483,13 +564,10 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
     await bot_runtime._maybe_notify_admins_about_new_user(user, context)
     text = (message.text or "").strip()
-    if text == "Sessione attiva":
-        await bot_sessions.status_command(update, context)
-        return
     if text == "Storico lavori":
         await bot_results.history_command(update, context)
         return
-    if text == "Azzera sessione":
+    if text == "Nuovo lavoro":
         await bot_sessions.reset_command(update, context)
         return
     if text == "Guida rapida":
@@ -518,6 +596,9 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 await message.reply_text(text_request.message or "Dimmi meglio quale operazione vuoi eseguire.")
                 return
             if text_request.kind == "pending" and text_request.action is not None:
+                deps.session_store.record_flow_event(
+                    user.id, session.created_at.isoformat(), "action_selected", text_request.action.value
+                )
                 session.pending_action = text_request.action.value
                 session.touch()
                 deps.session_store.save(session)
@@ -539,6 +620,9 @@ async def handle_menu_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     "Non ho capito abbastanza bene la richiesta. Prova a riformularla in modo più diretto."
                 )
                 return
+            deps.session_store.record_flow_event(
+                user.id, session.created_at.isoformat(), "action_selected", action.value
+            )
             if not job_flow.has_capacity_for_new_job(user.id, deps):
                 await message.reply_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
                 return
@@ -631,7 +715,7 @@ async def _handle_start_payload(
         await message.reply_text(HELP_MESSAGE, reply_markup=build_main_menu_keyboard())
         return True
     if payload in {"privacy", "dati", "data"}:
-        await message.reply_text(_build_policy_message(deps), reply_markup=build_main_menu_keyboard())
+        await message.reply_text(_build_policy_message(deps), reply_markup=build_delete_data_request_keyboard())
         return True
     if payload == "history":
         jobs = deps.session_store.list_user_jobs(user_id, limit=5)
@@ -682,7 +766,11 @@ def _build_split_output_prompt(user_id: int, deps: bot_runtime.BotDependencies) 
         saved_note = "\nUltima scelta rapida salvata: PDF separati."
     else:
         saved_note = ""
-    return f"{bot_runtime._build_pending_action_prompt(SupportedAction.PDF_SPLIT)}{saved_note}"
+    return (
+        "Come vuoi dividere il PDF? Puoi creare un file per pagina in ZIP o come allegati separati, "
+        "gruppi personalizzati oppure blocchi da N pagine."
+        f"{saved_note}"
+    )
 
 
 def _build_document_photo_mode_prompt() -> str:
@@ -711,8 +799,8 @@ def _build_policy_message(deps: bot_runtime.BotDependencies) -> str:
         "- il database conserva metadati tecnici dei job, preferenze minime, audit admin e metriche operative\n"
         "- il contenuto dei documenti non viene scritto nei log e non va inserito in issue, test o report\n\n"
         "Cancellazione:\n"
-        "- /reset azzera sessione, preferenze rapide e preset leggeri\n"
-        "- dallo stesso percorso puoi cancellare tutti i dati live con conferma inline\n"
+        "- /reset inizia un nuovo lavoro senza toccare preferenze, preset o storico\n"
+        "- da /start privacy puoi ripristinare le preferenze o cancellare tutti i dati live con conferma inline\n"
         "- i backup tecnici già creati non vengono riscritti e scadono con la loro retention breve\n\n"
         "Preset:\n"
         "- salvo solo impostazioni operative ripetute, come compressione, layout immagini PDF e output split\n"

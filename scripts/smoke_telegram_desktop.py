@@ -73,8 +73,9 @@ def build_plan(plan_name: str, assets: dict[str, Path]) -> list[Step]:
             Step("text", "/reset", 1.0),
             Step("file", str(assets["pdf"]), 1.2),
             Step("text", "Comprimi PDF", 1.0),
+            Step("text", "media", 1.0),
             Step("wait", "4.0", 4.0),
-            Step("text", "Scala di grigi", 1.0),
+            Step("manual", "Tocca “Scala di grigi” sotto il PDF risultato", 0.0),
         ],
         "history": [
             Step("text", "/history", 1.0),
@@ -96,7 +97,7 @@ def build_plan(plan_name: str, assets: dict[str, Path]) -> list[Step]:
         return [
             *plans["wizard-a4"],
             Step("wait", "4.0", 4.0),
-            Step("text", "Scala di grigi", 1.0),
+            Step("manual", "Tocca “Scala di grigi” sotto il PDF risultato", 0.0),
             *plans["history"],
         ]
     if plan_name not in plans:
@@ -203,6 +204,8 @@ def execute_plan(
             send_file(Path(step.value))
         elif step.kind == "wait":
             pass
+        elif step.kind == "manual":
+            input(f"Azione manuale richiesta: {step.value}. Premi Invio quando hai finito...")
         else:
             raise ValueError(f"Tipo step non supportato: {step.kind}")
         if pause_between_steps:

@@ -101,7 +101,9 @@ Contiene:
 - preferenze auto-rotate
 - layout immagini verso PDF
 - preferenza ZIP nello split
+- gruppi pagina o dimensione dei blocchi nello split
 - profilo foto documento, quando diverso dal default leggibilità
+- `flow_id` tecnico che correla upload, scelta ed esito senza includere nomi o contenuti dei documenti
 
 Uso:
 
@@ -162,13 +164,14 @@ Contiene:
 - sessioni eliminate
 - job eliminati
 - usage events eliminati
+- flow events eliminati
 - utente noto eliminato
 - metadati `app_meta` eliminati
 - voci audit anonimizzate
 
 Uso:
 
-- esito strutturato della cancellazione self-service dei dati live da `/reset`
+- esito strutturato della cancellazione self-service dei dati live da `/start privacy`
 - log operativo sintetico senza includere contenuti documento o identificativi utente nel messaggio finale
 
 ## Tabelle SQLite
@@ -222,6 +225,18 @@ Campi principali:
 
 Serve a metriche aggregate e report.
 
+### `flow_events`
+
+Campi principali:
+
+- `user_id`
+- `flow_id`
+- `event_type`
+- `action`, opzionale
+- `created_at`
+
+Serve a ricostruire funnel tecnici tra upload, scelta, accodamento, esito, annullamento e nuovo lavoro. Non contiene nomi file, testo estratto, contenuti documento o payload job; viene potato con `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS` e rimosso dalla cancellazione self-service.
+
 ### `app_meta`
 
 Campi:
@@ -234,6 +249,7 @@ Uso:
 - metriche Telegram aggregate
 - stato applicativo leggero
 - flag operativi come manutenzione o alert recenti
+- flag `admin_report_daily_enabled` e `admin_report_weekly_enabled`, attivi per default e indipendenti dagli alert di anomalia
 - accesso dinamico utente con chiavi `access:<telegram_user_id>:status`
 - stato anti-burst upload con chiavi `upload_burst:<telegram_user_id>`, contenente solo timestamp recenti della finestra di rate limit
 - preferenze rapide e preset con chiavi utente come `user_pref:<telegram_user_id>:*` e `user_preset:<telegram_user_id>:*`
@@ -331,7 +347,8 @@ Questi asset devono restare nel runtime temporaneo e sotto cleanup.
 Regole correnti:
 
 - lo storico job live dei record conclusi viene potato da `docmolder-reconcile` oltre `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`, default 30 giorni
-- la cancellazione completa da `/reset` rimuove i dati live dell'utente: sessione, file di sessione, preferenze, preset, storico job personale, usage events, known user e metadati utente in `app_meta`
+- `/reset` rimuove soltanto la sessione corrente; la cancellazione completa da `/start privacy` rimuove sessione, file di sessione, preferenze, preset, storico job personale, usage events, flow events, known user e metadati utente in `app_meta`
+- i flow events vengono potati automaticamente oltre `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS`, default 30 giorni
 - i backup SQLite già creati non vengono riscritti retroattivamente dalla cancellazione self-service; scadono tramite la retention breve dei backup
 - audit e log devono restare sintetici e non contenere documenti, payload completi o contenuti utente
 - le metriche admin includono utenti attivi recenti, job conclusi 24h, failure rate 24h e job lenti senza leggere contenuti documento

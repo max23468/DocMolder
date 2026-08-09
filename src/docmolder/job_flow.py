@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Protocol
@@ -42,6 +43,8 @@ async def enqueue_job(
     image_pdf_use_a4: bool = True,
     image_pdf_margin_px: int = A4_MARGIN_NARROW_PX,
     split_output_zip: bool = True,
+    split_page_groups: str | None = None,
+    split_chunk_size: int | None = None,
     document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
 ) -> JobRecord:
     session_analysis = infer_session_analysis(session)
@@ -58,6 +61,8 @@ async def enqueue_job(
         image_pdf_use_a4=image_pdf_use_a4,
         image_pdf_margin_px=image_pdf_margin_px,
         split_output_zip=split_output_zip,
+        split_page_groups=split_page_groups,
+        split_chunk_size=split_chunk_size,
         document_photo_mode=document_photo_mode,
     )
     job = deps.session_store.create_job(
@@ -67,6 +72,7 @@ async def enqueue_job(
         action=action.value,
         payload_json=payload.to_json(),
     )
+    deps.session_store.record_flow_event(user_id, payload.flow_id or f"job:{job.id}", "queued", action.value)
     await deps.job_queue.put(job.id)
     return job
 
@@ -81,6 +87,7 @@ async def enqueue_job_from_existing_payload(
     payload = JobPayload.from_json(source_job.payload_json)
     if auto_rotate_pdf is not None:
         payload.auto_rotate_pdf = auto_rotate_pdf
+    payload.flow_id = f"rerun:{source_job.id}:{datetime.now(timezone.utc).isoformat()}"
     job = deps.session_store.create_job(
         user_id=source_job.user_id,
         chat_id=source_job.chat_id,
@@ -88,6 +95,9 @@ async def enqueue_job_from_existing_payload(
         action=source_job.action,
         payload_json=payload.to_json(),
         rerun_of_job_id=source_job.id,
+    )
+    deps.session_store.record_flow_event(
+        source_job.user_id, payload.flow_id, "queued", source_job.action
     )
     await deps.job_queue.put(job.id)
     return job
@@ -131,5 +141,7 @@ async def run_job_payload(
         payload.image_pdf_use_a4,
         payload.image_pdf_margin_px if payload.image_pdf_margin_px is not None else A4_MARGIN_NARROW_PX,
         payload.split_output_zip,
+        payload.split_page_groups,
+        payload.split_chunk_size,
         payload.document_photo_mode,
     )

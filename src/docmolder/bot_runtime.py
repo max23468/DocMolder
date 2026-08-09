@@ -60,6 +60,8 @@ _build_text_request_queued_message = build_text_request_queued_message
 _PENDING_IMAGES_PDF_LAYOUT_PREFIX = "images_pdf_layout"
 _PENDING_IMAGES_PDF_MARGIN_PREFIX = "images_pdf_margin"
 _PENDING_DOCUMENT_PHOTO_MODE = "document_photo_mode"
+_PENDING_PDF_SPLIT_GROUPS = "pdf_split_groups"
+_PENDING_PDF_SPLIT_CHUNKS = "pdf_split_chunks"
 _SERVICE_MODE_META_KEY = "service_mode"
 _SERVICE_MODE_NORMAL = "normal"
 _SERVICE_MODE_MAINTENANCE = "maintenance"
@@ -574,13 +576,18 @@ def _infer_document_kind(document: Document) -> FileKind | None:
 
 
 def _build_admin_keyboard(deps: BotDependencies) -> InlineKeyboardMarkup:
+    from docmolder.admin_reporting import _is_periodic_admin_report_enabled
+
     available_statuses = {
         status
         for status in (JobStatus.FAILED, JobStatus.RUNNING, JobStatus.QUEUED, JobStatus.SUCCEEDED)
         if deps.session_store.list_recent_jobs(limit=1, statuses=(status,))
     }
     return build_admin_dashboard_keyboard(
-        service_paused=_is_service_paused(deps), available_job_statuses=available_statuses
+        service_paused=_is_service_paused(deps),
+        available_job_statuses=available_statuses,
+        daily_reports_enabled=_is_periodic_admin_report_enabled(deps, "daily"),
+        weekly_reports_enabled=_is_periodic_admin_report_enabled(deps, "weekly"),
     )
 
 

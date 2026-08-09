@@ -30,14 +30,14 @@ TELEGRAM_COMMANDS: tuple[tuple[str, str], ...] = (
     ("help", "Guida rapida e flussi consigliati"),
     ("history", "Rivedi gli ultimi lavori"),
     ("status", "Controlla la sessione corrente"),
-    ("reset", "Azzera sessione e scorciatoie"),
+    ("reset", "Inizia un nuovo lavoro"),
 )
 
 MAIN_MENU_ROWS: tuple[tuple[str, str], ...] = (
     ("Guida rapida", "Crea PDF"),
     ("Comprimi PDF", "Unisci PDF"),
-    ("Foto in A4", "Scansiona e comprimi"),
-    ("Storico lavori", "Sessione attiva"),
+    ("Foto in A4", "Dividi PDF"),
+    ("Storico lavori", "Nuovo lavoro"),
 )
 
 MAIN_MENU_PLACEHOLDER = "Invia PDF, immagini o Excel, oppure scegli un'azione rapida"

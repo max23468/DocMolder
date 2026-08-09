@@ -107,7 +107,7 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(sent_paths), 1)
         self.assertFalse(sent_paths[0].exists())
 
-    async def test_process_job_saves_result_pdf_as_new_session(self) -> None:
+    async def test_process_job_does_not_turn_result_pdf_into_active_session(self) -> None:
         job = self.store.create_job(
             user_id=7,
             chat_id=99,
@@ -137,9 +137,7 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
         ):
             await _process_job(self.application, job.id)
 
-        saved_session = self.store.get(7)
-        self.assertIsNotNone(saved_session)
-        self.assertEqual(saved_session.files[0].telegram_file_id, "result-file-id")
+        self.assertIsNone(self.store.get(7))
 
     async def test_process_job_sums_multiple_result_outputs_without_result_session(self) -> None:
         job = self.store.create_job(

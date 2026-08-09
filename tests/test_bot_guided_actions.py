@@ -29,6 +29,7 @@ from docmolder.processing import DocumentProcessor
 from docmolder.models import FileKind, SupportedAction, UserSession
 from docmolder.in_memory_session_store import InMemorySessionStore
 from docmolder.action_catalog import build_session_file
+from docmolder.bot_sessions import handle_session_callback
 
 
 class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
@@ -122,6 +123,31 @@ class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertIn("Meno azioni", labels)
         self.assertIn("Aggiungi watermark", labels)
+
+    async def test_merge_session_controls_reorder_and_remove_files(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[
+                    build_session_file("pdf-1", "primo.pdf", FileKind.PDF),
+                    build_session_file("pdf-2", "secondo.pdf", FileKind.PDF),
+                ],
+            )
+        )
+        query = SimpleNamespace(
+            data="session:move:1:up",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=701),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+
+        await handle_session_callback(
+            SimpleNamespace(callback_query=query), SimpleNamespace(application=self.application, bot=self.bot)
+        )
+
+        self.assertEqual([item.file_name for item in self.store.get(7).files], ["secondo.pdf", "primo.pdf"])
+        self.assertIn("1. secondo.pdf", query.edit_message_text.await_args.args[0])
 
     async def test_excel_unlock_action_callback_enqueues_job(self) -> None:
         self.store.save(

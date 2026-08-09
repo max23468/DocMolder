@@ -60,12 +60,13 @@ Per l'unione:
 - il bot richiede almeno due PDF
 - può preparare i documenti con auto-orientamento prima della fusione
 - produce un unico output PDF finale
+- l'ordine coincide con l'elenco mostrato in chat; prima del job ogni file può essere spostato o rimosso
 
 ### Operazioni native su singolo PDF
 
 Per un singolo PDF il bot supporta anche:
 
-- divisione del PDF in un file per pagina, con scelta tra archivio ZIP e PDF separati
+- divisione del PDF in un file per pagina, in gruppi personalizzati come `1-3 | 4-6`, oppure in blocchi da N pagine
 - ritaglio conservativo dei bordi uniformi del PDF, tramite cropbox nativo delle pagine quando il contenuto e rilevabile
 - estrazione pagine
 - riordino completo delle pagine
@@ -76,7 +77,7 @@ Per un singolo PDF il bot supporta anche:
 Questi flussi:
 
 - restano nativi, senza passare da rasterizzazione
-- quando producono più output, possono raccoglierli in un unico ZIP oppure inviarli come file separati se l'utente lo preferisce
+- quando producono più output, possono raccoglierli in un unico ZIP oppure inviarli come file separati; oltre 10 allegati il bot usa automaticamente lo ZIP per evitare raffiche di messaggi
 - chiedono in chat solo il minimo input necessario, per esempio `1,3,5-7` oppure un testo semplice
 - validano in modo esplicito selezioni pagina, ordine completo o gradi ammessi
 

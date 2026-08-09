@@ -36,13 +36,20 @@ class SmokeTelegramDesktopScriptTest(unittest.TestCase):
 
             self.assertGreaterEqual(len(steps), 8)
             self.assertEqual(steps[0].value, "/reset")
-            self.assertIn("Scala di grigi", [step.value for step in steps if step.kind == "text"])
+            self.assertTrue(any(step.kind == "manual" and "Scala di grigi" in step.value for step in steps))
             self.assertIn("/history", [step.value for step in steps if step.kind == "text"])
 
     def test_supported_plans_are_exposed(self) -> None:
         self.assertIn("full", SUPPORTED_PLANS)
         self.assertIn("wizard-a4", SUPPORTED_PLANS)
         self.assertIn("public-trust", SUPPORTED_PLANS)
+
+    def test_pdf_followup_uses_a_level_then_the_result_button(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            steps = build_plan("pdf-followup", build_assets(Path(temp_dir)))
+
+        self.assertIn("media", [step.value for step in steps if step.kind == "text"])
+        self.assertTrue(any(step.kind == "manual" and "Scala di grigi" in step.value for step in steps))
 
     def test_public_trust_plan_covers_public_commands_and_reset(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

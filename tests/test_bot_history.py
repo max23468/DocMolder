@@ -331,6 +331,37 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("compressione PDF", reply_text.await_args.args[0])
         self.assertIsNotNone(reply_text.await_args.kwargs["reply_markup"])
 
+    async def test_result_callback_can_expand_actions_or_start_a_merge(self) -> None:
+        message = SimpleNamespace(
+            chat_id=99,
+            message_id=323,
+            document=SimpleNamespace(
+                file_id="telegram-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"
+            ),
+            reply_text=AsyncMock(),
+        )
+        query = SimpleNamespace(
+            data="result:more",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=message,
+            answer=AsyncMock(),
+            edit_message_reply_markup=AsyncMock(),
+        )
+        context = SimpleNamespace(application=self.application, bot=self.bot)
+
+        await handle_result_action_callback(SimpleNamespace(callback_query=query), context)
+
+        labels = [
+            button.text
+            for row in query.edit_message_reply_markup.await_args.kwargs["reply_markup"].inline_keyboard
+            for button in row
+        ]
+        self.assertIn("Aggiungi watermark", labels)
+        query.data = "result:merge"
+        await handle_result_action_callback(SimpleNamespace(callback_query=query), context)
+        self.assertEqual(self.store.get(7).pending_action, "pdf_merge")
+        self.assertIn("pronto per l'unione", message.reply_text.await_args.args[0])
+
     async def test_result_callback_reports_missing_pdf_without_starting_session(self) -> None:
         reply_text = AsyncMock()
         message = SimpleNamespace(
