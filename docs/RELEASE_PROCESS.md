@@ -38,16 +38,15 @@ manuale (procedura release manuale documentata) o manutenzione esplicita del flu
 Regole operative essenziali:
 
 - branch focalizzati su una singola modifica logica
-- nessun push diretto su `main` (salvo eccezioni esplicitamente documentate)
+- nessun push diretto su `main`
 - PR con titolo in formato Conventional Commits
 - squash merge su `main`
 - la review umana esterna non è requisito formale nel contesto maintainer singolo: si richiedono self-review, CI locale, `CI result` e `codex-review` secondo il flusso.
-- eccezione: modifiche minuscole solo documentali (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`) si pubblicano direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR
+- le modifiche solo documentali (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`) usano comunque branch e PR tramite `make publish-docs TITLE="chore(docs): <descrizione>"`; deploy e release non sono applicabili
 - niente bump manuali di versione o changelog nelle PR normali
 - per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"`: di default crea una PR pronta, non draft, e si ferma con il prossimo passo operativo
 - usa `DOCMOLDER_PUBLISH_DRAFT=1` solo quando vuoi aprire una PR draft esplicita
 - usa `DOCMOLDER_PUBLISH_MERGE=1` solo quando vuoi un merge assistito dopo gate locali e controllo commenti bot
-- usa `DOCMOLDER_USE_GH_ACTIONS=1` solo se vuoi il fallback legacy locale di watch/check/ready/auto-merge basato su Actions
 - prima di aprire o aggiornare una PR puoi usare `scripts/publish_doctor.py --fail`, ma il comando di publish lo esegue già automaticamente
 - prima di inseguire una run failed, controllare solo branch e SHA correnti con `scripts/current_failed_runs.py`
 - i dettagli della policy vivono in [VERSIONING.md](./VERSIONING.md)

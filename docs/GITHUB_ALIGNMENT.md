@@ -58,8 +58,9 @@ Anche da solo conviene mantenere un mini-flusso PR:
 5. lasciare release, changelog e tag al passaggio manuale con la procedura release manuale documentata
 6. usare i workflow deploy solo come fallback manuali espliciti
 
-Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre con branch dedicato + PR + squash merge.
-Eccezione operativa: per modifiche minuscole, solo documentali e a basso rischio (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`), il maintainer può pubblicare direttamente da `main` con `make publish-docs TITLE="chore(docs): <descrizione>"`, che esegue preflight/check mirati e salta branch/PR.
+Regola pratica: `main` non si usa per push diretti. Anche da solo, lavora sempre
+con branch dedicato + PR + squash merge; `make publish-docs` applica lo stesso
+flusso anche alle modifiche documentali minime.
 
 Vantaggi principali:
 
