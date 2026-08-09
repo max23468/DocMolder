@@ -8,6 +8,12 @@ Il changelog segue un flusso orientato a GitHub:
 - le release sono preparate manualmente secondo la procedura canonica documentata
 - il contenuto deriva dai merge su `main` con titolo/commit in formato Conventional Commits
 
+## [2.1.0](https://github.com/max23468/DocMolder/compare/v2.0.15...v2.1.0) (2026-08-09)
+
+### Funzionalità
+
+* **bot:** riduce i passaggi dei flussi documentali, rende più comode unione e divisione PDF, aggiunge azioni sui risultati, controlli admin per i riepiloghi e metriche privacy-safe sui flussi Telegram ([#271](https://github.com/max23468/DocMolder/pull/271)) ([34d3665](https://github.com/max23468/DocMolder/commit/34d3665caab2f8753147f42da9ca8d98d3d39be9))
+
 ## [2.0.15](https://github.com/max23468/DocMolder/compare/v2.0.14...v2.0.15) (2026-08-06)
 
 ### Documentazione
