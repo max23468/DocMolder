@@ -10,7 +10,8 @@ Il bot è pubblico e raggiungibile da [`@docmolder_bot`](https://t.me/docmolder_
 - `/help`: mostra guida rapida, limiti pubblici, dati e flussi consigliati.
 - `/history`: mostra gli ultimi job personali, con dettaglio e rilancio.
 - `/status`: mostra accesso, service mode, sessione corrente, coda personale e ultimo job.
-- `/reset`: azzera sessione, preferenze rapide e preset leggeri; da qui l'utente può anche chiedere la cancellazione completa dei propri dati live con conferma inline.
+- `/reset`: inizia un nuovo lavoro eliminando solo file e passaggio corrente; preferenze, preset e storico restano invariati.
+- `/start privacy`: espone separatamente ripristino delle preferenze e cancellazione completa dei dati live con conferma inline.
 
 ## Deep link supportati
 
@@ -26,13 +27,13 @@ Il bot supporta solo payload essenziali su `/start <payload>`:
 Le tastiere inline sono contestuali alla sessione:
 
 - con immagini mostra solo le azioni consigliate per quel set di file, con le azioni meno frequenti dietro `Altre azioni`
-- con un singolo PDF mette davanti le azioni più comuni e lascia modifica pagine, rotazione e watermark nella vista espansa
-- con più PDF espone come scelta primaria l'unione
+- con un singolo PDF mette davanti compressione e divisione immediata con l'ultima scelta, mantenendo accanto l'accesso alle opzioni; modifica pagine, rotazione e watermark restano nella vista espansa
+- con più PDF espone come scelta primaria l'unione e permette di spostare o rimuovere ogni allegato prima del job
 - con un singolo Excel espone lo sblocco modifica quando il formato è supportato
-- quando un flusso richiede un dettaglio, come compressione, split, rotazione, impaginazione A4 o profilo foto documento, mostra solo le opzioni di quel passo
+- quando un flusso richiede un dettaglio, come compressione, split, rotazione, impaginazione A4 o profilo foto documento, mostra solo le opzioni di quel passo e offre sempre `Annulla`; il secondo passo A4 offre anche `Indietro`
 - per compressione, split e immagini verso PDF può mostrare una scorciatoia `Usa preset` quando l'utente ha ripetuto la stessa impostazione più volte
 
-Il pulsante `Altre azioni` espande tutte le azioni compatibili con la sessione corrente; `Meno azioni` torna alla vista breve.
+Il pulsante `Pagine e altre modifiche` espande tutte le azioni compatibili con la sessione corrente; `Meno azioni` torna alla vista breve. Un risultato PDF non diventa automaticamente la sessione successiva: i pulsanti sotto il file permettono di continuare esplicitamente o di aggiungerlo a una nuova unione.
 
 ## Preset utente leggeri
 
@@ -71,12 +72,15 @@ Se `DOCMOLDER_ADMIN_USER_IDS` è configurata, gli admin usano `/admin` come ingr
 - manutenzione, running stale, accessi pending, pruning, cancellazioni dati e audit recente
 - job lenti recenti, secondo `DOCMOLDER_ADMIN_SLOW_JOB_THRESHOLD_MS`
 - metriche Telegram aggregate da `app_meta`
+- funnel degli ultimi 7 giorni basato su flussi unici e soli eventi tecnici (`upload`, scelta, coda, esito, annulla, reset), con drop-off prima della scelta e prima della coda
 - pausa e ripresa servizio
+- attivazione/disattivazione indipendente dei riepiloghi giornalieri e settimanali; gli alert di anomalia restano attivi
 - dettaglio rapido degli ultimi job per stato, solo quando esiste almeno un job in quello stato
 
 Le azioni admin sensibili scrivono anche un audit log minimale in SQLite:
 
 - cambio service mode tramite dashboard inline
+- cambio stato dei riepiloghi admin giornalieri e settimanali
 - richieste e revisioni accesso utente
 
 ## Dashboard inline admin
@@ -115,7 +119,7 @@ Le metriche aggregate tengono traccia di:
 
 - il bot resta in polling, coerentemente con le decisioni architetturali correnti
 - i file utente restano temporanei; non è stato introdotto storage permanente dei file
-- le metriche Telegram attuali sono volutamente leggere e persistono in `app_meta`
+- contatori tecnici aggregati persistono in `app_meta`; il funnel privacy-safe persiste in `flow_events`, conta ogni fase una sola volta per flusso e usa la stessa retention breve dello storico job
 - i dettagli pubblici su dati, retention e cancellazione sono esposti in `/help`, `/status`, `/start privacy` e nella pagina statica `/privacy.html`
 
 ## Standard eventi e log

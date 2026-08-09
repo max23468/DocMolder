@@ -21,6 +21,7 @@ from docmolder.bot_menu import (
     handle_images_pdf_margin_callback,
     handle_images_pdf_preset_callback,
     handle_menu_text,
+    handle_quick_action_callback,
     handle_rotate_callback,
     handle_split_output_callback,
     help_command,
@@ -32,6 +33,8 @@ from docmolder.bot_sessions import (
     handle_delete_data_callback,
     handle_document,
     handle_photo,
+    handle_preferences_callback,
+    handle_session_callback,
     reset_command,
     status_command,
 )
@@ -68,6 +71,8 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CallbackQueryHandler(handle_access_review_callback, pattern=r"^access:"))
     application.add_handler(CallbackQueryHandler(handle_admin_callback, pattern=r"^admin:"))
     application.add_handler(CallbackQueryHandler(handle_delete_data_callback, pattern=r"^delete_data:"))
+    application.add_handler(CallbackQueryHandler(handle_preferences_callback, pattern=r"^preferences:"))
+    application.add_handler(CallbackQueryHandler(handle_session_callback, pattern=r"^session:"))
     application.add_handler(CallbackQueryHandler(handle_history_callback, pattern=r"^history:"))
     application.add_handler(CallbackQueryHandler(handle_rotate_callback, pattern=r"^rotate:"))
     application.add_handler(CallbackQueryHandler(handle_result_action_callback, pattern=r"^result:"))
@@ -77,6 +82,7 @@ def build_application(settings: Settings) -> Application:
     application.add_handler(CallbackQueryHandler(handle_images_pdf_preset_callback, pattern=r"^images_pdf_preset:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_margin_callback, pattern=r"^images_pdf_margin:"))
     application.add_handler(CallbackQueryHandler(handle_images_pdf_layout_callback, pattern=r"^images_pdf_layout:"))
+    application.add_handler(CallbackQueryHandler(handle_quick_action_callback, pattern=r"^quick:"))
     application.add_handler(CallbackQueryHandler(handle_action_callback, pattern=r"^action:"))
     application.add_handler(MessageHandler(filters.PHOTO, handle_photo))
     application.add_handler(MessageHandler(filters.Document.ALL, handle_document))

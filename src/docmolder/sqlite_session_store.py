@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -21,6 +22,7 @@ from docmolder.models import (
 )
 
 SQLiteParameter = str | int | float | bytes | None
+logger = logging.getLogger(__name__)
 
 
 class SQLiteSessionStore:
@@ -171,6 +173,52 @@ class SQLiteSessionStore:
             )
             connection.commit()
 
+    def record_flow_event(self, user_id: int, flow_id: str, event_type: str, action: str | None = None) -> None:
+        try:
+            with self._lock, self._connect() as connection:
+                connection.execute(
+                    "INSERT INTO flow_events (user_id, flow_id, event_type, action, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                    (user_id, flow_id, event_type, action),
+                )
+                connection.commit()
+        except sqlite3.Error:
+            logger.exception("Impossibile registrare il flow event %s per %s.", event_type, action or "nessuna azione")
+
+    def prune_flow_events(self, retention_days: int) -> int:
+        with self._lock, self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM flow_events WHERE created_at < datetime('now', ?)",
+                (f"-{max(0, retention_days)} day",),
+            )
+            connection.commit()
+            return int(cursor.rowcount)
+
+    def count_flow_events(self, since_days: int = 7) -> dict[str, int]:
+        with self._lock, self._connect() as connection:
+            rows = connection.execute(
+                """
+                WITH recent_events AS (
+                    SELECT user_id, flow_id, event_type
+                    FROM flow_events
+                    WHERE created_at >= datetime('now', ?)
+                ),
+                uploaded_flows AS (
+                    SELECT DISTINCT user_id, flow_id
+                    FROM recent_events
+                    WHERE event_type = 'upload'
+                )
+                SELECT recent_events.event_type, COUNT(*) AS total
+                FROM (
+                    SELECT DISTINCT recent_events.user_id, recent_events.flow_id, recent_events.event_type
+                    FROM recent_events
+                    INNER JOIN uploaded_flows USING (user_id, flow_id)
+                ) AS recent_events
+                GROUP BY recent_events.event_type
+                """,
+                (f"-{max(0, since_days)} day",),
+            ).fetchall()
+        return {str(row["event_type"]): int(row["total"]) for row in rows}
+
     def get_meta(self, key: str) -> str | None:
         with self._lock, self._connect() as connection:
             row = connection.execute("SELECT value FROM app_meta WHERE key = ?", (key,)).fetchone()
@@ -241,6 +289,11 @@ class SQLiteSessionStore:
                 "DELETE FROM usage_events WHERE user_id = ?",
                 (user_id,),
             )
+            flow_events_deleted = _delete_count(
+                connection,
+                "DELETE FROM flow_events WHERE user_id = ?",
+                (user_id,),
+            )
             known_users_deleted = _delete_count(
                 connection,
                 "DELETE FROM known_users WHERE user_id = ?",
@@ -277,6 +330,7 @@ class SQLiteSessionStore:
                 sessions_deleted=sessions_deleted,
                 jobs_deleted=jobs_deleted,
                 usage_events_deleted=usage_events_deleted,
+                flow_events_deleted=flow_events_deleted,
                 known_users_deleted=known_users_deleted,
                 meta_deleted=meta_deleted,
                 audit_entries_scrubbed=int(audit_cursor.rowcount),
@@ -724,6 +778,21 @@ class SQLiteSessionStore:
                     action TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS flow_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    flow_id TEXT NOT NULL,
+                    event_type TEXT NOT NULL,
+                    action TEXT,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_flow_events_flow_created_at
+                    ON flow_events(flow_id, created_at);
+
+                CREATE INDEX IF NOT EXISTS idx_flow_events_created_at
+                    ON flow_events(created_at);
 
                 CREATE TABLE IF NOT EXISTS app_meta (
                     key TEXT PRIMARY KEY,

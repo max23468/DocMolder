@@ -83,7 +83,8 @@ class ActionCatalogHelpersTest(unittest.TestCase):
         self.assertIsNotNone(expanded_keyboard)
         compact_labels = [button.text for row in compact_keyboard.inline_keyboard for button in row]
         expanded_labels = [button.text for row in expanded_keyboard.inline_keyboard for button in row]
-        self.assertIn("Altre azioni (6)", compact_labels)
+        self.assertIn("Pagine e altre modifiche (6)", compact_labels)
+        self.assertIn("Dividi subito", compact_labels)
         self.assertIn("Meno azioni", expanded_labels)
         self.assertIn("Aggiungi watermark", expanded_labels)
         self.assertNotIn("Aggiungi watermark", compact_labels)
@@ -101,7 +102,9 @@ class ActionCatalogHelpersTest(unittest.TestCase):
 
         self.assertIn("- File: 2 PDF", recap)
         self.assertIn("Azioni consigliate: Unisci PDF", recap)
-        self.assertIn("Contratto.pdf, Allegato.pdf", recap)
+        self.assertIn("Ordine unione", recap)
+        self.assertIn("1. Contratto.pdf", recap)
+        self.assertIn("2. Allegato.pdf", recap)
 
     def test_session_recap_handles_empty_mixed_and_long_preview_sessions(self) -> None:
         empty_recap = build_session_recap(UserSession(user_id=1))
@@ -207,6 +210,8 @@ class ActionCatalogHelpersTest(unittest.TestCase):
 
     def test_labels_followups_and_output_names_handle_fallbacks(self) -> None:
         self.assertEqual(get_action_label("images_pdf_layout:images_to_pdf"), "impaginazione PDF da immagini")
+        self.assertEqual(get_action_label("pdf_split_groups"), "gruppi di pagine da dividere")
+        self.assertEqual(get_action_label("pdf_split_chunks"), "numero di pagine per ogni PDF")
         self.assertEqual(get_action_label("custom_action"), "custom_action")
         self.assertIn(SupportedAction.PDF_COMPRESS, infer_result_followup_actions("unknown"))
         self.assertEqual(build_output_stem(SupportedAction.PDF_COMPRESS, []), "docmolder_compressed")

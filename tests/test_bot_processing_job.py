@@ -107,7 +107,7 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(sent_paths), 1)
         self.assertFalse(sent_paths[0].exists())
 
-    async def test_process_job_saves_result_pdf_as_new_session(self) -> None:
+    async def test_process_job_does_not_turn_result_pdf_into_active_session(self) -> None:
         job = self.store.create_job(
             user_id=7,
             chat_id=99,
@@ -137,9 +137,7 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
         ):
             await _process_job(self.application, job.id)
 
-        saved_session = self.store.get(7)
-        self.assertIsNotNone(saved_session)
-        self.assertEqual(saved_session.files[0].telegram_file_id, "result-file-id")
+        self.assertIsNone(self.store.get(7))
 
     async def test_process_job_sums_multiple_result_outputs_without_result_session(self) -> None:
         job = self.store.create_job(
@@ -265,6 +263,27 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertFalse(job_dir.exists())
         self.assertEqual(self.store.get_job(job.id).status, JobStatus.FAILED)
+
+    async def test_invalid_custom_split_restores_the_session_for_correction(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_split",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"split_output_zip":true,"split_chunk_size":0}',
+        )
+
+        with patch(
+            "docmolder.bot_jobs._run_job_payload",
+            side_effect=ProcessingUserError("Scegli un numero tra 1 e 4 pagine per ogni file."),
+        ):
+            await _process_job(self.application, job.id)
+
+        restored = self.store.get(7)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.pending_action, "pdf_split_chunks")
+        self.assertEqual(restored.files[0].telegram_file_id, "pdf-1")
+        self.assertIn("ancora pronto", self.bot.send_message.await_args.kwargs["text"])
 
     async def test_process_job_marks_unexpected_failures_and_cleans_partial_files(self) -> None:
         job = self.store.create_job(

@@ -29,6 +29,8 @@ from docmolder.processing import DocumentProcessor
 from docmolder.models import FileKind, SupportedAction, UserSession
 from docmolder.in_memory_session_store import InMemorySessionStore
 from docmolder.action_catalog import build_session_file
+from docmolder.bot_sessions import handle_session_callback
+from docmolder.keyboards import build_session_controls_revision
 
 
 class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
@@ -122,6 +124,78 @@ class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
         ]
         self.assertIn("Meno azioni", labels)
         self.assertIn("Aggiungi watermark", labels)
+
+    async def test_merge_session_controls_reorder_and_remove_files(self) -> None:
+        session = UserSession(
+            user_id=7,
+            files=[
+                build_session_file("pdf-1", "primo.pdf", FileKind.PDF),
+                build_session_file("pdf-2", "secondo.pdf", FileKind.PDF),
+            ],
+        )
+        self.store.save(session)
+        query = SimpleNamespace(
+            data=f"session:move:{build_session_controls_revision(session)}:1:up",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=701),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+
+        await handle_session_callback(
+            SimpleNamespace(callback_query=query), SimpleNamespace(application=self.application, bot=self.bot)
+        )
+
+        self.assertEqual([item.file_name for item in self.store.get(7).files], ["secondo.pdf", "primo.pdf"])
+        self.assertIn("1. secondo.pdf", query.edit_message_text.await_args.args[0])
+
+    async def test_stale_merge_controls_do_not_mutate_the_current_order(self) -> None:
+        session = UserSession(
+            user_id=7,
+            files=[
+                build_session_file("pdf-1", "primo.pdf", FileKind.PDF),
+                build_session_file("pdf-2", "secondo.pdf", FileKind.PDF),
+            ],
+        )
+        stale_revision = build_session_controls_revision(session)
+        session.files.append(build_session_file("pdf-3", "terzo.pdf", FileKind.PDF))
+        self.store.save(session)
+        query = SimpleNamespace(
+            data=f"session:remove:{stale_revision}:1",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=701),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+
+        await handle_session_callback(
+            SimpleNamespace(callback_query=query), SimpleNamespace(application=self.application, bot=self.bot)
+        )
+
+        self.assertEqual([item.file_name for item in self.store.get(7).files], ["primo.pdf", "secondo.pdf", "terzo.pdf"])
+        self.assertIn("non è più aggiornato", query.edit_message_text.await_args.args[0])
+
+    async def test_inline_new_work_records_the_reset_before_clearing_the_session(self) -> None:
+        session = UserSession(
+            user_id=7,
+            files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+        )
+        self.store.save(session)
+        self.store.record_flow_event(7, session.created_at.isoformat(), "upload", "pdf")
+        query = SimpleNamespace(
+            data="session:new",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=701),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+
+        await handle_session_callback(
+            SimpleNamespace(callback_query=query), SimpleNamespace(application=self.application, bot=self.bot)
+        )
+
+        self.assertIsNone(self.store.get(7))
+        self.assertEqual(self.store.count_flow_events().get("reset"), 1)
 
     async def test_excel_unlock_action_callback_enqueues_job(self) -> None:
         self.store.save(

@@ -14,10 +14,11 @@ from docmolder.access_control import (
 )
 from docmolder.keyboards import (
     build_delete_data_confirmation_keyboard,
-    build_delete_data_request_keyboard,
     build_document_photo_mode_keyboard,
     build_images_pdf_margin_keyboard,
+    build_images_pdf_layout_keyboard,
     build_main_menu_keyboard,
+    build_session_controls_revision,
     build_split_output_keyboard,
 )
 from docmolder.excel_unlock import SUPPORTED_EXCEL_SUFFIXES
@@ -28,16 +29,18 @@ from docmolder.messages import (
     PUBLIC_PRIVACY_URL,
     UNSUPPORTED_DOCUMENT_MESSAGE,
     UPLOAD_RATE_LIMIT_MESSAGE,
+    UNAUTHORIZED_MESSAGE,
     build_document_photo_mode_prompt,
     build_job_queue_limit_message,
     build_split_output_prompt,
     document_photo_mode_label,
 )
-from docmolder.models import FileKind, PendingActionValue, SupportedAction, UserSession
+from docmolder.models import CompressionPreset, FileKind, PendingActionValue, SupportedAction, UserSession
 from docmolder.processing_models import A4_MARGIN_NONE_PX, A4_MARGIN_WIDE_PX, ProcessingUserError
 from docmolder.action_catalog import build_session_file, get_action_label, infer_session_analysis
 from docmolder.text_requests import (
     _extract_rotation_degrees,
+    _extract_compression_preset,
     _infer_split_output_zip,
     _normalize_keyword_text,
     _normalize_page_selection_text,
@@ -53,9 +56,12 @@ import docmolder.job_flow as job_flow
 
 
 class PendingActionEnqueueKwargs(TypedDict, total=False):
+    compression_preset: CompressionPreset
     page_selection: str
     watermark_text: str
     split_output_zip: bool
+    split_page_groups: str
+    split_chunk_size: int
 
 
 def _get_or_create_session(user_id: int, deps: bot_runtime.BotDependencies) -> UserSession:
@@ -64,6 +70,20 @@ def _get_or_create_session(user_id: int, deps: bot_runtime.BotDependencies) -> U
         session = UserSession(user_id=user_id)
         deps.session_store.save(session)
     return session
+
+
+def _prepare_session_for_upload(
+    user_id: int, deps: bot_runtime.BotDependencies
+) -> tuple[UserSession, bool]:
+    session = _get_or_create_session(user_id, deps)
+    if session.pending_action is None or session.pending_action == SupportedAction.PDF_MERGE.value:
+        return session, False
+    deps.session_store.record_flow_event(
+        user_id, session.created_at.isoformat(), "cancelled", session.pending_action
+    )
+    session = UserSession(user_id=user_id)
+    deps.session_store.save(session)
+    return session, True
 
 
 def _cancel_pending_image_notification(user_id: int, deps: bot_runtime.BotDependencies) -> None:
@@ -141,6 +161,9 @@ def _save_uploaded_file(session: UserSession, session_file, deps: bot_runtime.Bo
     session.pending_action = None
     session.touch()
     deps.session_store.save(session)
+    deps.session_store.record_flow_event(
+        session.user_id, session.created_at.isoformat(), "upload", session_file.kind.value
+    )
 
 
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -150,17 +173,112 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     deps, user, message = prepared
     bot_runtime._record_command_metric(deps, "reset")
     _cancel_pending_image_notification(user.id, deps)
+    session = deps.session_store.get(user.id)
+    if session is not None:
+        deps.session_store.record_flow_event(user.id, session.created_at.isoformat(), "reset")
     deps.session_store.delete(user.id)
-    deps.session_store.clear_user_preferences(user.id)
-    deps.session_store.clear_user_presets(user.id)
     await message.reply_text(
-        "Sessione azzerata. Ho dimenticato anche ultime scelte rapide e preset salvati. Puoi inviarmi nuovi file quando vuoi.",
+        "Nuovo lavoro pronto. Ho svuotato soltanto i file e il passaggio in corso; preferenze, preset e storico sono rimasti invariati.",
         reply_markup=build_main_menu_keyboard(),
     )
-    await message.reply_text(
-        "Vuoi cancellare anche storico, preferenze, preset e metadati live collegati al tuo account? I backup tecnici già creati non vengono riscritti, ma scadono con la loro retention breve.",
-        reply_markup=build_delete_data_request_keyboard(),
+
+
+async def handle_preferences_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = bot_runtime._get_dependencies(context)
+    query = update.callback_query
+    await bot_runtime._safe_answer_callback(query)
+    user = query.from_user
+    if not _is_authorized_for_deps(user.id if user else None, deps):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    if (query.data or "") != "preferences:clear":
+        await query.edit_message_text(bot_runtime._invalid_callback_message())
+        return
+    deps.session_store.clear_user_preferences(user.id)
+    deps.session_store.clear_user_presets(user.id)
+    await query.edit_message_text(
+        "Preferenze e preset ripristinati. File della sessione e storico lavori non sono stati toccati."
     )
+
+
+async def handle_session_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    deps = bot_runtime._get_dependencies(context)
+    query = update.callback_query
+    await bot_runtime._safe_answer_callback(query)
+    user = query.from_user
+    if not _is_authorized_for_deps(user.id if user else None, deps):
+        await query.edit_message_text(UNAUTHORIZED_MESSAGE)
+        return
+    action = (query.data or "").removeprefix("session:")
+    _cancel_pending_image_notification(user.id, deps)
+    session = deps.session_store.get(user.id)
+    if action == "new":
+        if session is not None:
+            deps.session_store.record_flow_event(user.id, session.created_at.isoformat(), "reset")
+        deps.session_store.delete(user.id)
+        await query.edit_message_text("Nuovo lavoro pronto. Inviami il primo file; preferenze e storico sono invariati.")
+        return
+    if session is None or not session.files:
+        await query.edit_message_text("Non c'è un lavoro attivo. Inviami un file per iniziare.")
+        return
+    if action == "back" and (session.pending_action or "").startswith(
+        f"{bot_runtime._PENDING_IMAGES_PDF_MARGIN_PREFIX}:"
+    ):
+        image_action = _extract_pending_images_pdf_action(
+            session.pending_action or "", bot_runtime._PENDING_IMAGES_PDF_MARGIN_PREFIX
+        )
+        if image_action is not None:
+            session.pending_action = _build_images_pdf_layout_pending_action(image_action)
+            session.touch()
+            deps.session_store.save(session)
+            await query.edit_message_text(
+                "Vuoi impaginare le immagini in A4 oppure mantenere il formato originale?",
+                reply_markup=build_images_pdf_layout_keyboard(image_action.value),
+            )
+            return
+    if action in {"cancel", "back"}:
+        deps.session_store.record_flow_event(
+            user.id, session.created_at.isoformat(), "cancelled", session.pending_action
+        )
+        session.pending_action = None
+        session.touch()
+        deps.session_store.save(session)
+        session_text, session_keyboard = bot_runtime._build_session_reply(session, intro="Operazione annullata.")
+        await query.edit_message_text(session_text, reply_markup=session_keyboard)
+        return
+    parts = action.split(":")
+    expected_parts = 3 if parts[0] == "remove" else 4 if parts[0] == "move" else 0
+    if len(parts) != expected_parts or parts[1] != build_session_controls_revision(session):
+        await query.edit_message_text("Questo elenco non è più aggiornato. Usa il messaggio più recente.")
+        return
+    try:
+        index = int(parts[2])
+    except (IndexError, ValueError):
+        await query.edit_message_text(bot_runtime._invalid_callback_message())
+        return
+    if index < 0 or index >= len(session.files):
+        await query.edit_message_text("Questo elenco non è più aggiornato. Usa il messaggio più recente.")
+        return
+    if parts[0] == "remove":
+        session.files.pop(index)
+    elif parts[0] == "move":
+        target = index - 1 if parts[3] == "up" else index + 1 if parts[3] == "down" else -1
+        if target < 0 or target >= len(session.files):
+            await query.edit_message_text("Questo spostamento non è più disponibile.")
+            return
+        session.files[index], session.files[target] = session.files[target], session.files[index]
+    else:
+        await query.edit_message_text(bot_runtime._invalid_callback_message())
+        return
+    if not session.files:
+        deps.session_store.delete(user.id)
+        await query.edit_message_text("Ho rimosso l'ultimo file. Inviami un nuovo documento per iniziare.")
+        return
+    session.pending_action = None
+    session.touch()
+    deps.session_store.save(session)
+    session_text, session_keyboard = bot_runtime._build_session_reply(session, intro="Ordine aggiornato.")
+    await query.edit_message_text(session_text, reply_markup=session_keyboard)
 
 
 async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -180,7 +298,7 @@ async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFA
         )
         return
     if action == "cancel":
-        await query.edit_message_text("Cancellazione completa annullata. La sessione leggera era già stata azzerata.")
+        await query.edit_message_text("Cancellazione completa annullata. Non ho modificato i tuoi dati.")
         return
     if action != "confirm":
         await query.edit_message_text(bot_runtime._invalid_callback_message())
@@ -193,7 +311,7 @@ async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFA
         actor_user_id=None,
         target_user_id=None,
         outcome="self_service",
-        detail="source:/reset",
+        detail="source:/start-privacy",
     )
     log_event(
         bot_runtime.logger,
@@ -202,6 +320,7 @@ async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFA
         outcome="self_service",
         jobs_deleted=report.jobs_deleted,
         usage_events_deleted=report.usage_events_deleted,
+        flow_events_deleted=report.flow_events_deleted,
         meta_deleted=report.meta_deleted,
         audit_entries_scrubbed=report.audit_entries_scrubbed,
     )
@@ -282,7 +401,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if _exceeds_file_size_limit(document.file_size, deps.settings.max_file_size_mb):
         await message.reply_text(_build_file_too_large_message(deps.settings.max_file_size_mb))
         return
-    session = _get_or_create_session(user.id, deps)
+    session, restarted = _prepare_session_for_upload(user.id, deps)
     validation_error = _validate_session_for_upload(session, kind, deps.settings.max_session_files)
     if validation_error is not None:
         await message.reply_text(validation_error)
@@ -293,7 +412,8 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         _schedule_image_session_notification(chat_id=message.chat_id, user_id=user.id, context=context)
         return
     _cancel_pending_image_notification(user.id, deps)
-    session_text, session_keyboard = bot_runtime._build_session_reply(session, intro="File ricevuto.")
+    intro = "Ho annullato il passaggio precedente e iniziato un nuovo lavoro con questo file." if restarted else "File ricevuto."
+    session_text, session_keyboard = bot_runtime._build_session_reply(session, intro=intro)
     await message.reply_text(session_text, reply_markup=session_keyboard)
 
 
@@ -317,13 +437,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if _exceeds_file_size_limit(best_photo.file_size, deps.settings.max_file_size_mb):
         await message.reply_text(_build_file_too_large_message(deps.settings.max_file_size_mb))
         return
-    session = _get_or_create_session(user.id, deps)
+    session, restarted = _prepare_session_for_upload(user.id, deps)
     validation_error = _validate_session_for_upload(session, FileKind.IMAGE, deps.settings.max_session_files)
     if validation_error is not None:
         await message.reply_text(validation_error)
         return
     generated_name = f"foto_{len(session.files) + 1}.jpg"
     _save_uploaded_file(session, build_session_file(best_photo.file_id, generated_name, FileKind.IMAGE), deps)
+    if restarted:
+        await message.reply_text("Ho annullato il passaggio precedente e iniziato un nuovo lavoro con questa foto.")
     _schedule_image_session_notification(chat_id=message.chat_id, user_id=user.id, context=context)
 
 
@@ -455,13 +577,27 @@ async def _handle_pending_session_input(
             reply_to_message_id=reply_to_message_id,
             text=text,
         )
-    pending_action = SupportedAction(session.pending_action)
+    raw_pending_action = session.pending_action
+    pending_action = (
+        SupportedAction.PDF_SPLIT
+        if raw_pending_action in {bot_runtime._PENDING_PDF_SPLIT_GROUPS, bot_runtime._PENDING_PDF_SPLIT_CHUNKS}
+        else SupportedAction(raw_pending_action)
+    )
     if not job_flow.has_capacity_for_new_job(user_id, deps):
         await update.effective_message.reply_text(build_job_queue_limit_message(deps.settings.max_active_jobs_per_user))
         return True
     try:
         enqueue_kwargs: PendingActionEnqueueKwargs = {}
-        if pending_action in {
+        if pending_action == SupportedAction.PDF_COMPRESS:
+            keyword_text = _normalize_keyword_text(text)
+            compression_preset = _extract_compression_preset(keyword_text, _tokenize_keyword_text(keyword_text))
+            if compression_preset is None:
+                await update.effective_message.reply_text(
+                    "Scegli un livello: leggera, media oppure forte. Puoi anche usare i pulsanti del messaggio precedente."
+                )
+                return True
+            enqueue_kwargs["compression_preset"] = compression_preset
+        elif pending_action in {
             SupportedAction.PDF_EXTRACT_PAGES,
             SupportedAction.PDF_REORDER_PAGES,
             SupportedAction.PDF_DELETE_PAGES,
@@ -498,6 +634,23 @@ async def _handle_pending_session_input(
                 )
                 return True
             enqueue_kwargs["watermark_text"] = watermark_text
+        elif raw_pending_action == bot_runtime._PENDING_PDF_SPLIT_GROUPS:
+            split_page_groups = text.strip()
+            if not split_page_groups:
+                await update.effective_message.reply_text(
+                    "Scrivi almeno due gruppi separati da |, ad esempio 1-3 | 4-6."
+                )
+                return True
+            enqueue_kwargs["split_page_groups"] = split_page_groups
+            enqueue_kwargs["split_output_zip"] = True
+        elif raw_pending_action == bot_runtime._PENDING_PDF_SPLIT_CHUNKS:
+            if not text.strip().isdigit():
+                await update.effective_message.reply_text(
+                    "Scrivi quante pagine vuoi in ogni file, usando un numero intero. Esempio: 5."
+                )
+                return True
+            enqueue_kwargs["split_chunk_size"] = int(text.strip())
+            enqueue_kwargs["split_output_zip"] = True
         elif pending_action == SupportedAction.PDF_SPLIT:
             keyword_text = _normalize_keyword_text(text)
             split_output_zip = _infer_split_output_zip(keyword_text, _tokenize_keyword_text(keyword_text))
@@ -532,12 +685,22 @@ async def _handle_pending_session_input(
     deps.session_store.delete(user_id)
     if pending_action == SupportedAction.PDF_SPLIT:
         bot_runtime._record_split_output_choice(deps, user_id, enqueue_kwargs.get("split_output_zip") is True)
+    elif pending_action == SupportedAction.PDF_COMPRESS:
+        compression_preset = enqueue_kwargs.get("compression_preset")
+        if compression_preset is not None:
+            bot_runtime._record_user_choice(
+                deps, user_id, bot_runtime._COMPRESSION_PRESET_KEY, compression_preset.value
+            )
     raw_value = (
         "zip"
         if enqueue_kwargs.get("split_output_zip") is True
         else "pdf separati"
         if enqueue_kwargs.get("split_output_zip") is False
-        else enqueue_kwargs.get("page_selection") or enqueue_kwargs.get("watermark_text") or text
+        else enqueue_kwargs.get("split_page_groups")
+        or enqueue_kwargs.get("split_chunk_size")
+        or enqueue_kwargs.get("page_selection")
+        or enqueue_kwargs.get("watermark_text")
+        or text
     )
     await update.effective_message.reply_text(
         bot_runtime._build_pending_action_queued_message(pending_action, job.id, str(raw_value))

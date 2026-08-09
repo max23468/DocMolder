@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
@@ -15,9 +16,12 @@ from docmolder.bot_runtime import (
 from docmolder.admin_reporting import (
     _build_admin_report,
     _build_periodic_admin_report,
+    _build_telegram_metrics_report,
     _maybe_send_admin_anomaly_alerts,
     _detect_admin_anomaly_alerts,
     _maybe_send_admin_report_for_period,
+    _is_periodic_admin_report_enabled,
+    _set_periodic_admin_report_enabled,
 )
 from docmolder.config import Settings
 from docmolder.processing import DocumentProcessor
@@ -68,6 +72,16 @@ class BotAdminReportsTest(unittest.IsolatedAsyncioTestCase):
 
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
+
+    def test_periodic_report_toggle_defaults_on_and_avoids_backfill_when_reenabled(self) -> None:
+        self.assertTrue(_is_periodic_admin_report_enabled(self.deps, "daily"))
+        _set_periodic_admin_report_enabled(self.deps, "daily", False)
+        self.assertFalse(_is_periodic_admin_report_enabled(self.deps, "daily"))
+
+        _set_periodic_admin_report_enabled(self.deps, "daily", True, now=datetime(2026, 8, 9, 15, 0))
+
+        self.assertTrue(_is_periodic_admin_report_enabled(self.deps, "daily"))
+        self.assertEqual(self.store.get_meta("admin_report_daily_last_sent"), "2026-08-09")
 
     def test_build_admin_report_includes_processing_metrics(self) -> None:
         report = _build_admin_report(
@@ -138,6 +152,18 @@ class BotAdminReportsTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("Job lenti della settimana", report)
         self.assertNotIn("Job lenti ultime 24 ore", report)
+
+    def test_telegram_metrics_report_shows_unique_flow_dropoffs(self) -> None:
+        for event_type in ("upload", "upload", "action_selected", "queued", "succeeded"):
+            self.store.record_flow_event(7, "flow-complete", event_type, "pdf_compress")
+        self.store.record_flow_event(7, "flow-abandoned", "upload", "pdf")
+
+        report = _build_telegram_metrics_report(self.deps)
+
+        self.assertIn("Flussi avviati: 2", report)
+        self.assertIn("Con azione scelta: 1 (50%)", report)
+        self.assertIn("Accodati: 1 (100%)", report)
+        self.assertIn("Interrotti prima della scelta: 1", report)
 
     async def test_maybe_send_admin_report_for_period_persists_last_sent(self) -> None:
         self.deps.settings.admin_user_ids = [999]
@@ -285,6 +311,8 @@ class BotAdminReportsTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_maybe_send_admin_anomaly_alerts_respects_cooldown(self) -> None:
         self.deps.settings.admin_user_ids = [999]
+        _set_periodic_admin_report_enabled(self.deps, "daily", False)
+        _set_periodic_admin_report_enabled(self.deps, "weekly", False)
         self.deps.settings.admin_alert_window_minutes = 30
         self.deps.settings.admin_alert_min_finished_jobs = 3
         self.deps.settings.admin_alert_failure_rate_percent = 60

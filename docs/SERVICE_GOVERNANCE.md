@@ -52,10 +52,10 @@ onboarding massivo o uso con dati sensibili ricorrenti serve ancora:
 
 Sono già presenti:
 
-- procedura self-service per cancellazione completa dei dati live da `/reset`
+- procedura self-service per cancellazione completa dei dati live da `/start privacy`
 - pruning automatico e policy formale per lo storico job live
 - testi bot e sito statico allineati su privacy, retention, limiti e uso best-effort
-- preset automatici leggeri per impostazioni operative ricorrenti, cancellabili con `/reset`
+- preset automatici leggeri per impostazioni operative ricorrenti, ripristinabili da `/start privacy`
 - osservabilità minima Fase 13 su utenti attivi, job/giorno, failure rate, job lenti, pruning, cancellazioni dati e soglie SQLite/VPS
 
 Scelta operativa corrente:
@@ -169,7 +169,7 @@ Retention:
 Retention:
 
 - sessione attiva secondo `DOCMOLDER_SESSION_TTL_MINUTES`
-- `/reset` cancella sessione, preferenze rapide e preset leggeri dell'utente
+- `/reset` cancella soltanto la sessione e il passaggio corrente dell'utente
 
 ### Preferenze e preset
 
@@ -204,7 +204,7 @@ Retention:
 Percorsi correnti:
 
 - `/reset` pulisce la sessione utente corrente
-- la cancellazione completa self-service è esposta dentro `/reset`, con conferma inline obbligatoria, e rimuove dati live dell'utente come sessione, preferenze rapide, preset, storico job personale e metadati utente noti
+- la cancellazione completa self-service è esposta in `/start privacy`, con conferma inline obbligatoria, e rimuove dati live dell'utente come sessione, preferenze rapide, preset, storico job personale, flow events e metadati utente noti
 - in modalità ristretta il primo messaggio di un utente non autorizzato registra una richiesta di accesso; l'admin può approvare o rifiutare dalla console inline
 - cleanup job rimuove file temporanei
 - restore o manutenzione SQLite restano operazioni amministrative
@@ -213,7 +213,7 @@ Regole:
 
 - la cancellazione completa riguarda i dati live, non i backup storici già creati
 - log e audit devono registrare solo eventi sintetici, senza contenuti documentali
-- `/reset` deve distinguere il reset leggero dalla cancellazione completa dei dati
+- reset operativo e cancellazione completa dei dati devono restare percorsi distinti
 - i preset restano opzionali: ogni wizard deve lasciare visibile la scelta manuale
 
 ## Limiti operativi dichiarati

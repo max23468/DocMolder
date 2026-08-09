@@ -147,6 +147,30 @@ class BotAdminTest(unittest.IsolatedAsyncioTestCase):
         query.edit_message_text.assert_awaited_once()
         self.assertIn("modalità manutenzione", query.edit_message_text.await_args.args[0])
 
+    async def test_admin_callback_toggles_daily_report_without_disabling_alerts(self) -> None:
+        self.deps.settings.admin_user_ids = [7]
+        query = SimpleNamespace(
+            data="admin:daily_toggle",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Admin", last_name=None),
+            message=SimpleNamespace(message_id=540),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+
+        await handle_admin_callback(
+            SimpleNamespace(callback_query=query), SimpleNamespace(application=self.application, bot=self.bot)
+        )
+
+        self.assertEqual(self.store.get_meta("admin_report_daily_enabled"), "0")
+        self.assertIn("disattivato", query.edit_message_text.await_args.args[0])
+        self.assertIn("avvisi di anomalia", query.edit_message_text.await_args.args[0])
+        labels = [
+            button.text
+            for row in query.edit_message_text.await_args.kwargs["reply_markup"].inline_keyboard
+            for button in row
+        ]
+        self.assertIn("Giornaliero: disattivo", labels)
+
     async def test_admin_command_rejects_non_admin_user(self) -> None:
         self.deps.settings.admin_user_ids = [7]
         message = SimpleNamespace(reply_text=AsyncMock())

@@ -62,6 +62,9 @@ PendingActionValue: TypeAlias = SupportedActionValue | Literal[
     "images_pdf_margin:images_to_pdf_crop",
     "images_pdf_margin:images_to_pdf_grayscale",
     "images_pdf_margin:images_to_pdf_crop_grayscale",
+    "document_photo_mode",
+    "pdf_split_groups",
+    "pdf_split_chunks",
 ]
 
 
@@ -140,6 +143,7 @@ class UserDataDeletionReport:
     sessions_deleted: int = 0
     jobs_deleted: int = 0
     usage_events_deleted: int = 0
+    flow_events_deleted: int = 0
     known_users_deleted: int = 0
     meta_deleted: int = 0
     audit_entries_scrubbed: int = 0
@@ -168,7 +172,10 @@ class JobPayloadData(TypedDict, total=False):
     image_pdf_use_a4: bool
     image_pdf_margin_px: int | None
     split_output_zip: bool
+    split_page_groups: str | None
+    split_chunk_size: int | None
     document_photo_mode: str
+    flow_id: str | None
 
 
 @dataclass(slots=True)
@@ -182,7 +189,10 @@ class JobPayload:
     image_pdf_use_a4: bool = True
     image_pdf_margin_px: int | None = None
     split_output_zip: bool = True
+    split_page_groups: str | None = None
+    split_chunk_size: int | None = None
     document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE
+    flow_id: str | None = None
 
     @classmethod
     def from_json(cls, payload_json: str) -> "JobPayload":
@@ -216,7 +226,18 @@ class JobPayload:
                 int(raw_payload["image_pdf_margin_px"]) if raw_payload.get("image_pdf_margin_px") is not None else None
             ),
             split_output_zip=bool(raw_payload.get("split_output_zip", True)),
+            split_page_groups=(
+                str(raw_payload["split_page_groups"])
+                if raw_payload.get("split_page_groups") is not None
+                else None
+            ),
+            split_chunk_size=(
+                int(raw_payload["split_chunk_size"])
+                if raw_payload.get("split_chunk_size") is not None
+                else None
+            ),
             document_photo_mode=DocumentPhotoMode(str(raw_payload.get("document_photo_mode", DocumentPhotoMode.READABLE.value))),
+            flow_id=str(raw_payload["flow_id"]) if raw_payload.get("flow_id") is not None else None,
         )
 
     @classmethod
@@ -232,6 +253,8 @@ class JobPayload:
         image_pdf_use_a4: bool = True,
         image_pdf_margin_px: int | None = None,
         split_output_zip: bool = True,
+        split_page_groups: str | None = None,
+        split_chunk_size: int | None = None,
         document_photo_mode: DocumentPhotoMode = DocumentPhotoMode.READABLE,
     ) -> "JobPayload":
         return cls(
@@ -251,7 +274,10 @@ class JobPayload:
             image_pdf_use_a4=image_pdf_use_a4,
             image_pdf_margin_px=image_pdf_margin_px,
             split_output_zip=split_output_zip,
+            split_page_groups=split_page_groups,
+            split_chunk_size=split_chunk_size,
             document_photo_mode=document_photo_mode,
+            flow_id=session.created_at.isoformat(),
         )
 
     def to_dict(self) -> JobPayloadData:
@@ -272,9 +298,13 @@ class JobPayload:
             "image_pdf_use_a4": self.image_pdf_use_a4,
             "image_pdf_margin_px": self.image_pdf_margin_px,
             "split_output_zip": self.split_output_zip,
+            "split_page_groups": self.split_page_groups,
+            "split_chunk_size": self.split_chunk_size,
         }
         if self.document_photo_mode != DocumentPhotoMode.READABLE:
             payload["document_photo_mode"] = self.document_photo_mode.value
+        if self.flow_id is not None:
+            payload["flow_id"] = self.flow_id
         return payload
 
     def to_json(self) -> str:

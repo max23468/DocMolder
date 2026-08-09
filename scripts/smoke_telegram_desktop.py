@@ -17,7 +17,16 @@ DEFAULT_CHAT_NAME = "DocMolder"
 DEFAULT_ASSET_DIR = Path("tmp/manual-test-assets")
 ASSET_MARKER = ".docmolder-smoke-assets"
 GENERATED_ASSET_NAMES = ("smoke_image_1.jpg", "smoke_image_2.jpg", "smoke_source.pdf")
-SUPPORTED_PLANS = ("full", "wizard-a4", "pdf-followup", "history", "public-trust")
+SUPPORTED_PLANS = (
+    "full",
+    "wizard-a4",
+    "pdf-followup",
+    "pdf-split",
+    "pdf-merge",
+    "admin-reports",
+    "history",
+    "public-trust",
+)
 
 
 @dataclass(frozen=True)
@@ -50,7 +59,11 @@ def build_assets(asset_dir: Path) -> dict[str, Path]:
     pdf_draw = ImageDraw.Draw(pdf_image)
     pdf_draw.text((120, 140), "DocMolder smoke PDF page 1", fill="black")
     pdf_draw.text((120, 240), "Compression / grayscale / follow-up", fill="black")
-    pdf_image.save(pdf_path, "PDF", resolution=150.0)
+    pdf_second_page = Image.new("RGB", pdf_image.size, "white")
+    pdf_second_draw = ImageDraw.Draw(pdf_second_page)
+    pdf_second_draw.text((120, 140), "DocMolder smoke PDF page 2", fill="black")
+    pdf_second_draw.text((120, 240), "Split / merge", fill="black")
+    pdf_image.save(pdf_path, "PDF", resolution=150.0, save_all=True, append_images=[pdf_second_page])
 
     return {
         "image_1": image_paths[0],
@@ -73,8 +86,30 @@ def build_plan(plan_name: str, assets: dict[str, Path]) -> list[Step]:
             Step("text", "/reset", 1.0),
             Step("file", str(assets["pdf"]), 1.2),
             Step("text", "Comprimi PDF", 1.0),
+            Step("text", "media", 1.0),
             Step("wait", "4.0", 4.0),
-            Step("text", "Scala di grigi", 1.0),
+            Step("manual", "Tocca “Scala di grigi” sotto il PDF risultato", 0.0),
+        ],
+        "pdf-split": [
+            Step("text", "/reset", 1.0),
+            Step("file", str(assets["pdf"]), 1.2),
+            Step("text", "Dividi PDF", 1.0),
+            Step("manual", "Tocca “Ogni N pagine · ZIP”", 0.0),
+            Step("text", "1", 1.0),
+            Step("wait", "4.0", 4.0),
+        ],
+        "pdf-merge": [
+            Step("text", "/reset", 1.0),
+            Step("file", str(assets["pdf"]), 1.2),
+            Step("file", str(assets["pdf"]), 1.2),
+            Step("manual", "Sposta il secondo PDF in alto e verifica il riepilogo", 0.0),
+            Step("text", "Unisci PDF", 1.0),
+            Step("wait", "4.0", 4.0),
+        ],
+        "admin-reports": [
+            Step("text", "/admin", 1.0),
+            Step("manual", "Disattiva e riattiva il riepilogo giornaliero", 0.0),
+            Step("manual", "Disattiva e riattiva il riepilogo settimanale", 0.0),
         ],
         "history": [
             Step("text", "/history", 1.0),
@@ -96,7 +131,10 @@ def build_plan(plan_name: str, assets: dict[str, Path]) -> list[Step]:
         return [
             *plans["wizard-a4"],
             Step("wait", "4.0", 4.0),
-            Step("text", "Scala di grigi", 1.0),
+            Step("manual", "Tocca “Scala di grigi” sotto il PDF risultato", 0.0),
+            *plans["pdf-split"],
+            *plans["pdf-merge"],
+            *plans["admin-reports"],
             *plans["history"],
         ]
     if plan_name not in plans:
@@ -203,6 +241,8 @@ def execute_plan(
             send_file(Path(step.value))
         elif step.kind == "wait":
             pass
+        elif step.kind == "manual":
+            input(f"Azione manuale richiesta: {step.value}. Premi Invio quando hai finito...")
         else:
             raise ValueError(f"Tipo step non supportato: {step.kind}")
         if pause_between_steps:

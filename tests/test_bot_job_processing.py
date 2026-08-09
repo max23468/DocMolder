@@ -46,6 +46,7 @@ from docmolder.bot_sessions import (
     _build_unsupported_document_message,
     _load_persisted_upload_history,
     _persist_upload_history,
+    _prepare_session_for_upload,
     handle_document,
     handle_photo,
     handle_delete_data_callback,
@@ -57,6 +58,7 @@ from docmolder.bot_results import (
     _format_bytes,
     _format_duration_ms,
     _format_job_line,
+    handle_result_action_callback,
 )
 from docmolder.bot_menu import (
     _build_compression_prompt,
@@ -279,7 +281,8 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIn("Guida rapida", labels)
         self.assertIn("Crea PDF", labels)
         self.assertIn("Foto in A4", labels)
-        self.assertIn("Scansiona e comprimi", labels)
+        self.assertIn("Dividi PDF", labels)
+        self.assertIn("Nuovo lavoro", labels)
 
     async def test_sync_telegram_branding_updates_profile_metadata(self) -> None:
         self.bot.set_my_name = AsyncMock()
@@ -580,9 +583,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         message.reply_text.assert_awaited_once()
         self.assertIn("impaginazione A4", message.reply_text.await_args.args[0])
 
-    async def test_new_status_button_works_and_refreshes_keyboard(self) -> None:
+    async def test_new_work_button_clears_only_the_session(self) -> None:
+        self.store.save(UserSession(user_id=7, files=[build_session_file("pdf", "doc.pdf", FileKind.PDF)]))
         message = SimpleNamespace(
-            text="Sessione attiva",
+            text="Nuovo lavoro",
             chat_id=99,
             message_id=8021,
             reply_text=AsyncMock(),
@@ -596,9 +600,9 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         await handle_menu_text(update, context)
 
         message.reply_text.assert_awaited_once()
-        self.assertIn("Stato accesso DocMolder", message.reply_text.await_args.args[0])
-        self.assertIn("Sessione corrente: vuota", message.reply_text.await_args.args[0])
+        self.assertIn("Nuovo lavoro pronto", message.reply_text.await_args.args[0])
         self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
+        self.assertIsNone(self.store.get(7))
 
     async def test_reset_text_clears_session_and_refreshes_keyboard(self) -> None:
         self.store.save(
@@ -610,7 +614,7 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.store.set_user_preference(7, "compression_preset", "medium")
         self.store.set_user_preset(7, "compression_preset", "medium")
         message = SimpleNamespace(
-            text="Azzera sessione",
+            text="Nuovo lavoro",
             chat_id=99,
             message_id=803,
             reply_text=AsyncMock(),
@@ -623,14 +627,40 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         await handle_menu_text(update, context)
 
-        self.assertEqual(message.reply_text.await_count, 2)
-        self.assertIn("Sessione azzerata", message.reply_text.await_args_list[0].args[0])
-        self.assertIn("ultime scelte rapide", message.reply_text.await_args_list[0].args[0])
-        self.assertIsNotNone(message.reply_text.await_args_list[0].kwargs["reply_markup"])
-        self.assertIn("Cancella tutti i miei dati", str(message.reply_text.await_args_list[1].kwargs["reply_markup"]))
+        self.assertEqual(message.reply_text.await_count, 1)
+        self.assertIn("Nuovo lavoro pronto", message.reply_text.await_args.args[0])
+        self.assertIn("preferenze", message.reply_text.await_args.args[0])
+        self.assertIsNotNone(message.reply_text.await_args.kwargs["reply_markup"])
         self.assertIsNone(self.store.get(7))
-        self.assertIsNone(self.store.get_user_preference(7, "compression_preset"))
-        self.assertIsNone(self.store.get_user_preset(7, "compression_preset"))
+        self.assertEqual(self.store.get_user_preference(7, "compression_preset"), "medium")
+        self.assertEqual(self.store.get_user_preset(7, "compression_preset"), "medium")
+
+    def test_new_upload_replaces_an_unfinished_wizard_but_preserves_merge_collection(self) -> None:
+        wizard = UserSession(
+            user_id=7,
+            files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+            pending_action="pdf_watermark",
+        )
+        self.store.save(wizard)
+
+        fresh, restarted = _prepare_session_for_upload(7, self.deps)
+
+        self.assertTrue(restarted)
+        self.assertEqual(fresh.files, [])
+        self.assertEqual(self.store.count_flow_events(), {})
+        self.store.record_flow_event(7, wizard.created_at.isoformat(), "upload", "pdf")
+        self.store.save(wizard)
+        _prepare_session_for_upload(7, self.deps)
+        self.assertEqual(self.store.count_flow_events().get("cancelled"), 1)
+        merge = UserSession(
+            user_id=7,
+            files=[build_session_file("pdf-2", "primo.pdf", FileKind.PDF)],
+            pending_action="pdf_merge",
+        )
+        self.store.save(merge)
+        preserved, restarted = _prepare_session_for_upload(7, self.deps)
+        self.assertFalse(restarted)
+        self.assertEqual(preserved.files[0].file_name, "primo.pdf")
 
     async def test_delete_data_callback_requires_confirmation_then_deletes_live_data(self) -> None:
         self.store.save(
@@ -674,6 +704,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.store.get_meta("access:7:status"))
         self.assertIsNone(self.store.get_job(job.id))
         self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "user_data_deleted")
+        self.assertEqual(
+            self.store.list_audit_log_entries(limit=1)[0].detail,
+            "source:/start-privacy",
+        )
 
     async def test_pseudo_e2e_photo_to_pdf_followup_flow(self) -> None:
         context = SimpleNamespace(application=self.application, bot=self.bot)
@@ -754,20 +788,23 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         ):
             await _process_job(self.application, queued_job.id)
 
-        result_session = self.store.get(7)
-        self.assertIsNotNone(result_session)
-        self.assertEqual(result_session.files[0].telegram_file_id, "result-pdf-id")
+        self.assertIsNone(self.store.get(7))
 
-        followup_message = SimpleNamespace(
-            text="Scala di grigi",
+        result_message = SimpleNamespace(
             chat_id=99,
             message_id=1104,
+            document=SimpleNamespace(
+                file_id="result-pdf-id", file_name="docmolder_pdf.pdf", mime_type="application/pdf"
+            ),
             reply_text=AsyncMock(),
         )
+        query = SimpleNamespace(
+            data="result:pdf_grayscale", from_user=user, message=result_message, answer=AsyncMock()
+        )
         with patch(
-            "docmolder.bot_menu.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=77))
+            "docmolder.bot_results.job_flow.enqueue_job", new=AsyncMock(return_value=SimpleNamespace(id=77))
         ) as enqueue_job:
-            await handle_menu_text(SimpleNamespace(effective_user=user, effective_message=followup_message), context)
+            await handle_result_action_callback(SimpleNamespace(callback_query=query), context)
 
         enqueue_job.assert_awaited_once()
         self.assertEqual(enqueue_job.await_args.kwargs["action"], SupportedAction.PDF_GRAYSCALE)

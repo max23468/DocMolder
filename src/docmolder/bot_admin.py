@@ -86,6 +86,22 @@ async def handle_admin_callback(update: Update, context: ContextTypes.DEFAULT_TY
         body = admin_reporting._build_telegram_metrics_report(deps)
     elif action == "maintenance":
         body = admin_reporting._build_admin_maintenance_overview(deps)
+    elif action in {"daily_toggle", "weekly_toggle"}:
+        period = "daily" if action == "daily_toggle" else "weekly"
+        enabled = not admin_reporting._is_periodic_admin_report_enabled(deps, period)
+        admin_reporting._set_periodic_admin_report_enabled(deps, period, enabled)
+        bot_runtime._append_audit_log(
+            deps,
+            "admin_report_schedule",
+            actor_user_id=user.id,
+            outcome="enabled" if enabled else "disabled",
+            detail=f"period:{period}",
+        )
+        period_label = "giornaliero" if period == "daily" else "settimanale"
+        body = (
+            f"Riepilogo {period_label} {'attivato' if enabled else 'disattivato'}. "
+            "Gli avvisi di anomalia restano sempre attivi."
+        )
     elif action == "failed":
         failed_job = bot_results._resolve_job_selector(deps, "failed")
         body = (

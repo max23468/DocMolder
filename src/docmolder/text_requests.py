@@ -550,6 +550,14 @@ def _build_quick_action_guidance(session: UserSession | None, text: str) -> str 
         if len(session.files) == 1:
             return "Per unire i PDF me ne servono almeno due nella stessa sessione."
 
+    if text == "Dividi PDF":
+        if session is None or not session.files:
+            return "Inviami un PDF e potrai dividerlo per pagina, per gruppi oppure ogni N pagine."
+        if {item.kind for item in session.files} == {FileKind.IMAGE}:
+            return "Per dividere serve un PDF. Se vuoi, posso prima trasformare le immagini in un PDF."
+        if len(session.files) > 1:
+            return "Per dividere serve un solo PDF nella sessione corrente. Inizia un nuovo lavoro e inviami il documento da dividere."
+
     if "foto in a4" in normalized or "immagini in a4" in normalized:
         if session is None or not session.files:
             return "Inviami una o più immagini e ti guiderò subito verso un PDF impaginato in A4."

@@ -24,6 +24,27 @@ class AdminAlertPayload(TypedDict):
     text: str
 
 
+def _is_periodic_admin_report_enabled(deps: bot_runtime.BotDependencies, period: str) -> bool:
+    return deps.session_store.get_meta(f"admin_report_{period}_enabled") != "0"
+
+
+def _set_periodic_admin_report_enabled(
+    deps: bot_runtime.BotDependencies, period: str, enabled: bool, *, now: datetime | None = None
+) -> None:
+    deps.session_store.set_meta(f"admin_report_{period}_enabled", "1" if enabled else "0")
+    if enabled:
+        current = now or datetime.now(ZoneInfo("Europe/Rome"))
+        report_is_already_due = (
+            period == "daily" and current.hour >= deps.settings.admin_daily_report_hour
+        ) or (
+            period == "weekly"
+            and current.weekday() == deps.settings.admin_weekly_report_day
+            and current.hour >= deps.settings.admin_weekly_report_hour
+        )
+        if report_is_already_due:
+            deps.session_store.set_meta(f"admin_report_{period}_last_sent", current.date().isoformat())
+
+
 def _build_admin_report(
     stats: AdminStats,
     top_users: list[AdminUserStat],
@@ -234,7 +255,24 @@ def _build_telegram_metrics_report(deps: bot_runtime.BotDependencies) -> str:
         "\n".join((f"- {_format_upload_metric_name(name)}: {count}" for name, count in upload_entries))
         or "- Nessun upload registrato ancora"
     )
-    return f"Metriche Telegram DocMolder\nComandi:\n{command_block}\n\nUpload:\n{upload_block}\n\nRetry Telegram:\n- sendMessage rate limit: {bot_runtime._get_meta_counter(deps, f'{bot_runtime._TELEGRAM_METRIC_PREFIX}retry_after:sendMessage')}\n- sendDocument rate limit: {bot_runtime._get_meta_counter(deps, f'{bot_runtime._TELEGRAM_METRIC_PREFIX}retry_after:sendDocument')}\n- sendMessage network retry: {bot_runtime._get_meta_counter(deps, f'{bot_runtime._TELEGRAM_METRIC_PREFIX}network_retry:sendMessage')}\n- sendDocument network retry: {bot_runtime._get_meta_counter(deps, f'{bot_runtime._TELEGRAM_METRIC_PREFIX}network_retry:sendDocument')}\n\nCallback osservate (top):\n{callback_block}"
+    flow_counts = deps.session_store.count_flow_events(since_days=7)
+    started_flows = flow_counts.get("upload", 0)
+    selected_flows = flow_counts.get("action_selected", 0)
+    queued_flows = flow_counts.get("queued", 0)
+    succeeded_flows = flow_counts.get("succeeded", 0)
+    failed_flows = flow_counts.get("failed", 0)
+    flow_block = (
+        f"- Flussi avviati: {started_flows}\n"
+        f"- Con azione scelta: {selected_flows} ({bot_results._format_percent(selected_flows, started_flows)})\n"
+        f"- Accodati: {queued_flows} ({bot_results._format_percent(queued_flows, selected_flows)})\n"
+        f"- Riusciti: {succeeded_flows}\n"
+        f"- Falliti: {failed_flows}\n"
+        f"- Interrotti prima della scelta: {max(0, started_flows - selected_flows)}\n"
+        f"- Interrotti tra scelta e coda: {max(0, selected_flows - queued_flows)}\n"
+        f"- Procedure annullate: {flow_counts.get('cancelled', 0)}\n"
+        f"- Nuovi lavori avviati: {flow_counts.get('reset', 0)}"
+    )
+    return f"Metriche Telegram DocMolder\nComandi:\n{command_block}\n\nUpload:\n{upload_block}\n\nFunnel ultimi 7 giorni (solo metadati tecnici):\n{flow_block}\n\nRetry Telegram:\n- sendMessage rate limit: {bot_runtime._get_meta_counter(deps, f'{bot_runtime._TELEGRAM_METRIC_PREFIX}retry_after:sendMessage')}\n- sendDocument rate limit: {bot_runtime._get_meta_counter(deps, f'{bot_runtime._TELEGRAM_METRIC_PREFIX}retry_after:sendDocument')}\n- sendMessage network retry: {bot_runtime._get_meta_counter(deps, f'{bot_runtime._TELEGRAM_METRIC_PREFIX}network_retry:sendMessage')}\n- sendDocument network retry: {bot_runtime._get_meta_counter(deps, f'{bot_runtime._TELEGRAM_METRIC_PREFIX}network_retry:sendDocument')}\n\nCallback osservate (top):\n{callback_block}"
 
 
 async def _admin_report_worker(application: Application) -> None:
@@ -254,27 +292,29 @@ async def _maybe_send_periodic_admin_reports(application: Application, deps: bot
     if not deps.settings.admin_user_ids:
         return
     now = datetime.now(ZoneInfo("Europe/Rome"))
-    await _maybe_send_admin_report_for_period(
-        application,
-        deps,
-        period="daily",
-        report_date=now.date().isoformat(),
-        should_send=now.hour >= deps.settings.admin_daily_report_hour,
-        since_days=1,
-        title="Riepilogo admin giornaliero DocMolder",
-        require_new_users_or_completed_actions=True,
-    )
-    await _maybe_send_admin_report_for_period(
-        application,
-        deps,
-        period="weekly",
-        report_date=now.date().isoformat(),
-        should_send=now.weekday() == deps.settings.admin_weekly_report_day
-        and now.hour >= deps.settings.admin_weekly_report_hour,
-        since_days=7,
-        title="Riepilogo admin settimanale DocMolder",
-        require_new_users_or_completed_actions=True,
-    )
+    if _is_periodic_admin_report_enabled(deps, "daily"):
+        await _maybe_send_admin_report_for_period(
+            application,
+            deps,
+            period="daily",
+            report_date=now.date().isoformat(),
+            should_send=now.hour >= deps.settings.admin_daily_report_hour,
+            since_days=1,
+            title="Riepilogo admin giornaliero DocMolder",
+            require_new_users_or_completed_actions=True,
+        )
+    if _is_periodic_admin_report_enabled(deps, "weekly"):
+        await _maybe_send_admin_report_for_period(
+            application,
+            deps,
+            period="weekly",
+            report_date=now.date().isoformat(),
+            should_send=now.weekday() == deps.settings.admin_weekly_report_day
+            and now.hour >= deps.settings.admin_weekly_report_hour,
+            since_days=7,
+            title="Riepilogo admin settimanale DocMolder",
+            require_new_users_or_completed_actions=True,
+        )
 
 
 async def _maybe_send_admin_report_for_period(

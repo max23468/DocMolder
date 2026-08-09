@@ -87,6 +87,8 @@ RESULT_FOLLOWUP_ACTIONS: tuple[SupportedAction, ...] = (
 PENDING_ACTION_LABELS: dict[str, str] = {
     "images_pdf_layout": "impaginazione PDF da immagini",
     "images_pdf_margin": "bordi impaginazione A4",
+    "pdf_split_groups": "gruppi di pagine da dividere",
+    "pdf_split_chunks": "numero di pagine per ogni PDF",
 }
 
 EXPOSED_ACTION_ORDER: tuple[SupportedAction, ...] = (
@@ -195,7 +197,12 @@ def build_session_recap(session: UserSession, *, analysis: SessionAnalysis | Non
         f"- File: {analysis.inventory.short_label}",
     ]
 
-    if analysis.inventory.file_preview:
+    if analysis.inventory.pdf_count > 1:
+        ordered_files = "\n".join(
+            f"  {index}. {sanitize_filename(item.file_name)}" for index, item in enumerate(session.files, start=1)
+        )
+        lines.append(f"- Ordine unione:\n{ordered_files}")
+    elif analysis.inventory.file_preview:
         lines.append(f"- Contenuto: {analysis.inventory.file_preview}")
 
     if analysis.recommended_actions:
@@ -281,10 +288,10 @@ def _infer_recommended_actions(
     else:
         ordered_candidates = (
             SupportedAction.PDF_COMPRESS,
+            SupportedAction.PDF_SPLIT,
             SupportedAction.PDF_CROP,
             SupportedAction.PDF_GRAYSCALE,
             SupportedAction.PDF_EXTRACT_PAGES,
-            SupportedAction.PDF_SPLIT,
         )
 
     return tuple(action for action in ordered_candidates if action in supported)
@@ -329,7 +336,7 @@ def infer_result_followup_actions(source_action: SupportedAction | str | None) -
         resolved_action = None
 
     followup_actions = [action for action in RESULT_FOLLOWUP_ACTIONS if action != resolved_action]
-    return followup_actions[:4]
+    return followup_actions
 
 
 def _build_file_preview(files: list[SessionFile], max_items: int = 3) -> str:

@@ -34,7 +34,8 @@ HELP_MESSAGE = (
     "Dati e limiti:\n"
     "- i file servono alla lavorazione e non sono archiviati permanentemente\n"
     "- lo storico job live conserva metadati tecnici per /history e retry, poi viene potato\n"
-    "- /reset azzera sessione e preferenze; da lì puoi cancellare anche tutti i tuoi dati live\n"
+    "- /reset inizia un nuovo lavoro senza cancellare preferenze o storico\n"
+    "- /start privacy permette di ripristinare le preferenze o cancellare tutti i dati live\n"
     f"- dettagli completi: {PUBLIC_PRIVACY_URL}\n\n"
     "Esempi:\n"
     "- più immagini -> un PDF unico\n"
@@ -42,7 +43,7 @@ HELP_MESSAGE = (
     "- foto storta di un foglio -> raddrizza foto documento\n"
     "- immagini -> PDF con formato originale oppure A4 con bordi a scelta\n"
     "- un PDF -> comprimi, taglia bordi o scala di grigi\n"
-    "- un PDF -> dividi in un file per pagina\n"
+    "- un PDF -> dividi per pagina, per gruppi o ogni N pagine\n"
     "- un PDF -> estrai pagine, riordinale, eliminale, ruotale o aggiungi un watermark\n"
     "- più PDF -> unisci\n\n"
     "Puoi anche scrivermi richieste semplici come:\n"
@@ -59,13 +60,12 @@ HELP_MESSAGE = (
     "- aggiungi watermark BOZZA\n"
     "- sblocca questo Excel\n"
     "- foto in A4\n"
-    "- scansiona e comprimi\n\n"
     "Comandi utili:\n"
     "/start\n"
     "/help\n"
     "/history\n"
     "/status\n"
-    "/reset  (azzera sessione e ultime scelte rapide, con opzione di cancellazione dati live)"
+    "/reset  (inizia un nuovo lavoro, conservando preferenze e storico)"
 )
 
 UNAUTHORIZED_MESSAGE = (

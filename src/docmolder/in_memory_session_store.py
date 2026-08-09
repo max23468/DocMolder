@@ -21,6 +21,7 @@ class InMemorySessionStore:
         self._sessions: dict[int, UserSession] = {}
         self._known_user_ids: set[int] = set()
         self._completed_actions: list[tuple[int, SupportedActionValue]] = []
+        self._flow_events: list[tuple[int, str, str, str | None, object]] = []
         self._jobs: dict[int, JobRecord] = {}
         self._audit_entries: list[AuditLogEntry] = []
         self._meta: dict[str, str] = {}
@@ -59,6 +60,42 @@ class InMemorySessionStore:
     def record_completed_action(self, user_id: int, action: SupportedActionValue) -> None:
         with self._lock:
             self._completed_actions.append((user_id, action))
+
+    def record_flow_event(self, user_id: int, flow_id: str, event_type: str, action: str | None = None) -> None:
+        from datetime import datetime, timezone
+
+        with self._lock:
+            self._flow_events.append((user_id, flow_id, event_type, action, datetime.now(timezone.utc)))
+
+    def prune_flow_events(self, retention_days: int) -> int:
+        from datetime import datetime, timedelta, timezone
+
+        threshold = datetime.now(timezone.utc) - timedelta(days=max(0, retention_days))
+        with self._lock:
+            original_count = len(self._flow_events)
+            self._flow_events = [event for event in self._flow_events if event[4] >= threshold]
+            return original_count - len(self._flow_events)
+
+    def count_flow_events(self, since_days: int = 7) -> dict[str, int]:
+        from datetime import datetime, timedelta, timezone
+
+        threshold = datetime.now(timezone.utc) - timedelta(days=max(0, since_days))
+        with self._lock:
+            recent_events = [event for event in self._flow_events if event[4] >= threshold]
+            uploaded_flows = {
+                (user_id, flow_id)
+                for user_id, flow_id, event_type, _action, _at in recent_events
+                if event_type == "upload"
+            }
+            stages = {
+                (user_id, flow_id, event_type)
+                for user_id, flow_id, event_type, _action, _at in recent_events
+                if (user_id, flow_id) in uploaded_flows
+            }
+        counts: dict[str, int] = {}
+        for _user_id, _flow_id, event_type in stages:
+            counts[event_type] = counts.get(event_type, 0) + 1
+        return counts
 
     def get_meta(self, key: str) -> str | None:
         with self._lock:
@@ -123,6 +160,8 @@ class InMemorySessionStore:
                 for event_user_id, action in self._completed_actions
                 if event_user_id != user_id
             ]
+            flow_events_deleted = sum(1 for event in self._flow_events if event[0] == user_id)
+            self._flow_events = [event for event in self._flow_events if event[0] != user_id]
             known_users_deleted = 1 if user_id in self._known_user_ids else 0
             self._known_user_ids.discard(user_id)
             for meta_key in meta_keys:
@@ -138,6 +177,7 @@ class InMemorySessionStore:
                 sessions_deleted=sessions_deleted,
                 jobs_deleted=jobs_deleted,
                 usage_events_deleted=usage_events_deleted,
+                flow_events_deleted=flow_events_deleted,
                 known_users_deleted=known_users_deleted,
                 meta_deleted=len(meta_keys),
                 audit_entries_scrubbed=audit_entries_scrubbed,
