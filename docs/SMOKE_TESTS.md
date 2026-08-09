@@ -86,9 +86,12 @@ Modalità utili:
 
 - `wizard-a4`: reset, invio 2 immagini, `PDF da immagini`, conferma A4, scelta bordi stretti
 - `pdf-followup`: reset, invio PDF, compressione media, breve attesa e conferma manuale del pulsante `Scala di grigi` sotto il risultato
+- `pdf-split`: reset, invio PDF a due pagine, divisione in blocchi da una pagina e verifica ZIP
+- `pdf-merge`: reset, invio di due PDF, riordino manuale, unione e verifica risultato
+- `admin-reports`: verifica che i toggle giornaliero e settimanale cambino stato indipendentemente e vengano poi riattivati
 - `history`: invia `/history`
 - `public-trust`: verifica `/start`, `/help`, `/start privacy`, `/status`, upload PDF, output, `/history` e `/reset`; con `--pause` permette di controllare anche la gestione dati separata e la conferma inline di cancellazione
-- `full`: combina i passaggi principali per un controllo funzionale rapido
+- `full`: combina A4, follow-up, split, merge, toggle admin e storico
 
 ### Come lavora
 

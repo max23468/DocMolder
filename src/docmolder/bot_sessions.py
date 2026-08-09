@@ -77,6 +77,9 @@ def _prepare_session_for_upload(
     session = _get_or_create_session(user_id, deps)
     if session.pending_action is None or session.pending_action == SupportedAction.PDF_MERGE.value:
         return session, False
+    deps.session_store.record_flow_event(
+        user_id, session.created_at.isoformat(), "cancelled", session.pending_action
+    )
     session = UserSession(user_id=user_id)
     deps.session_store.save(session)
     return session, True
@@ -209,6 +212,8 @@ async def handle_session_callback(update: Update, context: ContextTypes.DEFAULT_
     _cancel_pending_image_notification(user.id, deps)
     session = deps.session_store.get(user.id)
     if action == "new":
+        if session is not None:
+            deps.session_store.record_flow_event(user.id, session.created_at.isoformat(), "reset")
         deps.session_store.delete(user.id)
         await query.edit_message_text("Nuovo lavoro pronto. Inviami il primo file; preferenze e storico sono invariati.")
         return
@@ -301,7 +306,7 @@ async def handle_delete_data_callback(update: Update, context: ContextTypes.DEFA
         actor_user_id=None,
         target_user_id=None,
         outcome="self_service",
-        detail="source:/reset",
+        detail="source:/start-privacy",
     )
     log_event(
         bot_runtime.logger,

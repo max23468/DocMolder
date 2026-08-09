@@ -72,7 +72,7 @@ Se `DOCMOLDER_ADMIN_USER_IDS` è configurata, gli admin usano `/admin` come ingr
 - manutenzione, running stale, accessi pending, pruning, cancellazioni dati e audit recente
 - job lenti recenti, secondo `DOCMOLDER_ADMIN_SLOW_JOB_THRESHOLD_MS`
 - metriche Telegram aggregate da `app_meta`
-- funnel degli ultimi 7 giorni basato solo su eventi tecnici (`upload`, scelta, coda, esito, annulla, reset)
+- funnel degli ultimi 7 giorni basato su flussi unici e soli eventi tecnici (`upload`, scelta, coda, esito, annulla, reset), con drop-off prima della scelta e prima della coda
 - pausa e ripresa servizio
 - attivazione/disattivazione indipendente dei riepiloghi giornalieri e settimanali; gli alert di anomalia restano attivi
 - dettaglio rapido degli ultimi job per stato, solo quando esiste almeno un job in quello stato
@@ -119,7 +119,7 @@ Le metriche aggregate tengono traccia di:
 
 - il bot resta in polling, coerentemente con le decisioni architetturali correnti
 - i file utente restano temporanei; non è stato introdotto storage permanente dei file
-- contatori tecnici aggregati persistono in `app_meta`; il funnel privacy-safe persiste in `flow_events` per la stessa retention breve dello storico job
+- contatori tecnici aggregati persistono in `app_meta`; il funnel privacy-safe persiste in `flow_events`, conta ogni fase una sola volta per flusso e usa la stessa retention breve dello storico job
 - i dettagli pubblici su dati, retention e cancellazione sono esposti in `/help`, `/status`, `/start privacy` e nella pagina statica `/privacy.html`
 
 ## Standard eventi e log

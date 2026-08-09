@@ -235,7 +235,7 @@ Campi principali:
 - `action`, opzionale
 - `created_at`
 
-Serve a ricostruire funnel tecnici tra upload, scelta, accodamento, esito, annullamento e nuovo lavoro. Non contiene nomi file, testo estratto, contenuti documento o payload job; viene potato con `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS` e rimosso dalla cancellazione self-service.
+Serve a ricostruire funnel tecnici tra upload, scelta, accodamento, esito, annullamento e nuovo lavoro. I report contano ogni fase una sola volta per coppia utente/flusso e ignorano i job senza un upload correlato, come i rilanci dello storico. La scrittura è best-effort e non può bloccare upload, coda o consegna del risultato. Non contiene nomi file, testo estratto, contenuti documento o payload job; viene potato con `DOCMOLDER_JOB_HISTORY_RETENTION_DAYS` e rimosso dalla cancellazione self-service.
 
 ### `app_meta`
 

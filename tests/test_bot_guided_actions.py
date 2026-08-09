@@ -149,6 +149,28 @@ class BotGuidedActionsTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual([item.file_name for item in self.store.get(7).files], ["secondo.pdf", "primo.pdf"])
         self.assertIn("1. secondo.pdf", query.edit_message_text.await_args.args[0])
 
+    async def test_inline_new_work_records_the_reset_before_clearing_the_session(self) -> None:
+        session = UserSession(
+            user_id=7,
+            files=[build_session_file("pdf-1", "documento.pdf", FileKind.PDF)],
+        )
+        self.store.save(session)
+        self.store.record_flow_event(7, session.created_at.isoformat(), "upload", "pdf")
+        query = SimpleNamespace(
+            data="session:new",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=SimpleNamespace(chat_id=99, message_id=701),
+            answer=AsyncMock(),
+            edit_message_text=AsyncMock(),
+        )
+
+        await handle_session_callback(
+            SimpleNamespace(callback_query=query), SimpleNamespace(application=self.application, bot=self.bot)
+        )
+
+        self.assertIsNone(self.store.get(7))
+        self.assertEqual(self.store.count_flow_events().get("reset"), 1)
+
     async def test_excel_unlock_action_callback_enqueues_job(self) -> None:
         self.store.save(
             UserSession(

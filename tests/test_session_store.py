@@ -9,6 +9,7 @@ from pathlib import Path
 import sqlite3
 import sys
 import gc
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -248,13 +249,26 @@ class SQLiteSessionStoreJobsTest(unittest.TestCase):
 
     def test_flow_events_are_counted_without_document_metadata(self) -> None:
         self.store.record_flow_event(55, "flow-55", "upload", "pdf")
+        self.store.record_flow_event(55, "flow-55", "upload", "pdf")
         self.store.record_flow_event(55, "flow-55", "action_selected", "pdf_compress")
+        self.store.record_flow_event(55, "flow-55", "queued", "pdf_compress")
+        self.store.record_flow_event(55, "flow-without-upload", "queued", "pdf_compress")
 
-        self.assertEqual(self.store.count_flow_events(), {"action_selected": 1, "upload": 1})
+        self.assertEqual(
+            self.store.count_flow_events(),
+            {"action_selected": 1, "queued": 1, "upload": 1},
+        )
         with self.store._connect() as connection:
             columns = {row["name"] for row in connection.execute("PRAGMA table_info(flow_events)")}
         self.assertNotIn("file_name", columns)
         self.assertNotIn("content", columns)
+
+    def test_flow_event_storage_failure_does_not_break_the_user_flow(self) -> None:
+        with (
+            patch("docmolder.sqlite_session_store.sqlite3.connect", side_effect=sqlite3.OperationalError("busy")),
+            self.assertLogs("docmolder.sqlite_session_store", level="ERROR"),
+        ):
+            self.store.record_flow_event(55, "flow-55", "queued", "pdf_compress")
 
     def test_purge_expired_removes_only_expired_sessions(self) -> None:
         from docmolder.action_catalog import build_session_file

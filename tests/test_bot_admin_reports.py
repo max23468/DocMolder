@@ -16,6 +16,7 @@ from docmolder.bot_runtime import (
 from docmolder.admin_reporting import (
     _build_admin_report,
     _build_periodic_admin_report,
+    _build_telegram_metrics_report,
     _maybe_send_admin_anomaly_alerts,
     _detect_admin_anomaly_alerts,
     _maybe_send_admin_report_for_period,
@@ -151,6 +152,18 @@ class BotAdminReportsTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("Job lenti della settimana", report)
         self.assertNotIn("Job lenti ultime 24 ore", report)
+
+    def test_telegram_metrics_report_shows_unique_flow_dropoffs(self) -> None:
+        for event_type in ("upload", "upload", "action_selected", "queued", "succeeded"):
+            self.store.record_flow_event(7, "flow-complete", event_type, "pdf_compress")
+        self.store.record_flow_event(7, "flow-abandoned", "upload", "pdf")
+
+        report = _build_telegram_metrics_report(self.deps)
+
+        self.assertIn("Flussi avviati: 2", report)
+        self.assertIn("Con azione scelta: 1 (50%)", report)
+        self.assertIn("Accodati: 1 (100%)", report)
+        self.assertIn("Interrotti prima della scelta: 1", report)
 
     async def test_maybe_send_admin_report_for_period_persists_last_sent(self) -> None:
         self.deps.settings.admin_user_ids = [999]
@@ -298,6 +311,8 @@ class BotAdminReportsTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_maybe_send_admin_anomaly_alerts_respects_cooldown(self) -> None:
         self.deps.settings.admin_user_ids = [999]
+        _set_periodic_admin_report_enabled(self.deps, "daily", False)
+        _set_periodic_admin_report_enabled(self.deps, "weekly", False)
         self.deps.settings.admin_alert_window_minutes = 30
         self.deps.settings.admin_alert_min_finished_jobs = 3
         self.deps.settings.admin_alert_failure_rate_percent = 60

@@ -341,7 +341,7 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
             reply_text=AsyncMock(),
         )
         query = SimpleNamespace(
-            data="result:more",
+            data="result:more:pdf_compress:42",
             from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
             message=message,
             answer=AsyncMock(),
@@ -357,10 +357,49 @@ class BotHistoryTest(unittest.IsolatedAsyncioTestCase):
             for button in row
         ]
         self.assertIn("Aggiungi watermark", labels)
+        self.assertNotIn("Comprimi PDF", labels)
+        self.assertIn("Rifai senza rotazione automatica", labels)
+        less_button = next(
+            button
+            for row in query.edit_message_reply_markup.await_args.kwargs["reply_markup"].inline_keyboard
+            for button in row
+            if button.text == "Meno azioni"
+        )
+        self.assertEqual(less_button.callback_data, "result:less:pdf_compress:42")
         query.data = "result:merge"
         await handle_result_action_callback(SimpleNamespace(callback_query=query), context)
         self.assertEqual(self.store.get(7).pending_action, "pdf_merge")
         self.assertIn("pronto per l'unione", message.reply_text.await_args.args[0])
+
+    async def test_old_result_callback_does_not_replace_a_different_active_session(self) -> None:
+        self.store.save(
+            UserSession(
+                user_id=7,
+                files=[build_session_file("current-pdf", "corrente.pdf", FileKind.PDF)],
+            )
+        )
+        message = SimpleNamespace(
+            chat_id=99,
+            message_id=324,
+            document=SimpleNamespace(
+                file_id="old-result", file_name="vecchio.pdf", mime_type="application/pdf"
+            ),
+            reply_text=AsyncMock(),
+        )
+        query = SimpleNamespace(
+            data="result:merge",
+            from_user=SimpleNamespace(id=7, username=None, first_name="Test", last_name=None),
+            message=message,
+            answer=AsyncMock(),
+        )
+
+        await handle_result_action_callback(
+            SimpleNamespace(callback_query=query),
+            SimpleNamespace(application=self.application, bot=self.bot),
+        )
+
+        self.assertEqual(self.store.get(7).files[0].telegram_file_id, "current-pdf")
+        self.assertIn("altro lavoro attivo", message.reply_text.await_args.args[0])
 
     async def test_result_callback_reports_missing_pdf_without_starting_session(self) -> None:
         reply_text = AsyncMock()

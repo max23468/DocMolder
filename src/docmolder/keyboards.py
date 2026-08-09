@@ -202,6 +202,7 @@ def _margin_label_from_key(key: str) -> str:
 def build_result_pdf_keyboard(
     *,
     quick_actions: list[SupportedAction] | None = None,
+    source_action: SupportedAction | None = None,
     undo_rotation_job_id: int | None = None,
     expanded: bool = False,
 ) -> InlineKeyboardMarkup | None:
@@ -211,11 +212,13 @@ def build_result_pdf_keyboard(
     for action in visible_actions:
         rows.append([InlineKeyboardButton(_build_action_button_label(action), callback_data=f"result:{action.value}")])
     if len(actions) > 4:
+        source_token = source_action.value if source_action is not None else "none"
+        undo_token = undo_rotation_job_id or 0
         rows.append(
             [
                 InlineKeyboardButton(
                     "Meno azioni" if expanded else f"Altre azioni ({len(actions) - 4})",
-                    callback_data="result:less" if expanded else "result:more",
+                    callback_data=f"result:{'less' if expanded else 'more'}:{source_token}:{undo_token}",
                 )
             ]
         )

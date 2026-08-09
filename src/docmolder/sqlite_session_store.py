@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
@@ -21,6 +22,7 @@ from docmolder.models import (
 )
 
 SQLiteParameter = str | int | float | bytes | None
+logger = logging.getLogger(__name__)
 
 
 class SQLiteSessionStore:
@@ -172,12 +174,15 @@ class SQLiteSessionStore:
             connection.commit()
 
     def record_flow_event(self, user_id: int, flow_id: str, event_type: str, action: str | None = None) -> None:
-        with self._lock, self._connect() as connection:
-            connection.execute(
-                "INSERT INTO flow_events (user_id, flow_id, event_type, action, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
-                (user_id, flow_id, event_type, action),
-            )
-            connection.commit()
+        try:
+            with self._lock, self._connect() as connection:
+                connection.execute(
+                    "INSERT INTO flow_events (user_id, flow_id, event_type, action, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)",
+                    (user_id, flow_id, event_type, action),
+                )
+                connection.commit()
+        except sqlite3.Error:
+            logger.exception("Impossibile registrare il flow event %s per %s.", event_type, action or "nessuna azione")
 
     def prune_flow_events(self, retention_days: int) -> int:
         with self._lock, self._connect() as connection:
@@ -191,7 +196,25 @@ class SQLiteSessionStore:
     def count_flow_events(self, since_days: int = 7) -> dict[str, int]:
         with self._lock, self._connect() as connection:
             rows = connection.execute(
-                "SELECT event_type, COUNT(*) AS total FROM flow_events WHERE created_at >= datetime('now', ?) GROUP BY event_type",
+                """
+                WITH recent_events AS (
+                    SELECT user_id, flow_id, event_type
+                    FROM flow_events
+                    WHERE created_at >= datetime('now', ?)
+                ),
+                uploaded_flows AS (
+                    SELECT DISTINCT user_id, flow_id
+                    FROM recent_events
+                    WHERE event_type = 'upload'
+                )
+                SELECT recent_events.event_type, COUNT(*) AS total
+                FROM (
+                    SELECT DISTINCT recent_events.user_id, recent_events.flow_id, recent_events.event_type
+                    FROM recent_events
+                    INNER JOIN uploaded_flows USING (user_id, flow_id)
+                ) AS recent_events
+                GROUP BY recent_events.event_type
+                """,
                 (f"-{max(0, since_days)} day",),
             ).fetchall()
         return {str(row["event_type"]): int(row["total"]) for row in rows}

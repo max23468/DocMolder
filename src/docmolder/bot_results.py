@@ -98,17 +98,37 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
         return
     action = (query.data or "").removeprefix("result:")
     bot_runtime._record_callback_metric(deps, f"result:{action.split(':', 1)[0]}")
-    if action in {"more", "less"}:
+    if action.startswith(("more:", "less:")):
+        try:
+            view, raw_source_action, raw_undo_job_id = action.split(":", 2)
+            source_action = None if raw_source_action == "none" else SupportedAction(raw_source_action)
+            undo_job_id = None if raw_undo_job_id == "0" else int(raw_undo_job_id)
+        except (TypeError, ValueError):
+            await query.message.reply_text(
+                bot_runtime._invalid_callback_message(), reply_to_message_id=query.message.message_id
+            )
+            return
         await query.edit_message_reply_markup(
             reply_markup=build_result_pdf_keyboard(
-                quick_actions=infer_result_followup_actions(None), expanded=action == "more"
+                quick_actions=infer_result_followup_actions(source_action),
+                source_action=source_action,
+                undo_rotation_job_id=undo_job_id,
+                expanded=view == "more",
             )
         )
         return
     if action == "merge":
-        session = _build_result_pdf_session(user.id, document.file_id, document.file_name)
+        session, is_new_session = _resolve_result_pdf_session(deps, user.id, document.file_id, document.file_name)
+        if session is None:
+            await query.message.reply_text(
+                "Hai già un altro lavoro attivo. Concludilo oppure scegli “Nuovo lavoro”, poi riprova da questo PDF.",
+                reply_to_message_id=query.message.message_id,
+            )
+            return
         session.pending_action = SupportedAction.PDF_MERGE.value
         deps.session_store.save(session)
+        if is_new_session:
+            deps.session_store.record_flow_event(user.id, session.created_at.isoformat(), "upload", "result_pdf")
         deps.session_store.record_flow_event(
             user.id, session.created_at.isoformat(), "action_selected", SupportedAction.PDF_MERGE.value
         )
@@ -159,8 +179,16 @@ async def handle_result_action_callback(update: Update, context: ContextTypes.DE
             "Questa azione sul risultato non è supportata.", reply_to_message_id=query.message.message_id
         )
         return
-    session = _build_result_pdf_session(user.id, document.file_id, document.file_name)
+    session, is_new_session = _resolve_result_pdf_session(deps, user.id, document.file_id, document.file_name)
+    if session is None:
+        await query.message.reply_text(
+            "Hai già un altro lavoro attivo. Concludilo oppure scegli “Nuovo lavoro”, poi riprova da questo PDF.",
+            reply_to_message_id=query.message.message_id,
+        )
+        return
     deps.session_store.save(session)
+    if is_new_session:
+        deps.session_store.record_flow_event(user.id, session.created_at.isoformat(), "upload", "result_pdf")
     deps.session_store.record_flow_event(user.id, session.created_at.isoformat(), "action_selected", selected_action.value)
     if selected_action == SupportedAction.PDF_COMPRESS:
         session.pending_action = selected_action.value
@@ -483,6 +511,17 @@ def _build_result_pdf_session(user_id: int, file_id: str, file_name: str | None)
     return UserSession(user_id=user_id, files=[build_session_file(file_id, file_name, FileKind.PDF)])
 
 
+def _resolve_result_pdf_session(
+    deps: bot_runtime.BotDependencies, user_id: int, file_id: str, file_name: str | None
+) -> tuple[UserSession | None, bool]:
+    current_session = deps.session_store.get(user_id)
+    if current_session is not None and current_session.files:
+        if len(current_session.files) != 1 or current_session.files[0].telegram_file_id != file_id:
+            return (None, False)
+        return (current_session, False)
+    return (_build_result_pdf_session(user_id, file_id, file_name), True)
+
+
 def _build_result_delivery_message(result: ProcessingResult, source_action: SupportedAction | None) -> str:
     if result.additional_outputs:
         return result.message
@@ -504,6 +543,7 @@ def _build_result_followup_keyboard(
         return None
     return build_result_pdf_keyboard(
         quick_actions=infer_result_followup_actions(source_action),
+        source_action=source_action,
         undo_rotation_job_id=source_job_id if result.auto_rotation_applied else None,
     )
 

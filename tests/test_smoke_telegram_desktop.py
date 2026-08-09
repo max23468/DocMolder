@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from pypdf import PdfReader
 
 from scripts.smoke_telegram_desktop import (
     SUPPORTED_PLANS,
@@ -27,6 +28,7 @@ class SmokeTelegramDesktopScriptTest(unittest.TestCase):
             self.assertTrue(assets["image_2"].exists())
             self.assertTrue(assets["pdf"].exists())
             self.assertEqual(assets["pdf"].suffix.lower(), ".pdf")
+            self.assertEqual(len(PdfReader(assets["pdf"]).pages), 2)
 
     def test_build_plan_full_includes_followup_and_history(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -42,6 +44,9 @@ class SmokeTelegramDesktopScriptTest(unittest.TestCase):
     def test_supported_plans_are_exposed(self) -> None:
         self.assertIn("full", SUPPORTED_PLANS)
         self.assertIn("wizard-a4", SUPPORTED_PLANS)
+        self.assertIn("pdf-split", SUPPORTED_PLANS)
+        self.assertIn("pdf-merge", SUPPORTED_PLANS)
+        self.assertIn("admin-reports", SUPPORTED_PLANS)
         self.assertIn("public-trust", SUPPORTED_PLANS)
 
     def test_pdf_followup_uses_a_level_then_the_result_button(self) -> None:
@@ -50,6 +55,20 @@ class SmokeTelegramDesktopScriptTest(unittest.TestCase):
 
         self.assertIn("media", [step.value for step in steps if step.kind == "text"])
         self.assertTrue(any(step.kind == "manual" and "Scala di grigi" in step.value for step in steps))
+
+    def test_new_pdf_and_admin_plans_cover_the_published_controls(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            assets = build_assets(Path(temp_dir))
+            split_steps = build_plan("pdf-split", assets)
+            merge_steps = build_plan("pdf-merge", assets)
+            admin_steps = build_plan("admin-reports", assets)
+
+        self.assertIn("Dividi PDF", [step.value for step in split_steps])
+        self.assertTrue(any("Ogni N pagine" in step.value for step in split_steps))
+        self.assertIn("Unisci PDF", [step.value for step in merge_steps])
+        self.assertTrue(any("Sposta il secondo PDF" in step.value for step in merge_steps))
+        self.assertTrue(any("giornaliero" in step.value for step in admin_steps))
+        self.assertTrue(any("settimanale" in step.value for step in admin_steps))
 
     def test_public_trust_plan_covers_public_commands_and_reset(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -647,6 +647,11 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(restarted)
         self.assertEqual(fresh.files, [])
+        self.assertEqual(self.store.count_flow_events(), {})
+        self.store.record_flow_event(7, wizard.created_at.isoformat(), "upload", "pdf")
+        self.store.save(wizard)
+        _prepare_session_for_upload(7, self.deps)
+        self.assertEqual(self.store.count_flow_events().get("cancelled"), 1)
         merge = UserSession(
             user_id=7,
             files=[build_session_file("pdf-2", "primo.pdf", FileKind.PDF)],
@@ -699,6 +704,10 @@ class JobProcessingCleanupOrderTest(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(self.store.get_meta("access:7:status"))
         self.assertIsNone(self.store.get_job(job.id))
         self.assertEqual(self.store.list_audit_log_entries(limit=1)[0].event_type, "user_data_deleted")
+        self.assertEqual(
+            self.store.list_audit_log_entries(limit=1)[0].detail,
+            "source:/start-privacy",
+        )
 
     async def test_pseudo_e2e_photo_to_pdf_followup_flow(self) -> None:
         context = SimpleNamespace(application=self.application, bot=self.bot)

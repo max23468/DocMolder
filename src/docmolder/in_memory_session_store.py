@@ -81,11 +81,21 @@ class InMemorySessionStore:
 
         threshold = datetime.now(timezone.utc) - timedelta(days=max(0, since_days))
         with self._lock:
-            counts: dict[str, int] = {}
-            for _user_id, _flow_id, event_type, _action, created_at in self._flow_events:
-                if created_at >= threshold:
-                    counts[event_type] = counts.get(event_type, 0) + 1
-            return counts
+            recent_events = [event for event in self._flow_events if event[4] >= threshold]
+            uploaded_flows = {
+                (user_id, flow_id)
+                for user_id, flow_id, event_type, _action, _at in recent_events
+                if event_type == "upload"
+            }
+            stages = {
+                (user_id, flow_id, event_type)
+                for user_id, flow_id, event_type, _action, _at in recent_events
+                if (user_id, flow_id) in uploaded_flows
+            }
+        counts: dict[str, int] = {}
+        for _user_id, _flow_id, event_type in stages:
+            counts[event_type] = counts.get(event_type, 0) + 1
+        return counts
 
     def get_meta(self, key: str) -> str | None:
         with self._lock:
