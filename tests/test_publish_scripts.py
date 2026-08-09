@@ -36,7 +36,6 @@ class PublishScriptsTest(unittest.TestCase):
         scripts_dir = self.repo / "scripts"
         scripts_dir.mkdir()
         for name in (
-            "check_codex_bot_comments.py",
             "check_lock_sync.sh",
             "check_pr_policy.py",
             "classify_changes.py",
@@ -368,7 +367,7 @@ exit 1
         log = log_path.read_text(encoding="utf-8")
 
         self.assertIn("PR #1 mergeata.", result.stdout)
-        self.assertNotIn("pr checks", log)
+        self.assertIn("pr checks 1 --watch --interval 10", log)
         self.assertNotIn("pr merge 1 --auto", log)
         self.assertIn("pr merge 1 --squash --delete-branch --subject fix(runtime): merge runtime (#1)", log)
 

@@ -79,10 +79,11 @@ Regola aggiuntiva fondamentale:
 
 Regola review Codex:
 
-- dopo ogni nuovo SHA pubblica `@codex review` e attendi lo status `codex-review` sullo stesso HEAD;
+- al primo giro usa la review automatica senza pubblicare richieste;
+- dopo ogni nuovo SHA o per un retry pubblica una sola riga `@codex review` e attendi lo status `codex-review` sullo stesso HEAD;
 - il workflow osserva solo `chatgpt-codex-connector[bot]` ed esegue codice della default branch fidata;
-- prima di ready/merge controlla anche i thread della PR corrente con `scripts/check_codex_bot_comments.py --pr <numero> --fail`;
-- quando restano azioni aperte, indicare in chat il prossimo passo concreto: fix nella PR corrente, follow-up dedicato o falso positivo motivato.
+- prima di ready/merge verifica lo status `codex-review` sull'HEAD corrente;
+- quando restano P0/P1 aperti, indicare in chat il fix nella PR corrente; P2/P3 restano advisory.
 
 ## 4) Convenzioni leggere ad alto rendimento
 

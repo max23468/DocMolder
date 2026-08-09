@@ -116,7 +116,7 @@ passo; non nascondere il limite dietro un riepilogo positivo.
   gate pertinenti e squash merge. Il titolo PR deve essere un Conventional
   Commit orientato al cambiamento, non il nome del branch.
 - Prima di aprire o mergiare una PR esegui `make preflight-publish`, rivedi il
-  diff e controlla i thread Codex della PR corrente come descritto in
+  diff e controlla lo status `codex-review` sull'HEAD corrente come descritto in
   `docs/GITHUB_MAINTENANCE.md`, inclusi i ricontrolli prima e dopo il merge.
 - Usa `scripts/publish_change.sh "<titolo conventional>"` per il flusso
   standard. Per togliere una PR da draft usa `gh pr ready <numero>`.

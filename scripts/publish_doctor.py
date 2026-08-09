@@ -108,18 +108,6 @@ def open_pr_number(branch: str) -> int | None:
     return int(result.stdout.strip())
 
 
-def codex_bot_comments(pr_number: int) -> subprocess.CompletedProcess[str]:
-    return run(
-        [
-            sys.executable,
-            "scripts/check_codex_bot_comments.py",
-            "--pr",
-            str(pr_number),
-            "--fail",
-        ]
-    )
-
-
 def direct_docs_shortcut_allowed(impact: dict[str, object]) -> bool:
     paths = [str(path) for path in impact.get("changed_files", [])]
     return bool(paths) and all(path in {"AGENTS.md", "README.md"} or path.startswith("docs/") for path in paths)
@@ -242,12 +230,6 @@ def collect_report(*, base_branch: str, skip_fetch: bool, skip_github: bool) -> 
 
     pr_number = open_pr_number(branch)
     details["open_pr"] = pr_number
-    if pr_number is not None:
-        bot = codex_bot_comments(pr_number)
-        if bot.returncode == 1:
-            add_issue(issues, "blocker", f"La PR #{pr_number} ha commenti aperti del Codex connector bot.")
-        elif bot.returncode > 1:
-            add_issue(issues, "notice", f"Non ho potuto leggere i commenti bot sulla PR #{pr_number}.")
 
     return issues, details
 

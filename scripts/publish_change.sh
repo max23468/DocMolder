@@ -80,11 +80,11 @@ PR_NUMBER="$(gh pr view --json number --jq '.number')"
 PR_URL="$(gh pr view --json url --jq '.url')"
 
 if [ "${USE_GH_ACTIONS}" != "1" ]; then
-  python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail
   if [ "${PUBLISH_MERGE}" = "1" ]; then
     if [ "$(gh pr view "${PR_NUMBER}" --json isDraft --jq '.isDraft')" = "true" ]; then
       gh pr ready "${PR_NUMBER}"
     fi
+    gh pr checks "${PR_NUMBER}" --watch --interval 10
     gh pr merge "${PR_NUMBER}" --squash --delete-branch --subject "${TITLE} (#${PR_NUMBER})"
     echo "PR #${PR_NUMBER} mergeata. Prossimo passo: verifica webhook VPS e deploy della modifica."
     exit 0
@@ -95,10 +95,8 @@ if [ "${USE_GH_ACTIONS}" != "1" ]; then
 fi
 
 python3 scripts/publish_doctor.py --base "${BASE_BRANCH}" --fail
-python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail
-gh pr checks "${PR_NUMBER}" --watch --interval 10
-python3 scripts/check_codex_bot_comments.py --pr "${PR_NUMBER}" --fail
 if [ "$(gh pr view "${PR_NUMBER}" --json isDraft --jq '.isDraft')" = "true" ]; then
   gh pr ready "${PR_NUMBER}"
 fi
+gh pr checks "${PR_NUMBER}" --watch --interval 10
 gh pr merge "${PR_NUMBER}" --auto --squash --delete-branch --subject "${TITLE} (#${PR_NUMBER})"
