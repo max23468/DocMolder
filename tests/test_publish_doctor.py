@@ -114,36 +114,10 @@ class PublishDoctorTest(unittest.TestCase):
         self.assertFalse([issue for issue in issues if issue.level == "blocker"])
         self.assertTrue(any("Scope release 2.0.9 valido" in issue.message for issue in issues))
 
-    def test_main_branch_allows_docs_only_shortcut(self) -> None:
+    def test_main_branch_blocks_docs_only_changes(self) -> None:
         impact = {
             "changed_count": 1,
             "changed_files": ["docs/LOCAL_DEV.md"],
-            "recommended_release_type": "chore",
-            "deploy_relevant": False,
-            "release_owned": False,
-            "docs_only": True,
-        }
-        with (
-            patch.object(publish_doctor, "current_branch", return_value="main"),
-            patch.object(publish_doctor, "current_sha", return_value="abc123"),
-            patch.object(publish_doctor, "ref_exists", return_value=True),
-            patch.object(publish_doctor, "rev_counts", return_value=(0, 0)),
-            patch.object(publish_doctor, "changed_files", return_value=[]),
-            patch.object(publish_doctor, "classify", return_value=impact),
-        ):
-            issues, _details = publish_doctor.collect_report(
-                base_branch="main",
-                skip_fetch=True,
-                skip_github=True,
-            )
-
-        self.assertFalse([issue for issue in issues if issue.level == "blocker"])
-        self.assertTrue(any("docs-only" in issue.message for issue in issues))
-
-    def test_main_branch_blocks_docs_only_outside_direct_allowlist(self) -> None:
-        impact = {
-            "changed_count": 1,
-            "changed_files": [".github/pull_request_template.md"],
             "recommended_release_type": "chore",
             "deploy_relevant": False,
             "release_owned": False,

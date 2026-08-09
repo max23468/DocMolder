@@ -36,7 +36,7 @@ Policy del progetto:
 - ogni modifica destinata a release passa da PR
 - il titolo della PR è parte del processo di versioning, non solo descrizione editoriale
 - ogni commit che entra su `main` deve provenire da una PR squashata
-- eccezione stretta: commit diretti `chore(docs):` sono ammessi solo per modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**`, dopo preflight/check mirati e senza release/deploy attesi
+- le modifiche minuscole e solo documentali a `AGENTS.md`, `README.md` o `docs/**` usano comunque branch e PR con titolo `chore(docs):`; non richiedono release o deploy
 - `CI result` e `codex-review` sono i guardrail GitHub richiesti sulle PR non draft verso `main`
 - i controlli locali (`publish_doctor`, `preflight`, test mirati o `ci_verify`) restano la verifica primaria ed economica prima del push
 - `scripts/publish_change.sh` è il percorso standard per commit, push e PR pronta; draft, merge assistito e follow-up Actions richiedono variabili esplicite
