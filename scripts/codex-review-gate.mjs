@@ -10,6 +10,8 @@ export const CODEX_REVIEW_POLLING = { attempts: 100, intervalMs: 180_000 };
 const timestamp = (value) => new Date(value ?? 0).getTime();
 const reviewedCommit = (body = "") =>
   body.match(/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{10,40})`/i)?.[1];
+const findingPriority = (body = "") =>
+  body.match(/^(?:\*\*|<sub>)*(?:!?\[)?(P[0-3])(?: Badge)?(?:\]\([^)]*\)|\]\s*|\*\*)/m)?.[1];
 
 export function classifyCodexReview({
   headSha,
@@ -48,9 +50,9 @@ export function classifyCodexReview({
       comment.user?.login === CODEX_BOT &&
       (comment.original_commit_id ?? comment.commit_id) === headSha &&
       timestamp(comment.created_at) >= timestamp(requestedAt) &&
-      /\bP[0-3]\b/.test(comment.body)
+      findingPriority(comment.body)
     ) {
-      if (/\bP[01]\b/.test(comment.body)) {
+      if (["P0", "P1"].includes(findingPriority(comment.body))) {
         completions.push({
           state: "failure",
           at: timestamp(comment.created_at),
@@ -78,9 +80,9 @@ export function classifyCodexReview({
     if (
       belongsToAttempt &&
       timestamp(comment.created_at) >= timestamp(requestedAt) &&
-      /\bP[0-3]\b/.test(comment.body)
+      findingPriority(comment.body)
     ) {
-      if (/\bP[01]\b/.test(comment.body)) {
+      if (["P0", "P1"].includes(findingPriority(comment.body))) {
         completions.push({
           state: "failure",
           at: timestamp(comment.created_at),
@@ -143,10 +145,11 @@ export function classifyCodexReview({
   const matchingReviewAt = cleanComments
     .filter((reviewAt) => Math.abs(reviewAt - latestAdvisoryAt) <= 30_000)
     .sort((left, right) => right - left)[0];
-  if (latestAdvisoryAt && matchingReviewAt && now - matchingReviewAt >= 30_000) {
+  const settledAt = Math.max(latestAdvisoryAt, matchingReviewAt ?? 0);
+  if (latestAdvisoryAt && matchingReviewAt && now - settledAt >= 30_000) {
     completions.push({
       state: "success",
-      at: matchingReviewAt,
+      at: settledAt,
       description: "Codex ha completato la review con soli finding P2/P3 advisory",
     });
   }
