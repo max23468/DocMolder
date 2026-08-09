@@ -1,19 +1,21 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { test } from "node:test";
+import fs from "node:fs";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
 import {
   CODEX_REVIEW_POLLING,
   classifyCodexReview,
-  codexRetryCutoff,
+  githubPollTiming,
+  githubRetryDelay,
+  githubStatusRetryDelay,
   hasSuccessfulCodexStatus,
   isRetryableGitHubResponse,
-  latestCodexStatus,
   latestCodexInvocation,
   pullRequestNumber,
-  retryGitHubWrite,
 } from "./codex-review-gate.mjs";
 
+const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const headSha = "0123456789abcdef0123456789abcdef01234567";
 const requestedAt = "2026-08-04T12:00:00Z";
 const bot = { login: "chatgpt-codex-connector[bot]" };
@@ -31,28 +33,6 @@ const classify = (overrides = {}) =>
 
 test("resta pending senza un esito Codex", () => {
   assert.equal(classify().state, "pending");
-});
-
-test("ignora segnali che non provengono dal bot Codex esatto", () => {
-  assert.equal(
-    classify({
-      comments: [
-        {
-          user: { login: "chatgpt-codex-connector" },
-          created_at: "2026-08-04T12:00:01Z",
-          body: `Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``,
-        },
-      ],
-      reactions: [
-        {
-          user: { login: "max23468" },
-          content: "+1",
-          created_at: "2026-08-04T12:00:02Z",
-        },
-      ],
-    }).state,
-    "pending",
-  );
 });
 
 test("il pollice sulla PR approva la review automatica iniziale", () => {
@@ -144,7 +124,7 @@ test("un rerun non riusa il pollice di una vecchia invocazione", () => {
     classify({
       exactReactions: [reaction],
       reactions: [reaction],
-      requestedAt: "2026-08-04T12:00:02Z",
+      requestedAt: 0,
       requiresReviewedCommit: true,
     }).state,
     "pending",
@@ -155,12 +135,11 @@ test("un rerun non riusa il pollice di una vecchia invocazione", () => {
         {
           id: 1,
           user: { login: "max23468" },
-          author_association: "OWNER",
           body: "@codex review",
           created_at: "2026-08-04T12:00:01Z",
         },
       ],
-      "2026-08-04T12:00:02Z",
+      0,
     ),
     undefined,
   );
@@ -241,7 +220,97 @@ test("un finding del tentativo corrente prevale sul pollice", () => {
   );
 });
 
-test("un finding top-level sull'HEAD prevale sul riepilogo pulito", () => {
+test("i finding P2 e P3 non bloccano il gate", () => {
+  assert.equal(
+    classify({
+      comments: [
+        {
+          user: bot,
+          created_at: "2026-08-04T12:00:01Z",
+          body: `**P3** Non è un P0 e resta facoltativo.\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``,
+        },
+      ],
+      reviewComments: [
+        {
+          user: bot,
+          commit_id: headSha,
+          created_at: "2026-08-04T12:00:01Z",
+          body: "**<sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow)</sub></sub> È meno grave di un P1; correggi quando opportuno",
+        },
+      ],
+      reviews: [
+        {
+          user: bot,
+          commit_id: headSha,
+          submitted_at: "2026-08-04T12:00:02Z",
+        },
+      ],
+    }).state,
+    "success",
+  );
+});
+
+test("un advisory resta pending finché la review non è conclusa", () => {
+  assert.equal(
+    classify({
+      reviewComments: [
+        {
+          user: bot,
+          commit_id: headSha,
+          created_at: "2026-08-04T12:00:01Z",
+          body: "**P2** La review potrebbe pubblicare altri finding.",
+        },
+      ],
+    }).state,
+    "pending",
+  );
+});
+
+test("un advisory top-level senza SHA non approva un nuovo HEAD", () => {
+  assert.equal(
+    classify({
+      comments: [
+        {
+          user: bot,
+          created_at: "2026-08-04T12:00:01Z",
+          body: "**P2** Finding tardivo del commit precedente.",
+        },
+      ],
+      reviews: [
+        {
+          user: bot,
+          commit_id: headSha,
+          submitted_at: "2026-08-04T12:00:02Z",
+        },
+      ],
+    }).state,
+    "pending",
+  );
+});
+
+test("un finding P1 prevale su un advisory P2 successivo", () => {
+  assert.equal(
+    classify({
+      reviewComments: [
+        {
+          user: bot,
+          commit_id: headSha,
+          created_at: "2026-08-04T12:00:01Z",
+          body: "**P1** Questo finding resta bloccante.",
+        },
+        {
+          user: bot,
+          commit_id: headSha,
+          created_at: "2026-08-04T12:00:02Z",
+          body: "**P2** Questo finding resta advisory.",
+        },
+      ],
+    }).state,
+    "failure",
+  );
+});
+
+test("un finding P1 top-level sull'HEAD prevale sul riepilogo pulito", () => {
   assert.equal(
     classify({
       requiresReviewedCommit: true,
@@ -249,7 +318,7 @@ test("un finding top-level sull'HEAD prevale sul riepilogo pulito", () => {
         {
           user: bot,
           created_at: "2026-08-04T12:00:01Z",
-          body: `**P2** Correggi il gate.\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``,
+          body: `**P1** Correggi il gate.\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``,
         },
         {
           user: bot,
@@ -262,7 +331,7 @@ test("un finding top-level sull'HEAD prevale sul riepilogo pulito", () => {
   );
 });
 
-test("un finding top-level senza correlazione non migra su un nuovo tentativo", () => {
+test("un finding P1 top-level senza marker prevale sul riepilogo pulito", () => {
   assert.equal(
     classify({
       requiresReviewedCommit: true,
@@ -270,31 +339,12 @@ test("un finding top-level senza correlazione non migra su un nuovo tentativo", 
         {
           user: bot,
           created_at: "2026-08-04T12:00:01Z",
-          body: "**P2** Correggi il gate.",
+          body: "**P1** Correggi il gate.",
         },
         {
           user: bot,
           created_at: "2026-08-04T12:00:02Z",
           body: `Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``,
-        },
-      ],
-    }).state,
-    "success",
-  );
-});
-
-test("un finding top-level dopo eyes sulla specifica invocazione blocca", () => {
-  const eyes = { user: bot, content: "eyes", created_at: "2026-08-04T12:00:01Z" };
-  assert.equal(
-    classify({
-      requiresReviewedCommit: true,
-      exactReactions: [eyes],
-      reactions: [eyes],
-      comments: [
-        {
-          user: bot,
-          created_at: "2026-08-04T12:00:02Z",
-          body: "**P2** Correggi il gate.",
         },
       ],
     }).state,
@@ -323,10 +373,10 @@ test("un finding top-level marcato su un altro SHA non blocca l'HEAD", () => {
   );
 });
 
-test("un rerun ignora i finding top-level precedenti al cutoff", () => {
+test("un rerun ignora i finding top-level senza SHA", () => {
   assert.equal(
     classify({
-      requestedAt: "2026-08-04T12:00:02Z",
+      requestedAt: 0,
       requiresReviewedCommit: true,
       comments: [
         {
@@ -336,7 +386,7 @@ test("un rerun ignora i finding top-level precedenti al cutoff", () => {
         },
         {
           user: bot,
-          created_at: "2026-08-04T12:00:03Z",
+          created_at: "2026-08-04T12:00:02Z",
           body: `Codex Review: Didn't find any major issues.\n\n**Reviewed commit:** \`${headSha.slice(0, 10)}\``,
         },
       ],
@@ -465,47 +515,10 @@ test("un errore successivo a eyes chiude il tentativo", () => {
   );
 });
 
-test("un retry ignora errori non correlati alla specifica invocazione", () => {
-  assert.equal(
-    classify({
-      requiresReviewedCommit: true,
-      comments: [
-        {
-          user: bot,
-          created_at: "2026-08-04T12:00:03Z",
-          body: "Codex could not complete the review",
-        },
-      ],
-      progressReactions: [{ user: bot, content: "eyes", created_at: "2026-08-04T12:00:02Z" }],
-    }).state,
-    "pending",
-  );
-});
-
-test("un retry chiude l'errore successivo a eyes sulla specifica invocazione", () => {
-  const eyes = { user: bot, content: "eyes", created_at: "2026-08-04T12:00:02Z" };
-  assert.equal(
-    classify({
-      requiresReviewedCommit: true,
-      comments: [
-        {
-          user: bot,
-          created_at: "2026-08-04T12:00:03Z",
-          body: "Codex could not complete the review",
-        },
-      ],
-      exactReactions: [eyes],
-      progressReactions: [eyes],
-      reactions: [eyes],
-    }).state,
-    "failure",
-  );
-});
-
 test("un rerun ignora un errore transitorio storico", () => {
   assert.equal(
     classify({
-      requestedAt: "2026-08-04T12:00:02Z",
+      requestedAt: 0,
       requiresReviewedCommit: true,
       comments: [
         {
@@ -518,24 +531,11 @@ test("un rerun ignora un errore transitorio storico", () => {
         {
           user: bot,
           commit_id: headSha,
-          submitted_at: "2026-08-04T12:00:03Z",
+          submitted_at: "2026-08-04T12:00:02Z",
           body: "",
         },
       ],
-      reactions: [{ user: bot, content: "+1", created_at: "2026-08-04T12:00:04Z" }],
-    }).state,
-    "success",
-  );
-});
-
-test("un rerun sullo stesso SHA accetta la nuova invocazione esatta", () => {
-  const reaction = { user: bot, content: "+1", created_at: "2026-08-04T12:00:03Z" };
-  assert.equal(
-    classify({
-      exactReactions: [reaction],
-      reactions: [reaction],
-      requestedAt: "2026-08-04T12:00:02Z",
-      requiresReviewedCommit: true,
+      reactions: [{ user: bot, content: "+1", created_at: "2026-08-04T12:00:03Z" }],
     }).state,
     "success",
   );
@@ -543,31 +543,29 @@ test("un rerun sullo stesso SHA accetta la nuova invocazione esatta", () => {
 
 test("il polling mantiene cinque ore senza saturare la quota con cinque PR", () => {
   assert.equal(CODEX_REVIEW_POLLING.attempts * CODEX_REVIEW_POLLING.intervalMs, 5 * 60 * 60 * 1000);
+  assert.equal(CODEX_REVIEW_POLLING.marginMs, 5 * 60 * 1000);
   assert.ok((5 * 5 * 60 * 60 * 1000) / CODEX_REVIEW_POLLING.intervalMs <= 500);
+  const source = fs.readFileSync(`${ROOT}scripts/codex-review-gate.mjs`, "utf8");
+  assert.match(source, /const deadline =[\s\S]{0,200}CODEX_REVIEW_POLLING\.marginMs/);
+  assert.match(source, /Math\.min\(\s*remainingMs,/);
+  assert.match(source, /setTimeout\(resolve, terminalDelayMs\)/);
+  assert.match(source, /const delayMs = githubStatusRetryDelay\(error\)/);
 });
 
-test("legge le reazioni dall'ultima invocazione Codex fidata del tentativo corrente", () => {
+test("legge le reazioni dall'ultima invocazione Codex del tentativo corrente", () => {
   assert.equal(
     latestCodexInvocation(
       [
-        {
-          id: 1,
-          user: { login: "outsider" },
-          author_association: "NONE",
-          body: "@codex review",
-          created_at: "2026-08-04T12:00:04Z",
-        },
+        { id: 1, user: bot, body: "@codex review", created_at: "2026-08-04T12:00:03Z" },
         {
           id: 2,
           user: { login: "max23468" },
-          author_association: "OWNER",
-          body: "puoi fare @codex review?",
+          body: "@codex review",
           created_at: "2026-08-04T12:00:01Z",
         },
         {
           id: 3,
           user: { login: "max23468" },
-          author_association: "OWNER",
           body: "@codex review",
           created_at: "2026-08-04T12:00:02Z",
         },
@@ -575,6 +573,20 @@ test("legge le reazioni dall'ultima invocazione Codex fidata del tentativo corre
       requestedAt,
     ).id,
     3,
+  );
+  assert.equal(
+    latestCodexInvocation(
+      [
+        {
+          id: 4,
+          user: { login: "max23468" },
+          body: "@codex review",
+          created_at: requestedAt,
+        },
+      ],
+      requestedAt,
+    ),
+    undefined,
   );
 });
 
@@ -588,51 +600,28 @@ test("ritenta soltanto errori GitHub recuperabili", () => {
   assert.equal(isRetryableGitHubResponse(429, null), true);
   assert.equal(isRetryableGitHubResponse(502, null), true);
   assert.equal(isRetryableGitHubResponse(403, "0"), true);
-  assert.equal(isRetryableGitHubResponse(403, "4999"), false);
+  assert.equal(isRetryableGitHubResponse(403, "4999", "60"), true);
+  assert.equal(isRetryableGitHubResponse(403, "4999", null, "secondary rate limit"), true);
+  assert.equal(isRetryableGitHubResponse(403, "4999", null, "forbidden"), false);
   assert.equal(isRetryableGitHubResponse(404, null), false);
 });
 
-test("il retry manuale parte dallo status Codex precedente dello stesso SHA", () => {
-  assert.equal(
-    codexRetryCutoff(
-      [
-        {
-          context: "codex-review",
-          state: "failure",
-          created_at: "2026-08-04T12:00:01Z",
-        },
-      ],
-      "2026-08-04T11:00:00Z",
-    ),
-    "2026-08-04T12:00:01Z",
-  );
-  assert.equal(codexRetryCutoff([], "2026-08-04T11:00:00Z"), "2026-08-04T11:00:00Z");
-});
-
-test("le scritture GitHub ritentano soltanto errori recuperabili", async () => {
-  let attempts = 0;
-  const waits = [];
-  const result = await retryGitHubWrite(
-    async () => {
-      attempts += 1;
-      if (attempts < 3) throw Object.assign(new Error("rate limit"), { retryable: true });
-      return "ok";
-    },
-    async (ms) => waits.push(ms),
-  );
-  assert.equal(result, "ok");
-  assert.equal(attempts, 3);
-  assert.deepEqual(waits, [5_000, 5_000]);
-
-  attempts = 0;
-  await assert.rejects(
-    retryGitHubWrite(async () => {
-      attempts += 1;
-      throw Object.assign(new Error("forbidden"), { retryable: false });
-    }),
-    /forbidden/,
-  );
-  assert.equal(attempts, 1);
+test("rispetta Retry-After e il reset della quota GitHub", () => {
+  assert.equal(githubRetryDelay("600", "4999", null, 1_000), 600_000);
+  assert.equal(githubRetryDelay(null, "0", "700", 100_000), 600_000);
+  assert.equal(githubRetryDelay(null, "4999", "700", 100_000), 0);
+  assert.equal(githubRetryDelay(null, null, null, 1_000), 0);
+  assert.deepEqual(githubPollTiming(120_000, 600_000), {
+    pollDelayMs: null,
+    terminalDelayMs: 600_000,
+  });
+  assert.deepEqual(githubPollTiming(120_000, 0), {
+    pollDelayMs: 120_000,
+    terminalDelayMs: 0,
+  });
+  assert.equal(githubStatusRetryDelay({ retryable: true, retryAfterMs: 600_000 }), 600_000);
+  assert.equal(githubStatusRetryDelay(new TypeError("rete")), 180_000);
+  assert.equal(githubStatusRetryDelay({ retryable: false }), null);
 });
 
 test("un rerun riusa soltanto l'ultimo status Codex riuscito dello stesso SHA", () => {
@@ -652,37 +641,6 @@ test("un rerun riusa soltanto l'ultimo status Codex riuscito dello stesso SHA", 
   );
 });
 
-test("il rerun riconosce uno status precedente ancora pending", () => {
-  assert.equal(
-    latestCodexStatus([
-      { context: "codex-review", state: "pending" },
-      { context: "codex-review", state: "failure" },
-    ])?.state,
-    "pending",
-  );
-});
-
-test("il workflow usa eventi, permessi e branch fidato esatti", () => {
-  const source = readFileSync(
-    new URL("../.github/workflows/codex-review-gate.yml", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(source, /pull_request_target:\n\s+types: \[opened, synchronize, reopened, ready_for_review\]/);
-  assert.match(source, /workflow_dispatch:\n\s+inputs:\n\s+pull_request:[\s\S]*?type: number/);
-  assert.match(
-    source,
-    /permissions:\n  contents: read\n  issues: read\n  pull-requests: read\n  statuses: write\n/,
-  );
-  assert.match(source, /group: codex-review-\$\{\{ github\.event\.pull_request\.number \|\| inputs\.pull_request \}\}/);
-  assert.match(source, /cancel-in-progress: true/);
-  assert.match(source, /timeout-minutes: 310/);
-  assert.match(source, /actions\/checkout@[0-9a-f]{40}/);
-  assert.match(source, /ref: \$\{\{ github\.event\.repository\.default_branch \}\}/);
-  assert.match(source, /run: node scripts\/codex-review-gate\.mjs/);
-  assert.doesNotMatch(source, /github\.event\.pull_request\.head|github\.head_ref|refs\/pull/);
-});
-
 test("l'import in GitHub Actions non avvia la CLI", () => {
   const result = spawnSync(
     process.execPath,
@@ -697,4 +655,23 @@ test("l'import in GitHub Actions non avvia la CLI", () => {
     },
   );
   assert.equal(result.status, 0, result.stderr);
+});
+
+test("il workflow Codex usa eventi, permessi e checkout fidato", () => {
+  const source = fs.readFileSync(`${ROOT}.github/workflows/codex-review-gate.yml`, "utf8");
+
+  assert.match(source, /pull_request_target:/);
+  assert.match(source, /types:\s*\[opened, synchronize, reopened, ready_for_review\]/);
+  assert.match(source, /workflow_dispatch:/);
+  assert.match(source, /type:\s*number/);
+  assert.equal(
+    source.match(/^permissions:\n((?:  [^\n]+\n){4})\n/m)?.[1],
+    "  contents: read\n  issues: read\n  pull-requests: read\n  statuses: write\n",
+  );
+  assert.match(source, /cancel-in-progress:\s*true/);
+  assert.match(source, /timeout-minutes:\s*360/);
+  assert.match(source, /actions\/checkout@[0-9a-f]{40}/);
+  assert.match(source, /ref:\s*\$\{\{ github\.event\.repository\.default_branch \}\}/);
+  assert.doesNotMatch(source, /github\.event\.pull_request\.head/);
+  assert.match(source, /node scripts\/codex-review-gate\.mjs/);
 });

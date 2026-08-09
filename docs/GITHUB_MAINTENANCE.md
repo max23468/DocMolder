@@ -86,7 +86,8 @@ Il gate:
 - esegue soltanto script e workflow della default branch fidata;
 - pubblica `pending`, `success`, `failure` o `error` senza rendere rosso il run;
 - invalida tutte le prove precedenti a ogni nuovo SHA o tentativo;
-- blocca sempre i finding P0-P3 correnti, anche in presenza di approvazioni;
+- blocca sempre i finding P0/P1 correnti, anche in presenza di approvazioni;
+- lascia P2/P3 advisory solo dopo una review conclusa e un breve assestamento dei segnali;
 - pagina tutte le API e ritenta solo rete, 429, 5xx e 403 con quota esaurita;
 - usa 100 tentativi ogni 180 secondi, pari a cinque ore.
 

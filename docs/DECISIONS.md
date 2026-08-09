@@ -127,7 +127,7 @@ Conseguenze:
 Decisione:
 - il workflow `.github/workflows/codex-review-gate.yml` pubblica lo status richiesto `codex-review` sull'HEAD esatto della PR
 - il gate esegue soltanto codice del branch predefinito fidato e accetta segnali esclusivamente da `chatgpt-codex-connector[bot]`
-- ogni nuovo SHA o nuovo tentativo invalida review, reazioni, finding ed errori precedenti; i finding P0-P3 correnti prevalgono su qualsiasi approvazione
+- ogni nuovo SHA o nuovo tentativo invalida review, reazioni, finding ed errori precedenti; i finding P0/P1 correnti bloccano, mentre P2/P3 restano advisory dopo la conclusione della review
 - il workflow può restare verde mentre lo status `pending`, `failure` o `error` impedisce il merge
 - i thread actionable restano letti direttamente sulla PR corrente dal preflight locale; non esiste una inbox globale separata
 
