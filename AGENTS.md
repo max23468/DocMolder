@@ -110,6 +110,27 @@ passo; non nascondere il limite dietro un riepilogo positivo.
 - Mantieni procedure specialistiche nei documenti o script canonici e in
   `AGENTS.md` solo vincoli durevoli e gotcha non ricavabili dal repository.
 
+## Significato di `Pubblica`
+
+Quando il proprietario dice `Pubblica`, `pubblica`, parla di `pubblicare` o usa
+espressioni equivalenti, autorizza l'intero ciclo tecnico applicabile alla
+repository. L'agente non si ferma a stati intermedi: prepara e verifica la
+modifica; crea branch e commit; esegue push; apre o aggiorna la PR; attende e
+soddisfa i soli gate bloccanti; esegue il merge; completa deploy o promozione
+tecnica e verifica live quando applicabili; crea versione, tag e GitHub Release
+quando previsti dalla policy; infine aggiorna e verifica la branch di base,
+elimina branch e worktree temporanei locali e remoti già assorbiti e controlla
+stash e altri residui.
+
+Se un passaggio non è applicabile, lo dichiara e prosegue con gli altri. La
+richiesta di pubblicazione vale come autorizzazione a PR, merge, deploy tecnico
+e release previsti dal ciclo, senza una seconda conferma. Non autorizza
+pubblicazione di temi Shopify live, submission Shopify App Store, billing o
+nuove attivazioni produttive, TestFlight o App Store, invii Aruba, email o
+scansioni reali, né aggiornamenti Notion: queste azioni richiedono una richiesta
+esplicita separata. Non dichiarare `pubblicato` finché il ciclo applicabile e la
+rilettura finale di PR, check, deploy, release e stato Git non sono completi.
+
 ## GitHub, release e deploy
 
 - Il flusso standard è branch dedicato, commit coeso, PR pronta verso `main`,
@@ -120,13 +141,9 @@ passo; non nascondere il limite dietro un riepilogo positivo.
   `docs/GITHUB_MAINTENANCE.md`, inclusi i ricontrolli prima e dopo il merge.
 - Usa `scripts/publish_change.sh "<titolo conventional>"` per il flusso
   standard. Per togliere una PR da draft usa `gh pr ready <numero>`.
-- Solo per modifiche minuscole a `AGENTS.md`, `README.md` o `docs/**`, senza
-  release/deploy attesi, da `main` aggiornato puoi usare
-  `make publish-docs TITLE="chore(docs): <descrizione>"`.
-- “Pubblica”, “carica” o “procedi” su una modifica rilasciabile include PR,
-  merge, verifica post-merge, valutazione SemVer, eventuale release manuale,
-  deploy del commit di release e smoke/health. Segui
-  `docs/RELEASE_PROCESS.md`; Release Please non è attivo.
+- Anche le modifiche minuscole a `AGENTS.md`, `README.md` o `docs/**` seguono
+  branch e PR quando il proprietario parla di pubblicare; non usare la corsia
+  diretta `make publish-docs` nel ciclo completo.
 - Per cambi interni non rilasciabili usa `chore:`, `ci:`, `test:`, `refactor:`
   o `build:`. Non creare tag, GitHub Release o deploy per docs agentiche senza
   impatto runtime.
