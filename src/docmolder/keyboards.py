@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 from docmolder.branding import MAIN_MENU_PLACEHOLDER, MAIN_MENU_ROWS
@@ -17,6 +19,11 @@ _SPLIT_OUTPUT_LABELS = {
     "zip": "ZIP unico",
     "files": "PDF separati",
 }
+
+
+def build_session_controls_revision(session: UserSession) -> str:
+    payload = "\0".join([session.created_at.isoformat(), *(item.telegram_file_id for item in session.files)])
+    return hashlib.sha256(payload.encode()).hexdigest()[:10]
 
 
 def _build_action_button_label(action: SupportedAction) -> str:
@@ -74,13 +81,20 @@ def build_session_actions_keyboard(
                 [InlineKeyboardButton(f"Pagine e altre modifiche ({len(hidden_actions)})", callback_data="action:more")]
             )
     if analysis.inventory.pdf_count > 1:
+        revision = build_session_controls_revision(session)
         for index in range(len(session.files)):
             controls: list[InlineKeyboardButton] = []
             if index > 0:
-                controls.append(InlineKeyboardButton(f"↑ {index + 1}", callback_data=f"session:move:{index}:up"))
+                controls.append(
+                    InlineKeyboardButton(f"↑ {index + 1}", callback_data=f"session:move:{revision}:{index}:up")
+                )
             if index < len(session.files) - 1:
-                controls.append(InlineKeyboardButton(f"↓ {index + 1}", callback_data=f"session:move:{index}:down"))
-            controls.append(InlineKeyboardButton(f"Rimuovi {index + 1}", callback_data=f"session:remove:{index}"))
+                controls.append(
+                    InlineKeyboardButton(f"↓ {index + 1}", callback_data=f"session:move:{revision}:{index}:down")
+                )
+            controls.append(
+                InlineKeyboardButton(f"Rimuovi {index + 1}", callback_data=f"session:remove:{revision}:{index}")
+            )
             rows.append(controls)
     rows.append([InlineKeyboardButton("Nuovo lavoro", callback_data="session:new")])
     return InlineKeyboardMarkup(rows)

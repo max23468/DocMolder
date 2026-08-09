@@ -87,6 +87,8 @@ RESULT_FOLLOWUP_ACTIONS: tuple[SupportedAction, ...] = (
 PENDING_ACTION_LABELS: dict[str, str] = {
     "images_pdf_layout": "impaginazione PDF da immagini",
     "images_pdf_margin": "bordi impaginazione A4",
+    "pdf_split_groups": "gruppi di pagine da dividere",
+    "pdf_split_chunks": "numero di pagine per ogni PDF",
 }
 
 EXPOSED_ACTION_ORDER: tuple[SupportedAction, ...] = (

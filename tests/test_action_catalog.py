@@ -210,6 +210,8 @@ class ActionCatalogHelpersTest(unittest.TestCase):
 
     def test_labels_followups_and_output_names_handle_fallbacks(self) -> None:
         self.assertEqual(get_action_label("images_pdf_layout:images_to_pdf"), "impaginazione PDF da immagini")
+        self.assertEqual(get_action_label("pdf_split_groups"), "gruppi di pagine da dividere")
+        self.assertEqual(get_action_label("pdf_split_chunks"), "numero di pagine per ogni PDF")
         self.assertEqual(get_action_label("custom_action"), "custom_action")
         self.assertIn(SupportedAction.PDF_COMPRESS, infer_result_followup_actions("unknown"))
         self.assertEqual(build_output_stem(SupportedAction.PDF_COMPRESS, []), "docmolder_compressed")

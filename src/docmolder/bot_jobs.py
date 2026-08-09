@@ -5,6 +5,7 @@ from pathlib import Path
 from time import perf_counter
 from telegram.ext import Application
 from docmolder.job_flow import (
+    build_session_from_payload,
     run_job_payload as run_job_payload_flow,
 )
 from docmolder.logging_utils import log_event
@@ -105,6 +106,22 @@ def _run_cleanup_cycle(deps: bot_runtime.BotDependencies) -> None:
     )
 
 
+def _restore_custom_split_session(deps: bot_runtime.BotDependencies, job: JobRecord) -> bool:
+    if job.action != SupportedAction.PDF_SPLIT.value or deps.session_store.get(job.user_id) is not None:
+        return False
+    payload = JobPayload.from_json(job.payload_json)
+    if payload.split_page_groups is not None:
+        pending_action = bot_runtime._PENDING_PDF_SPLIT_GROUPS
+    elif payload.split_chunk_size is not None:
+        pending_action = bot_runtime._PENDING_PDF_SPLIT_CHUNKS
+    else:
+        return False
+    session = build_session_from_payload(job.user_id, payload)
+    session.pending_action = pending_action
+    deps.session_store.save(session)
+    return True
+
+
 async def _process_job(application: Application, job_id: int) -> None:
     deps: bot_runtime.BotDependencies = application.bot_data["deps"]
     job = deps.session_store.get_job(job_id)
@@ -140,6 +157,7 @@ async def _process_job(application: Application, job_id: int) -> None:
                 return
             deps.session_store.mark_job_failed(job.id, str(exc))
             deps.session_store.record_flow_event(job.user_id, flow_id, "failed", job.action)
+            retry_session_restored = _restore_custom_split_session(deps, job)
             log_event(
                 bot_runtime.logger,
                 logging.WARNING,
@@ -152,7 +170,10 @@ async def _process_job(application: Application, job_id: int) -> None:
             await bot_runtime._safe_send_message(
                 application.bot,
                 chat_id=job.chat_id,
-                text=f"Job #{job.id} non riuscito.\n{exc}",
+                text=(
+                    f"Job #{job.id} non riuscito.\n{exc}"
+                    + ("\n\nIl PDF è ancora pronto: correggi il valore e riprova." if retry_session_restored else "")
+                ),
                 reply_to_message_id=job.reply_to_message_id,
                 deps=deps,
             )

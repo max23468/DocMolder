@@ -27,6 +27,20 @@ def has_capacity_for_new_job(user_id: int, deps: JobFlowDependencies) -> bool:
     return deps.session_store.count_active_jobs_for_user(user_id) < deps.settings.max_active_jobs_per_user
 
 
+def build_session_from_payload(user_id: int, payload: JobPayload) -> UserSession:
+    return UserSession(
+        user_id=user_id,
+        files=[
+            build_session_file(
+                file_id=item.telegram_file_id,
+                file_name=item.file_name,
+                kind=item.kind,
+            )
+            for item in payload.files
+        ],
+    )
+
+
 async def enqueue_job(
     *,
     deps: JobFlowDependencies,
@@ -112,17 +126,7 @@ async def run_job_payload(
     download_session_files: Callable[[Application, UserSession, Path], Awaitable[list[Path]]],
 ) -> ProcessingResult:
     payload = JobPayload.from_json(job.payload_json)
-    session = UserSession(
-        user_id=job.user_id,
-        files=[
-            build_session_file(
-                file_id=item.telegram_file_id,
-                file_name=item.file_name,
-                kind=item.kind,
-            )
-            for item in payload.files
-        ],
-    )
+    session = build_session_from_payload(job.user_id, payload)
 
     input_dir = job_dir / "input"
     input_dir.mkdir(parents=True, exist_ok=True)

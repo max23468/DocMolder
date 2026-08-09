@@ -18,6 +18,7 @@ from docmolder.keyboards import (
     build_images_pdf_margin_keyboard,
     build_images_pdf_layout_keyboard,
     build_main_menu_keyboard,
+    build_session_controls_revision,
     build_split_output_keyboard,
 )
 from docmolder.excel_unlock import SUPPORTED_EXCEL_SUFFIXES
@@ -246,8 +247,12 @@ async def handle_session_callback(update: Update, context: ContextTypes.DEFAULT_
         await query.edit_message_text(session_text, reply_markup=session_keyboard)
         return
     parts = action.split(":")
+    expected_parts = 3 if parts[0] == "remove" else 4 if parts[0] == "move" else 0
+    if len(parts) != expected_parts or parts[1] != build_session_controls_revision(session):
+        await query.edit_message_text("Questo elenco non è più aggiornato. Usa il messaggio più recente.")
+        return
     try:
-        index = int(parts[1])
+        index = int(parts[2])
     except (IndexError, ValueError):
         await query.edit_message_text(bot_runtime._invalid_callback_message())
         return
@@ -256,8 +261,8 @@ async def handle_session_callback(update: Update, context: ContextTypes.DEFAULT_
         return
     if parts[0] == "remove":
         session.files.pop(index)
-    elif parts[0] == "move" and len(parts) == 3:
-        target = index - 1 if parts[2] == "up" else index + 1 if parts[2] == "down" else -1
+    elif parts[0] == "move":
+        target = index - 1 if parts[3] == "up" else index + 1 if parts[3] == "down" else -1
         if target < 0 or target >= len(session.files):
             await query.edit_message_text("Questo spostamento non è più disponibile.")
             return

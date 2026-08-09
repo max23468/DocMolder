@@ -264,6 +264,27 @@ class BotProcessingJobTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(job_dir.exists())
         self.assertEqual(self.store.get_job(job.id).status, JobStatus.FAILED)
 
+    async def test_invalid_custom_split_restores_the_session_for_correction(self) -> None:
+        job = self.store.create_job(
+            user_id=7,
+            chat_id=99,
+            reply_to_message_id=123,
+            action="pdf_split",
+            payload_json='{"files":[{"telegram_file_id":"pdf-1","file_name":"documento.pdf","kind":"pdf"}],"split_output_zip":true,"split_chunk_size":0}',
+        )
+
+        with patch(
+            "docmolder.bot_jobs._run_job_payload",
+            side_effect=ProcessingUserError("Scegli un numero tra 1 e 4 pagine per ogni file."),
+        ):
+            await _process_job(self.application, job.id)
+
+        restored = self.store.get(7)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.pending_action, "pdf_split_chunks")
+        self.assertEqual(restored.files[0].telegram_file_id, "pdf-1")
+        self.assertIn("ancora pronto", self.bot.send_message.await_args.kwargs["text"])
+
     async def test_process_job_marks_unexpected_failures_and_cleans_partial_files(self) -> None:
         job = self.store.create_job(
             user_id=7,
