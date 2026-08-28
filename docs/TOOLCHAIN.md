@@ -67,7 +67,6 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 - compilazione/import: `make compile`
 - gate completo locale: `bash scripts/ci_verify.sh` o `make ci`
 - static/lint: `make ci-static`
-- test gate Codex: `node --test scripts/codex-review-gate.test.mjs`
 - coverage/test CI locale: `make ci-test`
 - build package: `make build`
 - smoke Telegram: `make smoke-ui`

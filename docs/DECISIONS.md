@@ -122,26 +122,6 @@ Conseguenze:
 - se il webhook non è configurato, il percorso resta manuale ma non si rompe il bot
 - (deprecato) i commit `chore(main): release docmolder X.Y.Z` non producono una nuova release; oggi la release passa per la procedura release manuale documentata
 
-## Gate Codex sull'HEAD esatto
-
-Decisione:
-- il workflow `.github/workflows/codex-review-gate.yml` pubblica lo status richiesto `codex-review` sull'HEAD esatto della PR
-- il gate esegue soltanto codice del branch predefinito fidato e accetta segnali esclusivamente da `chatgpt-codex-connector[bot]`
-- ogni nuovo SHA o nuovo tentativo invalida review, reazioni, finding ed errori precedenti; i finding P0/P1 correnti bloccano, mentre P2/P3 restano advisory dopo la conclusione della review
-- il workflow può restare verde mentre lo status `pending`, `failure` o `error` impedisce il merge
-- lo status `codex-review` è l'unica fonte operativa dell'esito Codex; la vecchia feedback inbox e il parsing locale dei thread sono rimossi
-
-Motivazione:
-- un gate basato sul solo esito del workflow può diventare verde senza provare che Codex abbia approvato l'ultimo commit
-- legare segnali, timestamp e `original_commit_id` al tentativo corrente evita riuso di approvazioni o finding obsoleti
-- eseguire il codice dalla default branch evita che una PR controlli un workflow privilegiato `pull_request_target`
-
-Conseguenze:
-- all'apertura o al passaggio da draft a ready parte la review automatica senza commenti di richiesta
-- dopo ogni nuovo commit o per un retry si pubblica una sola riga `@codex review` e si attende lo status sull'HEAD esatto
-- prima del merge si verifica lo status `codex-review` sull'HEAD corrente
-- la PR che introduce per la prima volta il workflow richiede bootstrap esplicito: `pull_request_target` legge ancora il branch predefinito precedente
-
 ## Retention breve dei file temporanei
 
 Decisione:

@@ -38,8 +38,6 @@ decisioni stabili.
 ## Bug
 
 - Nessun bug aperto in questo documento.
-- I thread della PR corrente restano la fonte operativa per feedback Codex
-  actionable; lo status `codex-review` governa l'HEAD esatto.
 
 ## Debiti
 

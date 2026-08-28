@@ -93,9 +93,6 @@ Oppure direttamente con unittest:
 
 Il gate Codex usa solo Node built-in e viene incluso nei check statici:
 
-```bash
-node --test scripts/codex-review-gate.test.mjs
-```
 
 Suite mirate:
 

@@ -12,7 +12,6 @@ Elementi già presenti o introdotti:
 - `.github/workflows/ci.yml` per gate PR prudente e test manuali completi via `workflow_dispatch`
 - `.github/workflows/dependabot-auto-merge.yml` per automerge prudente delle PR Dependabot dopo CI riuscita
 - `.github/workflows/github-maintenance.yml` per report mensile leggero
-- `.github/workflows/codex-review-gate.yml` per lo status `codex-review` sull'HEAD esatto
 - controllo release manuale supportato dal flusso release corrente (documentato in `docs/VERSIONING.md`)
 - `.github/dependabot.yml` per aggiornamenti dipendenze
 - `.github/ISSUE_TEMPLATE/` per bug/feature standardizzati
@@ -32,9 +31,9 @@ Configura da **Settings**:
 1. **General → Pull Requests**
    - abilita "Automatically delete head branches".
 2. **Branches → Branch protection (main)**
-   - richiedi PR prima del merge, linear history e gli status check `CI result` e `codex-review`.
+   - richiedi PR prima del merge, linear history e lo status check `CI result`.
    - per contesto maintainer singolo mantieni la revisione PR come self-review: non richiedere approvazioni esterne.
-   - non rendere obbligatori i singoli job condizionali della CI: usa l'aggregato `CI result` insieme a `codex-review`.
+   - non rendere obbligatori i singoli job condizionali della CI: usa l'aggregato `CI result`.
 3. **Actions → General**
    - consenti solo actions verificate (GitHub + verified creators) per ridurre rischio supply-chain.
 4. **Security → Code security and analysis**
@@ -54,7 +53,7 @@ Anche da solo conviene mantenere un mini-flusso PR:
 1. branch feature (`feat/...`, `fix/...`)
 2. commit piccoli e coesi
 3. PR verso `main` con titolo Conventional Commits
-4. squash merge dopo verifiche locali rilevanti, `CI result` verde e `codex-review` riuscito sull'HEAD esatto
+4. squash merge dopo verifiche locali rilevanti e `CI result` verde
 5. lasciare release, changelog e tag al passaggio manuale con la procedura release manuale documentata
 6. usare i workflow deploy solo come fallback manuali espliciti
 
@@ -69,7 +68,7 @@ Vantaggi principali:
 - minor rischio di rompere deploy con commit diretti su `main`;
 - versioni e GitHub Releases allineate senza doppia manutenzione manuale.
 
-Questa non è una preferenza soft: per DocMolder il flusso ufficiale resta PR squashate verso `main`, salvo la scorciatoia documentale esplicita descritta sopra. `CI result` e `codex-review` sono i guardrail remoti da richiedere sulle PR non draft.
+Questa non è una preferenza soft: per DocMolder il flusso ufficiale resta PR squashate verso `main`, salvo la scorciatoia documentale esplicita descritta sopra. `CI result` è il guardrail remoto da richiedere sulle PR non draft.
 
 Regola aggiuntiva fondamentale:
 
@@ -80,11 +79,6 @@ Regola aggiuntiva fondamentale:
 
 Regola review Codex:
 
-- al primo giro usa la review automatica senza pubblicare richieste;
-- dopo ogni nuovo SHA o per un retry pubblica una sola riga `@codex review` e attendi lo status `codex-review` sullo stesso HEAD;
-- il workflow osserva solo `chatgpt-codex-connector[bot]` ed esegue codice della default branch fidata;
-- prima di ready/merge verifica lo status `codex-review` sull'HEAD corrente;
-- quando restano P0/P1 aperti, indicare in chat il fix nella PR corrente; P2/P3 restano advisory.
 
 ## 4) Convenzioni leggere ad alto rendimento
 

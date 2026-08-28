@@ -15,12 +15,10 @@ Questa guida raccoglie i controlli periodici GitHub che completano i workflow ve
 - VPS Backup: `.github/workflows/vps-backup.yml`
 - Rollback VPS: `.github/workflows/rollback-vps.yml`
 - Update VPS Env: `.github/workflows/update-vps-env.yml`
-- Codex review gate: `.github/workflows/codex-review-gate.yml`
 - Dependabot: `.github/dependabot.yml`
-- Codex review evaluator: `scripts/codex-review-gate.mjs`
 - Template PR e issue: `.github/pull_request_template.md`, `.github/ISSUE_TEMPLATE/*`
 
-L'automazione ordinaria resta prudente: `CI` parte sulle PR non draft verso `main`, `Codex review gate` aggiorna lo status exact-HEAD, `VPS Check` gira una volta a settimana e `GitHub Maintenance` una volta al mese. `Deploy VPS`, `VPS Backup`, `Rollback VPS`, `Update VPS Env` e `CodeQL` restano manuali; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) restano il primo filtro prima del push.
+L'automazione ordinaria resta prudente: `CI` parte sulle PR non draft verso `main`, `VPS Check` gira una volta a settimana e `GitHub Maintenance` una volta al mese. `Deploy VPS`, `VPS Backup`, `Rollback VPS`, `Update VPS Env` e `CodeQL` restano manuali; i guardrail locali (`make publish-doctor`, `make preflight-publish`, `bash scripts/ci_verify.sh`) restano il primo filtro prima del push.
 
 Il deploy automatico resta affidato al servizio `docmolder-github-webhook` sulla VPS. Dopo il deploy, il listener non lancia più script di release automatica legacy.
 
@@ -73,39 +71,6 @@ Usa poi una sola corsia, dichiarandola nella risposta finale:
 
 Se `publish_doctor` segnala branch indietro/divergente, detached HEAD o run failed correnti, correggi quello prima di creare o aggiornare la PR.
 
-### Gate Codex sulle PR
-
-Il workflow `.github/workflows/codex-review-gate.yml` osserva i segnali di
-`chatgpt-codex-connector[bot]` e aggiorna lo status `codex-review` sull'HEAD
-esatto della PR.
-
-Il gate:
-
-- parte su `opened`, `synchronize`, `reopened`, `ready_for_review`, invocazione esatta e dispatch manuale validato;
-- esegue soltanto script e workflow della default branch fidata;
-- pubblica `pending`, `success`, `failure` o `error` senza rendere rosso il run;
-- invalida tutte le prove precedenti a ogni nuovo SHA o tentativo;
-- blocca sempre i finding P0/P1 correnti, anche in presenza di approvazioni;
-- lascia P2/P3 advisory solo dopo una review conclusa e un breve assestamento dei segnali;
-- attende fino a cinque ore, mantenendo bloccante ogni errore tecnico o timeout.
-
-All'apertura o al passaggio da draft a ready la review parte automaticamente e
-non si pubblica alcuna richiesta. Dopo ogni nuovo commit o per un retry si
-pubblica una sola riga `@codex review`. La reazione positiva del bot
-sulla specifica invocazione, una review con `commit_id` o un marker `Reviewed
-commit` devono riferirsi all'HEAD corrente. La PR che introduce il workflow usa
-un bootstrap manuale, perché `pull_request_target` esegue ancora la versione del
-branch predefinito precedente.
-
-Per la PR corrente resta valido il guardrail locale:
-
-```bash
-gh pr checks <numero> --watch --interval 10
-```
-
-Lo status `codex-review` è l'unica fonte operativa dell'esito Codex: la vecchia
-feedback inbox e il parsing locale dei thread non fanno più parte del flusso.
-
 ## CI automatica a consumo ridotto
 
 Il workflow `CI` parte sulle PR non draft verso `main`, con job condizionali per contenere il consumo di minuti Actions. Prima di aprire o aggiornare una PR, esegui comunque i gate locali rilevanti (`make ci`, `make test` o suite mirate); l'input manuale `full_tests` è disattivo di default e forza quality gate, matrix test e package build solo quando viene selezionato.
@@ -120,7 +85,6 @@ Il workflow è diviso in gate indipendenti:
 - `Python 3.11/3.12/3.13`: test completi solo per cambi runtime/test; coverage solo su Python 3.13.
 - `package-build`: build del pacchetto solo per cambi a `src/**`, packaging o dipendenze.
 - `CI result`: job finale aggregato della CI da usare come status check required.
-- `codex-review`: status exact-HEAD separato e required, pubblicato dal gate Codex.
 
 `Dependabot Auto Merge` marca come candidate solo le PR Dependabot non draft verso `main` con aggiornamenti non-major e non `direct:production`, salvo `github-actions`. Il merge avviene solo dopo una run `CI` riuscita e solo se lo SHA verificato coincide con la testa corrente della PR.
 
@@ -144,7 +108,7 @@ Richiedere almeno:
 
 - pull request prima del merge;
 - non richiedere approvazioni esterne nel flusso standard per maintainer singolo;
-- `CI result` e `codex-review` come status check obbligatori sulle PR non draft;
+- `CI result` come status check obbligatorio sulle PR non draft;
 - titolo PR convenzionale;
 - linear history;
 - disabilitazione force push e branch deletion.
