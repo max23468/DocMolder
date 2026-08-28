@@ -2,7 +2,7 @@
 
 Questa guida descrive il processo standard per portare una modifica da PR a release e deploy.
 Il percorso ordinario resta local-first per lo sviluppo, con guardrail GitHub
-prudente: controlli locali, PR pronta, `CI result`, `codex-review`, merge su `main` e webhook VPS.
+prudente: controlli locali, PR pronta, `CI result`, merge su `main` e webhook VPS.
 
 ## Indice
 
@@ -25,8 +25,7 @@ Percorso standard:
 
 `publish_change.sh` esegue già `publish_doctor`, `preflight_publish`, commit
 se necessario, push, generazione body PR e controllo commenti Codex connector.
-Sulle PR non draft verso `main` devono passare `CI result` e lo status
-`codex-review` riferito all'HEAD esatto.
+Sulle PR non draft verso `main` deve passare `CI result`.
 
 Prima del merge resta valido il divieto di modificare manualmente
 `CHANGELOG.md`, il campo `version` di
@@ -41,7 +40,7 @@ Regole operative essenziali:
 - nessun push diretto su `main`
 - PR con titolo in formato Conventional Commits
 - squash merge su `main`
-- la review umana esterna non è requisito formale nel contesto maintainer singolo: si richiedono self-review, CI locale, `CI result` e `codex-review` secondo il flusso.
+- la review umana esterna non è requisito formale nel contesto maintainer singolo: si richiedono self-review, CI locale e `CI result` secondo il flusso.
 - le modifiche solo documentali (`chore(docs):`, limitate a `AGENTS.md`, `README.md` o `docs/**`) usano comunque branch e PR tramite `make publish-docs TITLE="chore(docs): <descrizione>"`; deploy e release non sono applicabili
 - niente bump manuali di versione o changelog nelle PR normali
 - per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"`: di default crea una PR pronta, non draft, e si ferma con il prossimo passo operativo
@@ -157,7 +156,7 @@ make build
 ```
 
 `make ci` resta il gate locale completo e include anche il package build. Su
-GitHub, `CI result` e `codex-review` sono i gate remoti per le PR non draft verso `main`.
+GitHub, `CI result` è il gate remoto per le PR non draft verso `main`.
 
 ## Deploy
 

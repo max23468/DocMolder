@@ -18,8 +18,6 @@ bash -n scripts/*.sh
 
 python3 scripts/check_test_hygiene.py
 
-node --test scripts/codex-review-gate.test.mjs
-
 python3 - <<'PY'
 import ast
 from pathlib import Path

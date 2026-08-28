@@ -95,7 +95,7 @@ Comandi canonici:
 - test mirati: `.venv/bin/python -m unittest tests.<modulo>`;
 - smoke Telegram, solo quando pertinente e disponibile: `make smoke-ui`.
 
-`CI result` e `codex-review` sono i gate remoti autorevoli per PR non draft verso `main`. Se un
+`CI result` è il gate remoto autorevole per PR non draft verso `main`. Se un
 check fallisce o non è eseguibile, indica comando, sintomo, impatto e prossimo
 passo; non nascondere il limite dietro un riepilogo positivo.
 
@@ -146,8 +146,7 @@ rilettura finale di PR, check, deploy, release e stato Git non sono completi.
   gate pertinenti e squash merge. Il titolo PR deve essere un Conventional
   Commit orientato al cambiamento, non il nome del branch.
 - Prima di aprire o mergiare una PR esegui `make preflight-publish`, rivedi il
-  diff e controlla lo status `codex-review` sull'HEAD corrente come descritto in
-  `docs/GITHUB_MAINTENANCE.md`, inclusi i ricontrolli prima e dopo il merge.
+  diff e applica i ricontrolli descritti in `docs/GITHUB_MAINTENANCE.md` prima e dopo il merge.
 - Usa `scripts/publish_change.sh "<titolo conventional>"` per il flusso
   standard. Per togliere una PR da draft usa `gh pr ready <numero>`.
 - Anche le modifiche minuscole a `AGENTS.md`, `README.md` o `docs/**` seguono

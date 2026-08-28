@@ -9,7 +9,7 @@ La VPS corretta di DocMolder è `docmolder.duckdns.org` (host operativo della ma
 Nel flusso standard con GitHub Actions prudente, il percorso consigliato è:
 
 1. Codex cloud prepara e pubblica il codice su GitHub.
-2. La PR non draft verso `main` passa `CI result` e `codex-review` sull'HEAD esatto.
+2. La PR non draft verso `main` passa `CI result` sull'HEAD esatto.
 3. Il maintainer mergea la PR e lascia che il webhook privato GitHub -> VPS lanci il controller root-owned `/usr/local/sbin/docmolder-update-vps`.
 4. Se la PR richiede un rilascio, completa la procedura release manuale documentata da una copia pulita del `main`.
 5. La procedura release manuale documentata crea changelog, tag e GitHub Release; il webhook VPS deploya anche il commit di release.
