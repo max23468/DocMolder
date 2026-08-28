@@ -11,7 +11,6 @@ e [VPS_RUNBOOK.md](./VPS_RUNBOOK.md).
 | Python applicativo | `>=3.11` | `pyproject.toml` |
 | Python preferito locale/VPS | `3.13` | `Makefile`, `docs/LOCAL_DEV.md`, `docs/VPS_RUNBOOK.md` |
 | Python CI | `3.11`, `3.12`, `3.13` | `.github/workflows/ci.yml` |
-| Node.js | `>=20` locale/runner GitHub | solo gate Codex e relativi test; nessun `package.json` |
 | Database | SQLite locale/VPS | `docs/DATA_MODEL.md`, `docs/VPS_RUNBOOK.md` |
 | Runtime servizio | Telegram bot in polling su VPS Linux con `systemd` | `docs/ARCHITECTURE.md`, `docs/VPS_RUNBOOK.md` |
 

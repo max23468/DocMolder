@@ -9,7 +9,6 @@ Questo file raccoglie decisioni architetturali e di prodotto già prese, in form
 - [Soft launch prima, feature dopo](#soft-launch-prima-feature-dopo)
 - [Polling invece di webhook pubblici](#polling-invece-di-webhook-pubblici)
 - [Webhook privato per deploy e controlli locali](#webhook-privato-per-deploy-e-controlli-locali)
-- [Gate Codex sull'HEAD esatto](#gate-codex-sullhead-esatto)
 - [Retention breve dei file temporanei](#retention-breve-dei-file-temporanei)
 - [Auto-orientamento PDF invece di rotazione manuale come azione primaria](#auto-orientamento-pdf-invece-di-rotazione-manuale-come-azione-primaria)
 - [Fallback conservativi nella pipeline PDF](#fallback-conservativi-nella-pipeline-pdf)

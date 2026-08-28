@@ -91,9 +91,6 @@ Oppure direttamente con unittest:
 .venv/bin/python -m unittest discover -s tests
 ```
 
-Il gate Codex usa solo Node built-in e viene incluso nei check statici:
-
-
 Suite mirate:
 
 ```bash

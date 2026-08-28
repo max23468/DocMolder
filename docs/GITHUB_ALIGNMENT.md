@@ -77,9 +77,6 @@ Regola aggiuntiva fondamentale:
 - se compaiono in una PR normale, la PR va corretta prima del merge;
 - per il dettaglio operativo della policy, fai sempre riferimento a [VERSIONING.md](./VERSIONING.md).
 
-Regola review Codex:
-
-
 ## 4) Convenzioni leggere ad alto rendimento
 
 - Label minime: `bug`, `enhancement`, `chore`, `docs`, `infra`.
