@@ -24,7 +24,7 @@ Percorso standard:
 6. se la modifica richiede release, completa la procedura release manuale documentata, verifica tag, GitHub Release, deploy del commit di release e smoke/health VPS
 
 `publish_change.sh` esegue già `publish_doctor`, `preflight_publish`, commit
-se necessario, push, generazione body PR e controllo commenti Codex connector.
+se necessario, push e generazione del body della PR.
 Sulle PR non draft verso `main` deve passare `CI result`.
 
 Prima del merge resta valido il divieto di modificare manualmente
@@ -45,7 +45,7 @@ Regole operative essenziali:
 - niente bump manuali di versione o changelog nelle PR normali
 - per il flusso completo "carica", usare `scripts/publish_change.sh "<titolo conventional>"`: di default crea una PR pronta, non draft, e si ferma con il prossimo passo operativo
 - usa `DOCMOLDER_PUBLISH_DRAFT=1` solo quando vuoi aprire una PR draft esplicita
-- usa `DOCMOLDER_PUBLISH_MERGE=1` solo quando vuoi un merge assistito dopo gate locali e controllo commenti bot
+- usa `DOCMOLDER_PUBLISH_MERGE=1` solo quando vuoi un merge assistito dopo i gate locali
 - prima di aprire o aggiornare una PR puoi usare `scripts/publish_doctor.py --fail`, ma il comando di publish lo esegue già automaticamente
 - prima di inseguire una run failed, controllare solo branch e SHA correnti con `scripts/current_failed_runs.py`
 - i dettagli della policy vivono in [VERSIONING.md](./VERSIONING.md)
@@ -85,7 +85,7 @@ Il flusso ufficiale manuale è:
    git commit -m "chore(release): vX.Y.Z"
    git push -u origin codex/release-docmolder-X.Y.Z
    gh pr create --base main --head codex/release-docmolder-X.Y.Z --title "chore(release): vX.Y.Z" --body "Release DocMolder X.Y.Z"
-   # mergea la PR di release solo dopo gate verdi e thread Codex correnti risolti
+   # mergea la PR di release solo dopo gate verdi e conversazioni correnti risolte
    gh pr merge --squash --delete-branch
    git switch main
    git pull --ff-only

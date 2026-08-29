@@ -80,7 +80,7 @@ pubblicati e verificati.
 
 - gate locale completo passa
 - smoke Telegram funzionale rapido passa almeno sui flussi principali
-- non ci sono commenti Codex connector aperti sulla PR di preparazione 1.0
+- non ci sono conversazioni di review aperte sulla PR di preparazione 1.0
 - non ci sono run fallite sul branch o SHA corrente
 
 ## Smoke test richiesti per una promozione major

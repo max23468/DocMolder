@@ -167,7 +167,7 @@ Publish readiness:
 make publish-doctor
 ```
 
-Il controllo blocca i casi che rendono rumorosa la pubblicazione: `HEAD detached`, branch indietro o divergente da `origin/main`, file riservati al versioning (`CHANGELOG.md`, `pyproject.toml`, `src/docmolder/__init__.py`), run GitHub fallite sullo SHA corrente e commenti aperti del Codex connector bot. Con Actions riattivate resta il primo guardrail economico locale; su GitHub la PR non draft verso `main` esegue anche `CI result`.
+Il controllo blocca i casi che rendono rumorosa la pubblicazione: `HEAD detached`, branch indietro o divergente da `origin/main`, file riservati al versioning (`CHANGELOG.md`, `pyproject.toml`, `src/docmolder/__init__.py`) e run GitHub fallite sullo SHA corrente. Con Actions riattivate resta il primo guardrail economico locale; su GitHub la PR non draft verso `main` esegue anche `CI result`.
 
 Per riattivare i controlli automatici locali prima del push:
 

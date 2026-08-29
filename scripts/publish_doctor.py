@@ -248,7 +248,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Controlla se la branch è pronta per il publish DocMolder.")
     parser.add_argument("--base", default="main", help="Branch base remota. Default: main.")
     parser.add_argument("--skip-fetch", action="store_true", help="Non eseguire git fetch origin <base>.")
-    parser.add_argument("--skip-github", action="store_true", help="Salta controlli gh, run failed e commenti bot.")
+    parser.add_argument("--skip-github", action="store_true", help="Salta controlli gh e run failed.")
     parser.add_argument("--json", action="store_true", help="Stampa report JSON.")
     parser.add_argument("--fail", action="store_true", help="Esci con codice 1 se ci sono blocker.")
     args = parser.parse_args()
