@@ -51,8 +51,7 @@ decisioni stabili.
 
 ## Attività operative ricorrenti
 
-- Eseguire `make github-maintenance` prima di publish, merge, release o giro sui
-  commenti Codex.
+- Eseguire `make github-maintenance` prima di publish, merge o release.
 - Usare `make ops-report` o i comandi del runbook per verifiche operative e VPS.
 - Verificare il riallineamento release/tag in `publish_doctor`/`preflight_publish` prima di commit o merge quando si toccano i file di rilascio
   o ci sono dubbi di allineamento del release metadata.
