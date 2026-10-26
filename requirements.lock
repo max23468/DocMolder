@@ -6,9 +6,9 @@ anyio==4.15.1 \
     --hash=sha256:6152fdbbf9a77fdec97731721bebf7c4c44f7c29b424b0065826173efc7ed101 \
     --hash=sha256:9f28306018cbd6d329e64a36d58256edff76dd996fe423bc957326e578b82a94
     # via httpx
-certifi==2026.10.18 \
-    --hash=sha256:73191c47aaa79da394e8fee2dbc2ec827432cab56311122c9e47abf79e390f62 \
-    --hash=sha256:b9995d97b64d0431a5af837d8ca8cd6238104d1f319f04bd93ea43124d6c861e
+certifi==2026.10.23 \
+    --hash=sha256:a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd \
+    --hash=sha256:e9b54de76e530bb6cf0ccd036787103acb58fd42ba930ea8bf948ddbaa2f61d1
     # via
     #   httpcore
     #   httpx
@@ -419,9 +419,9 @@ pydantic-core==2.50.1 \
     --hash=sha256:f77ac30b19221cd9bd3fcfa3d4614eff93140d0572ab730cded17b64adca05f3 \
     --hash=sha256:fe90228920fd8ff2be62622b6bb8a2b11acd65046d50c6b130614b5879605a20
     # via pydantic
-pydantic-settings==2.16.0 \
-    --hash=sha256:5b6c578049ede4db0e2ef3b4eaa4ad4069cfa9211f83fb38df899dfade50a614 \
-    --hash=sha256:7e73acf7f61936a15e5a3b6eedaea29f133357faf7272f2607ba479b049dd7f2
+pydantic-settings==2.16.1 \
+    --hash=sha256:30f5313340da4e8f1b440d1910b92a5bc3ccbb6b4ba70ec2b8395bc921f418f5 \
+    --hash=sha256:aff602a1886338c2df3d1e958e2193a8dc33cec75b91f202e83fd98484b4b0da
     # via docmolder (pyproject.toml)
 pymupdf==1.28.2 \
     --hash=sha256:2e1b574c0fd2cb238021033fd3c0f9c4388816638df064e4bfb56d9d81736dc8 \
@@ -436,9 +436,9 @@ pymupdf==1.28.2 \
     --hash=sha256:fd481ed48bef56305c41fb7e05a055c03345c899c7b101dad086258b438f8168 \
     --hash=sha256:ffe91a24edc75c80da2a4b62f50fc0f54632d34fc8fe4cbc48e5c7ff07cf8fb4
     # via docmolder (pyproject.toml)
-pypdf==6.21.1 \
-    --hash=sha256:2d62c383acd6e0dff0a96322ba8b1135229343b084d73c6f6cfd947fd291afcb \
-    --hash=sha256:553e2d42f5bb3bb2a785a7d3de8ef90bb7df74b5413eff5a7b4388007ea9254b
+pypdf==6.21.2 \
+    --hash=sha256:0a3e1c5c886a1be03646c16a04827cc166c2a0575c971b26a4bf89686551c2d4 \
+    --hash=sha256:1d44d1a3a200f25062adff0085b02040e4646431ac2ccac22e42679e91466084
     # via docmolder (pyproject.toml)
 python-dotenv==1.2.4 \
     --hash=sha256:42269a8a5b3fd54ffa6f3d84b18abed50064717576b4ecf03dc4a55d8aa04fdc \
